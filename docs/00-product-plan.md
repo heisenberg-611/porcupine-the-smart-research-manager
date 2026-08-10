@@ -1,9 +1,10 @@
 # Porcupine — Research & Thesis Management Platform
 ## Master Execution Plan
 
-**Status:** v2 (scope confirmed) · **Date:** 2026-08-10 · **Owner:** Dhrubojyoti
+**Status:** v3 · **Date:** 2026-08-10 · **Owner:** Dhrubojyoti
 
-> Changes from v1: E2EE narrowed to messages + documents. AI features dropped. Public bibliographic APIs added as the discovery layer. Integrated LaTeX studio added. All previously open decisions resolved in §11.
+> **v2** — E2EE narrowed to messages + documents. AI dropped. Public bibliographic APIs as the discovery layer. LaTeX studio added. Open decisions resolved in §11.
+> **v3** — Hosting moved to Cloudflare Workers + R2 (ADR-011). File storage moved from Supabase Storage to R2 with Worker-mediated authorization. Job split across Cron Triggers/Queues and `pg_cron`. Cost model added (§5.1).
 
 ---
 
@@ -82,20 +83,26 @@ An `Organization` layer (SSO, seats, retention) sits above projects. Not in MVP,
 │  ├─ PDF reader (pdf.js) + anchoring engine                        │
 │  ├─ LaTeX studio: CodeMirror 6 + Yjs + WASM TeX engine            │
 │  └─ IndexedDB: doc/message cache + local search index (E2EE only) │
-└──────────┬────────────────────────────────────┬──────────────────┘
-           │ supabase-js (RLS) + Realtime       │ Server Actions / Route Handlers
-           │                                    │ (Prisma; service_role never client-reachable)
-┌──────────▼────────────────────────────────────▼──────────────────┐
-│ Supabase — Postgres · Auth · Storage · Realtime                   │
+└───┬──────────────────┬──────────────────┬───────────────────┬────┘
+    │ supabase-js      │ SSR / Server     │ presigned GET/PUT │ WS
+    │ (RLS) + Realtime │ Actions          │ (range requests)  │
+    │                  ▼                  ▼                   │
+    │      ┌────────────────────┐  ┌──────────────┐          │
+    │      │ Cloudflare Workers │  │  R2 buckets  │          │
+    │      │ Next.js @ OpenNext │  │ papers ·     │          │
+    │      │ · auth-checked     │─▶│ tex-dist ·   │          │
+    │      │   file authz       │  │ latex-assets │          │
+    │      │ · API + BFF        │  │ (zero egress)│          │
+    │      │ · Cron + Queues    │  └──────────────┘          │
+    │      └─────────┬──────────┘                            │
+    │                │ Hyperdrive (edge pooling)             │
+┌───▼────────────────▼───────────────────────────────────────▼─────┐
+│ Supabase — Postgres · Auth · Realtime                             │
 │ RLS deny-by-default on every table · tsvector FTS on plaintext     │
-└──────────┬────────────────────────────────────────────────────────┘
-           │
-┌──────────▼────────────────────────────────────────────────────────┐
-│ Workers (Supabase Edge Functions + pgmq, or Trigger.dev)          │
-│ metadata enrichment · OA resolution · saved-search alerts ·        │
-│ virus scan · digests · dedupe — all on plaintext tiers only        │
-└────────────────────────────────────────────────────────────────────┘
+└───────────────────────────────────────────────────────────────────┘
 ```
+
+**Why this shape.** Compute is unusually light — crypto runs in the browser, LaTeX compiles in the browser, uploads go client→R2 directly, and Postgres does the aggregation. What the app is actually heavy on is **egress**: a ~30 MB TeX distribution per new device plus every PDF a researcher opens. Cloudflare bills no egress and R2 charges none, so the dominant cost line goes to zero. Everything else fits in free or $5/mo tiers.
 
 ### Stack
 
@@ -112,13 +119,47 @@ An `Organization` layer (SSO, seats, retention) sits above projects. Not in MVP,
 | Rich text | Tiptap (ProseMirror) + Yjs | own comment layer; Tiptap Pro's isn't E2EE-compatible |
 | LaTeX | CodeMirror 6 + Yjs + WASM engine | see `03-latex-studio.md` |
 | PDF | pdf.js, JS disabled, sandboxed | |
-| Files | **Supabase Storage** (S3-compatible), private buckets | Prisma stores metadata rows only |
+| Files | **Cloudflare R2** (S3-compatible), private buckets, presigned URLs | zero egress; Prisma stores metadata rows only |
 | Crypto | libsodium-wrappers-sumo in a Web Worker | XChaCha20-Poly1305 + X25519 sealed boxes |
 | Search | Postgres `tsvector` + GIN (plaintext tiers) · Orama in IndexedDB (E2EE tiers) | |
-| Jobs | Supabase Edge Functions + `pgmq` + `pg_cron` | cheapest path; Trigger.dev if it outgrows that |
-| Hosting | Vercel + Supabase Cloud | avoid provider-proprietary APIs so self-host stays possible |
+| Jobs | Cloudflare Cron Triggers + Queues (outbound fetch) · `pg_cron` (pure SQL) | split by workload — see §5.1 |
+| DB access from Workers | **Cloudflare Hyperdrive** → Supabase pooler, Prisma driver adapter | workerd is not Node — Phase 0 spike, see §12 |
+| Hosting | **Cloudflare Workers** (Next.js via OpenNext) + R2 + Supabase | ADR-011; still no proprietary APIs in app code |
 | Testing | Vitest, Playwright, **pgTAP for RLS** | untested RLS is not security |
 | Observability | Sentry + PostHog | |
+
+### 5.1 Cloudflare specifics (ADR-011)
+
+**R2 buckets.** Four, all private, no public bucket exists:
+
+| Bucket | Contents | Access |
+|---|---|---|
+| `papers` | per-user PDF copies | presigned GET, 5-min TTL, issued only after a membership check |
+| `tex-dist` | TeX Live subset + CTAN package mirror | public-readable via Worker, immutable, cached forever |
+| `latex-assets` | images and binaries inside LaTeX projects | presigned, per-project |
+| `build-output` | compiled PDFs (encrypted) | presigned, per-project |
+
+**File authorization replaces Supabase Storage RLS.** R2 has no row-level security, so the check moves into a Worker route: validate the JWT → confirm `is_project_member` → issue a short-TTL presigned URL. Uploads are presigned `PUT` straight to R2, so file bytes never pass through the Worker. Presigned URLs support HTTP range requests natively, which is what keeps pdf.js progressive rendering working.
+
+**The COEP/CORP trap — this will cost you a day if you don't know it.** `SharedArrayBuffer` needs `Cross-Origin-Embedder-Policy: require-corp`, which in turn means *every* cross-origin resource must send `Cross-Origin-Resource-Policy: cross-origin`. The crypto worker and the WASM TeX engine both want `SharedArrayBuffer`, and the TeX packages come from R2 — a different origin. **Set `CORP: cross-origin` on all `tex-dist` objects at upload time**, or the TeX engine silently fails to load its packages under COEP.
+
+**Job split.** Cron Triggers invoke Workers for anything doing outbound HTTP — federated API polling, OA resolution, saved-search alerts — because Workers handle fetch concurrency far better than Postgres and keep long external calls off the DB. Queues carry retry and dead-letter semantics. `pg_cron` keeps only pure-SQL maintenance (materialized view refresh, partition rotation), which also keeps that logic portable.
+
+**Two capabilities that change with this host:**
+- **Virus scanning is deferred.** ClamAV needs a long-running process and there is nowhere to put one. v1 mitigation: magic-byte type validation, size and page caps, and pdf.js with scripting disabled in a sandboxed context — the actual exploitation path is narrow. If AV becomes a requirement (an institution will eventually ask), run it as a queue consumer on a cheap VPS rather than reworking the host. Tracked in Phase 7.
+- **`next/image` optimization** needs a custom loader — Vercel's built-in one doesn't exist here. Barely matters: this app has avatars and little else.
+
+**Cost model.**
+
+| | Free | At $5/mo Workers Paid |
+|---|---|---|
+| Requests | 100k/day | 10M/mo + 30M CPU-ms |
+| Egress | unmetered | unmetered |
+| R2 storage | 10 GB | $0.015/GB-mo beyond |
+| R2 egress | **$0** | **$0** |
+| Supabase | 500 MB DB, 2 GB transfer | $25/mo Pro when outgrown |
+
+Realistic v1 pilot: **$5/mo**, and the first thing to outgrow its tier is Supabase Postgres, not Cloudflare.
 
 ### Bibliographic APIs (the discovery layer — all free)
 
@@ -282,12 +323,15 @@ You asked me to decide the open items. These are now the plan; override any you 
 | 1 | **E2EE covers messages, documents, and LaTeX sources only** | Protects the two genuinely private assets while keeping search, sorting, and aggregation server-side. Roughly halves crypto complexity. |
 | 2 | **No AI in v1; inert schema hooks retained** | Your call on cost. Every dropped capability has a zero-cost deterministic substitute (§9). |
 | 3 | **Supervisor history access is prompted at add time; default = All history** | Your call. Default chosen because supervisors usually join mid-thesis, and a partial view produces confusing empty screens. |
-| 4 | **Files → Supabase Storage, never Postgres** | Range requests, signed URLs, CDN, and backup sanity. Direct-to-Storage uploads also dodge Vercel's 4.5 MB request body limit. |
+| 4 | **Files → Cloudflare R2, never Postgres** | Range requests, presigned URLs, and **zero egress**. Direct client→R2 uploads keep file bytes off the Worker entirely. |
 | 5 | **Recovery codes mandatory at signup; org escrow off by default, opt-in per organization, disclosed to users** | Universities will demand recoverability. Silent escrow would make the E2EE claim dishonest. |
-| 6 | **Self-hosting not committed for v1, but no provider-proprietary APIs** | Committing now doubles ops work pre-revenue. Staying portable keeps it a 2-week project later instead of a rewrite. |
+| 6 | **Self-hosting not committed for v1, but no provider-proprietary APIs in app code** | Committing now doubles ops work pre-revenue. Cloudflare bindings stay behind a thin adapter interface so the app is portable; only that adapter is rewritten to self-host. |
 | 7 | **LaTeX compiles client-side in WASM; server-side compile deferred** | Preserves E2EE, costs zero server compute, and sidesteps the `\write18` shell-escape RCE class entirely. See `03-latex-studio.md` §4. |
 | 8 | **Jobs on Supabase Edge Functions + `pgmq`/`pg_cron`, not a paid queue** | Matches your cost constraint; migrate to Trigger.dev only if it outgrows this. |
 | 9 | **Ship Phase 1 to a real lab before building Phase 2** | The highest-leverage decision in the document. |
+| 10 | **Host on Cloudflare Workers + R2, Postgres stays on Supabase** | Egress is this app's dominant cost and Cloudflare doesn't bill it. Compute is light because crypto and TeX run client-side. ~$5/mo at pilot scale. |
+| 11 | **Storage access goes through a thin `StorageAdapter` interface** | R2 is S3-compatible, so MinIO, B2, or Supabase Storage are an endpoint swap. Prevents the hosting choice from becoming structural. |
+| 12 | **Supabase Realtime for collaboration in v1; Durable Objects evaluated in Phase 4** | Realtime is portable and adequate. DO with WebSocket hibernation is a better CRDT relay but is hard Cloudflare lock-in — earn that trade with real load data, don't assume it. |
 
 ---
 
@@ -297,6 +341,8 @@ You asked me to decide the open items. These are now the plan; override any you 
 |---|---|---|
 | Scope explosion — this is four products in a trenchcoat | High | The §8 MVP cut is a commitment. Ship at week ~11. |
 | Prisma bypassing RLS → silent authz bypass | High | ADR-002: restricted role + `FORCE ROW LEVEL SECURITY` + pgTAP as a merge gate |
+| **Prisma doesn't work cleanly on workerd** (not Node; needs driver adapter + `nodejs_compat` + Hyperdrive) | High | **Phase 0 week-1 spike.** Fallbacks in order: Hyperdrive + `@prisma/adapter-pg`; then Prisma Accelerate; then drop Prisma at runtime and keep it for migrations only, querying via `postgres.js` + `supabase-js`. Schema and RLS work is unaffected either way. |
+| Worker bundle exceeds the size limit (3 MB free / 10 MB paid, compressed) | Medium | Keep libsodium and pdf.js client-side only; audit bundle in CI; `$5/mo` paid plan raises the ceiling |
 | Copyright exposure from publisher PDFs | High | Per-user file copies, OA-verified fetch only, DMCA process, explicit ToS |
 | Nobody migrates off Zotero/Docs/Overleaf | High | Import day one, export everything always, never hold data hostage |
 | WASM LaTeX can't compile a real thesis (package gaps) | Medium | Prototype with an actual thesis in week 1 of Phase 5; server-side fallback is the escape hatch |
@@ -309,10 +355,13 @@ You asked me to decide the open items. These are now the plan; override any you 
 
 ## 13. Immediate next actions
 
-1. Accept ADR-001/002/004/005 (see `adr/README.md`); ADR-003 is now closed as "no AI."
-2. Scaffold: Next.js 15 + TS strict + Tailwind/shadcn + Supabase project + Prisma with `DIRECT_URL`.
+1. Accept ADR-001/002/004/005/011 (see `adr/README.md`); ADR-003 is closed as "no AI."
+2. Scaffold: Next.js 15 + TS strict + Tailwind/shadcn, `@opennextjs/cloudflare`, Wrangler, Supabase project, Prisma with `DIRECT_URL`. Local dev on Node 24 (`.nvmrc`), but verify against `wrangler dev` — Node and workerd differ, and only workerd is the deploy target.
 3. Land the Phase 0 RLS baseline with pgTAP in CI **before** any feature code.
-4. Spike two things in week 1, because both can invalidate plan assumptions: (a) OpenAlex + Crossref + arXiv federated search with dedupe; (b) compile a real 80-page thesis with a WASM TeX engine.
+4. **Spike three things in week 1**, because each can invalidate a plan assumption:
+   - **Prisma on workerd via Hyperdrive** — the highest-risk unknown; fallbacks in §12
+   - OpenAlex + Crossref + arXiv federated search with dedupe
+   - Compile a real 80-page thesis with a WASM TeX engine, served from R2 **with `CORP: cross-origin` set**, under COOP/COEP
 5. Recruit one research group as design partners *now*, before code. Build against their real review protocol.
 
 See `01-data-model.md`, `02-security-and-e2ee.md`, `03-latex-studio.md`.

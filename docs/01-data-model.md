@@ -14,7 +14,8 @@ Prisma is the source of truth for DDL. RLS policies live in hand-written SQL mig
 4. **Soft-delete via `deletedAt`** on user content; hard-delete on join tables.
 5. **Append-only tables** (`ActivityEvent`, `ContributionEvent`, `AuditLog`, `Message`) get select+insert policies only. The *absence* of update/delete policies is the enforcement.
 6. Every table gets `createdAt`/`updatedAt`; user content gets `createdBy`.
-7. File bytes never live in Postgres. `FileObject` is a pointer into Supabase Storage.
+7. File bytes never live in Postgres. `FileObject` is a pointer into R2 **and the authorization record** — since R2 has no RLS, this table is the only thing that decides who may fetch a key.
+8. All R2 access goes through a `StorageAdapter` interface (ADR-011 / decision #11). No `@aws-sdk` or R2 binding calls outside it.
 
 ---
 
@@ -215,14 +216,20 @@ model SavedSearch {
 }
 
 /// A user's own copy of a file. NEVER shared across users (copyright — plan §5).
-/// Bytes live in Supabase Storage; this row is only a pointer.
+/// Bytes live in Cloudflare R2; this row is only a pointer and the authorization record.
+/// R2 has no RLS, so downloads go: Worker validates JWT → is_project_member() →
+/// presigned GET (5-min TTL). Uploads are presigned PUT direct from the browser.
 model FileObject {
   id          String     @id @default(uuid()) @db.Uuid
   ownerId     String     @db.Uuid
   projectId   String?    @db.Uuid
   workId      String?    @db.Uuid
-  bucket      String                            // "papers" | "attachments" | "latex-assets"
-  storagePath String                            // {bucket}/{ownerId}/{uuid}.pdf
+  bucket      String                            // papers | latex-assets | build-output
+  storagePath String                            // {ownerId}/{uuid}.pdf — key within the bucket
+  etag        String?                           // R2 ETag, set on upload completion
+  uploadState UploadState @default(PENDING)     // PENDING|COMPLETE|ORPHANED — presigned PUT
+                                                // can succeed without us hearing about it,
+                                                // so a nightly job reconciles R2 against this table
   mimeType    String
   sizeBytes   Int
   sha256      String
@@ -727,7 +734,7 @@ This covers works, annotations, cited passages, and extraction values in one que
 
 ## 5. Migration discipline
 
-- Migrations run against `DIRECT_URL` (port 5432); runtime uses the pooler (6543, `pgbouncer=true`, `connection_limit=1`).
+- Migrations run against `DIRECT_URL` (port 5432) from CI on Node, **not** from a Worker. Runtime queries reach Postgres through Cloudflare Hyperdrive → the Supabase pooler (6543, `pgbouncer=true`, `connection_limit=1`). Hyperdrive maintains the warm connection pool that workerd's short-lived isolates cannot.
 - **Every migration creating a table must enable RLS and add policies in the same migration.** CI fails if any `public` table has `relrowsecurity = false`.
 - `ProtocolField.key` is immutable once any `ExtractionValue` references it. Changing a field means a new `Protocol.version` plus an explicit UI migration prompt.
 - Key epochs are never deleted — old ciphertext stays readable at its own epoch forever.

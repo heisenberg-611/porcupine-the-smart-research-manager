@@ -67,7 +67,11 @@ Every completion source below is deterministic, local, and free. Combined, they 
 
 **Engine.** A WASM TeX engine — SwiftLaTeX (pdfTeX/XeTeX builds) is the most established option; a Tectonic WASM build is the alternative. **Spike this in week 1 of Phase 5 against a real 80-page thesis with real packages** — this is the single assumption in the plan most likely to be wrong, and the whole phase plan depends on it.
 
-**Package distribution.** The engine needs a TeX tree. Bundle a curated TeX Live subset (~30 MB) for the common case and fetch additional packages on demand from a **self-hosted CTAN mirror proxy**, cached permanently in IndexedDB (packages are immutable, so cache them forever). First compile on a new device is slow; every subsequent one is fast. Show honest progress during the initial download — "preparing TeX environment, 24 MB" — rather than a spinner.
+**Package distribution.** The engine needs a TeX tree. Bundle a curated TeX Live subset (~30 MB) and fetch additional packages on demand from a CTAN mirror **served from the R2 `tex-dist` bucket**, cached permanently in IndexedDB (packages are immutable, so cache them forever). First compile on a new device is slow; every subsequent one is fast. Show honest progress during the initial download — "preparing TeX environment, 24 MB" — rather than a spinner.
+
+R2 is the right home for this: it is the single largest egress line in the product, and R2 charges nothing for egress. Two requirements on those objects:
+- **`Cross-Origin-Resource-Policy: cross-origin` on every object.** The engine needs `SharedArrayBuffer`, which needs COEP `require-corp`, which blocks cross-origin resources that don't send CORP. Miss this and packages fail to load with an error that points nowhere near the cause. Set it at upload time.
+- **Immutable cache headers** (`Cache-Control: public, max-age=31536000, immutable`) with content-hashed keys, so Cloudflare's edge cache absorbs repeat traffic.
 
 **Performance.** Run in a Web Worker with `SharedArrayBuffer` (which is why COOP/COEP headers are required — see `02-security-and-e2ee.md` §7). Incremental recompile on save with debounce; cache `.aux`/`.bbl` between runs so bibliography passes don't re-run unnecessarily.
 

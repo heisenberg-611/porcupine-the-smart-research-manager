@@ -1,6 +1,6 @@
 # Porcupine — Security & Encryption Design
 
-**v2** — E2EE scope narrowed to messages, documents, and LaTeX sources. Roughly half the crypto surface of v1.
+**v3** — E2EE scope narrowed to messages, documents, and LaTeX sources (v2). Storage moved from Supabase Storage to Cloudflare R2, which relocates file authorization from database RLS into a Worker (v3, §7).
 
 ---
 
@@ -174,14 +174,21 @@ create policy annotation_update on annotation for update
 - `Cross-Origin-Opener-Policy: same-origin` + `Cross-Origin-Embedder-Policy: require-corp` (also unlocks `SharedArrayBuffer`, which the TeX engine wants).
 - Rich text sanitized on render, not on store — the server can't sanitize ciphertext anyway.
 
-**Files (Supabase Storage)**
-- Private buckets, RLS on `storage.objects`, short-lived signed URLs only. No public bucket exists.
-- **Uploads go client → Storage directly via a signed upload URL** issued by a Server Action. This dodges Vercel's 4.5 MB request body limit and keeps large PDFs off the app server entirely.
-- Post-upload job: ClamAV scan → `scanStatus = CLEAN` gates all downloads; extract text for FTS; count pages.
-- pdf.js with `isEvalSupported: false`, scripting disabled, rendered in a sandboxed context. Enforce size and page caps.
+**Files (Cloudflare R2)**
+- Private buckets only; no public bucket exists. **R2 has no row-level security**, so authorization moves up a layer: a Worker route validates the JWT, calls `app.is_project_member()`, then issues a **presigned GET with a 5-minute TTL**. `FileObject` is therefore not merely metadata — it is the access-control record, and a bug there is a data leak.
+- **Uploads go client → R2 directly via a presigned PUT.** File bytes never traverse the Worker, sidestepping request-body and CPU limits entirely.
+- Treat presigned URLs as bearer tokens: short TTL, never logged, never placed anywhere that could leak via a `Referer` header or analytics payload.
+- A presigned PUT can succeed without the client reporting back, so a nightly job reconciles R2 keys against `FileObject.uploadState` and deletes orphans — otherwise a user can silently consume storage outside any quota.
+- **`Cross-Origin-Resource-Policy: cross-origin` must be set on every `tex-dist` object.** Under COEP `require-corp` — which `SharedArrayBuffer` requires — cross-origin resources lacking CORP are blocked, and the WASM TeX engine fails to load its packages with an unhelpful error.
+- pdf.js with `isEvalSupported: false`, scripting disabled, rendered in a sandboxed context. Enforce size, page, and magic-byte type checks.
+- **Virus scanning is deferred to Phase 7.** This host has no long-running process to run ClamAV in. v1 relies on type validation, size caps, and sandboxed rendering; the residual risk is a malicious PDF downloaded and opened in a *native* reader, which sandboxing does not cover. When an institution requires AV, run it as a queue consumer on a cheap VPS rather than reworking the host. **Do not claim files are scanned until it exists.**
 
 **SSRF — the highest-risk server surface**
-Users paste URLs and the server fetches them (DOI resolution, OA PDF fetch, Zotero import). Required controls: `https` only; resolve DNS and reject RFC1918, loopback, link-local, and `169.254.169.254` **after** resolution; no redirects to non-allowlisted hosts; response size and time caps; run fetches in an isolated worker with no cloud metadata access. Never proxy an arbitrary URL back to the browser.
+Users paste URLs and the server fetches them (DOI resolution, OA PDF fetch, Zotero import).
+
+Running on Workers **materially improves** this posture: workerd `fetch` egresses through Cloudflare's edge with no VPC and no cloud metadata endpoint, so the `169.254.169.254` credential-theft class disappears — there is no internal network to pivot into. That is a real reduction in the worst-case outcome, not a reason to skip controls.
+
+Still required: `https` only; reject RFC1918, loopback, and link-local hosts before dispatch; cap redirect depth and re-validate the target at each hop; response size and time caps. Never proxy an arbitrary URL back to the browser.
 
 **Rate limiting**
 Per-user and per-IP on auth, invites, external API proxying, uploads, compiles, exports. Postgres token bucket is sufficient and free. Bulk imports run as queued jobs with progress, never in a request.
