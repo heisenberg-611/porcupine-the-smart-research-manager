@@ -1,6 +1,6 @@
 # Porcupine — Security & Encryption Design
 
-**v3** — E2EE scope narrowed to messages, documents, and LaTeX sources (v2). Storage moved from Supabase Storage to Cloudflare R2, which relocates file authorization from database RLS into a Worker (v3, §7).
+**v4** — E2EE scope is **messages and LaTeX sources**. v2 narrowed it from everything; v3 moved storage to Cloudflare R2, relocating file authorization from database RLS into a Worker (§7); v4 moved prose to Google Docs, adding a third-party tier and a new authorization seam (ADR-014, §7).
 
 ---
 
@@ -28,11 +28,12 @@
 |---|---|---|
 | **Public** | `Work` metadata, project/org names, member display names | None needed |
 | **Server-confidential** | Membership, roles, screening/reading status, annotations, anchors, extraction values, questions, claims, milestones, activity | RLS + at-rest disk encryption. Server can read. |
-| **End-to-end encrypted** | `Message.body_ct`, `DocUpdate.update_ct`, `LatexFile.content_ct`, `LatexUpdate.update_ct`, comments on encrypted targets, compiled PDFs | XChaCha20-Poly1305 under per-project keys wrapped to each member |
+| **Third-party (Google)** | Google Docs prose, exported Sheets | Google's at-rest encryption and ACLs. Outside our boundary entirely (ADR-014). |
+| **End-to-end encrypted** | `Message.body_ct`, `LatexFile.content_ct`, `LatexUpdate.update_ct`, comments on encrypted targets, compiled PDFs, and `DocUpdate.update_ct` in Phase 4b | XChaCha20-Poly1305 under per-project keys wrapped to each member |
 
 **What the server can see, stated plainly** — publish this verbatim:
 
-> Porcupine cannot read your messages, your documents, or your LaTeX drafts. It can read your paper library, your highlights, and your extracted data, which are encrypted at rest and access-controlled. It always knows who is in which project and when they acted.
+> Porcupine cannot read your messages or your LaTeX manuscripts. It can read your paper library, your highlights, and your extracted data, which are encrypted at rest and access-controlled. Documents you write in Google Docs live in your Google Drive under Google's terms — we can read those, and so can Google. Porcupine always knows who is in which project and when they acted.
 
 Never market this as "fully end-to-end encrypted." The tier table is defensible to a university privacy office precisely because it is honest.
 
@@ -88,14 +89,25 @@ Password ──Argon2id(m=64MiB, t=3, p=1, User.kdfSalt)──► Key Encryption
 
 ---
 
-## 5. Encrypted real-time collaboration (Phases 4–5)
+## 5. Encrypted real-time collaboration (Phase 5; Phase 4b if confidential mode is built)
 
-- **Transport:** Supabase Realtime `broadcast` channel per document/file, authorized by RLS. Payload is an encrypted Yjs update.
+- **Transport:** a **Cloudflare Durable Object per file** (ADR-017), holding authenticated WebSockets. The DO validates project membership on connect and fans out opaque encrypted update blobs. It never holds a project key and never decrypts, merges, or interprets anything — it is a fast relay that happens to sit in the right place. Supabase Realtime keeps Postgres change subscriptions only.
+- **Authorization on connect** is the critical control: the DO must verify the JWT *and* re-check `is_project_member` per connection, not trust a token minted earlier. A long-lived WebSocket outlives a membership revocation otherwise — so also push a disconnect to that member's sockets when membership changes.
 - **Persistence:** every update also appended to `DocUpdate` / `LatexUpdate` as ciphertext. The server never merges.
 - **Awareness:** cursor positions and selections encrypted; presence *identity* is server-visible metadata.
 - **Compaction:** clients race on an advisory lock row; the winner merges locally with Yjs, writes `isSnapshot = true` with `supersedes = maxId`, and a background job deletes superseded rows **only after** verifying the snapshot exists. Trigger at >300 updates or >1 MB.
 - **Rotation mid-document:** write a snapshot at the new epoch; older updates stay at their epoch.
 - **Offline:** Yjs merges cleanly on reconnect — the main reason for a CRDT over OT. LaTeX is plain text and merges especially cleanly.
+
+**Git objects (ADR-016).** All Git operations run client-side via `isomorphic-git`; the server can never build a commit because it cannot read the sources. Objects are encrypted under the project key and stored in the R2 `git-objects` bucket. Content-addressing uses the **plaintext** hash computed client-side, which preserves dedupe — and means the object *key* leaks the plaintext hash. That is an accepted, bounded leak: it enables a confirmation attack only against an adversary who already possesses a candidate file, and it is the price of a functioning object store. Do not additionally leak filenames — tree objects are encrypted like everything else.
+
+**GitHub linking is plaintext egress**, exactly like a Google Doc. A LaTeX project is in one of two states (`03-latex-studio.md` §8.4): **Private** (E2EE, local history only) or **GitHub-linked** (plaintext on GitHub, E2EE badge suppressed). Linking requires typed confirmation, is one-way per project, and is written to `AuditLog`. Do not display an encryption claim for a linked project — the guarantee is genuinely void there.
+
+**Use a GitHub App, never an OAuth App** (ADR-018). An OAuth App with `repo` scope gets read-write on *every* repository the user can see — the same disproportionate-access mistake `drive.file` avoids on the Google side. A GitHub App is installed per-repository with `contents: write`, `pull_requests: write`, `checks: read`, `metadata: read`, and the user can inspect and revoke it from GitHub's own settings, which is also the answer when a university asks what access the tool holds.
+
+**Installation tokens live one hour and must never reach the browser.** Mint them server-side in a Worker and proxy every GitHub API call. A token in client code is a token in someone's devtools.
+
+**Pulling is an external-content path**: enforce size caps, reject symlinks, validate every path in the tree against traversal, and never auto-resolve a `.tex` merge conflict — a silently mis-merged equation is worse than a visible conflict marker.
 
 ---
 
@@ -192,6 +204,13 @@ Still required: `https` only; reject RFC1918, loopback, and link-local hosts bef
 
 **Rate limiting**
 Per-user and per-IP on auth, invites, external API proxying, uploads, compiles, exports. Postgres token bucket is sufficient and free. Bulk imports run as queued jobs with progress, never in a request.
+
+**Google Workspace (ADR-014)**
+- **`drive.file` scope only.** Never `drive`, `drive.readonly`, or `spreadsheets`. Broad scopes are *restricted* and trigger Google's CASA security assessment — a recurring five-figure annual third-party audit. `drive.file` covers files the app created plus files the user hands over through the **Picker API**, which is everything this product needs.
+- Refresh tokens are encrypted at rest under a Worker secret (`GOOGLE_TOKEN_KEY`), **not** a project key — the nightly re-sync runs with no member present and cannot unwrap member-held keys. Rotate on disconnect; hard-delete on account deletion.
+- **The two-sources-of-truth problem is the real risk here.** Drive ACLs and `ProjectMember` are independent, so removing someone from a project does not revoke their Drive access. Required: mirror membership → Drive permissions on every membership write; run a nightly three-way reconciliation across `ProjectMember`, `DocPermission`, and Drive's live ACL; surface real Drive permissions in the project UI rather than implying they match; log drift to `AuditLog` and treat it as a security finding, not a sync warning.
+- Never write E2EE content into a Doc or Sheet. A `Message` or LaTeX source pushed to Google silently voids the encryption guarantee for that content. Enforce it in the push path, not in a code-review convention.
+- Users must be told, at connect time and in the project UI, that Doc content is readable by Google and is outside Porcupine's encryption boundary.
 
 **External APIs**
 Send `mailto=` for OpenAlex/Crossref polite pools. Queue arXiv at 1 req / 3 s. Cache every response in `Work.raw` — one call per work, ever. Circuit-break on provider failure; degrade to the remaining providers rather than failing the search.

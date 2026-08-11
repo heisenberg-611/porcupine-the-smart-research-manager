@@ -1,6 +1,6 @@
 # Porcupine — Data Model
 
-**v2** — updated for the confirmed encryption scope (E2EE = messages, documents, LaTeX only), no AI, and the LaTeX studio.
+**v4** — encryption scope is E2EE = messages + LaTeX (prose moved to Google Docs, ADR-014); no AI; LaTeX studio; R2 storage; Google Workspace models.
 
 Prisma is the source of truth for DDL. RLS policies live in hand-written SQL migrations alongside it (`02-security-and-e2ee.md` §6).
 
@@ -102,7 +102,9 @@ model Project {
   questions     Question[]
   works         ProjectWork[]
   protocols     Protocol[]
-  documents     Document[]
+  documents     Document[]      // Phase 4b confidential mode only
+  linkedDocs    LinkedDoc[]
+  sheetExports  SheetExport[]
   latexProjects LatexProject[]
   channels      Channel[]
   milestones    Milestone[]
@@ -402,8 +404,12 @@ model TableView {
   isShared   Boolean @default(true)
 }
 
-// ═══════════════════════ Synthesis (E2EE) ═══════════════════════
+// ═══════════════════════ Synthesis ═══════════════════════
 
+/// DEFERRED — Phase 4b "confidential mode" only. Prose normally lives in
+/// Google Docs (LinkedDoc). Build these tables when an institution refuses
+/// Google Drive, not before. Kept in the schema so Claim.documentId has a
+/// stable target and the Claims panel stays editor-agnostic.
 model Document {
   id         String    @id @default(uuid()) @db.Uuid
   projectId  String    @db.Uuid
@@ -435,14 +441,17 @@ model DocUpdate {
   @@index([documentId, id])
 }
 
-/// A synthesized statement with explicit provenance. Plaintext: it is the
-/// bridge between the encrypted document layer and the searchable evidence layer,
-/// and claim coverage per question must be aggregable.
+/// A synthesized statement with explicit provenance. Native and plaintext —
+/// this is the differentiator (ADR-014 decision #14). Deliberately NOT stored
+/// inside any document, so the prose surface (Google Docs, native, LaTeX)
+/// can be swapped without touching the claim→evidence graph.
 model Claim {
-  id         String      @id @default(uuid()) @db.Uuid
-  projectId  String      @db.Uuid
-  documentId String?     @db.Uuid
-  questionId String?     @db.Uuid
+  id          String     @id @default(uuid()) @db.Uuid
+  projectId   String     @db.Uuid
+  documentId  String?    @db.Uuid              // Phase 4b native doc
+  linkedDocId String?    @db.Uuid              // Google Doc this was pushed into
+  pushedAt    DateTime?                        // last time its text reached a prose surface
+  questionId  String?    @db.Uuid
   text       String
   stance     ClaimStance @default(NEUTRAL)      // SUPPORTS|REFUTES|MIXED|NEUTRAL
   status     ClaimStatus @default(DRAFT)        // DRAFT|NEEDS_SUPPORT|SUPPORTED|STALE
@@ -521,6 +530,149 @@ model LatexUpdate {
   @@index([latexFileId, id])
 }
 
+/// Maps a Yjs clientID to a real user so character-level authorship can be
+/// resolved (latex-studio §8.2). Written on connect BEFORE the first update is
+/// accepted — if this row is missing, that session's edits are permanently
+/// unattributable. Durable data, never garbage-collected.
+model YjsClient {
+  id          String   @id @default(uuid()) @db.Uuid
+  projectId   String   @db.Uuid
+  /// Yjs clientID is a random uint32 chosen per session — unique only per doc.
+  clientId    BigInt
+  docKind     YDocKind                        // LATEX_FILE | DOCUMENT
+  docId       String   @db.Uuid               // latexFileId or documentId
+  userId      String   @db.Uuid
+  connectedAt DateTime @default(now())
+  lastSeenAt  DateTime?
+
+  @@unique([docKind, docId, clientId])
+  @@index([projectId, userId])
+}
+
+/// A labelled point in a document's history. Surfaces as a version in the UI
+/// and as a Git tag once materialized. The Yjs state vector is what makes
+/// "restore to here" and "diff against here" possible.
+model Snapshot {
+  id           String   @id @default(uuid()) @db.Uuid
+  projectId    String   @db.Uuid
+  docKind      YDocKind
+  docId        String   @db.Uuid
+  label        String?                        // null = automatic idle snapshot
+  stateVector_ct Bytes                        // Y.snapshot(), encrypted
+  nonce        Bytes
+  keyEpoch     Int
+  updateHwm    BigInt                         // highest LatexUpdate.id included
+  createdBy    String   @db.Uuid
+  createdAt    DateTime @default(now())
+
+  @@index([docKind, docId, createdAt])
+}
+
+/// Git is a materialized projection of Yjs, never the source of truth
+/// (latex-studio §8.1). Objects live encrypted in the R2 `git-objects` bucket;
+/// this table holds only refs and commit metadata so history can be listed
+/// without decrypting the whole repo.
+model GitRepo {
+  id             String    @id @default(uuid()) @db.Uuid
+  latexProjectId String    @unique @db.Uuid
+  projectId      String    @db.Uuid
+  defaultBranch  String    @default("main")
+
+  /// PRIVATE = E2EE, local history only. GITHUB_LINKED = plaintext on GitHub,
+  /// E2EE badge suppressed in the UI (latex-studio §8.4). One-way per project.
+  mode           RepoMode  @default(PRIVATE)
+
+  installationId String?   @db.Uuid            // → GitHubInstallation
+  remoteOwner    String?                       // "my-lab"
+  remoteRepo     String?                       // "thesis-2027"
+  remoteLinkedBy String?   @db.Uuid
+  remoteLinkedAt DateTime?
+  lastFetchAt    DateTime?
+  lastPushAt     DateTime?
+  /// Divergence counters, refreshed on fetch. Surfaced as "N ahead, M behind".
+  /// Never acted on automatically — see §8.7.
+  aheadCount     Int       @default(0)
+  behindCount    Int       @default(0)
+  objectCount    Int       @default(0)
+  packedAt       DateTime?
+
+  commits      GitCommit[]
+  pullRequests PullRequest[]
+}
+
+/// A GitHub App installation. App — not OAuth App — so access is per-repository
+/// and revocable from GitHub's own settings (latex-studio §8.6).
+/// Installation tokens live 1 hour and are minted server-side in a Worker;
+/// they are NEVER sent to the browser. All GitHub API calls are proxied.
+model GitHubInstallation {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @db.Uuid
+  githubInstallId BigInt   @unique
+  accountLogin    String                        // org or user the app is installed on
+  accountType     String                        // User | Organization
+  /// Repos the user selected during installation. Empty = all repos on that
+  /// account, which the UI should discourage.
+  selectedRepos   String[]
+  permissions     Json                          // as reported by GitHub, for display
+  installedAt     DateTime @default(now())
+  suspendedAt     DateTime?
+  revokedAt       DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Cached PR metadata so the panel renders without hammering the API.
+/// GitHub owns the truth; this is a read-through cache with a short TTL.
+model PullRequest {
+  id           String   @id @default(uuid()) @db.Uuid
+  gitRepoId    String   @db.Uuid
+  projectId    String   @db.Uuid
+  number       Int
+  title        String
+  state        String                          // open | closed | merged
+  isDraft      Boolean  @default(false)
+  headBranch   String
+  baseBranch   String
+  authorLogin  String
+  authorUserId String?  @db.Uuid               // resolved to a member when possible
+  checksState  String?                         // success | failure | pending | null
+  mergeable    Boolean?
+  reviewState  String?                         // approved | changes_requested | pending
+  githubUrl    String
+  syncedAt     DateTime @default(now())
+
+  repo GitRepo @relation(fields: [gitRepoId], references: [id], onDelete: Cascade)
+
+  @@unique([gitRepoId, number])
+  @@index([projectId, state])
+}
+
+model GitCommit {
+  id         String   @id @default(uuid()) @db.Uuid
+  gitRepoId  String   @db.Uuid
+  projectId  String   @db.Uuid
+  /// Computed client-side over PLAINTEXT, so content-addressing and dedupe
+  /// still work even though stored objects are encrypted.
+  sha        String
+  parentShas String[]
+  branch     String
+  /// Primary author; everyone else lands in coAuthorIds and as
+  /// Co-authored-by: trailers in the commit message.
+  authorId   String   @db.Uuid
+  coAuthorIds String[] @db.Uuid
+  message    String
+  trigger    CommitTrigger @default(IDLE)     // IDLE | MANUAL | TAG | MERGE
+  snapshotId String?  @db.Uuid
+  committedAt DateTime
+
+  repo GitRepo @relation(fields: [gitRepoId], references: [id], onDelete: Cascade)
+
+  @@unique([gitRepoId, sha])
+  @@index([projectId, committedAt])
+}
+
 /// Compiles run in the browser (WASM). This row records the outcome so
 /// collaborators can see the last successful build without recompiling.
 model CompileJob {
@@ -537,6 +689,107 @@ model CompileJob {
 
   latexProject LatexProject @relation(fields: [latexProjectId], references: [id], onDelete: Cascade)
   @@index([latexProjectId, createdAt])
+}
+
+// ═══════════════════════ Google Workspace (ADR-014) ═══════════════════════
+
+/// One connected Google identity per user. Refresh token is the sensitive part —
+/// encrypted with a server-side key (NOT a project key; the Worker must use it
+/// without a member present, e.g. during a nightly re-sync).
+model GoogleAccount {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @unique @db.Uuid
+  googleSub      String   @unique              // stable Google user id
+  email          String
+  refreshToken_ct Bytes                        // AEAD under GOOGLE_TOKEN_KEY (Worker secret)
+  nonce          Bytes
+  scopes         String[]                      // expect exactly ["drive.file"]
+  connectedAt    DateTime @default(now())
+  revokedAt      DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// A Google Doc bound to a project. Content lives at Google — we store the
+/// pointer, the sync state, and the permission mirror.
+model LinkedDoc {
+  id           String    @id @default(uuid()) @db.Uuid
+  projectId    String    @db.Uuid
+  googleFileId String    @unique
+  title        String
+  kind         DocKind   @default(NOTE)        // NOTE|LITERATURE_REVIEW|PROTOCOL|CHAPTER
+  createdBy    String    @db.Uuid
+  webViewLink  String
+  /// Set when Porcupine created the file — determines whether drive.file still
+  /// grants us access, or whether the user must re-pick it via the Picker.
+  appCreated   Boolean   @default(true)
+  lastModified DateTime?
+  lastCommentSync DateTime?
+  archivedAt   DateTime?
+
+  project  Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  grants   DocPermission[]
+
+  @@index([projectId])
+}
+
+/// Mirror of the Drive ACL. The nightly reconciler compares this to Drive's
+/// actual state AND to ProjectMember; any three-way disagreement is a finding.
+model DocPermission {
+  id             String   @id @default(uuid()) @db.Uuid
+  linkedDocId    String   @db.Uuid
+  userId         String?  @db.Uuid             // null if the grant is to a non-member
+  email          String
+  googlePermId   String
+  role           String                        // reader | commenter | writer
+  mirroredAt     DateTime @default(now())
+  driftDetectedAt DateTime?
+
+  linkedDoc LinkedDoc @relation(fields: [linkedDocId], references: [id], onDelete: Cascade)
+
+  @@unique([linkedDocId, googlePermId])
+}
+
+/// Comments pulled back from Drive into the supervisor review queue.
+/// Cached, not authoritative — Google owns the thread.
+model DocComment {
+  id            String   @id @default(uuid()) @db.Uuid
+  linkedDocId   String   @db.Uuid
+  projectId     String   @db.Uuid
+  googleCommentId String
+  authorEmail   String
+  authorUserId  String?  @db.Uuid              // resolved to a member when possible
+  quotedText    String?
+  content       String
+  resolved      Boolean  @default(false)
+  googleCreatedAt DateTime
+  syncedAt      DateTime @default(now())
+
+  linkedDoc LinkedDoc @relation(fields: [linkedDocId], references: [id], onDelete: Cascade)
+
+  @@unique([linkedDocId, googleCommentId])
+  @@index([projectId, resolved])
+}
+
+/// One spreadsheet per project: Corpus tab + Evidence tab. Re-sync is idempotent.
+model SheetExport {
+  id             String   @id @default(uuid()) @db.Uuid
+  projectId      String   @db.Uuid
+  googleFileId   String   @unique
+  webViewLink    String
+  protocolId     String?  @db.Uuid             // which Protocol the Evidence tab reflects
+  /// Highest column index Porcupine writes. Anything to the right belongs to the
+  /// user and must never be overwritten.
+  ownedColumns   Int      @default(0)
+  cadence        DigestCadence @default(NONE)  // NONE = manual push only
+  lastSyncedAt   DateTime?
+  lastSyncStatus String?
+  rowCount       Int      @default(0)
+  createdBy      String   @db.Uuid
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
 }
 
 // ═══════════════════════ Messaging (E2EE) ═══════════════════════
@@ -717,7 +970,7 @@ create index anchor_quote_trgm on anchor using gin (quote gin_trgm_ops);
 ```
 This covers works, annotations, cited passages, and extraction values in one query surface.
 
-**Client-side search (the E2EE tiers):** Orama index in IndexedDB over decrypted messages, documents, and LaTeX sources. Rebuilt incrementally on sync. Far more tractable than v1's design because it covers only the content the user actually opens.
+**Client-side search (the E2EE tiers):** Orama index in IndexedDB over decrypted messages and LaTeX sources. Rebuilt incrementally on sync. Small surface now that prose lives in Google Docs — which is searchable in Drive, not here. Cached `DocComment` rows *are* server-side searchable, so supervisor feedback stays findable.
 
 **Hot indexes:**
 - `Work(titleNorm, publishedYear)` + `pg_trgm` GIN on `Work.title` — import-time dedupe
@@ -729,6 +982,10 @@ This covers works, annotations, cited passages, and extraction values in one que
 **Evidence table performance:** a 300-work × 20-field protocol is 6,000 rows, all plaintext. Server-side filter/sort/paginate — sub-100 ms with the indexes above. (Under v1's full-E2EE design this required 6,000 client-side AEAD opens; that cost is now gone entirely.)
 
 **Compaction targets:** keep live `DocUpdate`/`LatexUpdate` rows under ~500 per file. LaTeX files are plain text and compact well.
+
+**Attribution queries.** The blame gutter resolves `clientId → userId` for every visible line on each render, so `YjsClient(docKind, docId, clientId)` must be a covering unique index and the whole per-document set should be fetched once and held in memory — it is small (one row per session) and hot. Never query it per line.
+
+**Git object storage.** Objects are content-addressed on plaintext hashes and stored encrypted in R2 under `git-objects/{projectId}/{sha[0:2]}/{sha[2:]}`. Unchanged files across commits dedupe to the same key, so a 5 MB thesis committed 200 times costs far less than 1 GB. `GitCommit` exists so history can be listed and filtered in SQL without pulling objects; the objects themselves are only fetched when a diff or checkout is requested.
 
 ---
 

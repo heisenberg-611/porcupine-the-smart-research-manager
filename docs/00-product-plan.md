@@ -1,10 +1,12 @@
 # Porcupine — Research & Thesis Management Platform
 ## Master Execution Plan
 
-**Status:** v3 · **Date:** 2026-08-10 · **Owner:** Dhrubojyoti
+**Status:** v5 · **Date:** 2026-08-10 · **Owner:** Dhrubojyoti
 
 > **v2** — E2EE narrowed to messages + documents. AI dropped. Public bibliographic APIs as the discovery layer. LaTeX studio added. Open decisions resolved in §11.
 > **v3** — Hosting moved to Cloudflare Workers + R2 (ADR-011). File storage moved from Supabase Storage to R2 with Worker-mediated authorization. Job split across Cron Triggers/Queues and `pg_cron`. Cost model added (§5.1).
+> **v4** — Google Workspace enters the loop (§5.2, ADR-014). Google Docs becomes the default prose surface, replacing the native Tiptap/Yjs editor; Google Sheets becomes a first-class export target. **Documents leave the E2EE tier** — encrypted content is now messages + LaTeX only. Provenance moves from inside documents into a native Claims panel. Phase 4 shrinks from 5 weeks to 3.
+> **v5** — Real-time LaTeX co-editing specified properly and moved onto **Cloudflare Durable Objects** (ADR-017, superseding decision #12). **Character-level attribution** from Yjs client IDs and **client-side Git as a materialized projection** added (ADR-016). Full **source control panel with GitHub PR/merge** via a GitHub App (ADR-018). Phase 5 grows 5 → 9 weeks; total 34 → 38.
 
 ---
 
@@ -48,8 +50,9 @@ Nobody joins *screening → extraction → provenance-linked synthesis → LaTeX
 - **Extraction** — one person's filled Protocol for one ProjectWork. Multiple per work expected; disagreement is a first-class state.
 - **Anchor** — precise location in a document: page + quote + offsets + fuzzy fallback.
 - **Annotation** — highlight or margin note bound to an Anchor.
-- **Claim** — a synthesized statement linked to its supporting Extractions/Annotations. The provenance edge.
-- **Document** — collaborative rich text (E2EE).
+- **Claim** — a synthesized statement linked to its supporting Extractions/Annotations. The provenance edge. Lives in Porcupine's Claims panel, *exports* into prose.
+- **LinkedDoc** — a Google Doc bound to a Project. Porcupine creates it, pushes content into it, and reads its comments back into the review queue. Content lives at Google, not in Porcupine.
+- **SheetExport** — a Google Sheets spreadsheet Porcupine writes and re-syncs: a Corpus tab and an Evidence tab.
 - **LatexProject** — a compilable multi-file LaTeX source tree (E2EE).
 - **Channel / Message** — project chat and DMs (E2EE).
 - **TableView** — a saved view over Extractions: the "sheet." Derived, never authoritative.
@@ -116,7 +119,9 @@ An `Organization` layer (SSO, seats, retention) sits above projects. Not in MVP,
 | UI | Tailwind + shadcn/ui (Radix) | Radix gives WCAG keyboard/focus semantics for free |
 | Server state | TanStack Query | |
 | Tables | TanStack Table + Virtual | evidence tables reach 10k+ rows |
-| Rich text | Tiptap (ProseMirror) + Yjs | own comment layer; Tiptap Pro's isn't E2EE-compatible |
+| Prose documents | **Google Docs** via Drive + Docs API | ADR-014; native Tiptap/Yjs editor deferred to "confidential mode" |
+| Tabular export | **Google Sheets** via Sheets API v4 | Corpus + Evidence tabs, re-syncable |
+| Google auth | OAuth 2.0, **`drive.file` scope only** + Picker API | see §5.2 — this choice avoids a five-figure annual security assessment |
 | LaTeX | CodeMirror 6 + Yjs + WASM engine | see `03-latex-studio.md` |
 | PDF | pdf.js, JS disabled, sandboxed | |
 | Files | **Cloudflare R2** (S3-compatible), private buckets, presigned URLs | zero egress; Prisma stores metadata rows only |
@@ -151,15 +156,48 @@ An `Organization` layer (SSO, seats, retention) sits above projects. Not in MVP,
 
 **Cost model.**
 
+> **The free tier cannot run this app.** Workers free caps CPU at **10 ms per invocation** — an SSR render or a bibliography build exceeds that by orders of magnitude, returning `Error 1102`. $5/mo Workers Paid (30 s CPU per invocation, 5 min max) is the **floor, not a growth step**. See `04-conflicts-and-hazards.md` C-03.
+
 | | Free | At $5/mo Workers Paid |
 |---|---|---|
+| CPU per invocation | **10 ms — unusable** | 30 s default, 5 min max |
 | Requests | 100k/day | 10M/mo + 30M CPU-ms |
 | Egress | unmetered | unmetered |
 | R2 storage | 10 GB | $0.015/GB-mo beyond |
 | R2 egress | **$0** | **$0** |
 | Supabase | 500 MB DB, 2 GB transfer | $25/mo Pro when outgrown |
 
-Realistic v1 pilot: **$5/mo**, and the first thing to outgrow its tier is Supabase Postgres, not Cloudflare.
+Realistic v1 pilot: **$5/mo**, and the first thing to outgrow its tier is Supabase Postgres, not Cloudflare. R2 storage is the line that scales with users — see C-04 for why per-user PDF copies make that grow faster than you'd expect, and what to do about it.
+
+### 5.2 Google Workspace integration (ADR-014)
+
+**The division of labour.** Porcupine owns structure, provenance, and the pipeline. Google owns prose editing and spreadsheet viewing. Neither tries to be the other.
+
+| Surface | Owner | Why |
+|---|---|---|
+| Corpus, screening, extractions, claims, provenance | **Porcupine** | Structured, queryable, the actual product |
+| Prose: literature reviews, protocols, meeting notes, chapters | **Google Docs** | Real-time editing, comments, and suggestion mode already exist and are already familiar to every supervisor alive |
+| Tabular deliverables and ad-hoc pivots | **Google Sheets** | Supervisors and committees ask for spreadsheets; give them one that stays current |
+| LaTeX manuscripts | **Porcupine** (native, E2EE) | Google Docs cannot host LaTeX; this is where the `\cite{}`-from-corpus differentiator lives |
+
+**OAuth scope — get this right or it costs real money.** Use **`drive.file` only**, never `drive` or `drive.readonly`. `drive.file` grants access solely to files your app created or the user explicitly picked via the **Google Picker API**, and it is *not* a restricted scope. Broad Drive scopes are restricted and trigger Google's CASA security assessment — a recurring third-party audit that costs five figures annually. Structuring the integration so Porcupine always **creates** the Doc or Sheet (or receives it through the Picker) sidesteps that entirely, and gives users a better privacy story: you cannot see the rest of their Drive.
+
+**Sheets export — two tabs, re-syncable.** One spreadsheet per project, written by the Sheets API, updated in place rather than duplicated:
+
+- **Corpus tab** — one row per included work: title, authors, year, venue, DOI, URL, OA status, citation count, source impact, screening status, exclusion reason, assignee, tags.
+- **Evidence tab** — one row per work × the active Protocol's fields; the same data as the in-app evidence table.
+
+Re-sync is idempotent: match on `Work.citationKey`, update changed cells, append new rows, and never clobber a column the user added to the right of your range. Add a frozen header row, a "generated by Porcupine — edits outside column X will be preserved" note, and a last-synced timestamp.
+
+> **On "impact":** journal impact factor is Clarivate's proprietary JCR metric and **cannot be legally redistributed**. Use OpenAlex's `2yr_mean_citedness` on the source (an impact-factor-shaped metric, freely licensed) or Scimago SJR, and label the column accurately. Shipping a column called "Impact Factor" populated from a scraped source is a licensing problem, not a shortcut.
+
+**Docs integration — what Porcupine does and does not do.**
+
+Does: create a Doc from a project template; push a formatted claim or evidence summary into it with citations; insert a generated bibliography; read comments back via the Drive comments API and surface them in the supervisor review queue; track last-modified for milestone signals.
+
+Does not: render live provenance chips inside the Doc (Google has no custom block type), programmatically accept or reject suggestions (Google's suggestion mode isn't exposed for that), or search Doc content in your local index.
+
+**The authorization seam — the part most likely to cause a security incident.** Removing someone from a Porcupine project does **not** remove their Google Drive access. You now have two sources of truth for who can read what. Mitigation: Porcupine owns the Doc, mirrors membership changes to Drive permissions via the API on every membership write, runs a nightly reconciliation that reports drift, and shows the *actual* Drive permission list in the project UI rather than assuming it matches. Treat any drift as a security finding.
 
 ### Bibliographic APIs (the discovery layer — all free)
 
@@ -188,11 +226,16 @@ Realistic v1 pilot: **$5/mo**, and the first thing to outgrow its tier is Supaba
 |---|---|---|
 | **Public** | `Work` metadata, project/org names, member display names | None needed |
 | **Server-confidential** | Membership, roles, screening/reading status, annotations, extraction values, questions, claims, tasks, activity | RLS + at-rest disk encryption. Server can read → **server-side search, sorting, filtering, and aggregation all work.** |
-| **End-to-end encrypted** | Messages (channels + DMs), Documents, LaTeX sources, and comments on both | XChaCha20-Poly1305 under per-project keys wrapped to each member. Server stores ciphertext only. |
+| **Third-party (Google)** | Prose documents and exported spreadsheets | Google's encryption at rest and their ACLs. **Porcupine cannot protect this content, and neither can you.** |
+| **End-to-end encrypted** | Messages (channels + DMs), LaTeX sources, and comments on them | XChaCha20-Poly1305 under per-project keys wrapped to each member. Server stores ciphertext only. |
 
 This is a much better trade than full E2EE. The two genuinely private things — private conversation and unpublished draft text — are protected, while the machinery that makes the product *work* (a 300×20 evidence table you can sort and filter server-side, full-text search across your annotations, progress dashboards) stays fast and simple.
 
-Consequences accepted: the server can read annotations and extraction values. Say so plainly — the honest claim is *"your conversations and your drafts are end-to-end encrypted; your library and extractions are encrypted at rest and access-controlled."* Never say "fully end-to-end encrypted."
+Consequences accepted: the server can read annotations and extraction values, and **Google can read anything written in a Google Doc**. The honest claim is now:
+
+> *"Your messages and LaTeX manuscripts are end-to-end encrypted — we cannot read them. Your library, highlights, and extracted data are encrypted at rest and access-controlled. Prose documents live in your own Google Drive under Google's terms."*
+
+Never say "fully end-to-end encrypted." For labs that cannot put unpublished work in Google Drive — and some institutions genuinely cannot — **confidential mode** (native E2EE documents, the deferred Tiptap/Yjs build) is the answer, not a caveat in the marketing copy.
 
 **Generate every user's identity keypair at signup starting in Phase 0**, even though nothing is encrypted until Phase 3. Public keys for early users must already exist when the crypto features land, or you'll need a painful re-enrollment.
 
@@ -225,6 +268,7 @@ Ship signup that **generates and stores identity public keys** — nothing uses 
 - **Dual extraction + reconciliation:** two independent extractors, diff view, verifier resolves, Cohen's κ reported
 - Evidence Table generated from Protocol × Extractions: group, pivot, filter, export CSV/XLSX
 - Cell → source: any cell opens the PDF at its exact anchor
+- **Google Sheets export** (§5.2): one spreadsheet per project, Corpus + Evidence tabs, idempotent re-sync. Ships here rather than in Phase 4 because the data exists now and supervisors will ask for it the moment they see the evidence table.
 - **PRISMA 2020 flow diagram**, auto-derived from screening decisions
 
 **Exit:** inconsistent evidence tables become structurally impossible.
@@ -237,22 +281,30 @@ Messages are the ideal first encrypted surface: append-only, no merge semantics,
 - Member removal → key rotation; new-member provisioning flow
 - Client-side search index over messages
 
-### Phase 4 — Documents & synthesis (5 weeks)
-- Collaborative rich text: Tiptap + Yjs, encrypted updates over Supabase Realtime, presence, client-elected compaction
-- **Claims:** select text → link supporting extractions/annotations → renders with a provenance chip
-- Provenance panel: every supporting quote; flags claims whose support was edited or whose source was later excluded
-- Comments and tracked-change suggestions, anchored to blocks *and* extraction fields
+### Phase 4 — Synthesis & Google Docs (3 weeks)
+*Was 5 weeks and a custom editor. ADR-014 removes the editor build.*
+- Google OAuth (`drive.file`) + Picker; connect account, per-project Doc creation from templates
+- **Claims panel — native, and the differentiator:** build a claim, attach supporting extractions/annotations, see every supporting quote, get flagged when support is edited or its source is later excluded
+- Push to Doc: insert a claim or an evidence summary as formatted text with citations; insert a generated bibliography
+- Pull from Doc: read Drive comments into the supervisor review queue; surface last-modified for milestone signals
+- Drive permission mirroring on every membership change + nightly drift reconciliation
 - Question coverage view: which works and claims address each research question
-- Export: Markdown, DOCX, PDF
+- Export: Markdown, DOCX, PDF (native), plus the Doc itself
 
-### Phase 5 — LaTeX studio (5 weeks) — *see `03-latex-studio.md`*
+### Phase 4b — Confidential mode (deferred, ~4 weeks, build on demand)
+Native E2EE documents (Tiptap + Yjs, encrypted updates, client-elected compaction) for institutions that cannot put unpublished research in Google Drive. **Do not build speculatively** — build it when a specific institution says the words. The Claims panel is already editor-agnostic, so this slots in without rework.
+
+### Phase 5 — LaTeX studio (9 weeks) — *see `03-latex-studio.md`*
 - CodeMirror 6 multi-file editor, LaTeX syntax highlighting, folding, outline
 - Non-AI completion: TeX command database, environments, packages, snippets, math palette
 - **`\cite{}` autocomplete from the project corpus; `references.bib` auto-generated and kept in sync**
 - `\ref{}` / `\label{}` resolution across files, undefined-reference linting
 - Client-side WASM compilation → PDF preview with SyncTeX forward/inverse search
-- Real-time collaborative editing (Yjs + `y-codemirror.next`), E2EE
-- Journal and university thesis templates; export to PDF, source zip, Overleaf, GitHub
+- **Real-time co-editing over a Durable Object** (ADR-017): live cursors, remote selections, per-file presence, follow mode, offline reconnect. <100 ms budget.
+- **Character-level attribution** (ADR-016): blame gutter from Yjs client IDs, mixed-authorship rendering, rollup into the CRediT ledger
+- **Git as a materialized projection** (ADR-016): client-side `isomorphic-git`, encrypted objects in R2, idle auto-commit with `Co-authored-by:` trailers
+- **Full source control panel** (ADR-018): stage/diff/commit/branch/merge locally; push, pull, PRs, review, merge, and Actions status against GitHub via a **GitHub App**. Projects are Private (E2EE) or GitHub-linked (plaintext) — explicit, one-way, badge suppressed.
+- Journal and university thesis templates; export to PDF, source zip, Overleaf
 
 ### Phase 6 — Supervision & credit (4 weeks)
 - Supervisor onboarding, multi-project dashboard, review queue with per-supervisor digest cadence
@@ -264,7 +316,9 @@ Messages are the ideal first encrypted surface: append-only, no merge semantics,
 ### Phase 7 — Hardening & scale (4 weeks)
 Institutional SSO (SAML/OIDC), org admin console, WCAG 2.2 AA audit and remediation, offline mode, mobile reading/annotation polish, performance budgets, **external penetration test**, data export and account deletion, DPIA.
 
-**Total to v1.0: ~36 weeks** for 2–3 engineers. Solo: roughly double — in which case cut Phase 5 to editor + preview only and defer collaborative LaTeX.
+**Total to v1.0: ~38 weeks** for 2–3 engineers. Solo: roughly double — in which case take the Phase 5 fallback ladder in `03-latex-studio.md` §10 rather than cutting real-time, which is a stated requirement.
+
+> **Scope note, stated once.** This plan has grown 31 → 38 weeks across five revisions, all of it justified individually. **The MVP in §8 has not changed and is still ~11 weeks.** That is the number that matters — everything past it is sequencing, and sequencing can be renegotiated after a real lab has used the thing. If any single revision starts pushing the *MVP* boundary, that is the signal to stop adding.
 
 ---
 
@@ -320,7 +374,7 @@ You asked me to decide the open items. These are now the plan; override any you 
 
 | # | Decision | Reasoning |
 |---|---|---|
-| 1 | **E2EE covers messages, documents, and LaTeX sources only** | Protects the two genuinely private assets while keeping search, sorting, and aggregation server-side. Roughly halves crypto complexity. |
+| 1 | **E2EE covers messages and LaTeX sources** (documents moved out in v4 — see #13) | Protects private conversation and unpublished manuscripts while keeping search, sorting, and aggregation server-side. Roughly halves crypto complexity. |
 | 2 | **No AI in v1; inert schema hooks retained** | Your call on cost. Every dropped capability has a zero-cost deterministic substitute (§9). |
 | 3 | **Supervisor history access is prompted at add time; default = All history** | Your call. Default chosen because supervisors usually join mid-thesis, and a partial view produces confusing empty screens. |
 | 4 | **Files → Cloudflare R2, never Postgres** | Range requests, presigned URLs, and **zero egress**. Direct client→R2 uploads keep file bytes off the Worker entirely. |
@@ -331,7 +385,18 @@ You asked me to decide the open items. These are now the plan; override any you 
 | 9 | **Ship Phase 1 to a real lab before building Phase 2** | The highest-leverage decision in the document. |
 | 10 | **Host on Cloudflare Workers + R2, Postgres stays on Supabase** | Egress is this app's dominant cost and Cloudflare doesn't bill it. Compute is light because crypto and TeX run client-side. ~$5/mo at pilot scale. |
 | 11 | **Storage access goes through a thin `StorageAdapter` interface** | R2 is S3-compatible, so MinIO, B2, or Supabase Storage are an endpoint swap. Prevents the hosting choice from becoming structural. |
-| 12 | **Supabase Realtime for collaboration in v1; Durable Objects evaluated in Phase 4** | Realtime is portable and adequate. DO with WebSocket hibernation is a better CRDT relay but is hard Cloudflare lock-in — earn that trade with real load data, don't assume it. |
+| 12 | ~~Supabase Realtime for collaboration~~ → **Durable Objects for CRDT transport; Supabase Realtime keeps Postgres change subscriptions** | *Superseded in v5.* Live cursors fire at 20–30 Hz — four collaborators produce ~100 msg/s per file, which is the wrong shape for Realtime broadcast and the exact shape of a DO with WebSocket hibernation. Lock-in cost is already sunk by ADR-011; contained behind a `CollabTransport` interface. |
+| 13 | **Google Docs replaces the native prose editor; documents leave the E2EE tier** | Deletes a 5-week build of something Google already does better, and every supervisor already knows the UI. Cost is stated openly in §6 rather than buried. LaTeX stays native and encrypted because Docs cannot host it. |
+| 14 | **Provenance lives in a native Claims panel, not inside documents** | This is what makes #13 safe. Google Docs has no custom block types, so in-document provenance chips were never possible — moving the claim→evidence graph into Porcupine keeps the differentiator and makes the editor swappable. |
+| 15 | **`drive.file` scope only, plus the Picker API** | Broad Drive scopes are restricted and trigger Google's CASA security assessment — a recurring five-figure annual audit. Creating files ourselves avoids it and means we cannot see the rest of a user's Drive. |
+| 16 | **Source impact from OpenAlex `2yr_mean_citedness` or Scimago SJR, never JIF** | Journal Impact Factor is Clarivate's proprietary metric and cannot be redistributed. Label the column for what it actually is. |
+| 17 | **Yjs is the source of truth; Git is a materialized projection of it** | Git is discrete and single-author; CRDTs are continuous and interleaved. Making Git authoritative means a merge conflict per keystroke. Same "derived view" pattern as the evidence table and bibliography. |
+| 18 | **Line attribution comes from Yjs client IDs, not `git blame`** | Blame attributes a whole line to whoever touched it last. Yjs knows who typed each *character*, always current, no commit needed. Strictly better, and it costs one mapping table. |
+| 19 | **Git runs client-side (`isomorphic-git`); no server-side repo, no push *to* Porcupine** | LaTeX sources are E2EE, so the server can never build a commit. Accepting pushes would also create a second write path racing the CRDT. Push to GitHub and clone from there. |
+| 20 | **PRs and remote ops go through the GitHub API; only local Git uses `isomorphic-git`** | A pull request is a GitHub concept, not a Git one — no Git client can create or merge one. Two layers is not redundancy, it's the only way this works. |
+| 21 | **GitHub App, never an OAuth App** | `repo` scope grants read-write on every repository the user can see. A GitHub App is per-repository, issues 1-hour tokens, and is revocable from GitHub's own settings — the same reasoning that chose `drive.file`. |
+| 22 | **A LaTeX project is Private (E2EE) or GitHub-linked (plaintext) — never ambiguous** | Cleaner than per-action warnings, and it stops the UI making an encryption claim that linking has already voided. |
+| 23 | **Never auto-pull; never auto-resolve a `.tex` conflict** | A merged PR diverges the repo from the live Yjs doc. Silent reconciliation of a mis-merged equation is worse than a visible conflict marker. |
 
 ---
 
@@ -344,6 +409,9 @@ You asked me to decide the open items. These are now the plan; override any you 
 | **Prisma doesn't work cleanly on workerd** (not Node; needs driver adapter + `nodejs_compat` + Hyperdrive) | High | **Phase 0 week-1 spike.** Fallbacks in order: Hyperdrive + `@prisma/adapter-pg`; then Prisma Accelerate; then drop Prisma at runtime and keep it for migrations only, querying via `postgres.js` + `supabase-js`. Schema and RLS work is unaffected either way. |
 | Worker bundle exceeds the size limit (3 MB free / 10 MB paid, compressed) | Medium | Keep libsodium and pdf.js client-side only; audit bundle in CI; `$5/mo` paid plan raises the ceiling |
 | Copyright exposure from publisher PDFs | High | Per-user file copies, OA-verified fetch only, DMCA process, explicit ToS |
+| **Drive permissions drift from project membership** — a removed member keeps reading the Doc | High | Mirror membership → Drive ACLs on every write; nightly reconciliation job; show real Drive permissions in the UI instead of assuming; treat drift as a security finding |
+| Institution forbids unpublished research in Google Drive | Medium | Phase 4b confidential mode exists precisely for this. Don't build it until someone asks, but don't pretend the objection won't come. |
+| Google API quotas or a scope policy change breaks the loop | Medium | Sheets export degrades to CSV/XLSX download; Docs degrades to native Markdown export. Both fallbacks already exist, so the failure is annoying, not fatal. |
 | Nobody migrates off Zotero/Docs/Overleaf | High | Import day one, export everything always, never hold data hostage |
 | WASM LaTeX can't compile a real thesis (package gaps) | Medium | Prototype with an actual thesis in week 1 of Phase 5; server-side fallback is the escape hatch |
 | Encrypted collaborative editing is genuinely hard | Medium | Phase 4, on rich text first; LaTeX is plain text and merges more cleanly |
@@ -364,4 +432,4 @@ You asked me to decide the open items. These are now the plan; override any you 
    - Compile a real 80-page thesis with a WASM TeX engine, served from R2 **with `CORP: cross-origin` set**, under COOP/COEP
 5. Recruit one research group as design partners *now*, before code. Build against their real review protocol.
 
-See `01-data-model.md`, `02-security-and-e2ee.md`, `03-latex-studio.md`.
+See `01-data-model.md`, `02-security-and-e2ee.md`, `03-latex-studio.md`, and **`04-conflicts-and-hazards.md`** — the last of which lists what must be resolved before each phase starts, and the three conflicts that cause rewrites rather than bugs.
