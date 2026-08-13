@@ -104,13 +104,15 @@ Also: preserve scroll position across recompiles (nothing is more annoying than 
 
 ## 7. Real-time collaboration
 
-Yjs + `y-codemirror.next` over an **encrypted WebSocket carried by a Cloudflare Durable Object** — one DO instance per LaTeX file (ADR-017). Plain text merges far more cleanly than rich text, so this is the easy CRDT case; the hard part is the transport, not the merge.
+Yjs + `y-codemirror.next` over an **encrypted WebSocket carried by a Cloudflare Durable Object** — one DO instance per LaTeX file (ADR-017, as amended by ADR-020: the relay is now a standalone Worker hosting nothing else, because the app itself moved to Vercel). Plain text merges far more cleanly than rich text, so this is the easy CRDT case; the hard part is the transport, not the merge.
 
 ### 7.1 Why a Durable Object and not Supabase Realtime
 
-ADR-013 deferred this pending load data. The requirement for smooth live cursors settles it early: **awareness traffic is high-frequency and Supabase Realtime broadcast is the wrong shape for it.** Cursor and selection updates fire on every keystroke and every mouse move — throttled to 20–30 Hz, four collaborators generate ~100 messages/second per file, which burns Realtime's message quota for something that is pure ephemeral state.
+ADR-013 deferred this pending load data. The requirement for smooth live cursors settles it early: **awareness traffic is high-frequency and Supabase Realtime broadcast is the wrong shape for it.** Cursor and selection updates fire on every keystroke and every mouse move; throttled to 10–30 Hz, a handful of collaborators generate tens of messages per second per file. Supabase bills **per delivered message per subscriber**, so the free tier's 2 M/month covers roughly six two-hour four-person sessions — Realtime is priced for change notifications, not for cursors.
 
-A Durable Object is purpose-built for this: one authoritative coordination point per file, WebSocket hibernation so an idle document costs nothing, sub-50 ms fan-out from a single region, and the compactor election (§7.5) becomes trivial instead of an advisory-lock dance. Cloudflare lock-in is the cost — acceptable now that ADR-011 already put compute there, and contained by keeping the DO behind a `CollabTransport` interface.
+A Durable Object is purpose-built for this: one authoritative coordination point per file, WebSocket hibernation so an idle document costs nothing, sub-50 ms fan-out from a single region, and the compactor election (§7.5) becomes trivial instead of an advisory-lock dance.
+
+**Why this survived the move off Cloudflare.** Vercel Functions accept no inbound WebSockets, so the relay had to stay somewhere — and the E2EE requirement makes the split clean rather than awkward. The DO cannot decrypt Yjs ops, so it was always a dumb ciphertext relay with no CRDT logic; its CPU per message is microseconds, which is why the 10 ms free-tier cap that made Workers unusable for SSR is irrelevant here. It holds no database credentials and authorizes clients with a 60-second relay ticket signed by Vercel. Residual lock-in is contained by the `CollabTransport` interface; the fallback is a self-hosted `y-websocket` on Fly.io (~$5/mo). See `05-resolution-plan.md` R-21.
 
 Supabase Realtime keeps its job: **Postgres change subscriptions** (someone screened a paper, an extraction was submitted). Ephemeral collaboration state goes to the DO. Clean split, each tool doing what it's good at.
 
@@ -222,12 +224,19 @@ A **GitHub App** is installed per-repository by the user, issues 1-hour installa
 
 Yjs is the source of truth (§8.1), but a GitHub-linked repo has a second writer: anyone editing on GitHub, and every merged PR. When the remote moves, the two histories diverge, and this must never be resolved silently.
 
+**The mechanism is the `docEpoch` protocol (ADR-021), specified in full in `05-resolution-plan.md` R-01.** In one line: *Yjs ops are valid only within an epoch, and every cross-epoch reconciliation is a three-way Git merge.* Yjs guarantees convergence, not correctness; Git guarantees a visible conflict. Each engine gets only the job it is sound for.
+
+Pull is a transaction with a frozen document — `FREEZE` → materialize an anchor commit → `fetch` → three-way merge → rebuild a fresh `Y.Doc` → `docEpoch += 1` → broadcast `SWAP`. Clients key their IndexedDB Yjs store by `"<docId>:<docEpoch>"`, so after a swap **a stale op has no reachable path back into the document.** A client that was offline across a swap does not replay: its local state is exported to a `porcupine/offline/<userId>/<ts>` branch off the epoch-`N−1` anchor and merged through Git, with real conflict markers.
+
 Rules:
 - **Never auto-pull.** Divergence is surfaced as a status ("2 commits behind"), never reconciled in the background.
-- **Pull is an explicit, disruptive operation.** If live editors are connected, warn by name before proceeding.
-- Applying a pull replaces the Yjs document state in a single transaction, then broadcasts through the Durable Object so every connected client converges. Attribution for pulled content is attributed to the commit author, not to whoever pressed Pull.
-- Conflicts open the three-way resolver. Never auto-resolve a `.tex` conflict — a silently mis-merged equation is worse than a visible conflict marker.
+- **Pull is an explicit, disruptive operation.** Live editors go read-only with a banner for its duration; warn by name before proceeding.
+- **Never call `Y.applyUpdate` with an update whose epoch differs from the document's.** Assert `update.docEpoch === file.docEpoch` on every DO ingest and every Postgres write.
+- Conflicts open the three-way resolver, and **only the initiating client may resolve** — single-writer by construction, so there is no concurrent-resolution case to design. Never auto-resolve a `.tex` conflict; a silently mis-merged equation is worse than a visible conflict marker.
+- Pulled content is attributed to the commit author, never to whoever pressed Pull.
 - Pulled trees are external content: size caps, symlinks rejected, every path validated against traversal.
+
+**Budget ~2 of Phase 5's 9 weeks for this, and treat the offline-Alice/PR-Bob script as a merge gate.** If Phase 5 runs late, cut GitHub *pull* entirely before cutting the protocol — push-and-PR-only is a coherent product; a half-implemented merge is a silent corruption bug.
 
 ### 8.8 What this does *not* try to be
 

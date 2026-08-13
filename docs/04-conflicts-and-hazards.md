@@ -1,10 +1,35 @@
 # Porcupine — Conflicts, Hazards & Verdicts
 
-**v1** · 2026-08-10 · Companion to `00-product-plan.md`
+**v2** · 2026-08-13 · Companion to `00-product-plan.md`
 
 Where two decisions in this plan fight each other, what breaks during the build, and what to do about it. Every entry ends in a **verdict**, because an unresolved conflict written down is just a nicer form of not deciding.
 
 **How to use this:** re-read §1 before starting each phase. Re-read §3 before writing the code it describes. Anything marked 🔴 must be resolved before the phase it belongs to starts — those are the ones that cause rewrites, not bugs.
+
+---
+
+> ## ⚠️ Read this with `05-resolution-plan.md`
+>
+> **This document states problems. `05-resolution-plan.md` states what we're doing about each one, with acceptance tests.** The v6 hosting change (Cloudflare Workers → Vercel) dissolved several entries below and created two new ones. The prose in §1–§5 is preserved as written so the reasoning stays auditable — **but the dispositions in this table win.**
+>
+> | ID | Status | Where |
+> |---|---|---|
+> | C-01 Three writers for LaTeX | **Resolved** — the `docEpoch` protocol (ADR-021) | R-01 |
+> | C-02 RLS + pooled connections | **Downgraded 🔴→🟠** — `SET LOCAL` is reverted by Postgres itself, so the failure mode is *fail-closed*. Hyperdrive is gone | R-02 |
+> | C-03 Workers free tier 10 ms CPU | **Dissolved** — Vercel Hobby gives 300 s duration, 2 GB, full Node | §0 |
+> | C-04 Storage economics | **Resolved** — `FileObject.residency`, OA dedupe, device-only paywalled | R-04 |
+> | C-05 Four feedback inboxes | **Resolved** — one `ReviewItem` table; no surface ships without a writer | R-05 |
+> | C-06 Two personas | **Resolved** — `capabilities(kind)`; THESIS first, dual extraction → Phase 2b | R-06 |
+> | C-07 Contribution surveillance | **Cut, not mitigated** — role-shaped only, no volume anywhere (ADR-022) | R-07 |
+> | C-08 Docs → LaTeX | **Resolved** — Google Docs named ranges as the marker; decide in Phase 4 | R-08 |
+> | C-09 … C-20 | **Resolved** — see the summary table | R-09…R-20 |
+> | **C-21 🔴 No inbound WebSockets on Vercel** | **New.** Resolved — standalone Cloudflare Worker + DO relay (ADR-020) | R-21 |
+> | **C-22 🟠 Vercel Hobby forbids commercial use** | **New.** Forces the pricing decision into Phase 0 | R-20 |
+> | B-06 Rate-limit coordination | **Better answer now** — Postgres token bucket with `FOR UPDATE`, not per-isolate counters | R-22 |
+> | B-08 DO cold start | **Still applies** — the relay survives the host change, so this hazard does too | R-21 |
+> | G-01 Notifications · G-07 a11y in CI | **Promoted** — G-01 to a Phase 4 deliverable, G-07 to Phase 0 | R-09…R-20 |
+>
+> Entries below marked 🔴 that now read as dissolved (**C-03**) or downgraded (**C-02**) are left in place deliberately: the reasoning that produced them was sound for the architecture in force at the time, and the record of *why* a risk went away is worth as much as the record of the risk.
 
 ---
 
@@ -219,10 +244,12 @@ When a new conflict appears, these are the tie-breakers this plan has already co
 
 ---
 
-### The three that will actually hurt
+### The three that will actually hurt — *restated for v6*
 
-If nothing else in this document is acted on, act on these:
+The v6 architecture reordered this list. C-02 dropped off it, because `SET LOCAL` gives a Postgres-level guarantee with a fail-closed failure mode; it is now a testable invariant rather than a lurking breach. What replaced it is the one thing the Vercel move broke.
 
-1. **C-02** — an RLS context leak across pooled connections returns the wrong user's data with no error. Prove it cannot happen, under concurrency, before writing feature code.
-2. **C-01** — the Yjs/Git/GitHub merge algebra. Get it wrong and manuscripts corrupt silently, which is unrecoverable trust damage in an academic tool.
-3. **C-06** — if the thesis-student path feels like a systematic-review tool, the larger half of your market never reaches week two, and no amount of later polish recovers that.
+1. **C-01 / R-01** — the Yjs/Git/GitHub merge algebra, now specified as the `docEpoch` protocol (ADR-021). Get it wrong and manuscripts corrupt silently, which is unrecoverable trust damage in an academic tool. **Build and test it before any LaTeX UI exists.**
+2. **C-21 / R-21** — the collaboration relay. Real-time editing was a stated requirement and Vercel cannot host it. The standalone Durable Object is the answer, but it is unproven in this codebase and it is now the stack's highest-risk unknown. **Spike it in week 1.**
+3. **C-06 / R-06** — if the thesis-student path feels like a systematic-review tool, the larger half of your market never reaches week two, and no amount of later polish recovers that. **Design THESIS first; dual extraction waits for Phase 2b.**
+
+Everything else in this document now has a mechanism and an acceptance test in `05-resolution-plan.md`. These three are the ones where the mechanism is expensive, the test is hard, and being wrong is not recoverable by iteration.

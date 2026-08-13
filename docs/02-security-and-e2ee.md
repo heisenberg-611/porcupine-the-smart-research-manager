@@ -91,7 +91,8 @@ Password ──Argon2id(m=64MiB, t=3, p=1, User.kdfSalt)──► Key Encryption
 
 ## 5. Encrypted real-time collaboration (Phase 5; Phase 4b if confidential mode is built)
 
-- **Transport:** a **Cloudflare Durable Object per file** (ADR-017), holding authenticated WebSockets. The DO validates project membership on connect and fans out opaque encrypted update blobs. It never holds a project key and never decrypts, merges, or interprets anything — it is a fast relay that happens to sit in the right place. Supabase Realtime keeps Postgres change subscriptions only.
+- **Transport:** a **Cloudflare Durable Object per file**, deployed as a standalone Worker that hosts nothing else (ADR-017 as amended by ADR-020). It fans out opaque encrypted update blobs and **never holds a project key, never decrypts, merges, or interprets anything** — it is a fast relay that happens to sit in the right place. Supabase Realtime keeps Postgres change subscriptions only.
+- **Relay authorization:** the DO holds **no database credentials** and never calls Supabase. Clients present a 60-second **relay ticket** — a JWT signed by Vercel *after* an `is_project_member()` check, carrying `{ latexFileId, userId, projectId, docEpoch, exp }`. The DO verifies the signature against a public key in its environment and checks the binding. This keeps the membership decision on the side that owns the database and gives the relay the smallest possible trust surface: it can shuffle ciphertext for one file and nothing else.
 - **Authorization on connect** is the critical control: the DO must verify the JWT *and* re-check `is_project_member` per connection, not trust a token minted earlier. A long-lived WebSocket outlives a membership revocation otherwise — so also push a disconnect to that member's sockets when membership changes.
 - **Persistence:** every update also appended to `DocUpdate` / `LatexUpdate` as ciphertext. The server never merges.
 - **Awareness:** cursor positions and selections encrypted; presence *identity* is server-visible metadata.
@@ -198,9 +199,16 @@ create policy annotation_update on annotation for update
 **SSRF — the highest-risk server surface**
 Users paste URLs and the server fetches them (DOI resolution, OA PDF fetch, Zotero import).
 
-Running on Workers **materially improves** this posture: workerd `fetch` egresses through Cloudflare's edge with no VPC and no cloud metadata endpoint, so the `169.254.169.254` credential-theft class disappears — there is no internal network to pivot into. That is a real reduction in the worst-case outcome, not a reason to skip controls.
+> **This got worse in v6, and the plan should say so.** On Cloudflare, `workerd` egressed through the edge with no VPC and no cloud metadata endpoint, so the `169.254.169.254` credential-theft class simply did not exist. **Vercel Functions run on AWS Lambda, where a link-local metadata endpoint does exist.** Moving to Vercel bought a great deal (see ADR-019) but it gave back this specific mitigation, and the SSRF controls below stop being defence-in-depth and become the *only* defence.
 
-Still required: `https` only; reject RFC1918, loopback, and link-local hosts before dispatch; cap redirect depth and re-validate the target at each hop; response size and time caps. Never proxy an arbitrary URL back to the browser.
+Required, and now load-bearing rather than belt-and-braces:
+- `https` only.
+- **Resolve the hostname first, then check the resolved IP** against RFC1918, loopback, link-local (`169.254.0.0/16` explicitly), CGNAT, and IPv6 equivalents — checking the hostname string alone is defeated by a DNS record pointing at a private address.
+- **Re-validate at every redirect hop**, not just the first, and cap redirect depth. DNS-rebinding and redirect-to-metadata are the two live attacks here.
+- Response size and time caps; never proxy an arbitrary URL back to the browser.
+- Outbound fetches carry no ambient credentials — no `Authorization` header is ever attached to a user-supplied URL.
+
+Consider routing user-URL fetches through a dedicated function with a distinct, minimal IAM identity, so an SSRF that succeeds steals nothing worth having.
 
 **Rate limiting**
 Per-user and per-IP on auth, invites, external API proxying, uploads, compiles, exports. Postgres token bucket is sufficient and free. Bulk imports run as queued jobs with progress, never in a request.

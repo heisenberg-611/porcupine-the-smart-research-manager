@@ -15,7 +15,8 @@ Prisma is the source of truth for DDL. RLS policies live in hand-written SQL mig
 5. **Append-only tables** (`ActivityEvent`, `ContributionEvent`, `AuditLog`, `Message`) get select+insert policies only. The *absence* of update/delete policies is the enforcement.
 6. Every table gets `createdAt`/`updatedAt`; user content gets `createdBy`.
 7. File bytes never live in Postgres. `FileObject` is a pointer into R2 **and the authorization record** — since R2 has no RLS, this table is the only thing that decides who may fetch a key.
-8. All R2 access goes through a `StorageAdapter` interface (ADR-011 / decision #11). No `@aws-sdk` or R2 binding calls outside it.
+8. All R2 access goes through a `StorageAdapter` interface (ADR-012 / decision #11). No `@aws-sdk` or R2 binding calls outside it.
+9. *(v6)* Schema deltas required by `05-resolution-plan.md` are listed in §Appendix A at the end of this file. They are not optional — each one is load-bearing for a resolution.
 
 ---
 
@@ -991,8 +992,105 @@ This covers works, annotations, cited passages, and extraction values in one que
 
 ## 5. Migration discipline
 
-- Migrations run against `DIRECT_URL` (port 5432) from CI on Node, **not** from a Worker. Runtime queries reach Postgres through Cloudflare Hyperdrive → the Supabase pooler (6543, `pgbouncer=true`, `connection_limit=1`). Hyperdrive maintains the warm connection pool that workerd's short-lived isolates cannot.
+- Migrations run against `DIRECT_URL` (port 5432) from CI on Node — `migrate deploy` issues `SET session_replication_role` and **cannot** run through a transaction pooler. Runtime queries reach Postgres through the **Supavisor transaction pooler** (6543, `pgbouncer=true`, `connection_limit=1`) directly from Vercel's Node runtime. *(v6: Hyperdrive removed with ADR-011; see ADR-019.)*
+- Any RLS-scoped Prisma query goes through `withUserContext(jwt, fn)`, which opens a `$transaction` and issues `set_config('request.jwt.claims', …, true)` as its first statement. The trailing `true` means `SET LOCAL` — **Postgres itself reverts it at commit or rollback**, so the isolation guarantee does not depend on pooler behaviour. With no claim set, every policy predicate evaluates NULL and returns zero rows: the failure mode is fail-closed. See `05-resolution-plan.md` R-02.
 - **Every migration creating a table must enable RLS and add policies in the same migration.** CI fails if any `public` table has `relrowsecurity = false`.
 - `ProtocolField.key` is immutable once any `ExtractionValue` references it. Changing a field means a new `Protocol.version` plus an explicit UI migration prompt.
 - Key epochs are never deleted — old ciphertext stays readable at its own epoch forever.
 - `Work.citationKey` must be stable and globally unique; changing it breaks every `\cite{}` in every LaTeX project.
+
+---
+
+## Appendix A — v6 schema deltas (required by `05-resolution-plan.md`)
+
+Each of these is load-bearing for a specific resolution. None is optional.
+
+**R-01 — the `docEpoch` protocol.** Without these three, cross-epoch Yjs replay is possible and manuscripts corrupt silently.
+
+```prisma
+model LatexFile {
+  // ...
+  docEpoch   Int  @default(0)   // bumped by every completed pull
+}
+
+model LatexUpdate {
+  // ...
+  docEpoch   Int                // MUST equal LatexFile.docEpoch to be applied
+  @@index([latexFileId, docEpoch, seq])
+}
+
+model GitCommit {
+  // ...
+  isAnchor   Boolean @default(false)  // materialized from Yjs at PULL_BEGIN
+  atEpoch    Int                      // the epoch this commit was anchored from
+}
+```
+
+Client-side, the IndexedDB Yjs provider is keyed `"<docId>:<docEpoch>"`. This is what makes a stale op *unreachable* rather than merely rejected.
+
+**R-04 — storage residency.** OA-verified files dedupe; paywalled files never reach R2.
+
+```prisma
+enum Residency { R2_SHARED  R2_USER  DEVICE_ONLY }
+
+model FileObject {
+  // ...
+  residency     Residency @default(R2_USER)
+  contentHash   String?   // SHA-256; the dedupe key for R2_SHARED only
+  oaVerified    Boolean   @default(false)  // Unpaywall confirmed redistributable
+  @@index([contentHash])
+}
+```
+
+**R-05 — the single review queue.** No feedback surface ships without a writer into this table.
+
+```prisma
+enum ReviewSource { EXTRACTION_THREAD  DRIVE_COMMENT  GITHUB_REVIEW  LATEX_COMMENT  MILESTONE }
+
+model ReviewItem {
+  id          String       @id @default(uuid()) @db.Uuid
+  projectId   String       @db.Uuid       // denormalized, so RLS needs no join
+  source      ReviewSource
+  authorId    String?      @db.Uuid       // null when the author is external to Porcupine
+  assigneeId  String?      @db.Uuid
+  excerpt     String                       // plaintext summary; never the E2EE body
+  deepLink    String                       // back to the originating surface
+  createdAt   DateTime     @default(now())
+  resolvedAt  DateTime?
+  @@index([projectId, assigneeId, resolvedAt])
+}
+```
+
+**R-06 / R-09 — persona and ownership branching.**
+
+```prisma
+enum OwnershipModel { STUDENT_OWNED  LAB_OWNED }
+
+model Project {
+  // ...
+  ownershipModel OwnershipModel @default(STUDENT_OWNED)
+  // Project.kind already exists; capabilities(kind) now gates UI, not just labels it
+}
+```
+
+**R-14 — FTS language.** Decide in Phase 1; retrofitting a generated column across a large table is an outage.
+
+```prisma
+model Work {
+  // ...
+  language  String?   // from provider metadata; tsvector uses 'simple', never 'english'
+}
+```
+
+**R-15 — preprint vs published.** Take the relationship from OpenAlex; never infer it.
+
+```prisma
+model Work {
+  // ...
+  versionOfId String?  @db.Uuid
+  versionOf   Work?    @relation("WorkVersions", fields: [versionOfId], references: [id])
+  versions    Work[]   @relation("WorkVersions")
+}
+```
+
+**R-07 — what to delete.** Any model or column holding a contribution *score*, percentage, or character/line volume aggregated across members. The CRediT ledger keeps role assignments and activity-kind evidence only. `YjsClient` stays (the blame gutter needs it) but is never aggregated, exported, or exposed to another member.

@@ -1,12 +1,13 @@
 # Porcupine — Research & Thesis Management Platform
 ## Master Execution Plan
 
-**Status:** v5 · **Date:** 2026-08-10 · **Owner:** Dhrubojyoti
+**Status:** v6 · **Date:** 2026-08-13 · **Owner:** Dhrubojyoti
 
 > **v2** — E2EE narrowed to messages + documents. AI dropped. Public bibliographic APIs as the discovery layer. LaTeX studio added. Open decisions resolved in §11.
 > **v3** — Hosting moved to Cloudflare Workers + R2 (ADR-011). File storage moved from Supabase Storage to R2 with Worker-mediated authorization. Job split across Cron Triggers/Queues and `pg_cron`. Cost model added (§5.1).
 > **v4** — Google Workspace enters the loop (§5.2, ADR-014). Google Docs becomes the default prose surface, replacing the native Tiptap/Yjs editor; Google Sheets becomes a first-class export target. **Documents leave the E2EE tier** — encrypted content is now messages + LaTeX only. Provenance moves from inside documents into a native Claims panel. Phase 4 shrinks from 5 weeks to 3.
 > **v5** — Real-time LaTeX co-editing specified properly and moved onto **Cloudflare Durable Objects** (ADR-017, superseding decision #12). **Character-level attribution** from Yjs client IDs and **client-side Git as a materialized projection** added (ADR-016). Full **source control panel with GitHub PR/merge** via a GitHub App (ADR-018). Phase 5 grows 5 → 9 weeks; total 34 → 38.
+> **v6** — **Hosting moved to Vercel** (ADR-019, superseding ADR-011); R2 keeps the files, and one standalone Cloudflare Worker keeps the collab relay (ADR-020). Every conflict in `04-conflicts-and-hazards.md` now has a mechanism and an acceptance test in **`05-resolution-plan.md`** — including the `docEpoch` merge protocol (ADR-021) and role-shaped-only contribution (ADR-022). Scope cut to what the vision needs: total 38 → **34 weeks**; **MVP unchanged at ~11**. Pilot cost $5/mo → **$0**.
 
 ---
 
@@ -79,33 +80,38 @@ An `Organization` layer (SSO, seats, retention) sits above projects. Not in MVP,
 
 ## 5. Architecture
 
+> **v6 — hosting moved to Vercel.** ADR-011 (Cloudflare Workers via OpenNext) is superseded by **ADR-019**. Files stay on R2 and a single Cloudflare Worker stays as the collaboration relay. Full reasoning and the resolution of every conflict this creates or removes: **`05-resolution-plan.md`**.
+
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│ Client — Next.js 15 App Router, React 19, TS strict              │
-│  ├─ Crypto worker (libsodium WASM) → messages + documents only    │
-│  ├─ PDF reader (pdf.js) + anchoring engine                        │
-│  ├─ LaTeX studio: CodeMirror 6 + Yjs + WASM TeX engine            │
-│  └─ IndexedDB: doc/message cache + local search index (E2EE only) │
-└───┬──────────────────┬──────────────────┬───────────────────┬────┘
-    │ supabase-js      │ SSR / Server     │ presigned GET/PUT │ WS
-    │ (RLS) + Realtime │ Actions          │ (range requests)  │
-    │                  ▼                  ▼                   │
-    │      ┌────────────────────┐  ┌──────────────┐          │
-    │      │ Cloudflare Workers │  │  R2 buckets  │          │
-    │      │ Next.js @ OpenNext │  │ papers ·     │          │
-    │      │ · auth-checked     │─▶│ tex-dist ·   │          │
-    │      │   file authz       │  │ latex-assets │          │
-    │      │ · API + BFF        │  │ (zero egress)│          │
-    │      │ · Cron + Queues    │  └──────────────┘          │
-    │      └─────────┬──────────┘                            │
-    │                │ Hyperdrive (edge pooling)             │
-┌───▼────────────────▼───────────────────────────────────────▼─────┐
-│ Supabase — Postgres · Auth · Realtime                             │
-│ RLS deny-by-default on every table · tsvector FTS on plaintext     │
-└───────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────┐
+│ Client — Next.js 15 App Router, React 19, TS strict                │
+│  ├─ Crypto worker (libsodium WASM) → messages + LaTeX only         │
+│  ├─ PDF reader (pdf.js) + anchoring engine                         │
+│  ├─ LaTeX studio: CodeMirror 6 + Yjs + WASM TeX + isomorphic-git   │
+│  └─ IndexedDB — CACHE ONLY, never storage of record                │
+└──┬──────────────┬───────────────────┬──────────────────────┬───────┘
+   │ supabase-js  │ SSR / Route       │ presigned GET/PUT    │ WSS
+   │ (RLS, JWT    │ Handlers          │ (HTTP range)         │ (opaque
+   │  per request)│                   │                      │  ciphertext)
+   │              ▼                   ▼                      ▼
+   │   ┌────────────────────┐  ┌──────────────┐  ┌──────────────────────┐
+   │   │ VERCEL             │  │  R2 buckets  │  │ CLOUDFLARE (relay    │
+   │   │ Next.js · Node 24  │  │ papers ·     │  │ only — no SSR)       │
+   │   │ · file-authz route │─▶│ tex-dist ·   │  │ Worker + Durable     │
+   │   │ · BFF / API        │  │ latex-assets │  │ Object per file      │
+   │   │ · Google + GitHub  │  │ build-output │  │ WebSocket Hibernation│
+   │   │   token proxy      │  │ (zero egress)│  │ ~300 LOC, free tier  │
+   │   └─────────┬──────────┘  └──────────────┘  └──────────┬───────────┘
+   │             │ Prisma (Supavisor txn pooler :6543)      │ append
+┌──▼─────────────▼─────────────────────────────────────────▼──────────┐
+│ SUPABASE — Postgres · Auth · Realtime (change subs) · pg_cron · pgmq │
+│ RLS deny-by-default + FORCE on every table · tsvector FTS            │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
-**Why this shape.** Compute is unusually light — crypto runs in the browser, LaTeX compiles in the browser, uploads go client→R2 directly, and Postgres does the aggregation. What the app is actually heavy on is **egress**: a ~30 MB TeX distribution per new device plus every PDF a researcher opens. Cloudflare bills no egress and R2 charges none, so the dominant cost line goes to zero. Everything else fits in free or $5/mo tiers.
+**Why this shape.** Compute is unusually light — crypto runs in the browser, LaTeX compiles in the browser, uploads go client→R2 directly, and Postgres does the aggregation. What the app is heavy on is **egress**: a ~30 MB TeX distribution per new device plus every PDF a researcher opens.
+
+That egress argument was always an argument for storing *files* on R2, not for hosting *compute* on Cloudflare — and separating those two decisions is what this architecture does. PDFs and the TeX distribution move client ↔ R2 over presigned URLs and never touch the application host, so Vercel serves only HTML, JS, and JSON. R2 keeps charging zero egress; Vercel's Node runtime removes the entire "Prisma on workerd" risk class; and a single Cloudflare Worker survives to hold the one thing Vercel cannot, an open WebSocket.
 
 ### Stack
 
@@ -127,13 +133,22 @@ An `Organization` layer (SSO, seats, retention) sits above projects. Not in MVP,
 | Files | **Cloudflare R2** (S3-compatible), private buckets, presigned URLs | zero egress; Prisma stores metadata rows only |
 | Crypto | libsodium-wrappers-sumo in a Web Worker | XChaCha20-Poly1305 + X25519 sealed boxes |
 | Search | Postgres `tsvector` + GIN (plaintext tiers) · Orama in IndexedDB (E2EE tiers) | |
-| Jobs | Cloudflare Cron Triggers + Queues (outbound fetch) · `pg_cron` (pure SQL) | split by workload — see §5.1 |
-| DB access from Workers | **Cloudflare Hyperdrive** → Supabase pooler, Prisma driver adapter | workerd is not Node — Phase 0 spike, see §12 |
-| Hosting | **Cloudflare Workers** (Next.js via OpenNext) + R2 + Supabase | ADR-011; still no proprietary APIs in app code |
+| Jobs | **`pg_cron` (schedules) + `pgmq` (queues)**; outbound HTTP dispatched to a Vercel route handler | Vercel Cron on Hobby is 2 jobs at daily granularity — too coarse. See `05-resolution-plan.md` R-22 |
+| DB access | Prisma via **Supavisor transaction pooler** (`:6543`) at runtime; `DIRECT_URL` (`:5432`) for migrations | `migrate deploy` cannot run through the transaction pooler |
+| Real-time collab | **Cloudflare Worker + Durable Object per file**, standalone | ADR-020 — Vercel has no inbound WebSockets. Behind `CollabTransport` |
+| Hosting | **Vercel** (Next.js, Node runtime) + **R2** (files) + **Supabase** (data) | ADR-019; no proprietary APIs in app code |
 | Testing | Vitest, Playwright, **pgTAP for RLS** | untested RLS is not security |
 | Observability | Sentry + PostHog | |
 
-### 5.1 Cloudflare specifics (ADR-011)
+### 5.1 Hosting specifics (ADR-019 / ADR-020)
+
+**What Vercel gives back.** The Node runtime is real Node — Prisma works with no driver adapter, no `nodejs_compat` flag, and no Hyperdrive. Hobby allows **300 s max duration, 2 GB / 1 vCPU, 250 MB bundles, full Node API coverage**. Three of this plan's highest-severity risks were artifacts of `workerd` and are simply gone.
+
+**What Vercel takes away, and the one thing it costs.** Vercel Functions do not accept inbound WebSocket connections, so the real-time transport cannot live there. A **standalone Cloudflare Worker with one Durable Object per LaTeX file** keeps that job — and this is a clean decomposition rather than a compromise, because LaTeX sources are E2EE: the relay cannot decrypt Yjs ops, so it was always a dumb ciphertext-shuffler with no CRDT logic. Its CPU per message is microseconds, so the 10 ms free-tier cap that made Workers unusable for SSR is irrelevant here. WebSocket Hibernation means idle documents cost nothing. Details and the rejected alternatives (Supabase Realtime, Liveblocks, self-hosted `y-websocket`) are in `05-resolution-plan.md` R-21.
+
+**Two constraints to plan around, not discover:**
+- **Vercel Hobby forbids commercial use.** The day Porcupine charges anyone — including a lab paying a seat fee — Hobby is a ToS violation. This converts the pricing question from "decide before the pilot" into a hard prerequisite. See R-20.
+- **Request/response bodies cap at 4.5 MB.** Irrelevant here only because uploads are presigned `PUT` straight to R2. Never add a route that proxies file bytes.
 
 **R2 buckets.** Four, all private, no public bucket exists:
 
@@ -144,30 +159,26 @@ An `Organization` layer (SSO, seats, retention) sits above projects. Not in MVP,
 | `latex-assets` | images and binaries inside LaTeX projects | presigned, per-project |
 | `build-output` | compiled PDFs (encrypted) | presigned, per-project |
 
-**File authorization replaces Supabase Storage RLS.** R2 has no row-level security, so the check moves into a Worker route: validate the JWT → confirm `is_project_member` → issue a short-TTL presigned URL. Uploads are presigned `PUT` straight to R2, so file bytes never pass through the Worker. Presigned URLs support HTTP range requests natively, which is what keeps pdf.js progressive rendering working.
+**File authorization replaces Supabase Storage RLS.** R2 has no row-level security, so the check moves into a Vercel route handler: validate the JWT → confirm `is_project_member` → issue a short-TTL presigned URL. Uploads are presigned `PUT` straight to R2, so file bytes never pass through Vercel. Presigned URLs support HTTP range requests natively, which is what keeps pdf.js progressive rendering working. Presigning is host-agnostic SigV4, so this survived the hosting change unchanged.
 
 **The COEP/CORP trap — this will cost you a day if you don't know it.** `SharedArrayBuffer` needs `Cross-Origin-Embedder-Policy: require-corp`, which in turn means *every* cross-origin resource must send `Cross-Origin-Resource-Policy: cross-origin`. The crypto worker and the WASM TeX engine both want `SharedArrayBuffer`, and the TeX packages come from R2 — a different origin. **Set `CORP: cross-origin` on all `tex-dist` objects at upload time**, or the TeX engine silently fails to load its packages under COEP.
 
-**Job split.** Cron Triggers invoke Workers for anything doing outbound HTTP — federated API polling, OA resolution, saved-search alerts — because Workers handle fetch concurrency far better than Postgres and keep long external calls off the DB. Queues carry retry and dead-letter semantics. `pg_cron` keeps only pure-SQL maintenance (materialized view refresh, partition rotation), which also keeps that logic portable.
+**Job split.** All scheduling lives in Postgres: **`pg_cron` for schedules, `pgmq` for queues** with retry and dead-letter semantics. Jobs needing outbound HTTP — federated API polling, OA resolution, saved-search alerts, Drive permission reconciliation — are dispatched by `pg_cron` to a Vercel route handler with a service token, which does the fetch in real Node with a 300 s budget. This also gives the arXiv rate limiter (1 req/3 s) a genuinely atomic cross-invocation token bucket via `SELECT … FOR UPDATE`, which per-isolate counters could never provide. See `05-resolution-plan.md` R-22.
 
-**Two capabilities that change with this host:**
-- **Virus scanning is deferred.** ClamAV needs a long-running process and there is nowhere to put one. v1 mitigation: magic-byte type validation, size and page caps, and pdf.js with scripting disabled in a sandboxed context — the actual exploitation path is narrow. If AV becomes a requirement (an institution will eventually ask), run it as a queue consumer on a cheap VPS rather than reworking the host. Tracked in Phase 7.
-- **`next/image` optimization** needs a custom loader — Vercel's built-in one doesn't exist here. Barely matters: this app has avatars and little else.
+**Virus scanning is deferred, and stated as absent.** ClamAV needs a long-running process and there is nowhere cheap to put one. v1 mitigation: magic-byte type validation, size and page caps, and pdf.js with scripting disabled in a sandboxed context — the exploitation path is narrow. If an institution requires AV, run it as a `pgmq` consumer on a cheap VPS rather than reworking the host. **Never claim scanning that doesn't exist.**
 
 **Cost model.**
 
-> **The free tier cannot run this app.** Workers free caps CPU at **10 ms per invocation** — an SSR render or a bibliography build exceeds that by orders of magnitude, returning `Error 1102`. $5/mo Workers Paid (30 s CPU per invocation, 5 min max) is the **floor, not a growth step**. See `04-conflicts-and-hazards.md` C-03.
-
-| | Free | At $5/mo Workers Paid |
+| Line | Pilot (non-commercial) | First paying user |
 |---|---|---|
-| CPU per invocation | **10 ms — unusable** | 30 s default, 5 min max |
-| Requests | 100k/day | 10M/mo + 30M CPU-ms |
-| Egress | unmetered | unmetered |
-| R2 storage | 10 GB | $0.015/GB-mo beyond |
+| Vercel | **$0** Hobby — 300 s duration, 2 GB, full Node | **$20/mo** Pro (Hobby forbids commercial use) |
+| CF Worker + DO relay | **$0** — 100k DO req/day, WS billed 20:1, hibernation free | $0–5/mo |
+| R2 storage | **$0** — 10 GB free; ~2 GB used with OA dedupe (R-04) | $0.015/GB-mo |
 | R2 egress | **$0** | **$0** |
-| Supabase | 500 MB DB, 2 GB transfer | $25/mo Pro when outgrown |
+| Supabase | **$0** — 500 MB DB | **$25/mo** Pro |
+| **Total** | **$0/mo** | **~$45/mo** |
 
-Realistic v1 pilot: **$5/mo**, and the first thing to outgrow its tier is Supabase Postgres, not Cloudflare. R2 storage is the line that scales with users — see C-04 for why per-user PDF copies make that grow faster than you'd expect, and what to do about it.
+Better than the Cloudflare-only plan on every axis: the floor drops from $5 to **$0**, the highest-severity technical risk vanishes with `workerd`, and R2's zero egress — the actual reason Cloudflare was chosen — is fully retained. The line that scales with users is R2 storage; see `04-conflicts-and-hazards.md` C-04 and its resolution in R-04 for why naive per-user PDF copies grow faster than you'd expect.
 
 ### 5.2 Google Workspace integration (ADR-014)
 
@@ -243,10 +254,11 @@ Never say "fully end-to-end encrypted." For labs that cannot put unpublished wor
 
 ## 7. Roadmap
 
-### Phase 0 — Foundations (3 weeks)
+### Phase 0 — Foundations (2 weeks) — *was 3; the workerd spike is gone*
 Repo, CI, TS strict, Prisma + Supabase with `DIRECT_URL` for migrations, restricted DB role, deny-by-default RLS baseline, pgTAP harness, design tokens + component scaffold, ADRs accepted, threat model.
 Ship signup that **generates and stores identity public keys** — nothing uses them yet.
-**Exit:** create a project, invite a member, and nothing else — but every table has a tested RLS policy.
+Plus the `05-resolution-plan.md` §5 pre-flight: `axe-core` in CI (G-07), `Work.language` + `simple` FTS config in the baseline migration (R-14), the Docs named-range marker format specified (R-08), and provisional pricing written down (R-20).
+**Exit:** create a project, invite a member, and nothing else — but every table has a tested RLS policy and the pre-flight checklist is green.
 
 ### Phase 1 — Discovery, corpus & reading (6 weeks) — *smallest useful slice*
 - Federated search across OpenAlex/Crossref/arXiv/S2/Europe PMC, deduped, one-click add
@@ -261,17 +273,21 @@ Ship signup that **generates and stores identity public keys** — nothing uses 
 
 **Exit:** a 4-person team runs screening on 300 papers and sees progress. **Ship this to a real lab.**
 
-### Phase 2 — Extraction pipeline (5 weeks) — *the differentiator*
+### Phase 2 — Extraction pipeline (4 weeks) — *the differentiator*
+*Was 5. Dual extraction moves to 2b per R-06 — build the THESIS path first.*
 - Protocol builder: typed fields, ordering, help text, required flags, versioning with migration prompts
+- `capabilities(Project.kind)` gates every screen (R-06); `THESIS` gets a freeform notes protocol and optional extraction
 - Starter templates: PICO/RCT, qualitative, ML-benchmark, engineering-systems
 - Extraction form beside the PDF; quote fields capture an Anchor on highlight
-- **Dual extraction + reconciliation:** two independent extractors, diff view, verifier resolves, Cohen's κ reported
 - Evidence Table generated from Protocol × Extractions: group, pivot, filter, export CSV/XLSX
 - Cell → source: any cell opens the PDF at its exact anchor
 - **Google Sheets export** (§5.2): one spreadsheet per project, Corpus + Evidence tabs, idempotent re-sync. Ships here rather than in Phase 4 because the data exists now and supervisors will ask for it the moment they see the evidence table.
 - **PRISMA 2020 flow diagram**, auto-derived from screening decisions
 
 **Exit:** inconsistent evidence tables become structurally impossible.
+
+### Phase 2b — Systematic-review rigor (2 weeks, after real THESIS usage)
+**Dual extraction + reconciliation:** two independent extractors, diff view, verifier resolves, Cohen's κ reported. Gated to `SYSTEMATIC_REVIEW`. Deliberately sequenced behind a real thesis student using the tool (R-06) — the rigorous path is a strict superset of the loose one, so this ordering costs nothing.
 
 ### Phase 3 — Crypto envelope + Messaging (4 weeks)
 Messages are the ideal first encrypted surface: append-only, no merge semantics, immediate user value.
@@ -300,25 +316,27 @@ Native E2EE documents (Tiptap + Yjs, encrypted updates, client-elected compactio
 - **`\cite{}` autocomplete from the project corpus; `references.bib` auto-generated and kept in sync**
 - `\ref{}` / `\label{}` resolution across files, undefined-reference linting
 - Client-side WASM compilation → PDF preview with SyncTeX forward/inverse search
-- **Real-time co-editing over a Durable Object** (ADR-017): live cursors, remote selections, per-file presence, follow mode, offline reconnect. <100 ms budget.
-- **Character-level attribution** (ADR-016): blame gutter from Yjs client IDs, mixed-authorship rendering, rollup into the CRediT ledger
-- **Git as a materialized projection** (ADR-016): client-side `isomorphic-git`, encrypted objects in R2, idle auto-commit with `Co-authored-by:` trailers
+- **Real-time co-editing over a standalone Durable Object relay** (ADR-020): live cursors, remote selections, per-file presence, follow mode, offline reconnect. p95 < 150 ms budget.
+- **The `docEpoch` pull protocol** (R-01): freeze → materialize → fetch → three-way Git merge → rebuild the Yjs doc → broadcast a swap. Offline reconnects across an epoch become a Git branch, never a Yjs replay. Budget ~2 of these 9 weeks; it has no shortcut.
+- **Blame gutter** from Yjs client IDs — **author-visible only, never aggregated, never exported** (R-07)
+- **Git as a materialized projection** (ADR-016): client-side `isomorphic-git`, encrypted objects pushed to R2 **on commit, never lazily** (R-12), idle auto-commit with `Co-authored-by:` trailers
 - **Full source control panel** (ADR-018): stage/diff/commit/branch/merge locally; push, pull, PRs, review, merge, and Actions status against GitHub via a **GitHub App**. Projects are Private (E2EE) or GitHub-linked (plaintext) — explicit, one-way, badge suppressed.
 - Journal and university thesis templates; export to PDF, source zip, Overleaf
 
-### Phase 6 — Supervision & credit (4 weeks)
+### Phase 6 — Supervision & credit (3 weeks) — *was 4; R-07 removes the analytics build*
 - Supervisor onboarding, multi-project dashboard, review queue with per-supervisor digest cadence
 - Milestones tied to real dates (proposal, committee, defense) with risk flags when velocity won't meet them
 - Suggestion workflow with accept/reject and a visible response obligation
-- **Contribution ledger** → CRediT-mapped profile per member, exportable as an author contribution statement
+- **CRediT ledger** → roles self-declared, member-confirmed, evidenced by *activity kind not volume*; exportable as an author contribution statement. **No scores, no percentages, no ranking, no leaderboard** (R-07)
 - Activity feed and full audit log
 
-### Phase 7 — Hardening & scale (4 weeks)
-Institutional SSO (SAML/OIDC), org admin console, WCAG 2.2 AA audit and remediation, offline mode, mobile reading/annotation polish, performance budgets, **external penetration test**, data export and account deletion, DPIA.
+### Phase 7 — Hardening & scale (3 weeks) — *was 4; SSO and offline mode cut*
+Org admin console, WCAG 2.2 AA audit and remediation, mobile reading/annotation polish, performance budgets, **external penetration test**, data export and account deletion, DPIA.
+Institutional SSO (SAML/OIDC) ships **on demand**, when a named institution asks (R-18). Offline mode is cut as a feature — IndexedDB is a cache, never storage of record (R-12).
 
-**Total to v1.0: ~38 weeks** for 2–3 engineers. Solo: roughly double — in which case take the Phase 5 fallback ladder in `03-latex-studio.md` §10 rather than cutting real-time, which is a stated requirement.
+**Total to v1.0: ~34 weeks** for 2–3 engineers (from 38). Solo: roughly double — in which case take the Phase 5 fallback ladder in `03-latex-studio.md` §10 rather than cutting real-time, which is a stated requirement. If Phase 5 runs late, **cut GitHub *pull* before you cut the epoch protocol** — push-and-PR-only is a coherent product; a half-implemented merge is a corruption bug.
 
-> **Scope note, stated once.** This plan has grown 31 → 38 weeks across five revisions, all of it justified individually. **The MVP in §8 has not changed and is still ~11 weeks.** That is the number that matters — everything past it is sequencing, and sequencing can be renegotiated after a real lab has used the thing. If any single revision starts pushing the *MVP* boundary, that is the signal to stop adding.
+> **Scope note, stated once.** This plan grew 31 → 38 weeks across five revisions and came back to **~34** in v6 by cutting what wasn't load-bearing (`05-resolution-plan.md` §3). **The MVP in §8 has not changed and is still ~11 weeks.** That is the number that matters — everything past it is sequencing, and sequencing can be renegotiated after a real lab has used the thing. If any single revision starts pushing the *MVP* boundary, that is the signal to stop adding.
 
 ---
 
@@ -381,11 +399,13 @@ You asked me to decide the open items. These are now the plan; override any you 
 | 5 | **Recovery codes mandatory at signup; org escrow off by default, opt-in per organization, disclosed to users** | Universities will demand recoverability. Silent escrow would make the E2EE claim dishonest. |
 | 6 | **Self-hosting not committed for v1, but no provider-proprietary APIs in app code** | Committing now doubles ops work pre-revenue. Cloudflare bindings stay behind a thin adapter interface so the app is portable; only that adapter is rewritten to self-host. |
 | 7 | **LaTeX compiles client-side in WASM; server-side compile deferred** | Preserves E2EE, costs zero server compute, and sidesteps the `\write18` shell-escape RCE class entirely. See `03-latex-studio.md` §4. |
-| 8 | **Jobs on Supabase Edge Functions + `pgmq`/`pg_cron`, not a paid queue** | Matches your cost constraint; migrate to Trigger.dev only if it outgrows this. |
+| 8 | **Jobs on `pg_cron` + `pgmq`, dispatched to Vercel routes for outbound HTTP** | Matches your cost constraint, and gives cross-invocation rate limiting a real atomic primitive. *Reaffirmed in v6* — Cloudflare Cron Triggers displaced this briefly and are now gone. |
 | 9 | **Ship Phase 1 to a real lab before building Phase 2** | The highest-leverage decision in the document. |
-| 10 | **Host on Cloudflare Workers + R2, Postgres stays on Supabase** | Egress is this app's dominant cost and Cloudflare doesn't bill it. Compute is light because crypto and TeX run client-side. ~$5/mo at pilot scale. |
+| 10 | ~~Host on Cloudflare Workers~~ → **Host on Vercel; files stay on R2; one Cloudflare Worker survives as the collab relay** | *Superseded in v6 (ADR-019).* The egress argument was an argument for R2, not for Cloudflare compute — separating them keeps zero-egress files while Vercel's real Node runtime deletes the workerd/Hyperdrive/bundle-size risk class entirely. Pilot cost drops $5 → $0. |
 | 11 | **Storage access goes through a thin `StorageAdapter` interface** | R2 is S3-compatible, so MinIO, B2, or Supabase Storage are an endpoint swap. Prevents the hosting choice from becoming structural. |
-| 12 | ~~Supabase Realtime for collaboration~~ → **Durable Objects for CRDT transport; Supabase Realtime keeps Postgres change subscriptions** | *Superseded in v5.* Live cursors fire at 20–30 Hz — four collaborators produce ~100 msg/s per file, which is the wrong shape for Realtime broadcast and the exact shape of a DO with WebSocket hibernation. Lock-in cost is already sunk by ADR-011; contained behind a `CollabTransport` interface. |
+| 12 | ~~Supabase Realtime for collaboration~~ → **Durable Objects for CRDT transport; Supabase Realtime keeps Postgres change subscriptions** | *Superseded in v5, reaffirmed and made standalone in v6 (ADR-020).* Supabase Realtime bills per delivered message per subscriber — awareness traffic burns the 2M free quota in ~6 two-hour sessions. Vercel has no inbound WebSockets, so the DO now deploys as its own Worker hosting nothing else. Because LaTeX is E2EE the relay can only shuffle ciphertext, so it needs no CPU and fits the free tier. |
+| 24 | **Contribution tracking is role-shaped, never volume-shaped** *(v6)* | Character-level authorship rolled up into a score visible to the person who controls a student's degree is a monitoring system regardless of intent. CRediT roles satisfy the vision's "everyone contributes differently"; percentages don't. Blame gutter stays, author-visible only. See `05-resolution-plan.md` R-07. |
+| 25 | **Yjs ops are valid only within a `docEpoch`; all cross-epoch reconciliation is Git's job** *(v6)* | The complete answer to three-writer LaTeX. Yjs guarantees convergence, not correctness; Git guarantees a *visible* conflict. Give each engine only the job it is sound for. See R-01. |
 | 13 | **Google Docs replaces the native prose editor; documents leave the E2EE tier** | Deletes a 5-week build of something Google already does better, and every supervisor already knows the UI. Cost is stated openly in §6 rather than buried. LaTeX stays native and encrypted because Docs cannot host it. |
 | 14 | **Provenance lives in a native Claims panel, not inside documents** | This is what makes #13 safe. Google Docs has no custom block types, so in-document provenance chips were never possible — moving the claim→evidence graph into Porcupine keeps the differentiator and makes the editor swappable. |
 | 15 | **`drive.file` scope only, plus the Picker API** | Broad Drive scopes are restricted and trigger Google's CASA security assessment — a recurring five-figure annual audit. Creating files ourselves avoids it and means we cannot see the rest of a user's Drive. |
@@ -405,9 +425,11 @@ You asked me to decide the open items. These are now the plan; override any you 
 | Risk | Severity | Mitigation |
 |---|---|---|
 | Scope explosion — this is four products in a trenchcoat | High | The §8 MVP cut is a commitment. Ship at week ~11. |
-| Prisma bypassing RLS → silent authz bypass | High | ADR-002: restricted role + `FORCE ROW LEVEL SECURITY` + pgTAP as a merge gate |
-| **Prisma doesn't work cleanly on workerd** (not Node; needs driver adapter + `nodejs_compat` + Hyperdrive) | High | **Phase 0 week-1 spike.** Fallbacks in order: Hyperdrive + `@prisma/adapter-pg`; then Prisma Accelerate; then drop Prisma at runtime and keep it for migrations only, querying via `postgres.js` + `supabase-js`. Schema and RLS work is unaffected either way. |
-| Worker bundle exceeds the size limit (3 MB free / 10 MB paid, compressed) | Medium | Keep libsodium and pdf.js client-side only; audit bundle in CI; `$5/mo` paid plan raises the ceiling |
+| Prisma bypassing RLS → silent authz bypass | Medium *(was High)* | ADR-002 + R-02: `supabase-js` for user reads; Prisma RLS queries only via `withUserContext()` using `SET LOCAL`, which **Postgres itself reverts at commit**. Unset claim ⇒ NULL predicate ⇒ zero rows, so the failure mode is *fail-closed*. 32-way concurrent pgTAP test as merge gate. |
+| ~~Prisma doesn't work cleanly on workerd~~ | **Eliminated (v6)** | Vercel's Node runtime is real Node. No driver adapter, no `nodejs_compat`, no Hyperdrive. |
+| ~~Worker bundle exceeds 3 MB / 10 MB~~ | **Eliminated (v6)** | Vercel allows 250 MB uncompressed (5 GB with large functions). |
+| **Three hosts means three failure domains** | Medium *(new in v6)* | Vercel, Cloudflare, and Supabase are three status pages. `CollabTransport` bounds the blast radius of a relay outage to "editing is read-only"; the app degrades rather than dies. Accepted deliberately — see `05-resolution-plan.md` §6. |
+| **Vercel Hobby forbids commercial use** | Medium *(new in v6)* | Move to Pro *before* the first paying user, not after. Forces the pricing decision into Phase 0 (R-20). |
 | Copyright exposure from publisher PDFs | High | Per-user file copies, OA-verified fetch only, DMCA process, explicit ToS |
 | **Drive permissions drift from project membership** — a removed member keeps reading the Doc | High | Mirror membership → Drive ACLs on every write; nightly reconciliation job; show real Drive permissions in the UI instead of assuming; treat drift as a security finding |
 | Institution forbids unpublished research in Google Drive | Medium | Phase 4b confidential mode exists precisely for this. Don't build it until someone asks, but don't pretend the objection won't come. |
@@ -423,13 +445,13 @@ You asked me to decide the open items. These are now the plan; override any you 
 
 ## 13. Immediate next actions
 
-1. Accept ADR-001/002/004/005/011 (see `adr/README.md`); ADR-003 is closed as "no AI."
-2. Scaffold: Next.js 15 + TS strict + Tailwind/shadcn, `@opennextjs/cloudflare`, Wrangler, Supabase project, Prisma with `DIRECT_URL`. Local dev on Node 24 (`.nvmrc`), but verify against `wrangler dev` — Node and workerd differ, and only workerd is the deploy target.
-3. Land the Phase 0 RLS baseline with pgTAP in CI **before** any feature code.
+1. Accept ADR-001/002/004/005/**019**/**020** (see `adr/README.md`); ADR-003 is closed as "no AI"; ADR-011 and ADR-017 are superseded.
+2. Scaffold: Next.js 15 + TS strict + Tailwind/shadcn on **Vercel**, Supabase project, Prisma with `DIRECT_URL` for migrations and the Supavisor transaction pooler for runtime. Node 24 (`.nvmrc`) locally *and* in production — same runtime both sides, which is the point.
+3. Work the **`05-resolution-plan.md` §5 pre-flight checklist**. All seven items land before feature code.
 4. **Spike three things in week 1**, because each can invalidate a plan assumption:
-   - **Prisma on workerd via Hyperdrive** — the highest-risk unknown; fallbacks in §12
-   - OpenAlex + Crossref + arXiv federated search with dedupe
-   - Compile a real 80-page thesis with a WASM TeX engine, served from R2 **with `CORP: cross-origin` set**, under COOP/COEP
+   - **The DO relay** (R-21): four browsers, 20 min, p95 < 150 ms, survives a forced restart, rejects forged tickets — this is now the highest-risk unknown, having replaced the workerd spike
+   - **The R-01 epoch protocol**, tested with the offline-Alice/PR-Bob script, *before* any LaTeX UI exists
+   - Compile a real 80-page thesis with a WASM TeX engine, served from R2 **with `CORP: cross-origin` set**, under COOP/COEP — this trap survives the host change unchanged
 5. Recruit one research group as design partners *now*, before code. Build against their real review protocol.
 
-See `01-data-model.md`, `02-security-and-e2ee.md`, `03-latex-studio.md`, and **`04-conflicts-and-hazards.md`** — the last of which lists what must be resolved before each phase starts, and the three conflicts that cause rewrites rather than bugs.
+See `01-data-model.md`, `02-security-and-e2ee.md`, `03-latex-studio.md`, `04-conflicts-and-hazards.md` (what can go wrong), and **`05-resolution-plan.md`** (what we're doing about each one, with acceptance tests). Read `05` first — it supersedes this section's hosting decisions and carries the pre-flight checklist.
