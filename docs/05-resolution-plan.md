@@ -29,7 +29,7 @@ Three of the plan's hardest problems were _artifacts of the host_, not of the pr
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
-│ Client — Next.js 15 App Router, React 19, TS strict                │
+│ Client — Next.js 16 App Router, React 19, TS strict                │
 │  ├─ Crypto worker (libsodium WASM) → messages + LaTeX only         │
 │  ├─ PDF reader (pdf.js) + anchoring engine                         │
 │  ├─ LaTeX studio: CodeMirror 6 + Yjs + WASM TeX + isomorphic-git   │

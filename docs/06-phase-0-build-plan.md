@@ -11,7 +11,7 @@ No feature code until the pgTAP suite is a merge gate. That ordering is the whol
 ```
 porcupine/
 ├── apps/
-│   ├── web/               Next.js 15 App Router → Vercel
+│   ├── web/               Next.js 16 App Router → Vercel
 │   └── relay/             CF Worker + Durable Object (week-1 spike, ADR-020)
 ├── packages/
 │   ├── db/                Prisma schema, generated client, RLS SQL, pgTAP
@@ -29,7 +29,7 @@ Two tools want to own migrations. The split:
 
 - **Prisma owns the schema.** `packages/db/prisma/schema.prisma` is the source of truth for tables, columns, and indexes.
 - **Supabase owns what actually ran.** SQL files in `supabase/migrations/` are applied by `supabase db reset` locally and by CI.
-- The bridge is `prisma migrate diff --from-migrations --to-schema-datamodel --script`, which emits SQL we write into a timestamped Supabase migration.
+- The bridge is `prisma migrate diff --from-migrations --to-schema --script`, which emits SQL we write into a timestamped Supabase migration.
 - **RLS policies are hand-written SQL** appended to that same migration. Prisma cannot express them, and they are the actual security boundary.
 
 `prisma migrate dev` is never run against a Supabase database — it does not know about policies, roles, or extensions and will happily drop them.
@@ -41,7 +41,7 @@ Two tools want to own migrations. The split:
 | #   | Task                                                   | Done when                                                                                                                                                                  |
 | --- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1.1 | pnpm workspace, TS strict, ESLint, Prettier            | `pnpm typecheck` and `pnpm lint` pass on an empty repo                                                                                                                     |
-| 1.2 | `apps/web` — Next.js 15, React 19, Tailwind, shadcn/ui | `pnpm build` clean; one page renders                                                                                                                                       |
+| 1.2 | `apps/web` — Next.js 16, React 19, Tailwind, shadcn/ui | `pnpm build` clean; one page renders                                                                                                                                       |
 | 1.3 | Local Supabase on Docker                               | `supabase start` healthy; Studio reachable                                                                                                                                 |
 | 1.4 | Prisma schema — Phase 0 slice only                     | `User`, `Device`, `Organization`, `OrgMember`, `Project`, `ProjectMember`, `ProjectKey`. Includes the v6 deltas from `01-data-model.md` Appendix A that touch these tables |
 | 1.5 | **Restricted role + RLS baseline**                     | `porcupine_app` has no `BYPASSRLS`; every `public` table has `FORCE ROW LEVEL SECURITY`; `SECURITY DEFINER` helpers `is_project_member()` / `has_project_role()` exist     |
@@ -76,12 +76,16 @@ Two tools want to own migrations. The split:
 
 ## Definition of done for Phase 0
 
-- [ ] `pnpm typecheck && pnpm lint && pnpm test` green
-- [ ] pgTAP suite green in CI, under 90 s, blocking merges
-- [ ] No `public` table with `relrowsecurity = false` — asserted in CI, not by review
-- [ ] `axe-core` blocking merges
+- [x] `pnpm typecheck && pnpm lint && pnpm test` green
+- [x] pgTAP suite green in CI, under 90 s, blocking merges — *0.4 s*
+- [x] No `public` table with `relrowsecurity = false` — asserted in CI, not by review
+- [x] `axe-core` blocking merges — desktop + mobile viewports
 - [ ] Sign up → create project → invite member → accept, all RLS-enforced
 - [ ] Identity keypairs stored for every signup
 - [ ] Three spikes reported on, with a written go/no-go per ADR
 
 **Not in Phase 0:** any encryption in use, any bibliographic API, any PDF, any LaTeX, any Google integration. The temptation to start Phase 1 early is the single most likely way this plan fails.
+
+---
+
+**Every phase ends with an entry in `BUILD-LOG.md`** — what shipped, measured verification numbers, decisions made at the keyboard, deviations from this plan, and problems hit. A phase is not done until its entry exists. Week 1 of this phase is already logged there, including the seven things that went wrong.

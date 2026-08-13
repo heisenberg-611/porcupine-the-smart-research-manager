@@ -85,7 +85,7 @@ An `Organization` layer (SSO, seats, retention) sits above projects. Not in MVP,
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
-│ Client — Next.js 15 App Router, React 19, TS strict                │
+│ Client — Next.js 16 App Router, React 19, TS strict                │
 │  ├─ Crypto worker (libsodium WASM) → messages + LaTeX only         │
 │  ├─ PDF reader (pdf.js) + anchoring engine                         │
 │  ├─ LaTeX studio: CodeMirror 6 + Yjs + WASM TeX + isomorphic-git   │
@@ -118,7 +118,7 @@ That egress argument was always an argument for storing _files_ on R2, not for h
 
 | Layer            | Choice                                                                                                  | Note                                                                                               |
 | ---------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Framework        | Next.js 15 App Router, React 19, TS `strict`                                                            |                                                                                                    |
+| Framework        | Next.js 16 App Router, React 19, TS `strict`                                                            |                                                                                                    |
 | DB               | Supabase Postgres                                                                                       |                                                                                                    |
 | Schema           | Prisma (migrations + trusted server writes)                                                             | RLS boundary in ADR-002                                                                            |
 | Client reads     | `supabase-js` with RLS + Realtime                                                                       | RLS is the real authz layer                                                                        |
@@ -461,7 +461,7 @@ You asked me to decide the open items. These are now the plan; override any you 
 ## 13. Immediate next actions
 
 1. Accept ADR-001/002/004/005/**019**/**020** (see `adr/README.md`); ADR-003 is closed as "no AI"; ADR-011 and ADR-017 are superseded.
-2. Scaffold: Next.js 15 + TS strict + Tailwind/shadcn on **Vercel**, Supabase project, Prisma with `DIRECT_URL` for migrations and the Supavisor transaction pooler for runtime. Node 24 (`.nvmrc`) locally _and_ in production — same runtime both sides, which is the point.
+2. Scaffold: Next.js 16 + TS strict + Tailwind/shadcn on **Vercel**, Supabase project, Prisma with `DIRECT_URL` for migrations and the Supavisor transaction pooler for runtime. Node 24 (`.nvmrc`) locally _and_ in production — same runtime both sides, which is the point.
 3. Work the **`05-resolution-plan.md` §5 pre-flight checklist**. All seven items land before feature code.
 4. **Spike three things in week 1**, because each can invalidate a plan assumption:
    - **The DO relay** (R-21): four browsers, 20 min, p95 < 150 ms, survives a forced restart, rejects forged tickets — this is now the highest-risk unknown, having replaced the workerd spike
@@ -469,4 +469,6 @@ You asked me to decide the open items. These are now the plan; override any you 
    - Compile a real 80-page thesis with a WASM TeX engine, served from R2 **with `CORP: cross-origin` set**, under COOP/COEP — this trap survives the host change unchanged
 5. Recruit one research group as design partners _now_, before code. Build against their real review protocol.
 
-See `01-data-model.md`, `02-security-and-e2ee.md`, `03-latex-studio.md`, `04-conflicts-and-hazards.md` (what can go wrong), and **`05-resolution-plan.md`** (what we're doing about each one, with acceptance tests). Read `05` first — it supersedes this section's hosting decisions and carries the pre-flight checklist.
+See `01-data-model.md`, `02-security-and-e2ee.md`, `03-latex-studio.md`, `04-conflicts-and-hazards.md` (what can go wrong), and **`05-resolution-plan.md`** (what we're doing about each one, with acceptance tests). Read `05` first — it supersedes this section's hosting decisions and carries the pre-flight checklist. `06-phase-0-build-plan.md` is the current phase's task list.
+
+**`BUILD-LOG.md` is the record of what actually happened.** One entry per phase, appended when the phase ends: what shipped, measured verification numbers, decisions made at the keyboard, deviations from these plans, and problems hit. Where it contradicts a numbered doc, the numbered doc is stale — fix it and note the fix. A phase is not done until its entry exists.
