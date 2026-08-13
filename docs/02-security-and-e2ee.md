@@ -8,15 +8,15 @@
 
 **Assets:** private conversation between collaborators, unpublished draft text, corpus composition (which papers a lab reads leaks a research direction pre-publication), supervisor feedback, member identities.
 
-| Adversary | Capability | Mitigation |
-|---|---|---|
-| External attacker | Internet access, stolen credentials | Auth, MFA, RLS, rate limiting, short-lived tokens |
-| Malicious or curious operator (you, a future employee, a cloud admin) | Full DB + storage read | **E2EE for messages/docs/LaTeX.** Annotations and extractions are *not* protected from this adversary — say so. |
-| Compromised infrastructure provider | DB dumps, disk images | E2EE for the encrypted tier; at-rest encryption + access controls for the rest |
-| Malicious project member | Holds the project key legitimately | **Not mitigable by crypto.** Audit log, revocation, key rotation. |
-| Compromised client or browser extension | Reads plaintext in memory | Strict CSP, no third-party scripts on app routes, worker isolation |
-| Compromised NPM dependency | Arbitrary client code, key exfiltration | Lockfile pinning, `npm audit` CI gate, **hard dependency budget on the crypto worker: libsodium only** |
-| LaTeX compilation abuse (`\write18`, `\input{/etc/passwd}`) | Arbitrary file read / RCE on a build host | **Eliminated by compiling client-side in WASM** — no build host exists (ADR-007) |
+| Adversary                                                             | Capability                                | Mitigation                                                                                                      |
+| --------------------------------------------------------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| External attacker                                                     | Internet access, stolen credentials       | Auth, MFA, RLS, rate limiting, short-lived tokens                                                               |
+| Malicious or curious operator (you, a future employee, a cloud admin) | Full DB + storage read                    | **E2EE for messages/docs/LaTeX.** Annotations and extractions are _not_ protected from this adversary — say so. |
+| Compromised infrastructure provider                                   | DB dumps, disk images                     | E2EE for the encrypted tier; at-rest encryption + access controls for the rest                                  |
+| Malicious project member                                              | Holds the project key legitimately        | **Not mitigable by crypto.** Audit log, revocation, key rotation.                                               |
+| Compromised client or browser extension                               | Reads plaintext in memory                 | Strict CSP, no third-party scripts on app routes, worker isolation                                              |
+| Compromised NPM dependency                                            | Arbitrary client code, key exfiltration   | Lockfile pinning, `npm audit` CI gate, **hard dependency budget on the crypto worker: libsodium only**          |
+| LaTeX compilation abuse (`\write18`, `\input{/etc/passwd}`)           | Arbitrary file read / RCE on a build host | **Eliminated by compiling client-side in WASM** — no build host exists (ADR-007)                                |
 
 **Out of scope:** a member who legitimately had access and then leaks; traffic analysis; nation-state client implants.
 
@@ -24,12 +24,12 @@
 
 ## 2. Encryption tiers (ADR-001, confirmed)
 
-| Tier | Contents | Protection |
-|---|---|---|
-| **Public** | `Work` metadata, project/org names, member display names | None needed |
-| **Server-confidential** | Membership, roles, screening/reading status, annotations, anchors, extraction values, questions, claims, milestones, activity | RLS + at-rest disk encryption. Server can read. |
-| **Third-party (Google)** | Google Docs prose, exported Sheets | Google's at-rest encryption and ACLs. Outside our boundary entirely (ADR-014). |
-| **End-to-end encrypted** | `Message.body_ct`, `LatexFile.content_ct`, `LatexUpdate.update_ct`, comments on encrypted targets, compiled PDFs, and `DocUpdate.update_ct` in Phase 4b | XChaCha20-Poly1305 under per-project keys wrapped to each member |
+| Tier                     | Contents                                                                                                                                                | Protection                                                                     |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| **Public**               | `Work` metadata, project/org names, member display names                                                                                                | None needed                                                                    |
+| **Server-confidential**  | Membership, roles, screening/reading status, annotations, anchors, extraction values, questions, claims, milestones, activity                           | RLS + at-rest disk encryption. Server can read.                                |
+| **Third-party (Google)** | Google Docs prose, exported Sheets                                                                                                                      | Google's at-rest encryption and ACLs. Outside our boundary entirely (ADR-014). |
+| **End-to-end encrypted** | `Message.body_ct`, `LatexFile.content_ct`, `LatexUpdate.update_ct`, comments on encrypted targets, compiled PDFs, and `DocUpdate.update_ct` in Phase 4b | XChaCha20-Poly1305 under per-project keys wrapped to each member               |
 
 **What the server can see, stated plainly** — publish this verbatim:
 
@@ -85,26 +85,26 @@ Password ──Argon2id(m=64MiB, t=3, p=1, User.kdfSalt)──► Key Encryption
 
 **Recovery.** The recovery code is the only backstop for a forgotten password. Optionally an org enables **escrow**: the Master Key additionally wrapped to an escrow key held by two org admins under split control. Escrow is off by default, opt-in per organization, and **disclosed to the user at signup** — silent escrow would make the E2EE claim dishonest.
 
-**Loading multi-epoch content.** A document or LaTeX file may span epochs. The client must hold a *set* of keys, not one. Decrypt each update at its own `keyEpoch`.
+**Loading multi-epoch content.** A document or LaTeX file may span epochs. The client must hold a _set_ of keys, not one. Decrypt each update at its own `keyEpoch`.
 
 ---
 
 ## 5. Encrypted real-time collaboration (Phase 5; Phase 4b if confidential mode is built)
 
 - **Transport:** a **Cloudflare Durable Object per file**, deployed as a standalone Worker that hosts nothing else (ADR-017 as amended by ADR-020). It fans out opaque encrypted update blobs and **never holds a project key, never decrypts, merges, or interprets anything** — it is a fast relay that happens to sit in the right place. Supabase Realtime keeps Postgres change subscriptions only.
-- **Relay authorization:** the DO holds **no database credentials** and never calls Supabase. Clients present a 60-second **relay ticket** — a JWT signed by Vercel *after* an `is_project_member()` check, carrying `{ latexFileId, userId, projectId, docEpoch, exp }`. The DO verifies the signature against a public key in its environment and checks the binding. This keeps the membership decision on the side that owns the database and gives the relay the smallest possible trust surface: it can shuffle ciphertext for one file and nothing else.
-- **Authorization on connect** is the critical control: the DO must verify the JWT *and* re-check `is_project_member` per connection, not trust a token minted earlier. A long-lived WebSocket outlives a membership revocation otherwise — so also push a disconnect to that member's sockets when membership changes.
+- **Relay authorization:** the DO holds **no database credentials** and never calls Supabase. Clients present a 60-second **relay ticket** — a JWT signed by Vercel _after_ an `is_project_member()` check, carrying `{ latexFileId, userId, projectId, docEpoch, exp }`. The DO verifies the signature against a public key in its environment and checks the binding. This keeps the membership decision on the side that owns the database and gives the relay the smallest possible trust surface: it can shuffle ciphertext for one file and nothing else.
+- **Authorization on connect** is the critical control: the DO must verify the JWT _and_ re-check `is_project_member` per connection, not trust a token minted earlier. A long-lived WebSocket outlives a membership revocation otherwise — so also push a disconnect to that member's sockets when membership changes.
 - **Persistence:** every update also appended to `DocUpdate` / `LatexUpdate` as ciphertext. The server never merges.
-- **Awareness:** cursor positions and selections encrypted; presence *identity* is server-visible metadata.
+- **Awareness:** cursor positions and selections encrypted; presence _identity_ is server-visible metadata.
 - **Compaction:** clients race on an advisory lock row; the winner merges locally with Yjs, writes `isSnapshot = true` with `supersedes = maxId`, and a background job deletes superseded rows **only after** verifying the snapshot exists. Trigger at >300 updates or >1 MB.
 - **Rotation mid-document:** write a snapshot at the new epoch; older updates stay at their epoch.
 - **Offline:** Yjs merges cleanly on reconnect — the main reason for a CRDT over OT. LaTeX is plain text and merges especially cleanly.
 
-**Git objects (ADR-016).** All Git operations run client-side via `isomorphic-git`; the server can never build a commit because it cannot read the sources. Objects are encrypted under the project key and stored in the R2 `git-objects` bucket. Content-addressing uses the **plaintext** hash computed client-side, which preserves dedupe — and means the object *key* leaks the plaintext hash. That is an accepted, bounded leak: it enables a confirmation attack only against an adversary who already possesses a candidate file, and it is the price of a functioning object store. Do not additionally leak filenames — tree objects are encrypted like everything else.
+**Git objects (ADR-016).** All Git operations run client-side via `isomorphic-git`; the server can never build a commit because it cannot read the sources. Objects are encrypted under the project key and stored in the R2 `git-objects` bucket. Content-addressing uses the **plaintext** hash computed client-side, which preserves dedupe — and means the object _key_ leaks the plaintext hash. That is an accepted, bounded leak: it enables a confirmation attack only against an adversary who already possesses a candidate file, and it is the price of a functioning object store. Do not additionally leak filenames — tree objects are encrypted like everything else.
 
 **GitHub linking is plaintext egress**, exactly like a Google Doc. A LaTeX project is in one of two states (`03-latex-studio.md` §8.4): **Private** (E2EE, local history only) or **GitHub-linked** (plaintext on GitHub, E2EE badge suppressed). Linking requires typed confirmation, is one-way per project, and is written to `AuditLog`. Do not display an encryption claim for a linked project — the guarantee is genuinely void there.
 
-**Use a GitHub App, never an OAuth App** (ADR-018). An OAuth App with `repo` scope gets read-write on *every* repository the user can see — the same disproportionate-access mistake `drive.file` avoids on the Google side. A GitHub App is installed per-repository with `contents: write`, `pull_requests: write`, `checks: read`, `metadata: read`, and the user can inspect and revoke it from GitHub's own settings, which is also the answer when a university asks what access the tool holds.
+**Use a GitHub App, never an OAuth App** (ADR-018). An OAuth App with `repo` scope gets read-write on _every_ repository the user can see — the same disproportionate-access mistake `drive.file` avoids on the Google side. A GitHub App is installed per-repository with `contents: write`, `pull_requests: write`, `checks: read`, `metadata: read`, and the user can inspect and revoke it from GitHub's own settings, which is also the answer when a university asks what access the tool holds.
 
 **Installation tokens live one hour and must never reach the browser.** Mint them server-side in a Worker and proxy every GitHub API call. A token in client code is a token in someone's devtools.
 
@@ -117,6 +117,7 @@ Password ──Argon2id(m=64MiB, t=3, p=1, User.kdfSalt)──► Key Encryption
 **The problem:** Prisma connecting as the table owner or a superuser **silently bypasses RLS**. A team using Prisma for everything can ship a complete authorization bypass and never see an error.
 
 **The rule:**
+
 - **Client reads and Realtime go through `supabase-js`** with the user's JWT. RLS enforced natively. Primary read path.
 - **Prisma handles migrations and trusted server-side writes** in Server Actions / Route Handlers, with authorization enforced in application code.
 - Prisma connects as `porcupine_app` — **not** the owner — with only DML grants. Every table gets `ALTER TABLE ... FORCE ROW LEVEL SECURITY`, so RLS applies to Prisma too as defence in depth.
@@ -176,32 +177,36 @@ create policy annotation_update on annotation for update
 ## 7. Application security checklist
 
 **Auth**
-- Supabase Auth: email OTP + Google; SAML/OIDC in Phase 7. ORCID as a *linked* identity for attribution, not a login provider.
+
+- Supabase Auth: email OTP + Google; SAML/OIDC in Phase 7. ORCID as a _linked_ identity for attribution, not a login provider.
 - MFA required for `owner`/`admin` and all org admins.
 - Short-lived access tokens, refresh rotation, server-side session revocation on member removal.
 - Invite tokens: single-use, 72 h expiry, bound to the invited email, constant-time compare.
 
 **Input & output**
+
 - Zod at every boundary — parse, don't validate.
 - Strict CSP with nonces; no `unsafe-inline`, no `unsafe-eval`. `wasm-unsafe-eval` **is** required for the crypto worker and the TeX engine — scope it to those workers, not the document.
 - `Cross-Origin-Opener-Policy: same-origin` + `Cross-Origin-Embedder-Policy: require-corp` (also unlocks `SharedArrayBuffer`, which the TeX engine wants).
 - Rich text sanitized on render, not on store — the server can't sanitize ciphertext anyway.
 
 **Files (Cloudflare R2)**
+
 - Private buckets only; no public bucket exists. **R2 has no row-level security**, so authorization moves up a layer: a Worker route validates the JWT, calls `app.is_project_member()`, then issues a **presigned GET with a 5-minute TTL**. `FileObject` is therefore not merely metadata — it is the access-control record, and a bug there is a data leak.
 - **Uploads go client → R2 directly via a presigned PUT.** File bytes never traverse the Worker, sidestepping request-body and CPU limits entirely.
 - Treat presigned URLs as bearer tokens: short TTL, never logged, never placed anywhere that could leak via a `Referer` header or analytics payload.
 - A presigned PUT can succeed without the client reporting back, so a nightly job reconciles R2 keys against `FileObject.uploadState` and deletes orphans — otherwise a user can silently consume storage outside any quota.
 - **`Cross-Origin-Resource-Policy: cross-origin` must be set on every `tex-dist` object.** Under COEP `require-corp` — which `SharedArrayBuffer` requires — cross-origin resources lacking CORP are blocked, and the WASM TeX engine fails to load its packages with an unhelpful error.
 - pdf.js with `isEvalSupported: false`, scripting disabled, rendered in a sandboxed context. Enforce size, page, and magic-byte type checks.
-- **Virus scanning is deferred to Phase 7.** This host has no long-running process to run ClamAV in. v1 relies on type validation, size caps, and sandboxed rendering; the residual risk is a malicious PDF downloaded and opened in a *native* reader, which sandboxing does not cover. When an institution requires AV, run it as a queue consumer on a cheap VPS rather than reworking the host. **Do not claim files are scanned until it exists.**
+- **Virus scanning is deferred to Phase 7.** This host has no long-running process to run ClamAV in. v1 relies on type validation, size caps, and sandboxed rendering; the residual risk is a malicious PDF downloaded and opened in a _native_ reader, which sandboxing does not cover. When an institution requires AV, run it as a queue consumer on a cheap VPS rather than reworking the host. **Do not claim files are scanned until it exists.**
 
 **SSRF — the highest-risk server surface**
 Users paste URLs and the server fetches them (DOI resolution, OA PDF fetch, Zotero import).
 
-> **This got worse in v6, and the plan should say so.** On Cloudflare, `workerd` egressed through the edge with no VPC and no cloud metadata endpoint, so the `169.254.169.254` credential-theft class simply did not exist. **Vercel Functions run on AWS Lambda, where a link-local metadata endpoint does exist.** Moving to Vercel bought a great deal (see ADR-019) but it gave back this specific mitigation, and the SSRF controls below stop being defence-in-depth and become the *only* defence.
+> **This got worse in v6, and the plan should say so.** On Cloudflare, `workerd` egressed through the edge with no VPC and no cloud metadata endpoint, so the `169.254.169.254` credential-theft class simply did not exist. **Vercel Functions run on AWS Lambda, where a link-local metadata endpoint does exist.** Moving to Vercel bought a great deal (see ADR-019) but it gave back this specific mitigation, and the SSRF controls below stop being defence-in-depth and become the _only_ defence.
 
 Required, and now load-bearing rather than belt-and-braces:
+
 - `https` only.
 - **Resolve the hostname first, then check the resolved IP** against RFC1918, loopback, link-local (`169.254.0.0/16` explicitly), CGNAT, and IPv6 equivalents — checking the hostname string alone is defeated by a DNS record pointing at a private address.
 - **Re-validate at every redirect hop**, not just the first, and cap redirect depth. DNS-rebinding and redirect-to-metadata are the two live attacks here.
@@ -214,7 +219,8 @@ Consider routing user-URL fetches through a dedicated function with a distinct, 
 Per-user and per-IP on auth, invites, external API proxying, uploads, compiles, exports. Postgres token bucket is sufficient and free. Bulk imports run as queued jobs with progress, never in a request.
 
 **Google Workspace (ADR-014)**
-- **`drive.file` scope only.** Never `drive`, `drive.readonly`, or `spreadsheets`. Broad scopes are *restricted* and trigger Google's CASA security assessment — a recurring five-figure annual third-party audit. `drive.file` covers files the app created plus files the user hands over through the **Picker API**, which is everything this product needs.
+
+- **`drive.file` scope only.** Never `drive`, `drive.readonly`, or `spreadsheets`. Broad scopes are _restricted_ and trigger Google's CASA security assessment — a recurring five-figure annual third-party audit. `drive.file` covers files the app created plus files the user hands over through the **Picker API**, which is everything this product needs.
 - Refresh tokens are encrypted at rest under a Worker secret (`GOOGLE_TOKEN_KEY`), **not** a project key — the nightly re-sync runs with no member present and cannot unwrap member-held keys. Rotate on disconnect; hard-delete on account deletion.
 - **The two-sources-of-truth problem is the real risk here.** Drive ACLs and `ProjectMember` are independent, so removing someone from a project does not revoke their Drive access. Required: mirror membership → Drive permissions on every membership write; run a nightly three-way reconciliation across `ProjectMember`, `DocPermission`, and Drive's live ACL; surface real Drive permissions in the project UI rather than implying they match; log drift to `AuditLog` and treat it as a security finding, not a sync warning.
 - Never write E2EE content into a Doc or Sheet. A `Message` or LaTeX source pushed to Google silently voids the encryption guarantee for that content. Enforce it in the push path, not in a code-review convention.

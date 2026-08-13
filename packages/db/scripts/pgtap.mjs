@@ -1,0 +1,259 @@
+#!/usr/bin/env node
+/**
+ * pgTAP runner + the concurrency half of R-02.
+ *
+ * The .sql suites prove policy logic inside one session. They cannot prove
+ * the thing that actually worries us: that a transaction-local claim never
+ * survives onto a pooled connection and leaks into someone else's request.
+ * That needs many real connections hammering one pool, which is what
+ * `concurrencyTest` below does.
+ *
+ * Merge gate. Must stay under 90s (docs/05-resolution-plan.md R-02, B-03).
+ */
+import { existsSync, readdirSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import { execFileSync } from "node:child_process";
+import process from "node:process";
+
+import pg from "pg";
+
+const here = dirname(fileURLToPath(import.meta.url));
+const root = join(here, "..", "..", "..");
+
+const envPath = join(root, ".env");
+if (existsSync(envPath)) process.loadEnvFile(envPath);
+
+const CONN =
+  process.env.TEST_DATABASE_URL ??
+  process.env.DIRECT_URL ??
+  "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
+
+const CONCURRENCY = Number(process.env.RLS_TEST_CONCURRENCY ?? 32);
+const ROUNDS = Number(process.env.RLS_TEST_ROUNDS ?? 25);
+
+let failed = false;
+const started = Date.now();
+
+function heading(text) {
+  console.log(`\n\x1b[1m${text}\x1b[0m`);
+}
+
+// ── Ensure pgTAP is installed ───────────────────────────────────────────────
+async function ensurePgTap() {
+  const client = new pg.Client({ connectionString: CONN });
+  await client.connect();
+  try {
+    await client.query("create extension if not exists pgtap");
+  } finally {
+    await client.end();
+  }
+}
+
+// ── Run each .sql suite through psql ────────────────────────────────────────
+function runSqlSuites() {
+  const dir = join(here, "..", "test");
+  const files = readdirSync(dir)
+    .filter((f) => f.endsWith(".sql"))
+    .sort();
+
+  for (const file of files) {
+    heading(`▸ ${file}`);
+    try {
+      const out = execFileSync(
+        "psql",
+        [
+          "--no-psqlrc",
+          "--quiet",
+          "--no-align",
+          "--tuples-only",
+          "-v",
+          "ON_ERROR_STOP=1",
+          CONN,
+          "-f",
+          join(dir, file),
+        ],
+        { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+      );
+      process.stdout.write(out);
+      if (/^not ok/m.test(out)) {
+        failed = true;
+        console.error(`\x1b[31m✗ ${file} has failing assertions\x1b[0m`);
+      }
+    } catch (err) {
+      failed = true;
+      console.error(`\x1b[31m✗ ${file} errored\x1b[0m`);
+      if (err.stdout) process.stdout.write(err.stdout);
+      if (err.stderr) process.stderr.write(err.stderr);
+    }
+  }
+}
+
+// ── The concurrency test the .sql suites structurally cannot do ─────────────
+//
+// Many clients share one pool. Each opens a transaction, sets its own claim,
+// reads, and commits — in a loop, interleaved. If a claim ever survives a
+// commit onto a connection another client then picks up, some client reads
+// rows belonging to a different tenant. That is the exact failure C-02
+// described, and it is silent: no error, just wrong data.
+async function concurrencyTest() {
+  heading("▸ rls_no_cross_tenant (concurrent, pooled)");
+
+  const setup = new pg.Client({ connectionString: CONN });
+  await setup.connect();
+
+  const tenants = [];
+  try {
+    await setup.query("begin");
+    for (let i = 0; i < CONCURRENCY; i++) {
+      const suffix = String(i).padStart(4, "0");
+      const userId = `dddddddd-0000-0000-0000-${suffix}00000000`.slice(0, 36);
+      const projectId = `eeeeeeee-0000-0000-0000-${suffix}00000000`.slice(0, 36);
+      const slug = `concurrency-${suffix}`;
+      await setup.query(
+        `insert into users (id, email, display_name, created_at, updated_at)
+         values ($1, $2, $3, now(), now())`,
+        [userId, `conc-${suffix}@test.dev`, `Conc ${suffix}`],
+      );
+      await setup.query(
+        `insert into projects (id, slug, title, created_by, created_at, updated_at)
+         values ($1, $2, $3, $4, now(), now())`,
+        [projectId, slug, `Project ${suffix}`, userId],
+      );
+      await setup.query(
+        `insert into project_members
+           (id, project_id, user_id, access_role, joined_at, created_at, updated_at)
+         values (gen_random_uuid(), $1, $2, 'OWNER', now(), now(), now())`,
+        [projectId, userId],
+      );
+      tenants.push({ userId, slug });
+    }
+    await setup.query("commit");
+  } catch (err) {
+    await setup.query("rollback").catch(() => {});
+    await setup.end();
+    throw err;
+  }
+
+  // A pool deliberately smaller than the client count, so connections are
+  // reused aggressively. Reuse is the condition under which a leak appears.
+  const pool = new pg.Pool({
+    connectionString: CONN,
+    max: Math.max(4, Math.floor(CONCURRENCY / 4)),
+  });
+
+  let leaks = 0;
+  let checks = 0;
+
+  try {
+    await Promise.all(
+      tenants.map(async (tenant) => {
+        for (let round = 0; round < ROUNDS; round++) {
+          const client = await pool.connect();
+          try {
+            await client.query("begin");
+            await client.query("set local role porcupine_app");
+            await client.query(`select set_config('request.jwt.claims', $1, true)`, [
+              JSON.stringify({ sub: tenant.userId }),
+            ]);
+            const { rows } = await client.query("select slug from projects");
+            checks++;
+            const wrong = rows.filter((r) => r.slug !== tenant.slug);
+            if (wrong.length > 0 || rows.length !== 1) {
+              leaks++;
+              console.error(
+                `\x1b[31m  LEAK: ${tenant.slug} saw ${rows.length} row(s): ` +
+                  `${rows.map((r) => r.slug).join(", ")}\x1b[0m`,
+              );
+            }
+            await client.query("commit");
+          } catch (err) {
+            await client.query("rollback").catch(() => {});
+            throw err;
+          } finally {
+            client.release();
+          }
+        }
+      }),
+    );
+
+    // The other half of the claim: after a transaction commits, a *new*
+    // transaction on a reused connection must see nothing until it sets its
+    // own claim. This is rls_claim_does_not_survive_txn.
+    let survivors = 0;
+    await Promise.all(
+      Array.from({ length: CONCURRENCY }, async () => {
+        const client = await pool.connect();
+        try {
+          await client.query("begin");
+          await client.query("set local role porcupine_app");
+          await client.query(`select set_config('request.jwt.claims', $1, true)`, [
+            JSON.stringify({ sub: tenants[0].userId }),
+          ]);
+          await client.query("select slug from projects");
+          await client.query("commit");
+
+          // Same connection, new transaction, deliberately no claim.
+          await client.query("begin");
+          await client.query("set local role porcupine_app");
+          const { rows } = await client.query("select slug from projects");
+          if (rows.length !== 0) survivors++;
+          await client.query("commit");
+        } finally {
+          client.release();
+        }
+      }),
+    );
+
+    const total = CONCURRENCY * ROUNDS;
+    console.log(`  ${checks}/${total} scoped reads across ${CONCURRENCY} clients`);
+
+    if (leaks === 0) {
+      console.log(`  \x1b[32mok\x1b[0m - no cross-tenant leakage under concurrency`);
+    } else {
+      failed = true;
+      console.error(`  \x1b[31mnot ok\x1b[0m - ${leaks} cross-tenant leak(s)`);
+    }
+
+    if (survivors === 0) {
+      console.log(
+        `  \x1b[32mok\x1b[0m - claim does not survive commit onto a pooled connection`,
+      );
+    } else {
+      failed = true;
+      console.error(`  \x1b[31mnot ok\x1b[0m - claim survived in ${survivors} case(s)`);
+    }
+  } finally {
+    await pool.end();
+    // Fixtures are committed, so clean them up explicitly.
+    await setup.query(`delete from projects where slug like 'concurrency-%'`);
+    await setup.query(`delete from users where email like 'conc-%@test.dev'`);
+    await setup.end();
+  }
+}
+
+// ── Main ────────────────────────────────────────────────────────────────────
+try {
+  await ensurePgTap();
+  runSqlSuites();
+  await concurrencyTest();
+} catch (err) {
+  failed = true;
+  console.error(`\x1b[31m✗ runner error:\x1b[0m ${err.message}`);
+}
+
+const elapsed = ((Date.now() - started) / 1000).toFixed(1);
+heading(
+  failed
+    ? `\x1b[31m✗ RLS suite FAILED in ${elapsed}s\x1b[0m`
+    : `\x1b[32m✓ RLS suite passed in ${elapsed}s\x1b[0m`,
+);
+
+if (Number(elapsed) > 90) {
+  console.error(
+    `\x1b[33m⚠ suite took ${elapsed}s — the 90s budget exists because a slow ` +
+      `gate gets skipped, and a skipped gate is worthless (B-03)\x1b[0m`,
+  );
+}
+
+process.exit(failed ? 1 : 0);

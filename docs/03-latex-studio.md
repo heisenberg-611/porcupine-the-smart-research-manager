@@ -9,6 +9,7 @@ An integrated LaTeX environment, Overleaf-class in feel, with one thing Overleaf
 Overleaf is where the writing happens, and it is completely disconnected from where the reading happened. Every researcher does the same manual dance: export a `.bib` from Zotero, upload it, remember the citation keys, re-export when the library changes, discover mid-draft that a paper was later excluded from the review.
 
 If the corpus and the manuscript live in one system, all of that disappears:
+
 - `references.bib` is regenerated from `v_project_bib` on every change to the library
 - `\cite{` autocompletes against screened works, showing title, authors, and year
 - Citing a work that was later **excluded** during screening raises a lint warning
@@ -26,6 +27,7 @@ That loop is the reason to build this rather than deep-link out.
 **Syntax highlighting.** Start with `@codemirror/legacy-modes/mode/stex` — a stream parser that gives solid, low-effort highlighting for commands, math mode, environments, and comments. Upgrade to a Lezer LaTeX grammar in a later iteration when you want structural features (reliable folding, an accurate document outline, environment-aware selection). Don't block Phase 5 on the grammar.
 
 **Editing features:**
+
 - Multi-file tree; open tabs; split view
 - Fold sections and environments; document outline from `\section`/`\subsection`
 - Bracket and `$…$` matching; auto-close `{}`, `[]`, `$$`, `\begin{}`→`\end{}`
@@ -40,16 +42,16 @@ That loop is the reason to build this rather than deep-link out.
 
 Every completion source below is deterministic, local, and free. Combined, they cover the great majority of what an AI assistant would have offered for LaTeX.
 
-| Source | Behaviour |
-|---|---|
-| **Command database** | ~2,000 TeX/LaTeX commands with signatures and one-line docs, bundled as a static JSON (derived from CTAN package docs). Typing `\fra` → `\frac{}{}` with argument placeholders. |
-| **Environments** | `\begin{` → known environments, filtered by loaded packages; auto-inserts the matching `\end{}`. |
-| **`\cite{}`** | **Reads the project corpus.** Fuzzy match on author, title, year, venue. Renders as a rich list, not bare keys. Warns on excluded works. |
-| **`\ref{}` / `\eqref{}` / `\autoref{}`** | Every `\label{}` across all files in the project, with the section or equation text as context. |
-| **Packages** | `\usepackage{` → package names available in the bundled TeX distribution, with descriptions. |
-| **Snippets** | User- and project-level, tab-stop aware: figure, table, algorithm, theorem, custom. |
-| **Math palette** | Searchable symbol picker mapping "integral", "∈", "sum" → `\int`, `\in`, `\sum`. |
-| **File paths** | `\input{`, `\include{`, `\includegraphics{` complete against the actual project tree. |
+| Source                                   | Behaviour                                                                                                                                                                       |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Command database**                     | ~2,000 TeX/LaTeX commands with signatures and one-line docs, bundled as a static JSON (derived from CTAN package docs). Typing `\fra` → `\frac{}{}` with argument placeholders. |
+| **Environments**                         | `\begin{` → known environments, filtered by loaded packages; auto-inserts the matching `\end{}`.                                                                                |
+| **`\cite{}`**                            | **Reads the project corpus.** Fuzzy match on author, title, year, venue. Renders as a rich list, not bare keys. Warns on excluded works.                                        |
+| **`\ref{}` / `\eqref{}` / `\autoref{}`** | Every `\label{}` across all files in the project, with the section or equation text as context.                                                                                 |
+| **Packages**                             | `\usepackage{` → package names available in the bundled TeX distribution, with descriptions.                                                                                    |
+| **Snippets**                             | User- and project-level, tab-stop aware: figure, table, algorithm, theorem, custom.                                                                                             |
+| **Math palette**                         | Searchable symbol picker mapping "integral", "∈", "sum" → `\int`, `\in`, `\sum`.                                                                                                |
+| **File paths**                           | `\input{`, `\include{`, `\includegraphics{` complete against the actual project tree.                                                                                           |
 
 **Linting** (client-side, no compile needed): unbalanced braces; unmatched `\begin`/`\end`; undefined `\ref`; undefined or excluded `\cite`; duplicate labels; unused labels; a curated subset of ChkTeX rules (`~` before `\cite`, `\,` in units, quote style, non-breaking spaces). Surfaced as gutter markers and a problems panel.
 
@@ -70,6 +72,7 @@ Every completion source below is deterministic, local, and free. Combined, they 
 **Package distribution.** The engine needs a TeX tree. Bundle a curated TeX Live subset (~30 MB) and fetch additional packages on demand from a CTAN mirror **served from the R2 `tex-dist` bucket**, cached permanently in IndexedDB (packages are immutable, so cache them forever). First compile on a new device is slow; every subsequent one is fast. Show honest progress during the initial download — "preparing TeX environment, 24 MB" — rather than a spinner.
 
 R2 is the right home for this: it is the single largest egress line in the product, and R2 charges nothing for egress. Two requirements on those objects:
+
 - **`Cross-Origin-Resource-Policy: cross-origin` on every object.** The engine needs `SharedArrayBuffer`, which needs COEP `require-corp`, which blocks cross-origin resources that don't send CORP. Miss this and packages fail to load with an error that points nowhere near the cause. Set it at upload time.
 - **Immutable cache headers** (`Cache-Control: public, max-age=31536000, immutable`) with content-hashed keys, so Cloudflare's edge cache absorbs repeat traffic.
 
@@ -85,7 +88,7 @@ R2 is the right home for this: it is the single largest egress line in the produ
 
 Side-by-side pdf.js preview, with **SyncTeX forward and inverse search** — click a line in the source to jump to that spot in the PDF, and vice versa. The engine emits a `.synctex.gz`; parse it client-side and maintain the source ↔ page-coordinate mapping.
 
-This is the feature that makes an integrated editor *feel* like Overleaf rather than like a text box next to a PDF. Don't skip it.
+This is the feature that makes an integrated editor _feel_ like Overleaf rather than like a text box next to a PDF. Don't skip it.
 
 Also: preserve scroll position across recompiles (nothing is more annoying than being thrown back to page 1 on every build), and highlight regions that changed since the last successful compile.
 
@@ -128,7 +131,7 @@ Does **not**: decrypt, merge, or interpret anything. LaTeX sources are E2EE — 
 - **Remote selection highlights** so you can see what someone is about to change
 - **Per-file presence avatars** in the file tree — see who is in `intro.tex` right now without opening it
 - **Follow mode**: click an avatar to pin your viewport to theirs
-- Awareness throttled to 30 Hz outbound, coalesced; awareness state is encrypted like everything else, though presence *identity* is necessarily visible to the DO
+- Awareness throttled to 30 Hz outbound, coalesced; awareness state is encrypted like everything else, though presence _identity_ is necessarily visible to the DO
 
 Latency budget: **<100 ms** local-echo-to-remote-render on a normal connection. Above ~250 ms, co-editing a single paragraph starts to feel like fighting.
 
@@ -154,7 +157,7 @@ Every update is appended to `LatexUpdate` as ciphertext. The DO holds the compac
 
 ### 8.1 The conflict, stated plainly
 
-Git and CRDTs model history incompatibly. Git is **discrete**: explicit commits, one author, a message, a tree snapshot. Yjs is **continuous**: character-level operations, no commit boundary, many authors interleaved within a single line. You cannot make Yjs *be* Git without destroying real-time editing, and you cannot make Git the live source of truth without a merge conflict on every keystroke.
+Git and CRDTs model history incompatibly. Git is **discrete**: explicit commits, one author, a message, a tree snapshot. Yjs is **continuous**: character-level operations, no commit boundary, many authors interleaved within a single line. You cannot make Yjs _be_ Git without destroying real-time editing, and you cannot make Git the live source of truth without a merge conflict on every keystroke.
 
 **Resolution: Yjs is the source of truth. Git is a materialized projection of it.** This is the same shape as Overleaf's git bridge, and the same shape as the rest of this product — the evidence table, the bibliography, the PRISMA diagram are all derived views, never authoritative.
 
@@ -165,6 +168,7 @@ Don't use Git for blame. Yjs already knows more than Git ever will.
 Every Yjs insertion carries the originating `clientID`. Record the `clientID → userId` mapping when a client joins a document (`YjsClient` in the data model) and you get **character-level authorship that is always current, with no commits, no staleness, and finer granularity than `git blame` can express.** Git blame attributes a whole line to whoever touched it last; this attributes each character to whoever actually typed it.
 
 What ships:
+
 - **Blame gutter** — author colour strip beside every line; hover for name and timestamp
 - **Mixed-authorship lines** rendered as a gradient rather than a single colour, because a line edited by three people is the normal case in a co-authored paper
 - **"Who wrote this?"** on any selection, including a partial line
@@ -179,7 +183,7 @@ Real Git still earns its place: external tooling, offline clones, CI on the manu
 **Architecture: client-side, encrypted, derived.**
 
 - **`isomorphic-git`** running in the browser against a virtual filesystem backed by IndexedDB. All Git operations happen client-side, which is the only way to keep sources E2EE — the server never sees plaintext, so it could never build a commit.
-- **Git objects are content-addressed blobs.** Encrypt each object under the project key and store it in the R2 `git-objects` bucket. The object model survives encryption intact because Git never needs to *interpret* an object it's only storing — but note the content-addressing is over **plaintext** SHA-1/SHA-256, computed client-side, so dedupe still works.
+- **Git objects are content-addressed blobs.** Encrypt each object under the project key and store it in the R2 `git-objects` bucket. The object model survives encryption intact because Git never needs to _interpret_ an object it's only storing — but note the content-addressing is over **plaintext** SHA-1/SHA-256, computed client-side, so dedupe still works.
 - **Commit materialization is automatic.** After 5 minutes of inactivity on a file, or on an explicit "Save version", the client creates a commit from the current Yjs state. Multi-author commits use `Co-authored-by:` trailers, so Git's one-author model doesn't erase who actually contributed.
 - **Labelled snapshots become tags.** The version history in §7.5 and the Git tag namespace are the same thing surfaced twice.
 - **Branching** is supported but deliberately unglamorous: branches are for "try a different Methods section", not for parallel real-time editing. Only one branch is live-editable at a time per file; switching branches swaps the Yjs document. Merges run client-side through isomorphic-git's merge driver, with conflicts resolved in a normal three-way diff view.
@@ -188,20 +192,21 @@ Real Git still earns its place: external tooling, offline clones, CI on the manu
 
 Rather than bolting caveats onto every Git action, a LaTeX project is in exactly one of two states, visible in the header:
 
-| | **Private** (default) | **GitHub-linked** |
-|---|---|---|
-| Sources | E2EE under the project key | **Plaintext on GitHub** |
-| Git history | Encrypted objects in R2 | R2 *and* GitHub |
-| Available | commit, branch, diff, blame, restore | all of that + push, pull, fetch, PRs, merge, checks |
-| E2EE badge | shown | **hidden, replaced by "Synced to github.com/org/repo"** |
+|             | **Private** (default)                | **GitHub-linked**                                       |
+| ----------- | ------------------------------------ | ------------------------------------------------------- |
+| Sources     | E2EE under the project key           | **Plaintext on GitHub**                                 |
+| Git history | Encrypted objects in R2              | R2 _and_ GitHub                                         |
+| Available   | commit, branch, diff, blame, restore | all of that + push, pull, fetch, PRs, merge, checks     |
+| E2EE badge  | shown                                | **hidden, replaced by "Synced to github.com/org/repo"** |
 
-Linking is a one-way door per project, requires typed confirmation, and is written to `AuditLog`. This is the honest framing: once a manuscript is on GitHub, the encryption guarantee for *that project* is decorative, and the UI should stop claiming it. Private mode remains the default because most theses have no reason to leave.
+Linking is a one-way door per project, requires typed confirmation, and is written to `AuditLog`. This is the honest framing: once a manuscript is on GitHub, the encryption guarantee for _that project_ is decorative, and the UI should stop claiming it. Private mode remains the default because most theses have no reason to leave.
 
 ### 8.5 The source control panel
 
 A VS Code-shaped panel, scoped to the LaTeX project — not a general-purpose editor.
 
 **Local operations — `isomorphic-git`, works offline, works in Private mode:**
+
 - Changed-files list with stage / unstage / discard
 - Inline and side-by-side diff against HEAD, rendered in CodeMirror with the same LaTeX highlighting
 - Commit with message; amend; multi-author `Co-authored-by:` trailers preserved from §8.3
@@ -209,6 +214,7 @@ A VS Code-shaped panel, scoped to the LaTeX project — not a general-purpose ed
 - History graph, per-file log, restore to any commit
 
 **Remote operations — GitHub API, GitHub-linked mode only:**
+
 - Fetch / pull / push, with ahead-behind counts in the status bar
 - **Pull requests:** list, create from the current branch, view diff, read and post review comments, see requested reviewers
 - **Merge:** merge, squash, or rebase, honouring branch protection rules the API reports
@@ -224,11 +230,12 @@ A **GitHub App** is installed per-repository by the user, issues 1-hour installa
 
 Yjs is the source of truth (§8.1), but a GitHub-linked repo has a second writer: anyone editing on GitHub, and every merged PR. When the remote moves, the two histories diverge, and this must never be resolved silently.
 
-**The mechanism is the `docEpoch` protocol (ADR-021), specified in full in `05-resolution-plan.md` R-01.** In one line: *Yjs ops are valid only within an epoch, and every cross-epoch reconciliation is a three-way Git merge.* Yjs guarantees convergence, not correctness; Git guarantees a visible conflict. Each engine gets only the job it is sound for.
+**The mechanism is the `docEpoch` protocol (ADR-021), specified in full in `05-resolution-plan.md` R-01.** In one line: _Yjs ops are valid only within an epoch, and every cross-epoch reconciliation is a three-way Git merge._ Yjs guarantees convergence, not correctness; Git guarantees a visible conflict. Each engine gets only the job it is sound for.
 
 Pull is a transaction with a frozen document — `FREEZE` → materialize an anchor commit → `fetch` → three-way merge → rebuild a fresh `Y.Doc` → `docEpoch += 1` → broadcast `SWAP`. Clients key their IndexedDB Yjs store by `"<docId>:<docEpoch>"`, so after a swap **a stale op has no reachable path back into the document.** A client that was offline across a swap does not replay: its local state is exported to a `porcupine/offline/<userId>/<ts>` branch off the epoch-`N−1` anchor and merged through Git, with real conflict markers.
 
 Rules:
+
 - **Never auto-pull.** Divergence is surfaced as a status ("2 commits behind"), never reconciled in the background.
 - **Pull is an explicit, disruptive operation.** Live editors go read-only with a banner for its duration; warn by name before proceeding.
 - **Never call `Y.applyUpdate` with an update whose epoch differs from the document's.** Assert `update.docEpoch === file.docEpoch` on every DO ingest and every Postgres write.
@@ -236,9 +243,9 @@ Rules:
 - Pulled content is attributed to the commit author, never to whoever pressed Pull.
 - Pulled trees are external content: size caps, symlinks rejected, every path validated against traversal.
 
-**Budget ~2 of Phase 5's 9 weeks for this, and treat the offline-Alice/PR-Bob script as a merge gate.** If Phase 5 runs late, cut GitHub *pull* entirely before cutting the protocol — push-and-PR-only is a coherent product; a half-implemented merge is a silent corruption bug.
+**Budget ~2 of Phase 5's 9 weeks for this, and treat the offline-Alice/PR-Bob script as a merge gate.** If Phase 5 runs late, cut GitHub _pull_ entirely before cutting the protocol — push-and-PR-only is a coherent product; a half-implemented merge is a silent corruption bug.
 
-### 8.8 What this does *not* try to be
+### 8.8 What this does _not_ try to be
 
 Not github.dev. You cannot open an arbitrary repository — Git here is bound to a `LatexProject`, and that boundary is what stops this becoming "we built VS Code."
 
@@ -260,21 +267,22 @@ Also worth saying plainly: **for most researchers the native suggestion flow (§
 
 ## 10. Build order within Phase 5 (9 weeks)
 
-| Week | Deliverable |
-|---|---|
-| 1 | **WASM engine spike against a real thesis** (go/no-go for the whole approach) + multi-file editor with stex highlighting |
-| 2 | Completion engine: commands, environments, packages, snippets, `\ref` |
-| 3 | Compilation pipeline, log parsing, error mapping, PDF preview |
-| 4 | `\cite{}` + generated `references.bib` + hover cards + citation linting |
-| 5 | **Real-time core:** Durable Object transport, Yjs + `y-codemirror.next`, live cursors, presence, offline reconnect, compaction |
-| 6 | **Attribution:** `clientID → userId` mapping, blame gutter, mixed-authorship rendering, contribution rollup into CRediT |
-| 7 | **Local Git:** isomorphic-git on IndexedDB, encrypted objects in R2, idle auto-commit, source control panel (stage/diff/commit/branch), history graph |
-| 8 | **GitHub link:** GitHub App auth, push/pull/fetch, ahead-behind status, divergence handling, three-way conflict resolver |
-| 9 | **PR workflow:** list/create/review/merge, checks status; templates and import/export |
+| Week | Deliverable                                                                                                                                           |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | **WASM engine spike against a real thesis** (go/no-go for the whole approach) + multi-file editor with stex highlighting                              |
+| 2    | Completion engine: commands, environments, packages, snippets, `\ref`                                                                                 |
+| 3    | Compilation pipeline, log parsing, error mapping, PDF preview                                                                                         |
+| 4    | `\cite{}` + generated `references.bib` + hover cards + citation linting                                                                               |
+| 5    | **Real-time core:** Durable Object transport, Yjs + `y-codemirror.next`, live cursors, presence, offline reconnect, compaction                        |
+| 6    | **Attribution:** `clientID → userId` mapping, blame gutter, mixed-authorship rendering, contribution rollup into CRediT                               |
+| 7    | **Local Git:** isomorphic-git on IndexedDB, encrypted objects in R2, idle auto-commit, source control panel (stage/diff/commit/branch), history graph |
+| 8    | **GitHub link:** GitHub App auth, push/pull/fetch, ahead-behind status, divergence handling, three-way conflict resolver                              |
+| 9    | **PR workflow:** list/create/review/merge, checks status; templates and import/export                                                                 |
 
 Four weeks longer than v3's estimate. Real-time, attribution, and the full source control experience are genuinely new scope, not a re-label.
 
 **Fallbacks, in strict order if the schedule slips:**
+
 1. **Drop the PR workflow (week 9).** GitHub's own UI is one click away, and §8.8 argues the native suggestion flow is the better review path for most researchers anyway. Cheapest cut by far.
 2. Drop GitHub linking entirely; keep local Git — saves ~1.5 weeks, loses interop only
 3. Drop Git entirely, keep §8.2 attribution — attribution is what actually answers "track every line"
@@ -286,20 +294,20 @@ If the week-1 WASM spike fails: editor, completion, linting, real-time, attribut
 
 ## 11. Risks
 
-| Risk | Mitigation |
-|---|---|
-| WASM engine can't handle real theses (package gaps, memory) | Week-1 spike is the go/no-go. Server-side fallback is the escape hatch. |
+| Risk                                                                                    | Mitigation                                                                                                                                                                            |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| WASM engine can't handle real theses (package gaps, memory)                             | Week-1 spike is the go/no-go. Server-side fallback is the escape hatch.                                                                                                               |
 | **Git objects grow unboundedly in R2** — every commit of a 5 MB thesis stores new blobs | Content-addressed dedupe over plaintext hashes means unchanged files cost nothing; pack loose objects on a schedule; cap history depth per project with a documented retention window |
-| **`clientID → userId` mapping is lost** → blame data is orphaned and unrecoverable | Write the mapping row on connect, *before* the first update is accepted; never garbage-collect it; treat it as durable data, not session state |
-| Durable Object becomes a single point of failure for a file | DO restarts are transparent to Yjs — clients re-sync from `LatexUpdate`. Test by killing the DO mid-edit. |
-| Awareness traffic saturates the DO with many collaborators | Throttle to 30 Hz, coalesce, and cap concurrent live editors per file (~15) with overflow demoted to read-only-live |
-| Users expect Git to be the source of truth and are confused when it lags | UI never presents Git as live state: label it "Version history", show last-commit time explicitly, and make the auto-commit trigger visible |
-| **A merged PR silently diverges the repo from the live Yjs doc** | Never auto-pull; surface "N commits behind" persistently; pull is explicit and warns when live editors are connected (§8.7) |
-| Pulling replaces the document under someone's cursor mid-edit | Apply as one transaction, broadcast through the DO so all clients converge, name the connected editors in the confirmation |
-| Scope creep into "we built VS Code" | Git is bound to a `LatexProject`; no arbitrary repo browsing, no extensions, no terminal (§8.8) |
-| GitHub App token handling (1-hour installation tokens) leaks or expires mid-operation | Refresh server-side in a Worker, never expose installation tokens to the browser, proxy every GitHub API call |
-| 30 MB initial TeX download feels broken | Honest progress UI; prefetch during editor idle; cache permanently |
-| Log parsing is worse than it looks | Budget a full week; test against deliberately broken documents |
-| SyncTeX mapping drifts on multi-file projects | Parse the full `.synctex` file tree, not just the root |
-| Citation keys change and break drafts | `Work.citationKey` immutable once assigned — enforce in the DB |
-| Mobile LaTeX editing is genuinely hard | Target *reading and commenting* on mobile, *editing* on tablet and desktop. Say so; don't pretend otherwise. |
+| **`clientID → userId` mapping is lost** → blame data is orphaned and unrecoverable      | Write the mapping row on connect, _before_ the first update is accepted; never garbage-collect it; treat it as durable data, not session state                                        |
+| Durable Object becomes a single point of failure for a file                             | DO restarts are transparent to Yjs — clients re-sync from `LatexUpdate`. Test by killing the DO mid-edit.                                                                             |
+| Awareness traffic saturates the DO with many collaborators                              | Throttle to 30 Hz, coalesce, and cap concurrent live editors per file (~15) with overflow demoted to read-only-live                                                                   |
+| Users expect Git to be the source of truth and are confused when it lags                | UI never presents Git as live state: label it "Version history", show last-commit time explicitly, and make the auto-commit trigger visible                                           |
+| **A merged PR silently diverges the repo from the live Yjs doc**                        | Never auto-pull; surface "N commits behind" persistently; pull is explicit and warns when live editors are connected (§8.7)                                                           |
+| Pulling replaces the document under someone's cursor mid-edit                           | Apply as one transaction, broadcast through the DO so all clients converge, name the connected editors in the confirmation                                                            |
+| Scope creep into "we built VS Code"                                                     | Git is bound to a `LatexProject`; no arbitrary repo browsing, no extensions, no terminal (§8.8)                                                                                       |
+| GitHub App token handling (1-hour installation tokens) leaks or expires mid-operation   | Refresh server-side in a Worker, never expose installation tokens to the browser, proxy every GitHub API call                                                                         |
+| 30 MB initial TeX download feels broken                                                 | Honest progress UI; prefetch during editor idle; cache permanently                                                                                                                    |
+| Log parsing is worse than it looks                                                      | Budget a full week; test against deliberately broken documents                                                                                                                        |
+| SyncTeX mapping drifts on multi-file projects                                           | Parse the full `.synctex` file tree, not just the root                                                                                                                                |
+| Citation keys change and break drafts                                                   | `Work.citationKey` immutable once assigned — enforce in the DB                                                                                                                        |
+| Mobile LaTeX editing is genuinely hard                                                  | Target _reading and commenting_ on mobile, _editing_ on tablet and desktop. Say so; don't pretend otherwise.                                                                          |

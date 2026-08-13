@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "24"
+
+jobs:
+  # ───────────────────────────────────────────────────────────────────────────
+  # Static checks. Fast, so they run first and fail fast.
+  # ───────────────────────────────────────────────────────────────────────────
+  static:
+    name: Typecheck · lint · format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm format:check
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Secret-boundary checks. ESLint covers the AST cases; these catch the rest
+  # (string interpolation, template config, comments that become code).
+  # ───────────────────────────────────────────────────────────────────────────
+  boundaries:
+    name: Security boundaries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Service-role key must not reach client-reachable code
+        run: |
+          if grep -rn --include='*.ts' --include='*.tsx' \
+               -e 'SUPABASE_SERVICE_ROLE_KEY' -e 'SUPABASE_SECRET_KEY' \
+               apps/*/src \
+             | grep -v '/src/server/'; then
+            echo "::error::Service-role key referenced outside src/server/ — it bypasses RLS entirely."
+            exit 1
+          fi
+          echo "ok: service-role key confined to src/server/"
+
+      - name: set_config may only appear in the withUserContext helper
+        run: |
+          # R-02: one helper owns the claim, or the guarantee is unenforceable.
+          if grep -rn --include='*.ts' --include='*.tsx' 'set_config' \
+               apps packages --exclude-dir=node_modules --exclude-dir=generated \
+             | grep -v 'packages/db/src/index.ts'; then
+            echo "::error::set_config outside packages/db/src/index.ts. See docs/05-resolution-plan.md R-02."
+            exit 1
+          fi
+          echo "ok: set_config confined to the withUserContext helper"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # THE merge gate. Untested RLS is not security.
+  # docs/05-resolution-plan.md R-02 · hazard B-03 (keep it under 90s).
+  # ───────────────────────────────────────────────────────────────────────────
+  rls:
+    name: RLS suite (pgTAP + concurrency)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Start Supabase
+        run: pnpm exec supabase start -x studio,realtime,storage-api,imgproxy,mailpit,edge-runtime
+
+      - name: Apply migrations
+        run: pnpm exec supabase db reset --no-seed
+
+      - name: Run RLS suite
+        run: pnpm db:test
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+      - name: Assert no table escaped RLS
+        run: |
+          # Belt and braces: the pgTAP suite asserts this too, but a migration
+          # that fails halfway could leave a table exposed with tests skipped.
+          PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres \
+            -v ON_ERROR_STOP=1 -At -c "
+              select c.relname from pg_class c
+              join pg_namespace n on n.oid = c.relnamespace
+              where n.nspname='public' and c.relkind='r'
+                and c.relname <> '_prisma_migrations'
+                and (c.relrowsecurity = false or c.relforcerowsecurity = false);
+            " > /tmp/unprotected.txt
+          if [ -s /tmp/unprotected.txt ]; then
+            echo "::error::Tables without FORCE RLS:"; cat /tmp/unprotected.txt; exit 1
+          fi
+          echo "ok: every public table has RLS enabled and forced"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # G-07: accessibility is a launch requirement and a procurement gate.
+  # Retrofitting it at Phase 7 is the classic way to miss it.
+  # ───────────────────────────────────────────────────────────────────────────
+  a11y:
+    name: Accessibility (axe-core)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - run: pnpm exec playwright install --with-deps chromium
+        working-directory: apps/web
+      - run: pnpm --filter @porcupine/web build
+      - run: pnpm --filter @porcupine/web test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 7
