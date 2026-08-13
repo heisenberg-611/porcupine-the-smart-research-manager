@@ -32,7 +32,7 @@ Promote any ADR to its own file when it needs fuller argument.
 **Most likely to be revisited:**
 
 - **ADR-007** (client-side WASM LaTeX) — conditional on the week-1 spike in Phase 5.
-- **ADR-020** — the relay is the only reason Cloudflare remains in the stack, and it sits behind the `CollabTransport` interface. If running three hosts proves operationally annoying, swapping to a self-hosted `y-websocket` on Fly.io (~$5/mo) is an adapter rewrite, not a product rewrite. **This is now the stack's highest-risk unknown**, replacing ADR-011's workerd spike.
+- **ADR-020** — ~~the stack's highest-risk unknown~~. **Spiked and validated 2026-08-13** against real workerd and real Durable Objects: 13 acceptance tests green, ticket forgery/expiry/rebinding all rejected, epoch enforcement working, no content loss across a full disconnect cycle. Local fan-out p95 was 0.7 ms, so the relay contributes ~0 to the 150 ms budget — the budget is network, which is what it was always going to be. It still sits behind `CollabTransport`; swapping to a self-hosted `y-websocket` on Fly.io (~$5/mo) remains an adapter rewrite if three hosts proves operationally annoying. See `../BUILD-LOG.md`.
 - **ADR-013** — a deliberate deferral, not a conclusion.
 - **ADR-014** — reversible by design. The Claims panel is editor-agnostic and `Document`/`DocUpdate` stay in the schema, so building Phase 4b confidential mode is additive rather than a rewrite. Expect the first institution that refuses Google Drive to trigger it.
 

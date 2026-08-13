@@ -61,8 +61,8 @@ Two tools want to own migrations. The split:
 | 2.5 | Design tokens + component scaffold                                     | Theme tokens, dark mode, focus-visible rings, one form pattern                                                                                               |
 | 2.6 | **`axe-core` in Playwright** (G-07)                                    | CI fails on any WCAG 2.2 AA violation                                                                                                                        |
 | 2.7 | `Work.language` + `simple` FTS config in the baseline migration (R-14) | Column exists before `Work` has rows — retrofitting later is an outage                                                                                       |
-| 2.8 | Docs named-range marker format written down (R-08)                     | One paragraph in `02-security-and-e2ee.md`; unrecoverable if deferred                                                                                        |
-| 2.9 | Provisional pricing numbers (R-20, forced by C-22)                     | A table in `00-product-plan.md`, placeholders allowed                                                                                                        |
+| 2.8 | Docs named-range marker format written down (R-08)                     | **Done** — `00-product-plan.md` §5.2 (landed there, not `02`: it is a data-format decision, not a security one)                                              |
+| 2.9 | Provisional pricing numbers (R-20, forced by C-22)                     | **Done** — `00-product-plan.md` §8.1                                                                                                                         |
 
 ## Week-1 spikes — run in parallel, each can invalidate an assumption
 
@@ -82,7 +82,7 @@ Two tools want to own migrations. The split:
 - [x] `axe-core` blocking merges — desktop + mobile viewports
 - [x] Sign up → create project → invite member, all RLS-enforced — 20 e2e checks
 - [x] Identity keypairs stored for every signup
-- [ ] Three spikes reported on, with a written go/no-go per ADR
+- [x] DO relay spike (R-21) — **GO**, 13 tests green. R-01 and ADR-007 spikes still outstanding
 
 **Not in Phase 0:** any encryption in use, any bibliographic API, any PDF, any LaTeX, any Google integration. The temptation to start Phase 1 early is the single most likely way this plan fails.
 

@@ -210,6 +210,20 @@ Does: create a Doc from a project template; push a formatted claim or evidence s
 
 Does not: render live provenance chips inside the Doc (Google has no custom block type), programmatically accept or reject suggestions (Google's suggestion mode isn't exposed for that), or search Doc content in your local index.
 
+**The provenance marker format (R-08) — decided now, because it cannot be decided later.**
+
+Anything Porcupine writes into a Doc is wrapped in a **Google Docs named range**:
+
+| Content pushed | Named range |
+|---|---|
+| A citation | `pcp.cite.<citationKey>` |
+| A claim with its supporting evidence | `pcp.claim.<claimId>` |
+| A generated bibliography block | `pcp.bib.<protocolVersion>` |
+
+Named ranges are invisible to the writer, survive ordinary editing, and are readable through the Docs API. Sentinel text — `[[pcp:cite:smith2020]]` and the like — was the obvious alternative and is worse in every way: users delete it, reformat it, or paste it into their own prose, and it is ugly in a document a supervisor reads.
+
+**Why this is a Phase 0 decision about a Phase 4 feature.** The Doc → LaTeX import in Phase 5 (C-08) converts markers back into `\cite{}`. Documents written before the marker format exists have no markers, and there is no way to reconstruct them — the information was never captured. Every Doc written between shipping the integration and settling this format would be permanently un-importable. Ranges are cheap to write and cost nothing if unused, so they go in from the first Doc.
+
 **The authorization seam — the part most likely to cause a security incident.** Removing someone from a Porcupine project does **not** remove their Google Drive access. You now have two sources of truth for who can read what. Mitigation: Porcupine owns the Doc, mirrors membership changes to Drive permissions via the API on every membership write, runs a nightly reconciliation that reports drift, and shows the _actual_ Drive permission list in the project UI rather than assuming it matches. Treat any drift as a security finding.
 
 ### Bibliographic APIs (the discovery layer — all free)
@@ -364,6 +378,30 @@ Target story: _a supervisor and three master's students run a 300-paper systemat
 **Out of MVP:** everything encrypted, documents, LaTeX, PRISMA, offline, contribution analytics, SSO, Zotero two-way sync, citation graph.
 
 If you build any of the "out" list before the "in" list is in a real lab's hands, this takes two years and misses what researchers actually need.
+
+---
+
+## 8.1 Pricing (R-20 — provisional, but decided)
+
+C-20 said "decide before the pilot." C-22 made it sooner: **Vercel Hobby forbids commercial use**, so the day anyone pays, the deploy must already be on Pro. The numbers below are provisional; the *shape* is not.
+
+| Tier | Price | Who | Limits |
+|---|---|---|---|
+| **Free** | $0 | Individual students and researchers | 1 project · 2 GB storage · unlimited collaborators on that project |
+| **Researcher** | $6/mo | A PhD student who wants their whole thesis in here | Unlimited projects · 20 GB · LaTeX studio · GitHub linking |
+| **Lab** | $5/seat/mo, 3 seats min | A PI with a group | Everything above · shared corpus · supervisor dashboard · 50 GB pooled |
+| **Institution** | Quoted | Procurement got involved | SSO, DPIA, retention policy, self-host option, invoicing |
+
+**Why this shape.**
+
+- **Free must be genuinely useful, not a trial.** Research tools spread bottom-up (C-18) — a student adopts it, then their lab, then the department. A crippled free tier kills the only distribution channel this product has. One real project, fully featured, is the right free tier.
+- **Collaborators on a free project are free.** Charging per collaborator would tax exactly the behaviour the product exists to encourage, and it is how a four-person team decides to keep using a shared Google Doc instead.
+- **Storage is the metered axis** because storage is the cost that scales with users (R-04). Everything else on the stack is near-flat.
+- **Supervisors are never billed.** A supervisor with eight students would face the largest bill and gets the least value per project. Free reviewer seats are a customer-acquisition channel, not a loss.
+
+**Unit economics at pilot scale.** Infrastructure is ~$45/mo fixed (§5.1) plus ~$0.015/GB-mo of R2. One paying Researcher covers the fixed cost at roughly eight subscribers. That is not a business yet, but it means the product does not lose money per user, which is the property that matters before there is a business.
+
+**Revisit when** the first real corpus tells us the OA dedupe rate (R-04 assumes 45%, optimistic outside biomedicine). If it is much lower, storage tiers move, not prices.
 
 ---
 

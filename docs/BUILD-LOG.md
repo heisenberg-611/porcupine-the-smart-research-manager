@@ -186,3 +186,71 @@ Three assertions are worth naming because they encode decisions rather than beha
 - The 198 KB libsodium patch should be dropped the moment upstream fixes the ESM artifact.
 
 ---
+
+## 2026-08-13 · R-21 spike — the collaboration relay · **GO**
+
+**Trigger.** ADR-020 was the highest-risk unknown left in the stack: Vercel cannot hold an inbound WebSocket, and nothing in the codebase proved a Durable Object could do the job.
+
+**Verdict: GO.** ADR-020 stands. `apps/relay` is real code, not a throwaway.
+
+### Shipped
+
+- `packages/shared/src/relay-ticket.ts` — Ed25519 ticket mint/verify on Web Crypto only, so identical code runs on Node 24 and workerd. Plus the wire protocol types.
+- `apps/relay` — Worker + `LatexDoc` Durable Object, SQLite-backed, WebSocket Hibernation.
+- `apps/web/src/server/relay.ts` — the minting half, which is the side that owns the database.
+- `apps/relay/scripts/generate-keys.mjs` — per-environment keypair generation.
+
+### Verification — 13 acceptance tests, real workerd
+
+```
+ticket authorization   ✓ 8   no ticket · non-upgrade GET · health · forged signature
+                             · edited payload · expired · wrong file · valid
+collaboration          ✓ 3   awareness fan-out (not to sender) · persistence and
+                             replay to a late joiner · stale-epoch rejection
+latency budget         ✓ 1   p50 0.3ms · p95 0.7ms over 120 rounds, 4 clients
+durability             ✓ 1   no content loss across a full disconnect cycle
+```
+
+**On the latency number.** 0.7 ms p95 is loopback, and it does *not* mean production p95 will be 0.7 ms. What it proves is that **the relay contributes approximately nothing to the 150 ms budget** — the budget is network RTT, which is what it was always going to be, and which a single-region DO fan-out is the right shape for. Claiming the acceptance criterion is met in production would be dishonest until it runs on real Cloudflare with real clients.
+
+**The 20-minute soak was not run.** Thirteen scripted tests are not the same as four humans editing for twenty minutes. That test belongs in Phase 5 against a real Yjs document, and it is recorded as outstanding rather than quietly dropped.
+
+### Decisions made during the build
+
+1. **Ed25519, not HMAC.** With a shared secret the relay would hold a key capable of *minting* tickets, so compromising it would mean forging access to any document. Asymmetric means the relay can only verify, and a full compromise yields nothing beyond the ciphertext it was already shuffling.
+2. **Tickets are bound to a file, and `expectedFileId` is a required argument.** A ticket that verifies cryptographically but was minted for another document is precisely the attack the binding exists to stop; making the check optional invites forgetting it.
+3. **The relay fails closed with no key configured** — 503, never a fallback to trusting the ticket payload.
+4. **Rejection reasons go in a header, never the response body.** The body is what a curious browser console displays.
+5. **`mintRelayTicket` performs no authorization of its own.** A helper that sometimes checks and sometimes doesn't is worse than one that never does, because the caller stops thinking about it. Callers must have run `is_project_member` first, and the doc comment says so.
+6. **Awareness and updates are separate channels on one socket.** Awareness is fanned out and never stored; updates are appended and replayed. Keeping them distinct is what stops cursor traffic from bloating document history — the exact failure that made Supabase Realtime the wrong shape.
+
+### Deviations
+
+| Expected | Reality |
+|---|---|
+| Relay would be the hard part | It was the easy part. The DO model fits this problem almost exactly — one actor per file, hibernation for idle cost, SQLite for the op log. The fiddly work was ticket handling, not collaboration. |
+| 20-minute four-browser soak | Deferred to Phase 5 with a real Yjs document. Scripted tests cover the mechanics; the soak covers the thing scripts can't. |
+
+### Problems hit
+
+1. **`pnpm` wrote a malformed `allowBuilds` entry** (`workerd: set this to true or false`) into `pnpm-workspace.yaml`, producing a YAML duplicate-key error that broke every subsequent command. Hand-corrected.
+2. **Node's `fetch` refuses to send an `Upgrade` header** (`UND_ERR_INVALID_ARG`), so the no-ticket case had to go through a real socket. Turned into three sharper tests instead of one.
+3. **`packages/shared` had no DOM lib**, so `TextEncoder`, `crypto`, `CryptoKey`, and `btoa` were untyped. Added `DOM` — these globals exist in both Node 24 and workerd; the DOM lib is just where TypeScript keeps their declarations.
+4. **ESLint's `no-undef` fired on `crypto` and `Buffer`** in scripts and tests. Extended the globals block to cover test files too.
+
+### Also closed this session
+
+The last two Phase 0 pre-flight items, both doc-only:
+
+- **R-08 — the Docs provenance marker format.** Google Docs **named ranges**: `pcp.cite.<citationKey>`, `pcp.claim.<claimId>`, `pcp.bib.<protocolVersion>`. Invisible to the writer, survive editing, readable via the API. Sentinel text was the alternative and is worse in every way — users delete it, reformat it, and paste it into their prose. Recorded in `00-product-plan.md` §5.2 **with the reason it could not wait**: Docs written before the format exists have no markers and cannot be retrofitted, so every Doc in that window would be permanently un-importable by the Phase 5 Doc → LaTeX path.
+- **R-20 — pricing.** Free (1 project, 2 GB, unlimited collaborators) · Researcher $6/mo · Lab $5/seat · Institution quoted. Numbers provisional, shape not. Collaborators and supervisors are never billed — charging for them taxes exactly the behaviour the product exists to encourage. Storage is the metered axis because storage is the cost that scales with users. In `00-product-plan.md` §8.1.
+
+**Phase 0 is complete.** Every definition-of-done item is ticked and every pre-flight item is closed.
+
+### Open
+
+- The 20-minute soak, in Phase 5.
+- `docEpoch` currently bootstraps from the first ticket. Phase 5 must make Postgres the authority and have the relay read it, or a malformed first connection could pin a document to the wrong epoch.
+- The remaining two spikes: **R-01** (`docEpoch` protocol, offline-Alice/PR-Bob) and **ADR-007** (WASM TeX on a real thesis).
+
+---

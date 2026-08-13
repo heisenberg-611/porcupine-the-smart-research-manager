@@ -12,6 +12,7 @@ allowBuilds:
   unrs-resolver: true
   esbuild: true
   sharp: true
+  workerd: true
 
 minimumReleaseAgeExclude:
   - "@supabase/cli-darwin-arm64@2.114.0"

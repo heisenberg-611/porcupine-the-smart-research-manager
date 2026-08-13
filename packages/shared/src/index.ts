@@ -4,3 +4,4 @@
  * runtime-specific: the relay runs on workerd, the app runs on Node.
  */
 export * from "./capabilities";
+export * from "./relay-ticket";

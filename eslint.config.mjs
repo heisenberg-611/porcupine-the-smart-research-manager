@@ -38,13 +38,23 @@ export default tseslint.config(
   // base `no-undef` applies and needs the runtime globals declared. These
   // are CLI tools — printing to stdout is the point.
   {
-    files: ["**/scripts/**/*.mjs", "**/*.config.mjs"],
+    files: [
+      "**/scripts/**/*.mjs",
+      "**/*.config.mjs",
+      "**/test/**/*.ts",
+      "**/*.{test,spec}.ts",
+    ],
     languageOptions: {
       globals: {
         console: "readonly",
         process: "readonly",
         URL: "readonly",
         fetch: "readonly",
+        crypto: "readonly",
+        Buffer: "readonly",
+        performance: "readonly",
+        setTimeout: "readonly",
+        clearTimeout: "readonly",
       },
     },
     rules: {

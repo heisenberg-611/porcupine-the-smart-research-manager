@@ -126,6 +126,23 @@ jobs:
       - run: pnpm --filter @porcupine/crypto test
 
   # ───────────────────────────────────────────────────────────────────────────
+  # R-21. Runs against real workerd and real Durable Objects — an in-process
+  # mock would prove nothing about the part that is actually uncertain.
+  # ───────────────────────────────────────────────────────────────────────────
+  relay:
+    name: Relay (workerd + Durable Objects)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @porcupine/relay test
+
+  # ───────────────────────────────────────────────────────────────────────────
   # The Phase 0 exit criterion, plus G-07. Needs the full stack: the flow
   # signs up for real, reads the OTP out of Mailpit, and generates real keys.
   # ───────────────────────────────────────────────────────────────────────────
