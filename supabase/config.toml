@@ -243,6 +243,18 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
+# We sign in with a six-digit code, not a magic link: links break in webmail
+# previewers and in-app browsers, and a code can be typed on the device that
+# asked for it. The default templates only render {{ .ConfirmationURL }}, so
+# both templates are overridden to expose {{ .Token }}.
+[auth.email.template.magic_link]
+subject = "Your Porcupine sign-in code"
+content_path = "./supabase/templates/magic_link.html"
+
+[auth.email.template.confirmation]
+subject = "Your Porcupine sign-in code"
+content_path = "./supabase/templates/confirmation.html"
+
 # Uncomment to customize email template
 # [auth.email.template.invite]
 # subject = "You have been invited"

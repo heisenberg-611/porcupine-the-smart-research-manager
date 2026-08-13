@@ -2,10 +2,22 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // Workspace packages ship TypeScript source, not build output.
-  transpilePackages: ["@porcupine/db", "@porcupine/shared"],
+  //
+  // Note: libsodium-wrappers-sumo@0.7.16 ships a broken ESM build that
+  // imports "./libsodium-sumo.mjs" instead of the libsodium-sumo package.
+  // Fixed by patches/libsodium-wrappers-sumo@0.7.16.patch rather than a
+  // bundler alias, so every consumer gets it — including the future relay.
+  transpilePackages: ["@porcupine/db", "@porcupine/shared", "@porcupine/crypto"],
 
-  // The Prisma engine is a native binary and must not be bundled.
-  serverExternalPackages: ["@prisma/client", "@prisma/adapter-pg", "pg"],
+  // The Prisma engine is a native binary and must not be bundled. The
+  // generated client also reaches for runtime-utils, which the bundler
+  // cannot statically resolve.
+  serverExternalPackages: [
+    "@prisma/client",
+    "@prisma/client-runtime-utils",
+    "@prisma/adapter-pg",
+    "pg",
+  ],
 
   typedRoutes: true,
 

@@ -11,7 +11,7 @@ import { expect, test } from "@playwright/test";
  *
  * Every route added to the app should be added here.
  */
-const ROUTES = ["/"] as const;
+const ROUTES = ["/", "/sign-in"] as const;
 
 for (const route of ROUTES) {
   test(`${route} has no WCAG 2.2 AA violations`, async ({ page }) => {

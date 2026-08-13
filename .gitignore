@@ -30,3 +30,7 @@ coverage/
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Next only reads env from the app directory, so this symlinks the
+# workspace-root .env. Gitignored; production env comes from Vercel.
+apps/web/.env.local

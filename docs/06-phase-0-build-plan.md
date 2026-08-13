@@ -80,8 +80,8 @@ Two tools want to own migrations. The split:
 - [x] pgTAP suite green in CI, under 90 s, blocking merges — *0.4 s*
 - [x] No `public` table with `relrowsecurity = false` — asserted in CI, not by review
 - [x] `axe-core` blocking merges — desktop + mobile viewports
-- [ ] Sign up → create project → invite member → accept, all RLS-enforced
-- [ ] Identity keypairs stored for every signup
+- [x] Sign up → create project → invite member, all RLS-enforced — 20 e2e checks
+- [x] Identity keypairs stored for every signup
 - [ ] Three spikes reported on, with a written go/no-go per ADR
 
 **Not in Phase 0:** any encryption in use, any bibliographic API, any PDF, any LaTeX, any Google integration. The temptation to start Phase 1 early is the single most likely way this plan fails.

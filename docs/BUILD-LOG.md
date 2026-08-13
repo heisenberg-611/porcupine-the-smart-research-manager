@@ -107,3 +107,82 @@ These were made at the keyboard and are recorded here rather than as ADRs, becau
 - Week 2: Supabase Auth, identity keypairs at signup, create-project / invite-member, shadcn/ui.
 
 ---
+
+## 2026-08-13 · Phase 0, week 2 — auth, identity keys, and the exit criterion
+
+**Planned:** `06-phase-0-build-plan.md` tasks 2.1–2.9.
+**Status:** the exit criterion is met and passing end to end. Two doc-only pre-flight items remain.
+
+### Shipped
+
+| Task | Outcome |
+|---|---|
+| 2.1 | `withUserContext` was already in place; the ESLint boundary and CI greps now have real code to guard |
+| 2.2 | Supabase Auth — email OTP, browser/server clients, session-refresh middleware, callback + sign-out routes |
+| 2.3 | `packages/crypto` — X25519 + Ed25519 generated in-browser, private bundle wrapped under an Argon2id KEK |
+| 2.4 | Create project (atomic with owner membership), invite member with the ADR-006 history prompt |
+| 2.5 | Hand-written primitives — `Button`, `Field`, `Input`, `Select`, `Textarea`, `Card`, `EmptyState`, `Banner` |
+| 2.6 | a11y gate extended to `/sign-in` |
+| 2.7 | **Done differently, and better** — see Deviations |
+| 2.8 | Still open (doc-only) |
+| 2.9 | Still open (doc-only) |
+
+Also landed: `handle_new_auth_user` trigger, database-level `updated_at` triggers, and OTP email templates.
+
+### Verification
+
+```
+pnpm typecheck      ✓  4 packages
+pnpm lint           ✓  clean        pnpm format:check   ✓  clean
+web build           ✓  8 routes + middleware
+crypto tests        ✓  8 passed
+pnpm db:test        ✓  31 assertions + concurrency · 0.4s
+pnpm test:e2e       ✓  20 passed — 10 checks × desktop and mobile
+```
+
+**The exit criterion runs for real.** The e2e suite signs up through the UI, reads the OTP out of Mailpit, generates actual Argon2id-wrapped keys, creates a project, and invites a supervisor. Nothing is mocked.
+
+Three assertions are worth naming because they encode decisions rather than behaviour:
+- **Enrollment cannot run twice.** Regenerating would strand every ciphertext already wrapped to the old key.
+- **"cannot be recovered" is asserted visible** at the moment the passphrase is shown. If that warning ever moves to a help article, the test fails — which is the point.
+- **The wrapped bundle contains no cleartext private key**, checked by hex-substring search over the exact blob the server stores.
+
+### Decisions made during the build
+
+1. **The recovery passphrase *is* the KEK source.** There is no password to derive from — auth is OTP and OAuth. ADR-009's mandatory recovery codes therefore do double duty as account recovery *and* the only thing between the server and the private keys. Consequence stated in the UI at the moment it matters: lose it, lose encrypted content.
+2. **Six-digit codes, not magic links.** Links break in webmail previewers and in-app browsers, a code can be typed on the device that asked for it, and it is the only variant testable without driving a mail client. Required overriding two Supabase email templates, which default to `{{ .ConfirmationURL }}` only.
+3. **Project creation is one transaction.** `projects_insert_self` lets anyone create a project, but `projects_select_member` makes a member-less project invisible to everyone including its creator. The transaction is what makes the permissive insert policy safe.
+4. **No permission checks in `inviteMember`.** Authorization is entirely the RLS policy's job. Adding an application-level check would create a second source of truth that can drift from the policy.
+5. **Invite errors do not distinguish "no account" from "not permitted."** The `users` policy means a stranger's row genuinely isn't visible, which doubles as not confirming whether an address has an account.
+6. **Prisma client is now lazy** behind a Proxy. Eager construction meant importing a module required a live `DATABASE_URL` — which broke `next build` — and opened a pool in every serverless instance that imported it without querying.
+
+### Deviations from the plan
+
+| Plan said | Reality | Action |
+|---|---|---|
+| 2.5 shadcn/ui | Hand-written primitives | Still deferred. Nothing yet needs a dialog, menu, or combobox — Radix's value is keyboard/focus semantics for those, and there are none. Pulling it in now would be cargo cult. |
+| 2.7 `Work.language` column in the baseline migration | `Work` does not exist until Phase 1 | **Encoded the decision instead**: `text_search_config(lang)` and `build_tsvector(lang, body)`, both `IMMUTABLE` so they can back generated columns. R-14's actual requirement was that the decision be settled before the first searchable table exists — it now is, and Phase 1 inherits it. |
+| 2.2 Google OAuth | Email OTP only | Deferred. Google OAuth needs real credentials and a consent screen, which is setup work with no code risk. The callback route is written and works. |
+
+### Problems hit
+
+1. **libsodium-wrappers-sumo@0.7.16 ships a broken ESM build** — it imports `./libsodium-sumo.mjs`, which is not in the package. The `libsodium-sumo` package *does* ship that ESM artifact; only the specifier is wrong. Tried a bundler alias first (Turbopack mangled the absolute path into a relative one), then fixed it properly with `pnpm patch` changing the specifier to `libsodium-sumo`. **The patch file is 198 KB because the source is minified to one line** — ugly in a diff, but it fixes resolution for every consumer including the future relay, rather than needing an alias in each.
+2. **Argon2id parameters read at module load were `undefined`.** libsodium populates its constants during `ready`, so `crypto_pwhash_OPSLIMIT_INTERACTIVE` captured at import is nothing. Moved to a call-time accessor.
+3. **`@prisma/client-runtime-utils` was in the store but unlinked**, so the generated client (which lives outside `node_modules`) could not resolve it. Added as an explicit dependency.
+4. **`.js` extensions in relative imports don't resolve under `moduleResolution: "Bundler"`.** Correct for NodeNext, wrong here. Stripped.
+5. **`useSearchParams` without Suspense** opted `/sign-in` out of static prerendering and failed the build.
+6. **Next only reads `.env` from the app directory.** Symlinked `apps/web/.env.local` → root `.env`; gitignored, and production env comes from Vercel.
+7. **Playwright gives each test a fresh context**, so the session cookie vanished between steps of what is one continuous journey. Switched to a shared page across the serial block.
+8. **Playwright compiles its config to CJS**, so `import.meta` is unavailable there — used `process.cwd()` instead.
+9. **`getByText("OWNER")` matched three elements** because the generated test email started with `owner-` and `getByText` does case-insensitive substring matching. Renamed the fixtures and used `exact: true`.
+10. **Vitest picked up the Playwright specs.** Scoped it to `src/**`.
+
+### Open going into Phase 1
+
+- **R-21 (DO relay) is still the highest risk in the stack** and still unproven.
+- Pre-flight leftovers, both doc-only: **R-08** (Docs named-range marker format) and **R-20** (pricing numbers, forced by Vercel Hobby's non-commercial ToS).
+- Google OAuth needs credentials before it can be finished.
+- Email invitations for people without accounts need a token table and a transactional provider — folded into G-01 (notifications) in Phase 1.
+- The 198 KB libsodium patch should be dropped the moment upstream fixes the ESM artifact.
+
+---

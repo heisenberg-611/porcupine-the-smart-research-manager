@@ -39,10 +39,19 @@ function createClient(): PrismaClient {
  * Service-context client. Bypasses nothing — `porcupine_app` has no
  * BYPASSRLS — but carries no user claim either, so under RLS it sees
  * nothing until a claim is set. Use `withUserContext` for user-scoped work.
+ *
+ * Constructed lazily on first property access. Eager construction meant that
+ * merely *importing* a module — which Next does when collecting page data at
+ * build time — required a live DATABASE_URL. It also opened a connection
+ * pool in every serverless instance that imported the module without ever
+ * querying.
  */
-export const prisma: PrismaClient = globalForPrisma.prisma ?? createClient();
-
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
+  get(_target, prop, receiver) {
+    globalForPrisma.prisma ??= createClient();
+    return Reflect.get(globalForPrisma.prisma, prop, receiver) as unknown;
+  },
+});
 
 /** Minimal shape of the JWT claims Postgres policies read. */
 export interface UserClaims {

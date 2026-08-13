@@ -1,4 +1,19 @@
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { defineConfig, devices } from "@playwright/test";
+
+// Playwright does not load .env, and it compiles this config to CJS — so no
+// import.meta here. The e2e suite needs the secret key to provision an
+// invitee via the auth admin API: the only use of that key outside
+// src/server, and only in test setup.
+for (const candidate of [".env.local", "../../.env"]) {
+  const envPath = resolve(process.cwd(), candidate);
+  if (existsSync(envPath)) {
+    process.loadEnvFile(envPath);
+    break;
+  }
+}
 
 export default defineConfig({
   testDir: "./e2e",

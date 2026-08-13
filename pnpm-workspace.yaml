@@ -23,3 +23,6 @@ minimumReleaseAgeExclude:
   - "@supabase/cli-windows-arm64@2.114.0"
   - "@supabase/cli-windows-x64@2.114.0"
   - supabase@2.114.0
+
+patchedDependencies:
+  libsodium-wrappers-sumo@0.7.16: patches/libsodium-wrappers-sumo@0.7.16.patch

@@ -11,6 +11,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@porcupine/crypto": "workspace:*",
     "@porcupine/db": "workspace:*",
     "@porcupine/shared": "workspace:*",
     "@supabase/ssr": "^0.12.4",

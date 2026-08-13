@@ -112,8 +112,25 @@ jobs:
   # G-07: accessibility is a launch requirement and a procurement gate.
   # Retrofitting it at Phase 7 is the classic way to miss it.
   # ───────────────────────────────────────────────────────────────────────────
-  a11y:
-    name: Accessibility (axe-core)
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @porcupine/crypto test
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # The Phase 0 exit criterion, plus G-07. Needs the full stack: the flow
+  # signs up for real, reads the OTP out of Mailpit, and generates real keys.
+  # ───────────────────────────────────────────────────────────────────────────
+  e2e:
+    name: E2E + accessibility
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -124,10 +141,36 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:generate
+
+      - name: Start Supabase
+        run: pnpm exec supabase start -x studio,realtime,storage-api,imgproxy,edge-runtime
+
+      - name: Apply migrations
+        run: pnpm exec supabase db reset --no-seed
+
+      - name: Write env for the app
+        run: |
+          # Local stack keys are fixed and public; this is not a secret.
+          cat > .env <<'ENV'
+          DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+          DIRECT_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+          NEXT_PUBLIC_SUPABASE_URL="http://127.0.0.1:54321"
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH"
+          SUPABASE_SECRET_KEY="sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz"
+          ENV
+          ln -sf ../../.env apps/web/.env.local
+
       - run: pnpm exec playwright install --with-deps chromium
         working-directory: apps/web
       - run: pnpm --filter @porcupine/web build
       - run: pnpm --filter @porcupine/web test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 7
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
