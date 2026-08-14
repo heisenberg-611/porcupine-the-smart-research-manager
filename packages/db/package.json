@@ -10,7 +10,8 @@
     "generate": "prisma generate",
     "typecheck": "tsc --noEmit",
     "diff": "node scripts/diff.mjs",
-    "test": "node scripts/pgtap.mjs"
+    "test": "node scripts/pgtap.mjs",
+    "seed": "node scripts/seed.mjs"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",

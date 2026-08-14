@@ -792,7 +792,13 @@ model ExtractionValue {
 
   extraction Extraction    @relation(fields: [extractionId], references: [id], onDelete: Cascade)
   field      ProtocolField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
-  anchor     Anchor?       @relation(fields: [anchorId], references: [id])
+  /// NoAction, explicitly. Prisma's default for an optional relation is
+  /// SetNull, which nobody chose and which contradicts the trigger above: the
+  /// cascade nulls anchor_id, the trigger refuses the update, and the delete
+  /// fails naming a field the user never touched. NoAction rather than
+  /// Restrict so a whole project still deletes in one statement.
+  /// See 20260815090000_anchor_delete_no_action.sql.
+  anchor     Anchor?       @relation(fields: [anchorId], references: [id], onDelete: NoAction)
 
   @@unique([extractionId, fieldId])
   @@index([projectId])

@@ -21,6 +21,7 @@
     "db:diff": "pnpm --filter @porcupine/db diff",
     "db:generate": "pnpm --filter @porcupine/db generate",
     "db:test": "pnpm --filter @porcupine/db test",
+    "db:seed": "pnpm --filter @porcupine/db seed",
     "guards": "bash scripts/guards.sh",
     "check-tests": "bash scripts/check-tests.sh",
     "verify": "bash scripts/verify.sh"
