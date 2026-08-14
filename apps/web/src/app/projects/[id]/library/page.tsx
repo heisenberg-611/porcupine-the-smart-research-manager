@@ -172,6 +172,13 @@ export default async function LibraryPage({
                       {row.works?.title ?? "Untitled"}
                     </Link>
                     <span className="text-muted text-fine mt-0.5 block">
+                      <Link
+                        href={`/projects/${id}/extract/${row.id}`}
+                        className="hover:text-ink underline underline-offset-2"
+                      >
+                        Extract
+                      </Link>
+                      {" · "}
                       {authorLine(row.works?.authors)}
                       {row.works?.venue && ` · ${row.works.venue}`}
                       {row.works?.oa_pdf_url && " · open access"}
