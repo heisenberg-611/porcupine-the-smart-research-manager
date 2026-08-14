@@ -21,7 +21,8 @@
     "db:diff": "pnpm --filter @porcupine/db diff",
     "db:generate": "pnpm --filter @porcupine/db generate",
     "db:test": "pnpm --filter @porcupine/db test",
-    "guards": "bash scripts/guards.sh"
+    "guards": "bash scripts/guards.sh",
+    "verify": "bash scripts/verify.sh"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",

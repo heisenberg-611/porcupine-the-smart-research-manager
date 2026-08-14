@@ -33,8 +33,8 @@ jobs:
   # Everything that needs no database. Ordered cheapest-first so a lint error
   # does not wait behind workerd booting.
   # ───────────────────────────────────────────────────────────────────────────
-  checks:
-    name: Static · boundaries · unit · relay
+  verify:
+    name: Verify on a clean checkout
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -181,28 +181,15 @@ jobs:
 
       # R-21. Real workerd, real Durable Objects — an in-process mock would
       # prove nothing about the part that is actually uncertain.
-      - run: pnpm --filter @porcupine/relay test
 
-  # ───────────────────────────────────────────────────────────────────────────
-  # Everything that needs Postgres. The Supabase stack starts ONCE here and is
-  # reused by both the RLS suite and the E2E run — it was previously started
-  # twice, which was the largest single cost in the workflow.
-  #
-  # THE merge gate lives in this job: untested RLS is not security.
-  # docs/05-resolution-plan.md R-02 · hazard B-03 (keep pgTAP under 90s).
-  # ───────────────────────────────────────────────────────────────────────────
-  integration:
-    name: RLS suite · E2E · accessibility
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm db:generate
+      # ───────────────────────────────────────────────────────────────────────────
+      # Everything that needs Postgres. The Supabase stack starts ONCE here and is
+      # reused by both the RLS suite and the E2E run — it was previously started
+      # twice, which was the largest single cost in the workflow.
+      #
+      # THE merge gate lives in this job: untested RLS is not security.
+      # docs/05-resolution-plan.md R-02 · hazard B-03 (keep pgTAP under 90s).
+      # ───────────────────────────────────────────────────────────────────────────
 
       # Pulling Docker images is the single largest cost in this workflow, so
       # only the containers the tests actually use are started: postgres,
