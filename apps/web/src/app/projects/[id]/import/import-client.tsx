@@ -125,7 +125,15 @@ export function ImportClient({ projectId }: { projectId: string }) {
 
             {preview.works.length > 0 && (
               <>
-                <ul className="border-border divide-border divide-y rounded-lg border">
+                {/* Named, so it can be addressed. It used to be found as "the
+                    first list on the page", which stopped being true the day
+                    the project nav — itself a list — was added above it. An
+                    accessible name is both the fix and the thing that should
+                    have been there anyway. */}
+                <ul
+                  aria-label="References to import"
+                  className="border-border divide-border divide-y rounded-lg border"
+                >
                   {preview.works.map((work, index) => (
                     <li key={index} className="p-3">
                       <p className="text-ink text-ui font-medium">{work.title}</p>
