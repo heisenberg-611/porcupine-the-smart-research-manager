@@ -627,3 +627,120 @@ joining on it would break silently.
   Four humans, one afternoon. No test replaces it.
 
 ---
+
+## 2026-08-14 · Dual extraction and reconciliation — Phase 2b
+
+### Sequencing, stated plainly
+
+`08-phase-2-build-plan.md` deferred this until after real usage, per R-06: the
+loose path first, because the rigorous path is a strict superset and building
+reconciliation for a workflow nobody has exercised is the risk. It was built
+now on request. The argument for waiting has not been answered — it has been
+overridden, which is a decision and not an oversight, and is recorded here so
+nobody later reads the sequence as evidence that the original reasoning was
+wrong.
+
+### Cohen's κ, and the number that must not be printed
+
+    κ = (po − pe) / (1 − pe)
+
+When both extractors used exactly one category — every paper marked "RCT" —
+pe is 1, the denominator is 0, and **κ is undefined**. The tempting
+implementation returns 1.0, "they agreed on everything", and that is precisely
+backwards: a field with no variance says nothing about the raters, because
+chance alone would have produced the same result. Reporting a confident 1.00
+there puts a number in a published methods section that the data does not
+support.
+
+`cohensKappa` returns `number | null` and says why. The UI renders the reason.
+The floating-point form is its own test: pe computes to 0.9999999999999998,
+not 1, so an `=== 0` guard sails past and returns a κ of roughly **-4000**.
+
+κ is reported for **ENUM and BOOLEAN only**. Over free text it measures the
+text rather than the raters — two people writing "randomised controlled trial"
+and "RCT" have agreed completely and would score zero. MULTI_ENUM is excluded
+too: categorical but set-valued, and Cohen's κ is not defined for multi-label
+data. Treating each distinct set as a category is a real technique and a
+*different* statistic, so substituting it quietly would be worse than
+declining.
+
+Raw agreement is shown alongside κ, always, because the two answer different
+questions. 90% agreement with a poor κ is a field where one answer dominates —
+and where saying the same thing every time without reading would score about
+as well.
+
+### Sabotage verification
+
+| sabotage | result |
+| --- | --- |
+| `SECURITY DEFINER` on `evidence_rows` (week 4) | 31 fails; 32 survives correctly |
+| independence rule removed | 11 and 17 fail |
+| capability gate removed | 16 fails — a THESIS could record a reconciliation |
+| type-aware comparison removed | 1, 2, 3, 6 fail |
+| shared's vitest include narrowed | `check-tests.sh` reports the orphan, exits 1 |
+| control byte planted in a source file | guard names the file, exits 1 |
+
+Recorded because the labels do not line up with the rules the way you would
+assume: with the independence rule disabled, assertion 10 **still passes** —
+Alice is caught first by the "your own extraction" rule. Assertion 11 is the
+one that isolates independence.
+
+### Problems
+
+**Three tests that never ran.** The κ tests reported green *without running*:
+`packages/shared` collected only `test/**/*.spec.ts`, so `agreement.test.ts`
+sat in that directory being ignored. That is the third instance — `apps/web`
+had a test script nothing invoked, and `packages/discovery` had the same
+include waiting to do the same. A test that does not run is worse than no
+test: it reports the reassurance of coverage while providing none, and it
+fails in the one direction nobody checks. `scripts/check-tests.sh` now asks
+vitest what it would collect and diffs that against the filesystem.
+
+**A guard that lied.** The first version of the control-byte guard used
+`grep -P`; BSD grep on macOS has no PCRE, so the command failed, printed
+nothing, and the check *passed* with a control byte planted in the tree. Found
+only because every guard in this repo gets sabotage-tested before it is
+believed. A guard that cannot fail is worse than no guard, because it is
+trusted.
+
+**A keyboard trap in reverse, in five tables at once.** axe on the mobile
+viewport: `scrollable-region-focusable`, serious. Every wide table was a
+hand-rolled `overflow-x-auto` div, which scrolls with a mouse or a finger and
+cannot be reached with a keyboard — so a keyboard user never sees the columns
+past the fold, and nothing on screen suggests there are any. WCAG 2.1.1. True
+of the library table since Phase 1; caught only when the reconcile page put a
+narrow enough table in front of axe. Now a `TableScroll` primitive, because
+five hand-rolled copies of one thing is how one of them stays broken.
+
+**A real constraint interaction.** `extractions` is unique on (paper,
+protocol, extractor), and a reconciliation is a row authored by the verifier —
+so a verifier with their own extraction of that paper, even an abandoned
+draft, collides with themselves. The constraint is right: someone who has
+extracted the paper is a third *reader*, not a neutral adjudicator. What was
+wrong was being told so by a raw 23505 naming a unique index.
+
+**Raw control bytes in TypeScript source, three times in one day.** Each from
+pasting a literal control character into a string or regex. `file` reports the
+source as `data`, grep treats it as binary and silently stops matching.
+Nothing in the toolchain said so; ESLint catches a BOM and not these.
+
+**Two fixtures rejected by my own week-1 triggers** — values written after
+submission, and a second reading of one work in one project.
+
+### Open
+
+- **κ is per field and unweighted.** No weighted κ for ordered categories, and
+  no confidence intervals. Both are standard in published reviews and neither
+  is here.
+- Reconciliation resolves to one row; there is no record of *why* a verifier
+  chose one reading over the other. A rationale field is an obvious next step.
+- Nothing detects that two people were assigned the same paper — dual
+  extraction currently happens because two people both chose it.
+- The page-level render time for 300 × 20 is still unmeasured.
+- Unpaywall licence verification; PDF reading, which needs the R2 pipeline.
+- Unchanged from Phase 0: the 20-minute relay soak, `docEpoch` bootstrap
+  authority, R-01 and ADR-007.
+- **Still not proven: whether any of this is bearable for a real review team.**
+  Four humans, one afternoon. No test replaces it.
+
+---
