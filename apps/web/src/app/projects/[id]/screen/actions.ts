@@ -20,6 +20,17 @@ const DecisionInput = z.object({
   toStatus: z.enum(SCREEN_STATUSES),
   excludeReason: z.enum(EXCLUSION_REASON_CODES).nullish(),
   note: z.string().trim().max(1000).nullish(),
+  /**
+   * The status the client was DISPLAYING when the person decided.
+   *
+   * This makes the write a compare-and-swap. Without it, four people
+   * screening the same queue silently overwrite each other: the Phase 1 exit
+   * trial ran 4 members x 5 decisions and produced 7 screened papers, with
+   * every member's UI reporting "5 decided this session". Last writer won,
+   * and a supervisor's exclusion could be reversed by a colleague's include
+   * with no trace anywhere a human would look.
+   */
+  seenStatus: z.enum(SCREEN_STATUSES).nullish(),
 });
 
 /**
@@ -37,7 +48,9 @@ const DecisionInput = z.object({
  */
 export async function recordDecision(
   input: z.input<typeof DecisionInput>,
-): Promise<ActionResult<{ status: ScreenStatus }>> {
+): Promise<
+  ActionResult<{ status: ScreenStatus; conflict?: { by: string; status: string } }>
+> {
   const parsed = DecisionInput.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid decision." };
@@ -46,19 +59,63 @@ export async function recordDecision(
   const claims = await getUserClaims();
   if (!claims) return { ok: false, error: "Not signed in." };
 
-  const { projectId, projectWorkId, toStatus, excludeReason, note } = parsed.data;
+  const { projectId, projectWorkId, toStatus, excludeReason, note, seenStatus } =
+    parsed.data;
 
   try {
     const result = await withUserContext(claims, async (tx) => {
-      const current = await tx.projectWork.findUnique({
-        where: { id: projectWorkId },
-        select: { screenStatus: true, projectId: true },
-      });
+      // SELECT ... FOR UPDATE, not findUnique.
+      //
+      // A plain read leaves a window: two members can both read IDENTIFIED
+      // before either writes, so both pass the compare-and-swap below and one
+      // still overwrites the other. The exit trial reproduced exactly that —
+      // the check caught 14 of 15 collisions and one slipped through.
+      //
+      // Locking the row serializes the read-modify-write, which is the same
+      // reason rate_limit_take() locks (R-22). Prisma has no `forUpdate`, so
+      // this is raw.
+      const locked = await tx.$queryRaw<
+        Array<{ screen_status: string; project_id: string }>
+      >`
+        select screen_status, project_id
+        from project_works
+        where id = ${projectWorkId}::uuid
+        for update
+      `;
+      // The raw read loses Prisma's enum typing; the column is a ScreenStatus
+      // by construction, so narrow it back rather than widening everything
+      // downstream to string.
+      const current = locked[0]
+        ? {
+            screenStatus: locked[0].screen_status as ScreenStatus,
+            projectId: locked[0].project_id,
+          }
+        : null;
 
       // RLS already returned nothing if this user cannot see the row, so a
       // miss here means "not visible to you" and "does not exist" alike.
       if (!current || current.projectId !== projectId)
         return { error: "Paper not found." };
+
+      // Compare-and-swap. Somebody else moved this paper between the moment
+      // it was rendered and the moment the decision arrived, so this decision
+      // is about a paper that no longer exists in the state it was judged in.
+      // Overwriting is the one thing not to do: report it and let the person
+      // move on.
+      if (seenStatus && current.screenStatus !== seenStatus) {
+        const previous = await tx.screeningDecision.findFirst({
+          where: { projectWorkId },
+          orderBy: { createdAt: "desc" },
+          select: { toStatus: true, decider: { select: { displayName: true } } },
+        });
+
+        return {
+          conflict: {
+            by: previous?.decider.displayName ?? "someone else",
+            status: previous?.toStatus ?? current.screenStatus,
+          },
+        };
+      }
 
       if (!canTransition(current.screenStatus as ScreenStatus, toStatus)) {
         return {
@@ -99,7 +156,21 @@ export async function recordDecision(
 
     revalidatePath(`/projects/${projectId}/screen`);
     revalidatePath(`/projects/${projectId}/library`);
-    return { ok: true, data: { status: result.status } };
+
+    if ("conflict" in result && result.conflict) {
+      // Deliberately ok:true — nothing went wrong, the paper is simply
+      // already handled. The client marks it done and moves on rather than
+      // treating it as an error the person has to resolve.
+      return {
+        ok: true,
+        data: {
+          status: result.conflict.status as ScreenStatus,
+          conflict: result.conflict,
+        },
+      };
+    }
+
+    return { ok: true, data: { status: result.status! } };
   } catch (error) {
     // The database trigger raises check_violation when a systematic review
     // excludes without a reason. Translate rather than leaking SQL.

@@ -388,3 +388,61 @@ The measurement lives in `packages/discovery/test/oa-rate.measure.ts`, deliberat
 - Unchanged from Phase 0: the 20-minute relay soak, `docEpoch` bootstrap authority, and the R-01 and ADR-007 spikes.
 
 ---
+
+## 2026-08-14 · Phase 1 exit trial — 4 people, 300 papers · **it found a real bug**
+
+### What ran
+
+Four real accounts, four browser sessions, 300 real papers from OpenAlex imported through the actual import path — parse, dedupe, `upsert_work`, RLS. Not a seeded database: seeding rows behind the app would skip most of what could break at this size.
+
+| step | time |
+| --- | --- |
+| preview 150 BibTeX entries | 163 ms |
+| commit 150 papers | 409 ms |
+| preview + commit second 150 | 174 / 384 ms |
+| library page, 300 rows | 181 ms |
+| progress page | 105 ms |
+| concurrent screening, 4 × 5 | 1552 ms |
+
+Comfortably inside the 3 s budget. **Performance was never the problem.**
+
+### The bug it found
+
+**Four members screening the same queue silently overwrote each other.**
+
+The screen page serves every member an identical list ordered by relevance, and each session starts at index 0 — so all four screened the same papers. 20 decisions produced **7 screened papers**, and every member's UI reported "5 decided this session". Last writer won.
+
+For a systematic review this is serious rather than merely wasteful: a supervisor's exclusion could be reversed by a colleague's include, with no indication anywhere a human would look. And it is invisible to any single-user test, which is exactly why the exit criterion says *four people*.
+
+### The fix, in two parts
+
+1. **Compare-and-swap.** `recordDecision` now takes the status the client was DISPLAYING. If the row has moved since, the decision is refused and reported — `ok: true` with a conflict, because nothing went wrong, the paper is simply already handled.
+
+2. **`SELECT … FOR UPDATE`.** CAS alone still left a window: two members can both read `IDENTIFIED` before either writes. The trial reproduced it — 14 of 15 collisions caught, one slipped through. Locking the row serializes the read-modify-write, for the same reason `rate_limit_take()` locks (R-22).
+
+| | decisions recorded | distinct papers | silent overwrites |
+| --- | --- | --- | --- |
+| no check | 20 | 5 | **15** |
+| CAS only | 6 | 5 | **1** |
+| CAS + FOR UPDATE | 5 | 5 | **0** |
+
+The screening header also now shows *"N already handled by someone else"*. Duplicated effort is worth surfacing: a screener who cannot see it has no way to know their afternoon overlapped a colleague's.
+
+### Problems hit
+
+1. **The first fix did nothing, and the tests still passed.** The client edit failed to apply — a scripted replacement did not match after Prettier reformatting — so the server had the check and the client never sent the field. Caught only by querying the database directly and seeing 20 decisions again. A green run is not evidence the change took effect.
+2. **The trial's first assertion was wrong.** It expected `screened === 20`, which assumed no collisions. Four people sharing a queue landing on the same paper is legitimate; a decision *silently overwriting* another is not. Rewritten to assert the invariant rather than the tidy number.
+3. **Counting the toast measured the wrong thing.** The conflict message shows only the last outcome, so counting it tested whether the *final* decision happened to collide. Replaced with a running tally, which is better UX anyway.
+
+### What this does NOT prove
+
+Whether screening 300 papers in this UI is bearable. That needs four humans and an afternoon, and no test substitutes for it. Everything above is about correctness and speed, not ergonomics.
+
+### Open
+
+- **A shared queue is still a queue four people collide in.** Conflicts are now detected and reported rather than silent, but nobody is *partitioned*. The product answer is assignment-driven screening — screen your queue, not the project's — and that is a Phase 2 decision, not a bug fix.
+- Unpaywall licence verification, for the real redistributable rate.
+- PDF reading, which needs the R2 file pipeline.
+- Unchanged from Phase 0: the 20-minute relay soak, `docEpoch` bootstrap authority, R-01 and ADR-007.
+
+---
