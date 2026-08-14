@@ -496,3 +496,134 @@ limitation is recorded rather than discovered later.
   Four humans, one afternoon. No test replaces it.
 
 ---
+
+## 2026-08-14 · The evidence table — Phase 2 week 4
+
+### What it had to be
+
+Papers as rows, protocol fields as columns, filter and sort and group, cell →
+source, CSV and XLSX out. `08-phase-2-build-plan.md` 4.1–4.6.
+
+The obvious build selects `v_evidence_table` for the project and pivots it in
+TypeScript. It breaks two requirements at once, and neither failure is loud:
+
+- **4.1**: 6,000 rows over the wire, per keystroke of a filter, before
+  anything renders.
+- **4.2**: sorting in the client sorts only the page already fetched. The top
+  of a "sorted" 300-row table would be the top of whichever 100 rows arrived
+  first — which looks exactly like a sorted table.
+
+So `evidence_rows()` pivots, filters, sorts, groups and pages in Postgres, and
+the page renders what it is handed.
+
+### Measured — 4.1's budget
+
+300 papers × 20 fields, 5,140 recorded values, on the local stack:
+
+| query | time |
+| --- | --- |
+| page 1, sorted by title | 55.6 ms |
+| sorted by a NUMBER column, descending | 53.1 ms |
+| filtered on a text column | 52.4 ms |
+| grouped | 51.3 ms |
+| the whole 300-row export | 51.2 ms |
+| coverage view | 0.6 ms |
+
+Against a 3 s budget. **This measures the database, not the page** — server
+render, network and React are not in these numbers. The database was the part
+at risk, and it is now using under 2% of the budget; the rest is unmeasured
+and should not be assumed.
+
+### The type-aware sort
+
+Sample sizes of 3, 9, 25, 100 sort lexically as 100, 25, 3, 9. The fixture
+picks numbers where numeric order and lexical order are **not reverses of each
+other**, so a direction bug cannot pass itself off as a type bug.
+
+The regex guard around the cast matters more than the cast. Nothing at the
+database level stops prose landing in a NUMBER column — one test paper's
+sample size is `'not reported'`, which is what real extractions look like —
+and an unguarded `::numeric` aborts the **entire query**. One untidy cell
+would blank the whole evidence table. Non-numeric sorts last instead.
+
+### Sabotage verification
+
+| sabotage | result |
+| --- | --- |
+| `SECURITY DEFINER` on `evidence_rows` | assertion 31 fails; 32 correctly survives (the coverage view carries its own `security_invoker`) |
+| numeric branch removed | assertions 1 and 2 fail — lexical order |
+| paging tiebreak removed | **nothing fails, across 5 runs** |
+
+The third is recorded rather than papered over. At five rows Postgres returns
+a stable order regardless, so assertion 25 proves paging behaves — not that
+the tiebreak is load-bearing. It stays because the reasoning is right; it is
+simply not a verified guard, and saying so is cheaper than believing it.
+
+### Problems
+
+**The mobile viewport found three real defects, none of them test artefacts.**
+
+1. **A sticky column is opaque and sits on top of what scrolls under it.** At
+   412 px the paper column covered most of the table, and cells behind it
+   could not be clicked at all. Sticky from `sm` up only; on a phone,
+   scrolling the title away beats losing a column.
+2. **A wrapped inline link's bounding box spans its line boxes**, so its
+   centre point can land in the *gap between two lines* — where the click hits
+   the cell, not the link. Visible, enabled, stable, and not clickable. Cells
+   are now one line with the full value in `title`, which is also just how a
+   20-column table stays readable.
+3. **The sticky header swallows anything scrolled to**, including a focused
+   link. Fixed globally with `scroll-padding-top`. This was *not* the cause of
+   the failure being chased at the time, and the comment in `globals.css` says
+   so rather than taking the credit.
+
+**`apps/web` had a `test` script and a vitest config that nothing invoked.** A
+unit test written there would have passed locally and never once run in CI.
+Found while looking for somewhere to put the export tests. Now in
+`pnpm verify`.
+
+**My own week-2 trigger rejected my own test fixture** — a `SYSTEMATIC_REVIEW`
+refused an EXCLUDED paper with no exclusion reason. The rule works.
+
+**A literal BOM and literal control bytes in TypeScript source** made
+`xlsx.ts` stop being a text file: `file` reported `data` and grep treated it
+as binary. Both are now escapes. ESLint caught the BOM; nothing caught the
+control bytes, which is worth remembering.
+
+### Decisions worth recording
+
+**XLSX is hand-written**, ~150 lines over `node:zlib`, rather than SheetJS or
+ExcelJS. The evidence table needs one sheet, strings and numbers, and no
+styling; both libraries are large and bring transitive dependencies. It is
+verified with the system `unzip` — reading my own archive with my own reader
+would happily agree with itself about a wrong offset or a wrong CRC.
+
+**Numbers are written as numeric cells.** Writing everything as a string
+produces a file that opens correctly and cannot be averaged, summed or
+charted — quietly undoing ADR-001's typed plaintext.
+
+**CSV and XLSX values are neutralised against formula injection.** A cell
+beginning `=` `+` `-` `@` is executed on open by Excel, LibreOffice and
+Sheets. That is a live risk here, not a theoretical one: extracted values are
+typed by people, and a systematic review is a document that gets emailed
+around, so whoever opens the file is usually not whoever wrote the cell.
+
+**Column headers are the field keys.** This is what week 2's immutability rule
+was *for*. A label is prose and people improve it; two exports of the same
+review would otherwise disagree about what a column is called, and any script
+joining on it would break silently.
+
+### Open
+
+- **The page-level render time for 300 × 20 is unmeasured.** The database half
+  is 51 ms; the rest is an assumption.
+- Coverage counts a question as answered when *any* included paper answers
+  *any* field tied to it. "Half the papers answer it" is not yet visible.
+- Unpaywall licence verification, for the real redistributable rate.
+- PDF reading, which needs the R2 file pipeline.
+- Unchanged from Phase 0: the 20-minute relay soak, `docEpoch` bootstrap
+  authority, R-01 and ADR-007.
+- **Still not proven: whether screening 300 papers in this UI is bearable.**
+  Four humans, one afternoon. No test replaces it.
+
+---
