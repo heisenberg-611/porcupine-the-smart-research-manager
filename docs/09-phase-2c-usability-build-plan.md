@@ -90,7 +90,17 @@ deliberately absent so the header can stay a server component.
 So moving from Evidence to Screen means going back to the hub first. Every
 lateral move in a nine-screen workspace costs an extra navigation.
 
-### 1.5 There is no overlay layer, so there is no feedback layer
+### 1.5 There is no overlay layer
+
+> **Corrected 2026-08-15, during week 2.** The heading below originally read
+> "…so there is no feedback layer", and the inference was wrong. Every mutation
+> in the app already has pending state, every failure is already announced
+> through `Banner`, which carries `role="alert"`, and the one destructive
+> action that matters — deleting a protocol field — already has a two-step
+> inline confirmation with a written argument for why it is *not* a modal. The
+> audit read "no dialog primitive" and concluded "no feedback", which is a
+> different claim and an unchecked one. The paragraph below is what is
+> actually true; the rest of week 2 was rescoped around it.
 
 `apps/web/src/components/ui.tsx` has thirteen primitives: `Button`, `Field`,
 `Input`, `Textarea`, `Select`, `Checkbox`, `Radio`, `Hidden`, `TableScroll`,
@@ -212,28 +222,36 @@ refers to a phase rather than to what the app does.
 
 *Goal: every action visibly happens, and its outcome is announced.*
 
-**2.1 Add Radix** — `Dialog`, `DropdownMenu`, `Tooltip`, `Tabs`, `Popover` —
-wrapped in `ui.tsx` so pages import Porcupine primitives, never Radix directly.
-One place to restyle, one place for the CI rule to check.
+**Rescoped on contact with the code.** 2.1–2.4 below were written from the
+audit's finding 1.5 and were largely already done; what survived is recorded
+here rather than quietly dropped.
 
-**2.2 One announcement channel.** A single `aria-live` region owned by the
-shell, with a `useAnnounce()` hook. Six components currently improvise this;
-they collapse onto it.
+**2.1 ~~Add Radix~~ — deferred, deliberately.** Nothing in the app currently
+needs a dialog, menu or combobox. The one confirmation that exists is a
+two-step inline pair of buttons with a comment explaining that a modal needs a
+focus trap and escape handling to be correct and that inline is *harder to
+trigger by accident than a dialog whose default button is OK*. That reasoning
+is sound. Adding a dependency because a plan written a day earlier said so
+would contradict this plan's own decisions section. Radix arrives with the
+first screen that genuinely needs an overlay — the evidence table's column
+manager in week 3 is the likely candidate.
 
-**2.3 Pending state on every mutation.** Every server action gets
-`useFormStatus`/`useTransition` wiring: the control disables, says what it is
-doing, and re-enables on the result. Failures surface where the action was, not
-at the top of the page.
+**2.2 ~~One announcement channel~~ — already there.** Failures go through
+`Banner`, which carries `role="alert"`; the pages that report progress wrap it
+in `aria-live="polite"`. Six components do this consistently through a shared
+primitive rather than improvising, which is what the audit assumed.
 
-**2.4 Confirmation for destructive actions only** — removing a member, deleting
-a project, discarding a draft extraction. Everything reversible loses whatever
-friction it has.
+**2.3 ~~Pending state on every mutation~~ — already there.** Every form and
+every action disables its control and names what it is doing ("Sending…",
+"Creating…", "Adding…", "Recording…"). Hand-rolled with `useState` rather than
+`useFormStatus`, which is why the audit's grep missed it. Working code is not a
+refactoring target.
 
-**2.5 Optimistic screening.** The screen queue is the highest-volume interaction
-in the product; a round trip per decision is felt. `useOptimistic`, with the
-existing compare-and-swap refusal as the rollback path — the lost-update guard
-already returns a clean "someone else decided this first", which is exactly what
-an optimistic UI needs to reconcile against.
+**2.4 ~~Confirmation for destructive actions~~ — already there** for the one
+that warrants it. `deleteAnnotation` has none and does not need one: a
+highlight is small, obvious when it goes, and trivially remade.
+
+**2.5 Optimistic screening — done.** ✅ The one item that was real. See below.
 
 ---
 
@@ -268,10 +286,11 @@ is.
 
 *Goal: the two screens people spend hours in stop costing a mouse.*
 
-**4.1 Keyboard-first screening.** `i`/`e` to include and exclude, `1`–`9` for
-exclusion reasons, `j`/`k` to move, `?` for the map. A visible shortcut hint,
-not a hidden feature. Screening 300 papers with a mouse is the single most
-repetitive thing this product asks of anyone.
+**4.1 ~~Keyboard-first screening~~ — done in week 2.** ✅ Moved forward because
+it targets the same surface as 2.5 and shares its tests: doing them apart would
+have meant two rounds of the same end-to-end setup. `i` / `e` / `s`, `1`–`9`
+for exclusion reasons, `?` for the list, and a visible hint rather than a
+hidden feature.
 
 **4.2 The extraction form gets a spine.** Field progress ("12 of 20 answered"),
 visible autosave state, jump-to-field navigation, and required-but-empty called
