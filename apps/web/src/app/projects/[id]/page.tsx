@@ -74,12 +74,26 @@ export default async function ProjectPage({
           {String(project.ownership_model).replace(/_/g, " ").toLowerCase()}
         </p>
 
-        <Link
-          href={`/projects/${id}/search`}
-          className="border-border text-ink hover:bg-surface mt-4 inline-flex min-h-11 items-center rounded-lg border px-4 text-sm font-medium"
-        >
-          Find papers
-        </Link>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Link
+            href={`/projects/${id}/library`}
+            className="border-border text-ink hover:bg-surface inline-flex min-h-11 items-center rounded-lg border px-4 text-sm font-medium"
+          >
+            Library
+          </Link>
+          <Link
+            href={`/projects/${id}/search`}
+            className="border-border text-ink hover:bg-surface inline-flex min-h-11 items-center rounded-lg border px-4 text-sm font-medium"
+          >
+            Find papers
+          </Link>
+          <Link
+            href={`/projects/${id}/import`}
+            className="border-border text-ink hover:bg-surface inline-flex min-h-11 items-center rounded-lg border px-4 text-sm font-medium"
+          >
+            Import
+          </Link>
+        </div>
       </div>
 
       <section>

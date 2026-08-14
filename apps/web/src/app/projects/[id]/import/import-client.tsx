@@ -1,0 +1,155 @@
+"use client";
+
+import { useState, useTransition } from "react";
+
+import { Button, Field } from "@/components/ui";
+
+import { commitImport, previewImport, type ImportPreview } from "./actions";
+
+const FORMAT_LABEL: Record<string, string> = {
+  bibtex: "BibTeX",
+  ris: "RIS",
+  identifiers: "DOIs and arXiv ids",
+};
+
+/**
+ * Import is a two-step flow on purpose.
+ *
+ * It is the operation users are most nervous about: a bad paste that
+ * silently adds 200 wrong papers to a shared corpus is worse than one that
+ * adds nothing. Showing the parsed list first turns it into a decision
+ * rather than a gamble — and the format is detected rather than asked for,
+ * because plenty of people have a file from a supervisor and no idea what
+ * produced it.
+ */
+export function ImportClient({ projectId }: { projectId: string }) {
+  const [source, setSource] = useState("");
+  const [preview, setPreview] = useState<ImportPreview | null>(null);
+  const [outcome, setOutcome] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function onPreview(event: React.FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setOutcome(null);
+
+    startTransition(async () => {
+      const response = await previewImport({ projectId, source });
+      if (response.ok) setPreview(response.data);
+      else {
+        setError(response.error);
+        setPreview(null);
+      }
+    });
+  }
+
+  function onCommit() {
+    setError(null);
+    startTransition(async () => {
+      const response = await commitImport({ projectId, source });
+      if (response.ok) {
+        const { added, alreadyPresent } = response.data;
+        setOutcome(
+          `Added ${added} ${added === 1 ? "paper" : "papers"}` +
+            (alreadyPresent > 0
+              ? `; ${alreadyPresent} were already in the library.`
+              : "."),
+        );
+        setPreview(null);
+        setSource("");
+      } else setError(response.error);
+    });
+  }
+
+  return (
+    <section className="space-y-6">
+      <form onSubmit={onPreview} className="space-y-4">
+        <Field
+          label="Paste references"
+          id="source"
+          hint="BibTeX, RIS, or a list of DOIs and arXiv ids. The format is detected automatically."
+        >
+          <textarea
+            id="source"
+            value={source}
+            onChange={(e) => setSource(e.target.value)}
+            required
+            rows={10}
+            className="border-border bg-surface text-ink w-full rounded-lg border p-3 font-mono text-sm"
+          />
+        </Field>
+
+        <Button type="submit" disabled={pending || !source.trim()}>
+          {pending ? "Reading…" : "Preview"}
+        </Button>
+      </form>
+
+      <div aria-live="polite" className="space-y-4">
+        {error && (
+          <p role="alert" className="text-danger text-sm">
+            {error}
+          </p>
+        )}
+
+        {outcome && <p className="text-ink text-sm font-medium">{outcome}</p>}
+
+        {preview && (
+          <div className="space-y-4">
+            <p className="text-muted text-sm">
+              Read as{" "}
+              <strong className="text-ink">
+                {FORMAT_LABEL[preview.format] ?? preview.format}
+              </strong>
+              {" · "}
+              {preview.works.length} {preview.works.length === 1 ? "paper" : "papers"}{" "}
+              after merging duplicates
+            </p>
+
+            {preview.problems.length > 0 && (
+              <details className="border-border bg-surface rounded-lg border p-3 text-sm">
+                <summary className="text-ink cursor-pointer font-medium">
+                  {preview.problems.length}{" "}
+                  {preview.problems.length === 1 ? "entry" : "entries"} could not be read
+                </summary>
+                {/* Named individually: "3 entries failed" is not actionable,
+                    and the whole point of skipping rather than rejecting is
+                    that the user can go fix the ones that matter. */}
+                <ul className="text-muted mt-2 space-y-1">
+                  {preview.problems.map((problem, index) => (
+                    <li key={index}>{problem}</li>
+                  ))}
+                </ul>
+              </details>
+            )}
+
+            {preview.works.length > 0 && (
+              <>
+                <ul className="border-border divide-border divide-y rounded-lg border">
+                  {preview.works.map((work, index) => (
+                    <li key={index} className="p-3">
+                      <p className="text-ink text-sm font-medium">{work.title}</p>
+                      <p className="text-muted mt-0.5 text-xs">
+                        {work.authors || "Unknown authors"}
+                        {work.venue && ` · ${work.venue}`}
+                        {work.year && ` · ${work.year}`}
+                        {work.doi && ` · doi:${work.doi}`}
+                        {!work.doi && work.arxivId && ` · arXiv:${work.arxivId}`}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+
+                <Button onClick={onCommit} disabled={pending}>
+                  {pending
+                    ? "Adding…"
+                    : `Add ${preview.works.length} ${preview.works.length === 1 ? "paper" : "papers"}`}
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}

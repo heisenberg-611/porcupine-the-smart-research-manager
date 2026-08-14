@@ -196,7 +196,19 @@ password_requirements = ""
 
 [auth.rate_limit]
 # Number of emails that can be sent per hour. Requires auth.email.smtp to be enabled.
-email_sent = 2
+#
+# Raised from the default of 2. This is the LOCAL and CI stack only; it has no
+# bearing on production, where a low limit is a real anti-abuse control.
+#
+# At 2/hour the e2e suite sat exactly on the limit: two Playwright projects
+# (chromium and mobile) sign up once each. CI passed only because every run
+# starts a fresh stack and therefore a fresh counter. Locally, a second run
+# within the hour failed with a blank sign-in form and a 30-second timeout
+# that named nothing — and any third signup test would have broken CI.
+#
+# Tests should fail for the reason under test, not because a shared quota ran
+# out several tests ago.
+email_sent = 100
 # Number of SMS messages that can be sent per hour. Requires auth.sms to be enabled.
 sms_sent = 30
 # Number of anonymous sign-ins that can be made per hour per IP address. Requires enable_anonymous_sign_ins = true.

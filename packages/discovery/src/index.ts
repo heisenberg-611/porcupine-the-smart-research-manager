@@ -12,7 +12,8 @@ export {
 } from "./ssrf";
 export { openalex } from "./providers/openalex";
 export { crossref } from "./providers/crossref";
-export { arxiv } from "./providers/arxiv";
+export { arxiv, arxivByIds } from "./providers/arxiv";
 export { europepmc } from "./providers/europepmc";
 export { semanticscholar } from "./providers/semanticscholar";
 export * from "./relevance";
+export * from "./import";

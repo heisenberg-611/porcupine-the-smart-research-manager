@@ -16,7 +16,7 @@
 -- not by an empty table.
 
 begin;
-select plan(29);
+select plan(30);
 
 set local role postgres;
 
@@ -108,14 +108,36 @@ select is((select count(*) from annotations)::int, 0,
 
 -- ═══════════════ works is global on purpose ═════════════════════════════════
 
+-- Scoped to the fixtures, NOT `count(*)` over the table.
+--
+-- `works` is deliberately global, so its row count is not controlled by this
+-- transaction: anything another test or a local e2e run left behind changes
+-- it. An absolute count passes in CI only because the database happens to be
+-- fresh, which is luck rather than a property. Asserting the fixture rows
+-- also states the actual claim more precisely — a specific work outside the
+-- user's project is visible.
 select set_config('request.jwt.claims',
   '{"sub":"11111111-1111-1111-1111-111111111111"}', true);
-select is((select count(*) from works)::int, 2,
+select is(
+  (select count(*) from works
+    where id in ('c0000000-0000-0000-0000-000000000001',
+                 'c0000000-0000-0000-0000-000000000002'))::int,
+  2,
   'an authenticated user reads every work, not just their project''s');
+
+-- 'second paper' is in nobody's project_works, so seeing it is the property.
+select is(
+  (select title from works where id = 'c0000000-0000-0000-0000-000000000002'),
+  'Second Paper',
+  'a work belonging to no project of theirs is still readable');
 
 select set_config('request.jwt.claims',
   '{"sub":"33333333-3333-3333-3333-333333333333"}', true);
-select is((select count(*) from works)::int, 2,
+select is(
+  (select count(*) from works
+    where id in ('c0000000-0000-0000-0000-000000000001',
+                 'c0000000-0000-0000-0000-000000000002'))::int,
+  2,
   'a user with no project membership still reads the global bibliography');
 
 -- ═══════════════ Everything else is tenant-scoped ═══════════════════════════
