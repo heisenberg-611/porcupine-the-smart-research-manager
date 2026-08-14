@@ -384,6 +384,31 @@ test.describe("Phase 0 exit criterion", () => {
     await expect(page.getByText(/possibly moved|lost in this document/i)).toHaveCount(0);
   });
 
+  test("progress reflects the screening decisions made", async () => {
+    await page.goto("/projects");
+    await page.getByRole("link", { name: /transformer efficiency/i }).click();
+    await page.getByRole("link", { name: /^progress$/i }).click();
+
+    await expect(page.getByRole("heading", { name: /^progress$/i })).toBeVisible();
+
+    // Two papers imported, one included during the screening test.
+    await expect(page.getByRole("term").filter({ hasText: /^Papers$/ })).toBeVisible();
+    const papers = page.locator("dt", { hasText: /^Papers$/ }).locator("+ dd");
+    await expect(papers).toHaveText("2");
+
+    const screened = page.locator("dt", { hasText: /^Screened$/ }).locator("+ dd");
+    await expect(screened).toHaveText("1");
+
+    // The pipeline meters announce their values rather than being decorative.
+    await expect(page.getByRole("meter", { name: /included/i })).toHaveAttribute(
+      "aria-valuenow",
+      "1",
+    );
+
+    // A rate this small must NOT produce a finish-date estimate.
+    await expect(page.getByText(/too few recent decisions/i)).toBeVisible();
+  });
+
   test("signs out and blocks the project list", async () => {
     await page.goto("/projects");
     await page.getByRole("button", { name: /sign out/i }).click();

@@ -166,18 +166,25 @@ export default async function ReadPage({
         </p>
       </div>
 
-      {text ? (
+      {!text && (
+        <p className="border-border text-muted rounded-lg border border-dashed p-6 text-center text-sm">
+          This record has no abstract, so there is no text to annotate yet. Full-text
+          reading arrives with the file pipeline.
+        </p>
+      )}
+
+      {/* The reader renders whenever there is text OR existing annotations.
+          Gating it on text alone made every annotation on an abstract-less
+          record vanish from the page — indistinguishable from having been
+          deleted, when in fact the rows were there the whole time and every
+          anchor had simply resolved to BROKEN against an empty document. */}
+      {(text || annotations.length > 0) && (
         <ReaderClient
           projectId={id}
           projectWorkId={workId}
           text={text}
           annotations={annotations}
         />
-      ) : (
-        <p className="border-border text-muted rounded-lg border border-dashed p-8 text-center text-sm">
-          This record has no abstract, so there is nothing to annotate yet. Full-text
-          reading arrives with the file pipeline.
-        </p>
       )}
     </main>
   );
