@@ -175,6 +175,19 @@ export function Radio({ className, ...props }: ComponentProps<"input">) {
   );
 }
 
+/**
+ * A hidden input, carrying state through a GET form.
+ *
+ * There is nothing to style here, which is exactly why it needs to be a
+ * primitive rather than an exception: the CI rule forbidding raw form controls
+ * has no carve-outs, because the last carve-out it had never matched and let
+ * real controls through for weeks. A rule with one justified exception is a
+ * rule with a hole in it.
+ */
+export function Hidden(props: Omit<ComponentProps<"input">, "type" | "className">) {
+  return <input type="hidden" {...props} />;
+}
+
 export function Card({ className, ...props }: ComponentProps<"div">) {
   return (
     <div

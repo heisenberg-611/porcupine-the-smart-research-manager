@@ -2,7 +2,7 @@ import { resolveAnchor } from "@porcupine/anchoring";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
-import { PageHeader } from "@/components/ui";
+import { Banner, PageHeader } from "@/components/ui";
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -29,13 +29,16 @@ interface AnnotationRow {
 
 export default async function ReadPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string; workId: string }>;
+  searchParams: Promise<{ anchor?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/sign-in");
 
   const { id, workId } = await params;
+  const { anchor: focusAnchorId } = await searchParams;
   const supabase = await createClient();
 
   const projectWork = await must(
@@ -151,6 +154,44 @@ export default async function ReadPage({
       };
     });
 
+  /*
+   * 4.3 · Arriving here from a cell in the evidence table.
+   *
+   * The anchor is re-resolved against the current text like every other one.
+   * That is the point: an evidence cell whose passage no longer exists must
+   * SAY so. Sending someone to a paper and silently showing them the top of it
+   * is worse than not linking at all — they conclude the quote is there and
+   * they simply cannot see it.
+   *
+   * Fetched separately from the annotations above because an extraction's
+   * anchor need not have an annotation attached; the tables are independent.
+   */
+  const focusAnchor = focusAnchorId
+    ? await must(
+        supabase
+          .from("anchors")
+          .select("id, quote, prefix, suffix, start_off, end_off, page")
+          .eq("id", focusAnchorId)
+          .eq("project_id", id)
+          .maybeSingle(),
+        "the passage",
+      )
+    : null;
+
+  const focus = focusAnchor
+    ? resolveAnchor(
+        {
+          quote: focusAnchor.quote,
+          prefix: focusAnchor.prefix ?? undefined,
+          suffix: focusAnchor.suffix ?? undefined,
+          startOff: focusAnchor.start_off ?? undefined,
+          endOff: focusAnchor.end_off ?? undefined,
+          page: focusAnchor.page ?? undefined,
+        },
+        text,
+      )
+    : null;
+
   return (
     <main id="main" className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-12">
       <PageHeader
@@ -165,6 +206,36 @@ export default async function ReadPage({
           </>
         }
       />
+
+      {/* Three outcomes, three different things to say. The failure cases are
+          the ones that matter: both are silent by default. */}
+      {focusAnchorId && !focusAnchor && (
+        <Banner tone="danger">
+          That passage no longer exists. The evidence cell that linked here points at a
+          highlight that has since been deleted.
+        </Banner>
+      )}
+
+      {focus?.status === "BROKEN" && (
+        <Banner tone="danger">
+          <strong>This passage could not be found in the current text.</strong> The
+          evidence recorded against it quoted “{focusAnchor?.quote}”, but the document has
+          changed since. The extraction still stands; its source no longer resolves.
+        </Banner>
+      )}
+
+      {focus?.status === "DRIFTED" && (
+        <Banner>
+          The wording here has changed slightly since this evidence was recorded. Showing
+          the closest match.
+        </Banner>
+      )}
+
+      {focus?.status === "OK" && (
+        <Banner>
+          Showing the passage this evidence came from: “{focusAnchor?.quote}”
+        </Banner>
+      )}
 
       {!text && (
         <p className="border-border text-muted text-ui rounded-lg border border-dashed p-6 text-center">

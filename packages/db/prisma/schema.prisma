@@ -769,6 +769,9 @@ model Extraction {
   /// rows by two people, never one row edited twice.
   @@unique([projectWorkId, protocolId, extractorId])
   @@index([projectId, status])
+  /// evidence_rows() filters on exactly this pair. Neither the index above nor
+  /// the unique constraint (which leads with projectWorkId) serves it.
+  @@index([projectId, protocolId], map: "extractions_project_protocol_idx")
   @@map("extractions")
 }
 

@@ -137,6 +137,25 @@
 }
 
 /*
+ * The app header is sticky, so anything the browser scrolls to — a focused
+ * link, an in-page anchor, a cell reached from the evidence table — lands
+ * UNDERNEATH it and is neither visible nor clickable.
+ *
+ * A keyboard user tabbing through a long page hits this: the thing they just
+ * focused is behind the header, with no indication of why.
+ *
+ * (Added while chasing a mobile e2e failure that turned out to be a sticky
+ * TABLE COLUMN, not the header. Kept because the problem it describes is real
+ * and separate — it was simply not that bug.)
+ *
+ * Slightly more than the header's height, so the target clears it rather than
+ * touching it.
+ */
+html {
+  scroll-padding-top: 4.5rem;
+}
+
+/*
  * Serif for display type only. Setting it on `body` would put the whole UI —
  * buttons, labels, table cells — in a serif, which reads as costume rather
  * than as character. The serif earns its place on titles and prose.

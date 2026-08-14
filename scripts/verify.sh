@@ -28,6 +28,9 @@ run "shared"             pnpm --filter @porcupine/shared test
 run "crypto"             pnpm --filter @porcupine/crypto test
 run "discovery"          pnpm --filter @porcupine/discovery test
 run "anchoring"          pnpm --filter @porcupine/anchoring test
+# apps/web had a `test` script and a vitest config that NOTHING invoked. A unit
+# test written there would have run green locally and never once in CI.
+run "web"                pnpm --filter @porcupine/web test
 
 # Everything below needs the local stack. Say so plainly rather than letting
 # psql fail with ECONNREFUSED, which names a port and not a fix.
@@ -40,16 +43,20 @@ if ! curl -fsS -m 3 -o /dev/null http://127.0.0.1:54321/auth/v1/health 2>/dev/nu
 fi
 
 if [ "${1:-}" = "--e2e" ]; then
-  # Needs the local stack. `db reset` first so the RLS suite and the browser
-  # tests start from the same clean state CI gives them.
+  # `db reset` first so the RLS suite and the browser tests start from the same
+  # clean state CI gives them.
   run "migrations"       pnpm exec supabase db reset --no-seed
-  run "RLS suite"        pnpm db:test
+fi
+
+run "RLS suite"          pnpm db:test
+run "RLS coverage"       bash scripts/assert-rls.sh
+
+if [ "${1:-}" = "--e2e" ]; then
   run "schema drift"     pnpm db:diff
   run "build"            pnpm --filter @porcupine/web build
   # A port of its own, so a dev server on 3000 does not have to be killed.
   E2E_PORT="${E2E_PORT:-3100}" run "e2e + axe" pnpm --filter @porcupine/web test:e2e
 else
-  run "RLS suite"        pnpm db:test
   printf '\n\033[33mSkipped: build and e2e. Run `pnpm verify --e2e` before pushing UI changes.\033[0m\n'
 fi
 
