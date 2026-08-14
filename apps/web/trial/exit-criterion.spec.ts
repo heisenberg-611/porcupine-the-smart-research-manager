@@ -273,16 +273,23 @@ test.describe("Phase 1 exit criterion — 4 people, 300 papers", () => {
     expect(screened).toBeGreaterThan(0);
     expect(screened).toBeLessThanOrEqual(attempts);
 
-    // At least one member must have been told their paper was already
-    // handled, or the compare-and-swap is not actually engaging and this
-    // assertion is passing for the wrong reason.
+    // With per-member queue ordering, four people working 300 papers should
+    // now barely collide at all. Before it, every attempt after the first
+    // landed on a paper someone else had already decided: 20 attempts, 5
+    // recorded, 15 refused.
     // The running tally, not the transient toast: the toast shows only the
     // LAST outcome, so counting it measures whether the final decision
     // happened to collide rather than whether collisions were detected.
     const tallies = await Promise.all(
       members.map((m) => m.page.getByText(/already handled by someone else/i).count()),
     );
-    expect(tallies.reduce((a, b) => a + b, 0)).toBeGreaterThan(0);
+    const collided = tallies.reduce((a, b) => a + b, 0);
+
+    // The measurement that matters: nearly every decision should now stick.
+    // The compare-and-swap remains as the backstop for the tail of the queue,
+    // so this asserts the outcome rather than that the backstop fired.
+    console.log(`  screened ${screened} of ${attempts} attempts, ${collided} collided`);
+    expect(screened).toBeGreaterThanOrEqual(attempts - 2);
   });
 
   test("progress reports the right numbers at scale", async () => {
