@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { PageHeader } from "@/components/ui";
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -29,16 +29,17 @@ export default async function ImportPage({
 
   return (
     <main id="main" className="mx-auto flex max-w-3xl flex-col gap-8 px-6 py-12">
-      <div>
-        <Link href={`/projects/${id}`} className="text-muted hover:text-ink text-sm">
-          ← {project.title}
-        </Link>
-        <h1 className="text-ink mt-2 text-2xl font-semibold">Import references</h1>
-        <p className="text-muted mt-1 text-sm">
-          Bare identifiers are looked up so they arrive with an abstract and citation
-          count, not just an id.
-        </p>
-      </div>
+      <PageHeader
+        backHref={`/projects/${id}`}
+        backLabel={project.title}
+        title="Import references"
+        description={
+          <>
+            Bare identifiers are looked up so they arrive with an abstract and citation
+            count, not just an id.
+          </>
+        }
+      />
 
       <ImportClient projectId={id} />
     </main>

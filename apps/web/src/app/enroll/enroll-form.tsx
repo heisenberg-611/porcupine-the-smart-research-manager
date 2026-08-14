@@ -4,7 +4,7 @@ import { createIdentity, toBase64 } from "@porcupine/crypto";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { Banner, Button, Card } from "@/components/ui";
+import { Banner, Button, Card, Checkbox } from "@/components/ui";
 
 import { storeIdentityKeys } from "./actions";
 
@@ -77,9 +77,8 @@ export function EnrollForm({ next }: { next: string }) {
         </Card>
 
         <label className="text-ink flex items-start gap-3 text-sm">
-          <input
-            type="checkbox"
-            className="mt-1 size-4"
+          <Checkbox
+            className="mt-1"
             checked={confirmed}
             onChange={(e) => setConfirmed(e.target.checked)}
           />

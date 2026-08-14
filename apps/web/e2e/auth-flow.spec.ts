@@ -437,6 +437,30 @@ test.describe("Phase 0 exit criterion", () => {
     await expect(page.getByText(/reports not retrieved/i)).toBeVisible();
   });
 
+  test("the app shell reaches every area without the back button", async () => {
+    // The defect this shell fixes: thirteen pages shipped with no navigation,
+    // so landing on /queue left nowhere to go. Asserted from a deep page, not
+    // from /projects, because that was exactly the trap.
+    await page.goto("/queue");
+
+    const nav = page.getByRole("navigation", { name: /main/i });
+    await expect(nav).toBeVisible();
+
+    await nav.getByRole("link", { name: /^projects$/i }).click();
+    await expect(page).toHaveURL(/\/projects$/);
+
+    await nav.getByRole("link", { name: /my queue/i }).click();
+    await expect(page).toHaveURL(/\/queue$/);
+
+    // Signed-in identity is always reachable, on any viewport. The address is
+    // shown beside the button on desktop and carried in the button's
+    // accessible name everywhere — so this assertion holds on a phone, where
+    // the visible copy is deliberately hidden for space.
+    await expect(
+      nav.getByRole("button", { name: /sign out .*@test\.dev/i }),
+    ).toBeVisible();
+  });
+
   test("signs out and blocks the project list", async () => {
     await page.goto("/projects");
     await page.getByRole("button", { name: /sign out/i }).click();

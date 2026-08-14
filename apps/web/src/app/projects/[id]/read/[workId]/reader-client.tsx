@@ -3,7 +3,7 @@
 import { createSelector, type AnchorSelector } from "@porcupine/anchoring";
 import { useCallback, useRef, useState, useTransition } from "react";
 
-import { Button } from "@/components/ui";
+import { Button, Checkbox, Textarea } from "@/components/ui";
 
 import { createAnnotation, deleteAnnotation } from "./actions";
 
@@ -138,7 +138,7 @@ export function ReaderClient({
 
           <label className="text-muted flex flex-col gap-1 text-xs">
             Note (optional)
-            <textarea
+            <Textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
               rows={3}
@@ -147,8 +147,7 @@ export function ReaderClient({
           </label>
 
           <label className="text-muted flex items-center gap-2 text-xs">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={isPrivate}
               onChange={(e) => setIsPrivate(e.target.checked)}
               className="size-4"

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { PageHeader } from "@/components/ui";
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -55,17 +56,18 @@ export default async function QueuePage() {
 
   return (
     <main id="main" className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-12">
-      <div>
-        <Link href="/projects" className="text-muted hover:text-ink text-sm">
-          ← All projects
-        </Link>
-        <h1 className="text-ink mt-2 text-2xl font-semibold">My queue</h1>
-        <p className="text-muted mt-1 text-sm">
-          {rows.length === 0
-            ? "Nothing assigned to you."
-            : `${rows.length} assigned${overdue.length > 0 ? ` · ${overdue.length} overdue` : ""}`}
-        </p>
-      </div>
+      <PageHeader
+        backHref="/projects"
+        backLabel="All projects"
+        title="My queue"
+        description={
+          <>
+            {rows.length === 0
+              ? "Nothing assigned to you."
+              : `${rows.length} assigned${overdue.length > 0 ? ` · ${overdue.length} overdue` : ""}`}
+          </>
+        }
+      />
 
       {rows.length > 0 && (
         <ul className="border-border divide-border divide-y rounded-lg border">

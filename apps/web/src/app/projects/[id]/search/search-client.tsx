@@ -3,7 +3,7 @@
 import type { ScoredWork } from "@porcupine/discovery";
 import { useState, useTransition } from "react";
 
-import { Button, Field } from "@/components/ui";
+import { Button, Field, Input } from "@/components/ui";
 
 import { addWorkToProject, searchWorks, type SearchResults } from "./actions";
 
@@ -68,7 +68,7 @@ export function SearchClient({
               on the next interaction, so length validation happens server-side
               and reports through the aria-live region below — which is the
               same path every other error takes. */}
-          <input
+          <Input
             id="terms"
             name="terms"
             value={terms}
@@ -80,7 +80,7 @@ export function SearchClient({
 
         <div className="flex gap-4">
           <Field label="From year" id="fromYear">
-            <input
+            <Input
               id="fromYear"
               type="number"
               inputMode="numeric"
@@ -92,7 +92,7 @@ export function SearchClient({
             />
           </Field>
           <Field label="To year" id="toYear">
-            <input
+            <Input
               id="toYear"
               type="number"
               inputMode="numeric"

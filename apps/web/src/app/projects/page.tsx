@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { Card, EmptyState } from "@/components/ui";
+import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 import { NewProjectForm } from "./new-project-form";
@@ -36,14 +36,9 @@ export default async function ProjectsPage() {
 
   return (
     <main id="main" className="mx-auto flex max-w-3xl flex-col gap-8 px-6 py-12">
-      <header className="flex flex-wrap items-baseline justify-between gap-4">
-        <h1 className="text-ink text-2xl font-semibold tracking-tight">Projects</h1>
-        <form action="/auth/sign-out" method="post">
-          <button className="text-muted hover:text-ink text-sm underline underline-offset-4">
-            Sign out
-          </button>
-        </form>
-      </header>
+      {/* Sign out lives in the app shell now. Two of them meant two places to
+          keep consistent, and the e2e could not tell which one it had clicked. */}
+      <PageHeader title="Projects" />
 
       {error && (
         <p role="alert" className="text-danger text-sm">

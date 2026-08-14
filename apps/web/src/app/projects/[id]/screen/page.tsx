@@ -1,8 +1,8 @@
 import { capabilities, orderForMember, type ProjectKind } from "@porcupine/shared";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { PageHeader } from "@/components/ui";
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -118,17 +118,18 @@ export default async function ScreenPage({
 
   return (
     <main id="main" className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-12">
-      <div>
-        <Link href={`/projects/${id}`} className="text-muted hover:text-ink text-sm">
-          ← {project.title}
-        </Link>
-        <h1 className="text-ink mt-2 text-2xl font-semibold">Screen</h1>
-        <p className="text-muted mt-1 text-sm">
-          {caps.exclusionReasonRequired
-            ? "Exclusions need a reason, so the PRISMA diagram can report them by category."
-            : "Include or exclude each paper. Decisions are recorded and can be revised."}
-        </p>
-      </div>
+      <PageHeader
+        backHref={`/projects/${id}`}
+        backLabel={project.title}
+        title="Screen"
+        description={
+          <>
+            {caps.exclusionReasonRequired
+              ? "Exclusions need a reason, so the PRISMA diagram can report them by category."
+              : "Include or exclude each paper. Decisions are recorded and can be revised."}
+          </>
+        }
+      />
 
       <ScreenClient
         projectId={id}

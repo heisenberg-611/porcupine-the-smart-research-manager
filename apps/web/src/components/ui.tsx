@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 
 /**
@@ -114,6 +115,29 @@ export function Select({ className, ...props }: ComponentProps<"select">) {
   );
 }
 
+/**
+ * A checkbox with a real touch target.
+ *
+ * Its own primitive rather than an exception in the lint rule: a checkbox is
+ * a different control from a text field, with different sizing, and carving
+ * it out of the rule with a `type="checkbox"` grep meant matching text on the
+ * line above the attribute — which does not work and quietly let raw controls
+ * back in.
+ */
+export function Checkbox({ className, ...props }: ComponentProps<"input">) {
+  return (
+    <input
+      type="checkbox"
+      className={cx(
+        "border-border text-accent accent-accent size-4 rounded",
+        "focus-visible:ring-accent focus-visible:ring-2 focus-visible:outline-none",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
 export function Card({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
@@ -143,6 +167,83 @@ export function EmptyState({
       <p className="text-muted max-w-prose text-sm text-pretty">{description}</p>
       {action}
     </Card>
+  );
+}
+
+/**
+ * The heading every page repeats.
+ *
+ * This block — back link, title, optional description, optional actions — was
+ * hand-written on ten pages before it became a component, and had already
+ * drifted: different link colours, different spacing, some with a description
+ * and some without. Ten copies of a pattern is not a pattern, it is ten
+ * chances to be inconsistent.
+ */
+export function PageHeader({
+  backHref,
+  backLabel,
+  title,
+  description,
+  actions,
+}: {
+  backHref?: string;
+  backLabel?: string;
+  title: string;
+  description?: ReactNode;
+  actions?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="min-w-0">
+        {backHref && backLabel && (
+          <Link
+            href={backHref}
+            className="text-muted hover:text-ink focus-visible:ring-accent inline-flex min-h-11 items-center rounded-lg text-sm focus-visible:ring-2 focus-visible:outline-none"
+          >
+            ← {backLabel}
+          </Link>
+        )}
+        <h1 className="text-ink text-2xl font-semibold tracking-tight">{title}</h1>
+        {description && (
+          <p className="text-muted mt-1 max-w-prose text-sm text-pretty">{description}</p>
+        )}
+      </div>
+      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+    </div>
+  );
+}
+
+/**
+ * A link that looks and behaves like a Button.
+ *
+ * Navigation is an anchor, not a button with an onClick — middle-click, "open
+ * in new tab", and the browser's own history all depend on it being a real
+ * link. Sharing the visual treatment is not a reason to share the element.
+ */
+export function ButtonLink({
+  href,
+  variant = "ghost",
+  className,
+  children,
+}: {
+  href: string;
+  variant?: "primary" | "ghost";
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className={cx(
+        "focus-visible:ring-accent inline-flex min-h-11 items-center justify-center rounded-lg px-4 text-sm font-medium",
+        "transition-colors focus-visible:ring-2 focus-visible:outline-none",
+        variant === "primary" && "bg-accent text-accent-ink hover:opacity-90",
+        variant === "ghost" && "border-border text-ink hover:bg-surface border",
+        className,
+      )}
+    >
+      {children}
+    </Link>
   );
 }
 

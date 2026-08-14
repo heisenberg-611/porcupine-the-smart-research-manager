@@ -1,8 +1,8 @@
 import { capabilities, exclusionReasonLabel, type ProjectKind } from "@porcupine/shared";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { ButtonLink, EmptyState, PageHeader } from "@/components/ui";
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -70,15 +70,14 @@ export default async function PrismaPage({
 
   return (
     <main id="main" className="mx-auto flex max-w-4xl flex-col gap-6 px-6 py-12">
-      <div>
-        <Link href={`/projects/${id}`} className="text-muted hover:text-ink text-sm">
-          ← {project.title}
-        </Link>
-        <h1 className="text-ink mt-2 text-2xl font-semibold">PRISMA 2020 flow</h1>
-        <p className="text-muted mt-1 text-sm">
-          Derived from recorded screening decisions. Nothing here is estimated.
-        </p>
-      </div>
+      <PageHeader
+        backHref={`/projects/${id}`}
+        backLabel={project.title}
+        title="PRISMA 2020 flow"
+        description={
+          <>Derived from recorded screening decisions. Nothing here is estimated.</>
+        }
+      />
 
       {!caps.prismaDiagram && (
         <p className="border-border text-muted rounded-lg border border-dashed p-3 text-sm">
@@ -91,9 +90,13 @@ export default async function PrismaPage({
       )}
 
       {counts.recordsScreened === 0 ? (
-        <p className="border-border text-muted rounded-lg border border-dashed p-8 text-center text-sm">
-          No papers yet — the diagram appears once the library has records.
-        </p>
+        <EmptyState
+          title="No papers yet"
+          description="The diagram appears once the library has records."
+          action={
+            <ButtonLink href={`/projects/${id}/library`}>Open the library</ButtonLink>
+          }
+        />
       ) : (
         <>
           <section className="border-border bg-surface rounded-lg border p-4">
