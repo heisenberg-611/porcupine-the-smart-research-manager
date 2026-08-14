@@ -76,7 +76,7 @@ export function ImportClient({ projectId }: { projectId: string }) {
             onChange={(e) => setSource(e.target.value)}
             required
             rows={10}
-            className="border-border bg-surface text-ink w-full rounded-lg border p-3 font-mono text-sm"
+            className="border-border bg-surface text-ink text-ui w-full rounded-lg border p-3 font-mono"
           />
         </Field>
 
@@ -87,16 +87,16 @@ export function ImportClient({ projectId }: { projectId: string }) {
 
       <div aria-live="polite" className="space-y-4">
         {error && (
-          <p role="alert" className="text-danger text-sm">
+          <p role="alert" className="text-danger text-ui">
             {error}
           </p>
         )}
 
-        {outcome && <p className="text-ink text-sm font-medium">{outcome}</p>}
+        {outcome && <p className="text-ink text-ui font-medium">{outcome}</p>}
 
         {preview && (
           <div className="space-y-4">
-            <p className="text-muted text-sm">
+            <p className="text-muted text-ui">
               Read as{" "}
               <strong className="text-ink">
                 {FORMAT_LABEL[preview.format] ?? preview.format}
@@ -107,7 +107,7 @@ export function ImportClient({ projectId }: { projectId: string }) {
             </p>
 
             {preview.problems.length > 0 && (
-              <details className="border-border bg-surface rounded-lg border p-3 text-sm">
+              <details className="border-border bg-surface text-ui rounded-lg border p-3">
                 <summary className="text-ink cursor-pointer font-medium">
                   {preview.problems.length}{" "}
                   {preview.problems.length === 1 ? "entry" : "entries"} could not be read
@@ -128,8 +128,8 @@ export function ImportClient({ projectId }: { projectId: string }) {
                 <ul className="border-border divide-border divide-y rounded-lg border">
                   {preview.works.map((work, index) => (
                     <li key={index} className="p-3">
-                      <p className="text-ink text-sm font-medium">{work.title}</p>
-                      <p className="text-muted mt-0.5 text-xs">
+                      <p className="text-ink text-ui font-medium">{work.title}</p>
+                      <p className="text-muted text-fine mt-0.5">
                         {work.authors || "Unknown authors"}
                         {work.venue && ` · ${work.venue}`}
                         {work.year && ` · ${work.year}`}

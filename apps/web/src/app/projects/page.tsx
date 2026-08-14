@@ -41,7 +41,7 @@ export default async function ProjectsPage() {
       <PageHeader title="Projects" />
 
       {error && (
-        <p role="alert" className="text-danger text-sm">
+        <p role="alert" className="text-danger text-ui">
           Could not load projects.
         </p>
       )}
@@ -61,11 +61,11 @@ export default async function ProjectsPage() {
                   <Link href={`/projects/${project.id}`} className="block">
                     <h2 className="text-ink font-medium">{project.title}</h2>
                     {project.description && (
-                      <p className="text-muted mt-1 line-clamp-2 text-sm">
+                      <p className="text-muted text-ui mt-1 line-clamp-2">
                         {project.description}
                       </p>
                     )}
-                    <p className="text-muted mt-3 font-mono text-xs tracking-wide uppercase">
+                    <p className="text-muted text-fine mt-3 font-mono tracking-wide uppercase">
                       {project.kind.replace(/_/g, " ")}
                       {caps.protocolRequired && " · protocol required"}
                     </p>
@@ -78,7 +78,7 @@ export default async function ProjectsPage() {
       )}
 
       <section className="border-border border-t pt-8">
-        <h2 className="text-ink mb-4 text-lg font-medium">New project</h2>
+        <h2 className="text-ink text-heading mb-4 font-medium">New project</h2>
         <NewProjectForm />
       </section>
     </main>

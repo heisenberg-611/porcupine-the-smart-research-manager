@@ -26,8 +26,10 @@ export default async function EnrollPage({
   return (
     <main id="main" className="mx-auto flex max-w-xl flex-col gap-8 px-6 py-16">
       <div>
-        <h1 className="text-ink text-2xl font-semibold tracking-tight">One-time setup</h1>
-        <p className="text-muted mt-2 text-sm text-pretty">
+        <h1 className="text-ink text-title font-semibold tracking-tight">
+          One-time setup
+        </h1>
+        <p className="text-muted text-ui mt-2 text-pretty">
           Porcupine generates an encryption key on this device. It never leaves your
           browser — we store only the public half and a copy of the private half that we
           cannot open.

@@ -167,7 +167,7 @@ export default async function ReadPage({
       />
 
       {!text && (
-        <p className="border-border text-muted rounded-lg border border-dashed p-6 text-center text-sm">
+        <p className="border-border text-muted text-ui rounded-lg border border-dashed p-6 text-center">
           This record has no abstract, so there is no text to annotate yet. Full-text
           reading arrives with the file pipeline.
         </p>

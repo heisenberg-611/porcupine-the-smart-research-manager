@@ -80,7 +80,7 @@ export default async function PrismaPage({
       />
 
       {!caps.prismaDiagram && (
-        <p className="border-border text-muted rounded-lg border border-dashed p-3 text-sm">
+        <p className="border-border text-muted text-ui rounded-lg border border-dashed p-3">
           {/* R-06: the diagram is shown for any project kind, but only a
               systematic review is REQUIRED to report exclusion reasons — so
               for other kinds the exclusion box may legitimately be sparse. */}
@@ -108,7 +108,7 @@ export default async function PrismaPage({
           </section>
 
           {counts.recordsPending > 0 && (
-            <p role="status" className="text-muted text-sm">
+            <p role="status" className="text-muted text-ui">
               <strong className="text-ink">{counts.recordsPending}</strong> records are
               still to be screened, so these numbers are not final. A diagram published
               now would be a snapshot of work in progress.
@@ -118,9 +118,9 @@ export default async function PrismaPage({
           {/* The same figures as a table. A screen reader cannot follow arrows,
               and a methods section needs the numbers as text anyway. */}
           <section>
-            <h2 className="text-ink mb-3 text-lg font-medium">The numbers</h2>
+            <h2 className="text-ink text-heading mb-3 font-medium">The numbers</h2>
             <div className="border-border overflow-x-auto rounded-lg border">
-              <table className="w-full text-left text-sm">
+              <table className="text-ui w-full text-left">
                 <caption className="sr-only">PRISMA 2020 counts for this review</caption>
                 <tbody className="divide-border divide-y">
                   <Row label="Records identified" value={counts.recordsIdentified} />
@@ -145,11 +145,11 @@ export default async function PrismaPage({
           </section>
 
           <section className="border-border rounded-lg border border-dashed p-4">
-            <h2 className="text-ink text-sm font-medium">Not tracked yet</h2>
+            <h2 className="text-ink text-ui font-medium">Not tracked yet</h2>
             {/* Naming the gap rather than drawing a zero. A box reading
                 "Reports not retrieved: 0" asserts that none failed retrieval,
                 which is a claim this system cannot support. */}
-            <p className="text-muted mt-1 text-sm">
+            <p className="text-muted text-ui mt-1">
               PRISMA also asks for <em>reports sought for retrieval</em> and{" "}
               <em>reports not retrieved</em>. Both describe full-text retrieval, which
               needs the file pipeline. They are omitted rather than shown as zero, because
@@ -180,7 +180,7 @@ function Row({
         scope="row"
         className={`px-4 py-2 text-left font-normal ${
           indented
-            ? "text-muted pl-8 text-xs"
+            ? "text-muted text-fine pl-8"
             : emphasis
               ? "text-ink font-medium"
               : "text-ink"

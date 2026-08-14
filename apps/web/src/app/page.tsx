@@ -31,10 +31,8 @@ export default async function Home() {
 
   return (
     <main id="main" className="mx-auto max-w-2xl px-6 py-24">
-      <h1 className="text-ink text-4xl font-semibold tracking-tight text-balance">
-        Porcupine
-      </h1>
-      <p className="text-muted mt-4 text-lg text-pretty">
+      <h1 className="text-ink text-display text-balance">Porcupine</h1>
+      <p className="text-ink-soft measure text-body mt-5 text-pretty">
         Research and thesis management — read, screen, extract, synthesize, and write,
         without keeping tabs on a thousand things across a dozen websites.
       </p>
@@ -48,7 +46,9 @@ export default async function Home() {
       {/* What the tool does, in the order someone actually does it. The
           previous version listed security properties here, which answer a
           question nobody asks before they have tried it. */}
-      <dl className="border-border bg-border mt-14 grid gap-px overflow-hidden rounded-xl border sm:grid-cols-3">
+      {/* Three columns divided by rules rather than three boxes. Same
+          information, one less frame around it. */}
+      <dl className="border-rule mt-16 grid gap-8 border-t pt-8 sm:grid-cols-3 sm:gap-6">
         {[
           {
             term: "Find",
@@ -66,14 +66,14 @@ export default async function Home() {
               "Highlight and annotate. Quotes stay anchored to the passage, and say so when they drift.",
           },
         ].map(({ term, detail }) => (
-          <div key={term} className="bg-surface px-4 py-5">
-            <dt className="text-ink text-sm font-medium">{term}</dt>
-            <dd className="text-muted mt-1 text-sm text-pretty">{detail}</dd>
+          <div key={term}>
+            <dt className="text-ink text-heading">{term}</dt>
+            <dd className="text-muted text-ui mt-2 text-pretty">{detail}</dd>
           </div>
         ))}
       </dl>
 
-      <p className="text-muted mt-8 text-sm text-pretty">
+      <p className="text-muted measure text-ui mt-12 text-pretty">
         Built for teams: supervisors and collaborators are never billed per seat, and
         every screening decision is attributable to the person who made it.
       </p>

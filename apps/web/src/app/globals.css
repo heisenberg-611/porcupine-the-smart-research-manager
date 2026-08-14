@@ -1,43 +1,125 @@
 @import "tailwindcss";
 
 /*
- * Design tokens. Phase 0 deliberately ships a small, deliberate palette
- * rather than a component library's defaults — the reading surfaces in
- * Phase 1 are long-form and warm-neutral beats pure grey for them.
+ * Design tokens — editorial.
  *
- * Contrast is a launch requirement, not a polish item (G-07): every ink/canvas
- * pair here clears WCAG 2.2 AA, and axe-core blocks merges that break it.
+ * The previous palette was eight colours, one font and one radius: a utility
+ * set written as a Phase 0 placeholder and then extended across sixteen pages
+ * without being revisited. It was correct — every pair cleared AA, every
+ * target was 44px — and it had no character at all, because correctness was
+ * the only thing anyone had asked of it.
+ *
+ * The direction here follows from what the product is FOR. Researchers spend
+ * hours in this: reading abstracts, weighing them, annotating passages. That
+ * is a reading task, so the design borrows from things built for reading —
+ * warm paper rather than grey, a serif for display, real vertical rhythm, and
+ * a measure that stops lines before they become hard to track back from.
+ *
+ * Elevation comes from rules and space, not shadow. A drop shadow on a
+ * reading surface is a distraction pretending to be depth; a hairline and
+ * generous margin do the same job and stay out of the way.
+ *
+ * Every colour pair below was checked against WCAG 2.2 AA before being
+ * written down, not after axe-core complained. Lowest ratio in either theme
+ * is 5.05:1 (accent on accent-soft), against a 4.5 requirement.
  */
 @theme {
-  --color-canvas: #fdfdfc;
-  --color-surface: #f6f6f4;
-  --color-border: #e2e2dd;
-  --color-ink: #1a1c1b;
-  --color-muted: #5f6360;
+  /* ── Surfaces, warm rather than neutral grey ───────────────────────────── */
+  --color-canvas: #fbfaf7;
+  --color-surface: #f4f2ec;
+  --color-raised: #ffffff;
+  --color-border: #e5e1d8;
+  /* A lighter line for dividing content, where `border` would shout. */
+  --color-rule: #ddd8cc;
+
+  /* ── Ink ───────────────────────────────────────────────────────────────── */
+  --color-ink: #1c1a17;
+  /* Body prose. Full ink for a whole paragraph is heavier than it needs. */
+  --color-ink-soft: #3f3b34;
+  --color-muted: #66615a;
+
+  /* ── One accent, used sparingly ────────────────────────────────────────── */
   --color-accent: #2f6f5e;
   --color-accent-ink: #ffffff;
-  --color-danger: #a03028;
+  --color-accent-soft: #e7efeb;
+  --color-danger: #9c2f26;
+  --color-danger-soft: #f7ebe9;
 
+  /* ── Type ──────────────────────────────────────────────────────────────── */
+  /*
+   * A system serif stack, not a webfont. Under the CSP a font file is another
+   * origin to allow and another render-blocking request, and every platform
+   * already ships a decent old-style serif. The cost of a webfont is paid on
+   * every page load; the benefit here would be a slightly different shape.
+   */
+  --font-serif:
+    ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia,
+    "Times New Roman", serif;
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
 
-  --radius-card: 0.75rem;
+  /* A scale, rather than reaching for text-sm everywhere. */
+  --text-display: 2.25rem;
+  --text-display--line-height: 1.15;
+  --text-title: 1.625rem;
+  --text-title--line-height: 1.2;
+  --text-heading: 1.1875rem;
+  --text-heading--line-height: 1.35;
+  /* Reading size. 17px, not 14px: this is where the abstracts live. */
+  --text-body: 1.0625rem;
+  --text-body--line-height: 1.7;
+  --text-ui: 0.875rem;
+  --text-ui--line-height: 1.5;
+  --text-fine: 0.8125rem;
+  --text-fine--line-height: 1.5;
+
+  --radius-card: 0.625rem;
 }
 
 @media (prefers-color-scheme: dark) {
   @theme {
-    --color-canvas: #101211;
-    --color-surface: #191c1b;
-    --color-border: #2b2f2d;
-    --color-ink: #eceeed;
-    --color-muted: #9aa09d;
-    --color-accent: #6fbfa6;
-    --color-accent-ink: #0d1a16;
-    --color-danger: #e8837a;
+    --color-canvas: #121110;
+    --color-surface: #1a1917;
+    --color-raised: #211f1c;
+    --color-border: #2f2c27;
+    --color-rule: #3a3630;
+
+    --color-ink: #ece8e0;
+    --color-ink-soft: #c9c4ba;
+    --color-muted: #9b9488;
+
+    --color-accent: #7ac6a9;
+    --color-accent-ink: #0e1a15;
+    --color-accent-soft: #1c2a24;
+    --color-danger: #e88a80;
+    --color-danger-soft: #2a1a18;
   }
 }
 
-/* Respect the user's motion preference globally rather than per-component. */
+/*
+ * A measure. Somewhere past about 75 characters the eye starts losing the
+ * start of the next line, which matters when the text is an abstract being
+ * read for the twentieth time that afternoon.
+ */
+@utility measure {
+  max-width: 68ch;
+}
+
+@utility prose-body {
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
+  color: var(--color-ink-soft);
+  max-width: 68ch;
+  text-wrap: pretty;
+}
+
+/* Small caps for metadata lines — author, venue, year. Quieter than bold. */
+@utility meta {
+  font-size: var(--text-fine);
+  letter-spacing: 0.02em;
+  color: var(--color-muted);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -52,4 +134,16 @@
 :focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
+}
+
+/*
+ * Serif for display type only. Setting it on `body` would put the whole UI —
+ * buttons, labels, table cells — in a serif, which reads as costume rather
+ * than as character. The serif earns its place on titles and prose.
+ */
+h1,
+h2,
+h3 {
+  font-family: var(--font-serif);
+  letter-spacing: -0.01em;
 }

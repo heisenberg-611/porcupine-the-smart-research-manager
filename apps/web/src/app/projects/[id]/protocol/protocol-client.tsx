@@ -64,7 +64,7 @@ export function ProtocolClient({
     return canEdit ? (
       <NewProtocol projectId={projectId} />
     ) : (
-      <p className="text-muted text-sm">
+      <p className="text-muted text-ui">
         No protocol yet. An owner or admin sets up the questions this review asks.
       </p>
     );
@@ -110,7 +110,7 @@ function NewProtocol({ projectId }: { projectId: string }) {
       </Field>
 
       <fieldset className="space-y-2">
-        <legend className="text-ink text-sm font-medium">Start from</legend>
+        <legend className="text-ink text-ui font-medium">Start from</legend>
         {/* Radio buttons rather than a select: there are five choices and the
             description matters as much as the name, so hiding four of them
             behind a closed dropdown costs more than the space it saves. */}
@@ -127,11 +127,11 @@ function NewProtocol({ projectId }: { projectId: string }) {
               className="mt-1"
             />
             <span className="min-w-0">
-              <span className="text-ink block text-sm font-medium">{t.name}</span>
-              <span className="text-muted block text-xs text-pretty">
+              <span className="text-ink text-ui block font-medium">{t.name}</span>
+              <span className="text-muted text-fine block text-pretty">
                 {t.description}
               </span>
-              <span className="text-muted mt-1 block text-xs">
+              <span className="text-muted text-fine mt-1 block">
                 {t.fields.length === 0
                   ? "No fields — you add them"
                   : `${t.fields.length} fields`}
@@ -143,10 +143,10 @@ function NewProtocol({ projectId }: { projectId: string }) {
 
       {template && template.fields.length > 0 && (
         <details className="border-border rounded-lg border p-3">
-          <summary className="text-ink cursor-pointer text-sm font-medium">
+          <summary className="text-ink text-ui cursor-pointer font-medium">
             What {template.name} asks
           </summary>
-          <ul className="text-muted mt-2 space-y-1 text-xs">
+          <ul className="text-muted text-fine mt-2 space-y-1">
             {template.fields.map((f) => (
               <li key={f.label}>
                 {f.label} — {fieldTypeLabel(f.type)}
@@ -163,7 +163,7 @@ function NewProtocol({ projectId }: { projectId: string }) {
       </Button>
 
       {error && (
-        <p role="alert" className="text-danger text-sm">
+        <p role="alert" className="text-danger text-ui">
           {error}
         </p>
       )}
@@ -204,11 +204,11 @@ function ProtocolEditor({
     <div className="space-y-6">
       <div className="border-border bg-surface flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
         <div>
-          <p className="text-ink text-sm font-medium">
+          <p className="text-ink text-ui font-medium">
             {protocol.name}{" "}
             <span className="text-muted font-normal">v{protocol.version}</span>
           </p>
-          <p className="text-muted text-xs">
+          <p className="text-muted text-fine">
             {protocol.fields.length} {protocol.fields.length === 1 ? "field" : "fields"}
             {protocol.extractionCount > 0 &&
               ` · ${protocol.extractionCount} ${protocol.extractionCount === 1 ? "extraction" : "extractions"} recorded`}
@@ -232,7 +232,7 @@ function ProtocolEditor({
       </div>
 
       {locked && canEdit && (
-        <p className="border-border text-muted rounded-lg border border-dashed p-3 text-sm text-pretty">
+        <p className="border-border text-muted text-ui rounded-lg border border-dashed p-3 text-pretty">
           {/* Said before they try, not after it fails. */}
           This protocol has answers recorded against it. Fields that have been answered
           can no longer be renamed or removed — a new version copies the questions and
@@ -245,11 +245,11 @@ function ProtocolEditor({
           <li key={field.id} className="border-border rounded-lg border p-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-ink text-sm font-medium">
+                <p className="text-ink text-ui font-medium">
                   {field.label}
                   {field.required && <span className="text-muted"> · required</span>}
                 </p>
-                <p className="text-muted mt-0.5 text-xs">
+                <p className="text-muted text-fine mt-0.5">
                   {fieldTypeLabel(field.type)}
                   {" · "}
                   <code>{field.key}</code>
@@ -258,10 +258,12 @@ function ProtocolEditor({
                     ` · ${field.answerCount} ${field.answerCount === 1 ? "answer" : "answers"}`}
                 </p>
                 {field.helpText && (
-                  <p className="text-muted mt-1 text-xs text-pretty">{field.helpText}</p>
+                  <p className="text-muted text-fine mt-1 text-pretty">
+                    {field.helpText}
+                  </p>
                 )}
                 {field.options.length > 0 && (
-                  <p className="text-muted mt-1 text-xs">{field.options.join(" · ")}</p>
+                  <p className="text-muted text-fine mt-1">{field.options.join(" · ")}</p>
                 )}
               </div>
 
@@ -333,7 +335,7 @@ function ProtocolEditor({
       </ol>
 
       {protocol.fields.length === 0 && (
-        <p className="text-muted text-sm">
+        <p className="text-muted text-ui">
           No fields yet. Add the first question this review asks of every paper.
         </p>
       )}
@@ -350,9 +352,9 @@ function ProtocolEditor({
         ))}
 
       <div aria-live="polite">
-        {status && <p className="text-muted text-sm">{status}</p>}
+        {status && <p className="text-muted text-ui">{status}</p>}
         {error && (
-          <p role="alert" className="text-danger text-sm">
+          <p role="alert" className="text-danger text-ui">
             {error}
           </p>
         )}
@@ -360,10 +362,10 @@ function ProtocolEditor({
 
       {olderVersions.length > 0 && (
         <details className="border-border rounded-lg border p-3">
-          <summary className="text-ink cursor-pointer text-sm font-medium">
+          <summary className="text-ink text-ui cursor-pointer font-medium">
             Earlier versions ({olderVersions.length})
           </summary>
-          <ul className="text-muted mt-2 space-y-1 text-xs">
+          <ul className="text-muted text-fine mt-2 space-y-1">
             {olderVersions.map((p) => (
               <li key={p.id}>
                 v{p.version} — {p.fields.length} fields, {p.extractionCount} extractions.
@@ -474,12 +476,12 @@ function AddField({
         />
       </Field>
 
-      <label className="text-ink flex items-center gap-2 text-sm">
+      <label className="text-ink text-ui flex items-center gap-2">
         <Checkbox checked={required} onChange={(e) => setRequired(e.target.checked)} />
         Required
       </label>
 
-      <label className="text-ink flex items-start gap-2 text-sm">
+      <label className="text-ink text-ui flex items-start gap-2">
         <Checkbox
           className="mt-1"
           checked={requiresAnchor}
@@ -487,7 +489,7 @@ function AddField({
         />
         <span>
           Needs a quoted source
-          <span className="text-muted block text-xs text-pretty">
+          <span className="text-muted text-fine block text-pretty">
             The answer cannot be saved without a passage from the paper. Use it for
             anything a reviewer would challenge — an effect size, a primary outcome.
           </span>
@@ -504,7 +506,7 @@ function AddField({
       </div>
 
       {error && (
-        <p role="alert" className="text-danger text-sm">
+        <p role="alert" className="text-danger text-ui">
           {error}
         </p>
       )}
