@@ -39,6 +39,16 @@ for (const route of ROUTES) {
   });
 }
 
+test("the landing page offers a way in", async ({ page }) => {
+  // It did not, for the whole of Phase 1: the placeholder described the
+  // product and then offered no link to sign in. A visitor could read about
+  // it and had nowhere to go.
+  await page.goto("/");
+  await expect(page.getByRole("link", { name: /sign in/i })).toBeVisible();
+  await page.getByRole("link", { name: /sign in/i }).click();
+  await expect(page).toHaveURL(/\/sign-in/);
+});
+
 test("skip link is reachable by keyboard and moves focus to main", async ({ page }) => {
   await page.goto("/");
   await page.keyboard.press("Tab");
