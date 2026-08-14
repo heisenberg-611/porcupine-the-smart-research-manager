@@ -333,4 +333,20 @@ Honest residual risk, after all of the above:
 1. **R-01's epoch protocol is correct but expensive to build.** It is roughly two of Phase 5's nine weeks and it has no shortcut. If Phase 5 runs late, cut GitHub _pull_ before you cut the protocol — push-and-PR-only is a coherent product; a half-implemented merge is a corruption bug.
 2. **The three-host split has three failure domains.** Vercel down, Cloudflare down, or Supabase down are three different incidents with three different status pages. `CollabTransport` limits the blast radius of the third-party one, but operationally this is more surface than a single host.
 3. **C-22 is a deadline, not a decision.** The day someone pays you, Hobby is a ToS violation. Move to Pro _before_ that day, not after.
-4. **R-04's OA dedupe rate is an assumption.** 45 % is plausible for biomedical corpora and optimistic for humanities. Measure it in Phase 1 against a real project's library before trusting the cost model.
+4. ~~**R-04's OA dedupe rate is an assumption.**~~ **Measured, 2026-08-14.** `pnpm --filter @porcupine/discovery measure:oa` — 293 deduplicated works across six fields:
+
+   | field | n | open-access PDF |
+   | --- | --- | --- |
+   | physics | 50 | 90 % |
+   | computer science | 50 | 76 % |
+   | social science | 50 | 72 % |
+   | biomedical | 50 | 58 % |
+   | humanities | 50 | 58 % |
+   | ecology | 50 | 46 % |
+   | **overall** | **293** | **66.6 %** |
+
+   **The assumption was pessimistic, and its stated caveat was wrong in direction.** The plan said 45 % was "optimistic for humanities"; humanities measured 58 %, above the assumption. The lowest field was ecology at 46 % — still at the assumed rate, not below it. Physics at 90 % reflects arXiv culture, as expected.
+
+   Higher OA means more files qualify for `R2_SHARED`, so more of the corpus is stored once rather than per-user. The 2 GB budget therefore has **more** headroom than modelled, not less.
+
+   **This is a ceiling, not the redistributable share.** It measures OpenAlex's `is_oa` — "a free copy exists at this URL" — which does not check the licence. R-04 only permits `R2_SHARED` for files verified redistributable, and confirming that needs Unpaywall's licence field, a Phase 2 integration. Until then, treat 66.6 % as an upper bound and 45 % as the planning figure, because a green-OA copy in a repository is readable by anyone and still not ours to serve to a second user.
