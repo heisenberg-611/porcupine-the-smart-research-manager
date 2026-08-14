@@ -346,7 +346,12 @@ model RateLimitBucket {
   refillPerSecond Float    @map("refill_per_second")
   /// Full precision, unlike every other timestamp here: at millisecond
   /// precision the rounding can make elapsed time negative. See the migration.
-  updatedAt       DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  ///
+  /// `clock_timestamp()`, not Prisma's `now()` — which maps to
+  /// CURRENT_TIMESTAMP, i.e. transaction start time, frozen for the whole
+  /// transaction. That is exactly the clock a token bucket must not use, and
+  /// leaving them mismatched also made `db:diff` want to rewrite the default.
+  updatedAt       DateTime @default(dbgenerated("clock_timestamp()")) @map("updated_at") @db.Timestamptz(6)
 
   @@map("rate_limit_buckets")
 }
