@@ -409,6 +409,34 @@ test.describe("Phase 0 exit criterion", () => {
     await expect(page.getByText(/too few recent decisions/i)).toBeVisible();
   });
 
+  test("PRISMA flow is derived from real decisions", async () => {
+    await page.goto("/projects");
+    await page.getByRole("link", { name: /transformer efficiency/i }).click();
+    await page.getByRole("link", { name: /^prisma$/i }).click();
+
+    await expect(page.getByRole("heading", { name: /prisma 2020 flow/i })).toBeVisible();
+    await expect(
+      page.getByRole("img", { name: /prisma 2020 flow diagram/i }),
+    ).toBeVisible();
+
+    // Two papers imported, one included during the screening test.
+    const table = page.getByRole("table");
+    await expect(table.getByRole("row", { name: /records screened/i })).toContainText(
+      "2",
+    );
+    await expect(table.getByRole("row", { name: /^studies included/i })).toContainText(
+      "1",
+    );
+
+    // The review is unfinished, so the page has to say so rather than let a
+    // snapshot be mistaken for a final count.
+    await expect(page.getByRole("status")).toContainText(/still to be screened/i);
+
+    // And it names what it cannot report instead of drawing a zero.
+    await expect(page.getByText(/not tracked yet/i)).toBeVisible();
+    await expect(page.getByText(/reports not retrieved/i)).toBeVisible();
+  });
+
   test("signs out and blocks the project list", async () => {
     await page.goto("/projects");
     await page.getByRole("button", { name: /sign out/i }).click();
