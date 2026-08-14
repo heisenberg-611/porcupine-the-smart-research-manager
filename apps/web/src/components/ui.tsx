@@ -188,6 +188,40 @@ export function Hidden(props: Omit<ComponentProps<"input">, "type" | "className"
   return <input type="hidden" {...props} />;
 }
 
+/**
+ * A horizontally scrollable wrapper for a wide table.
+ *
+ * `overflow-x-auto` alone is a keyboard trap in reverse: the region scrolls
+ * with a mouse or a finger and cannot be reached at all with a keyboard, so a
+ * keyboard user simply never sees the columns past the fold. WCAG 2.1.1, and
+ * axe's `scrollable-region-focusable` — which caught this on the mobile
+ * viewport across five tables at once, every one of them hand-rolling the same
+ * div.
+ *
+ * `tabIndex={0}` makes it focusable and therefore scrollable with arrow keys;
+ * the role and label mean a screen reader announces what has been entered
+ * rather than an unnamed group.
+ */
+export function TableScroll({
+  label,
+  className,
+  ...props
+}: ComponentProps<"div"> & { label: string }) {
+  return (
+    <div
+      role="region"
+      aria-label={label}
+      tabIndex={0}
+      className={cx(
+        "border-border overflow-x-auto rounded-lg border",
+        "focus-visible:ring-accent focus-visible:ring-2 focus-visible:outline-none",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
 export function Card({ className, ...props }: ComponentProps<"div">) {
   return (
     <div

@@ -7,7 +7,7 @@
 -- all of them end in this table.
 
 begin;
-select plan(25);
+select plan(28);
 
 set local role postgres;
 
@@ -388,6 +388,48 @@ select is(
     where project_work_id = 'd0000000-0000-0000-0000-000000000001'),
   1,
   'the reconciled row is not itself pooled as an independent reading');
+
+-- ═══════════ The real flow: draft, fill, finalise ═══════════════════════════
+--
+-- The week-1 freeze trigger refuses value writes to anything that is not a
+-- DRAFT, so a reconciliation cannot be created as RECONCILED and then filled
+-- in. It is built as a draft carrying reconciled_from, and finalised. The
+-- action in the web app does exactly this, and it is asserted here because it
+-- is the path every real reconciliation takes.
+
+set local role postgres;
+delete from extractions where id = 'a0000000-0000-0000-0000-000000000099';
+set local role porcupine_app;
+select set_config('request.jwt.claims',
+  '{"sub":"33333333-3333-3333-3333-333333333333"}', true);
+
+select lives_ok(
+  $$insert into extractions
+      (id, project_id, project_work_id, protocol_id, extractor_id, status,
+       reconciled_from, verified_by, created_at, updated_at)
+    values ('a0000000-0000-0000-0000-000000000098',
+            'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+            'd0000000-0000-0000-0000-000000000001',
+            'e0000000-0000-0000-0000-000000000001',
+            '33333333-3333-3333-3333-333333333333', 'DRAFT',
+            array['a0000000-0000-0000-0000-00000000000a',
+                  'a0000000-0000-0000-0000-00000000000b']::uuid[],
+            '33333333-3333-3333-3333-333333333333', now(), now())$$,
+  'a reconciliation begins as a draft that names its two sources');
+
+select lives_ok(
+  $$insert into extraction_values
+      (id, project_id, extraction_id, field_id, value, value_text, created_at, updated_at)
+    values (gen_random_uuid(), 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+            'a0000000-0000-0000-0000-000000000098',
+            'f0000000-0000-0000-0000-000000000002',
+            '"RCT"'::jsonb, 'RCT', now(), now())$$,
+  'and can be filled in while it is still a draft');
+
+select lives_ok(
+  $$update extractions set status = 'RECONCILED', submitted_at = now()
+    where id = 'a0000000-0000-0000-0000-000000000098'$$,
+  'then finalised, with every provenance rule re-checked');
 
 -- ═══════════ RLS ════════════════════════════════════════════════════════════
 

@@ -134,7 +134,15 @@ declare
   v_bad_status  integer;
   v_verifier_is_party integer;
 begin
-  if new.status not in ('RECONCILED', 'VERIFIED') then
+  -- Validated whenever the row IS a reconciliation or CLAIMS to be becoming
+  -- one. The distinction matters because of the week-1 freeze trigger: values
+  -- can only be written to a DRAFT, so a reconciliation is necessarily built
+  -- as a draft and finalised afterwards. Checking only the final status would
+  -- let a bad reconciliation be assembled and refused at the last step, after
+  -- the verifier had done all the work — and, worse, would let the unique
+  -- index reject it first with a message about an index.
+  if new.status not in ('RECONCILED', 'VERIFIED')
+     and cardinality(coalesce(new.reconciled_from, '{}'::uuid[])) = 0 then
     return new;
   end if;
 
@@ -148,7 +156,9 @@ begin
       using errcode = 'check_violation';
   end if;
 
-  if new.verified_by is null then
+  -- Only required once it is actually reconciled: a draft in progress may not
+  -- have been signed off yet.
+  if new.status in ('RECONCILED', 'VERIFIED') and new.verified_by is null then
     raise exception
       'A reconciled extraction must record who verified it.'
       using errcode = 'check_violation';
@@ -192,7 +202,8 @@ begin
   select count(*) into v_verifier_is_party
   from public.extractions e
   where e.id = any(new.reconciled_from)
-    and (e.extractor_id = new.verified_by or e.extractor_id = new.extractor_id);
+    and (e.extractor_id = coalesce(new.verified_by, new.extractor_id)
+         or e.extractor_id = new.extractor_id);
 
   if v_verifier_is_party > 0 then
     raise exception
@@ -251,7 +262,8 @@ as $$
 declare
   v_kind "ProjectKind";
 begin
-  if new.status not in ('RECONCILED', 'VERIFIED') then
+  if new.status not in ('RECONCILED', 'VERIFIED')
+     and cardinality(coalesce(new.reconciled_from, '{}'::uuid[])) = 0 then
     return new;
   end if;
 

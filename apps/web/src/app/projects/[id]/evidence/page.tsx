@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
-import { ButtonLink, EmptyState, PageHeader } from "@/components/ui";
+import { ButtonLink, EmptyState, PageHeader, TableScroll } from "@/components/ui";
 import {
   evidenceSearchParams,
   fetchEvidenceRows,
@@ -198,7 +198,7 @@ export default async function EvidencePage({
               clicked because the title column was permanently over it. On a
               phone, scrolling the title away is better than losing a
               column. */}
-          <div className="border-border overflow-x-auto rounded-lg border">
+          <TableScroll label="Evidence table">
             <table className="text-ui w-full text-left">
               <caption className="sr-only">
                 Extractions, one row per paper, one column per protocol field
@@ -248,7 +248,7 @@ export default async function EvidencePage({
                 ))}
               </tbody>
             </table>
-          </div>
+          </TableScroll>
 
           <div className="flex flex-wrap items-center justify-between gap-4">
             <p className="text-muted text-ui">

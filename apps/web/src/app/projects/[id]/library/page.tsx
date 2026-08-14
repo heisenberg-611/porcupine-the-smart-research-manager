@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
-import { ButtonLink, EmptyState, PageHeader } from "@/components/ui";
+import { ButtonLink, EmptyState, PageHeader, TableScroll } from "@/components/ui";
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -142,7 +142,7 @@ export default async function LibraryPage({
         />
       ) : (
         /* Horizontal scroll is on the wrapper, never the page body. */
-        <div className="border-border overflow-x-auto rounded-lg border">
+        <TableScroll label="Papers in this project">
           <table className="text-ui w-full text-left">
             <caption className="sr-only">Papers in this project, newest first</caption>
             <thead className="border-border text-muted text-fine border-b uppercase">
@@ -199,7 +199,7 @@ export default async function LibraryPage({
               ))}
             </tbody>
           </table>
-        </div>
+        </TableScroll>
       )}
 
       {rows.length === 200 && (

@@ -2,7 +2,7 @@ import { capabilities, exclusionReasonLabel, type ProjectKind } from "@porcupine
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
-import { ButtonLink, EmptyState, PageHeader } from "@/components/ui";
+import { ButtonLink, EmptyState, PageHeader, TableScroll } from "@/components/ui";
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -119,7 +119,7 @@ export default async function PrismaPage({
               and a methods section needs the numbers as text anyway. */}
           <section>
             <h2 className="text-ink text-heading mb-3 font-medium">The numbers</h2>
-            <div className="border-border overflow-x-auto rounded-lg border">
+            <TableScroll label="Exclusion reasons">
               <table className="text-ui w-full text-left">
                 <caption className="sr-only">PRISMA 2020 counts for this review</caption>
                 <tbody className="divide-border divide-y">
@@ -141,7 +141,7 @@ export default async function PrismaPage({
                   <Row label="Studies included" value={counts.studiesIncluded} emphasis />
                 </tbody>
               </table>
-            </div>
+            </TableScroll>
           </section>
 
           <section className="border-border rounded-lg border border-dashed p-4">
