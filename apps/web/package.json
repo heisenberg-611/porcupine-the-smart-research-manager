@@ -11,6 +11,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@porcupine/anchoring": "workspace:*",
     "@porcupine/crypto": "workspace:*",
     "@porcupine/db": "workspace:*",
     "@porcupine/discovery": "workspace:*",
