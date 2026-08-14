@@ -187,6 +187,7 @@ model User {
   memberships ProjectMember[]
   devices     Device[]
   decisions   ScreeningDecision[]
+  imports     ImportBatch[]
   orgMembers  OrgMember[]
   projectKeys ProjectKey[]
 
@@ -278,6 +279,7 @@ model Project {
   files              FileObject[]
   anchors            Anchor[]
   screeningDecisions ScreeningDecision[]
+  importBatches      ImportBatch[]
 
   @@unique([orgId, slug])
   @@index([createdBy])
@@ -356,6 +358,30 @@ model RateLimitBucket {
   updatedAt       DateTime @default(dbgenerated("clock_timestamp()")) @map("updated_at") @db.Timestamptz(6)
 
   @@map("rate_limit_buckets")
+}
+
+/// One row per completed import.
+///
+/// Exists because PRISMA 2020 requires the count of records removed before
+/// screening, and the import path used to deduplicate silently — the number
+/// could not be reconstructed afterwards. Append-only: these figures end up
+/// in a published methods section.
+model ImportBatch {
+  id             String   @id @default(uuid()) @db.Uuid
+  projectId      String   @map("project_id") @db.Uuid
+  importedBy     String   @map("imported_by") @db.Uuid
+  format         String
+  submitted      Int
+  deduplicated   Int      @default(0)
+  alreadyPresent Int      @default(0) @map("already_present")
+  added          Int      @default(0)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  importer User    @relation(fields: [importedBy], references: [id])
+
+  @@index([projectId, createdAt(sort: Desc)], map: "import_batches_project_idx")
+  @@map("import_batches")
 }
 
 // ═══════════════════════ Research questions ═══════════════════════

@@ -189,6 +189,10 @@ export async function commitImport(
 
   let added = 0;
   let alreadyPresent = 0;
+  // Records the paste contained before dedupe merged any of them. PRISMA
+  // reports what was submitted, not what survived.
+  const submitted = works.length;
+  const dedupedWithinBatch = works.length - merged.length;
 
   try {
     await withUserContext(claims, async (tx) => {
@@ -215,6 +219,22 @@ export async function commitImport(
         });
         added++;
       }
+
+      // Inside the same transaction as the rows it describes. A batch record
+      // that could disagree with the library is worse than none: it goes into
+      // a PRISMA diagram and then into a published methods section.
+      await tx.importBatch.create({
+        data: {
+          projectId,
+          importedBy: claims.sub,
+          format: result.format,
+          submitted,
+          deduplicated: dedupedWithinBatch,
+          alreadyPresent,
+          added,
+        },
+        select: { id: true },
+      });
     });
   } catch {
     // One transaction for the whole paste: a partial import leaves the user
@@ -228,5 +248,6 @@ export async function commitImport(
   }
 
   revalidatePath(`/projects/${projectId}/library`);
+  revalidatePath(`/projects/${projectId}/prisma`);
   return { ok: true, data: { added, alreadyPresent, problems } };
 }
