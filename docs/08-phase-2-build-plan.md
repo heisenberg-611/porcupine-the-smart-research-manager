@@ -77,7 +77,7 @@ Gated to `SYSTEMATIC_REVIEW`, and deliberately sequenced behind a real thesis st
 
 - [x] Every integrity rule is a trigger, and each has been verified by removing it
 - [x] `pnpm guards`, `pnpm db:test`, e2e and axe green
-- [x] An evidence table for 300 papers × 20 fields renders within budget — 51–56 ms in the database against a 3 s budget. Page-level render is NOT measured; see BUILD-LOG.
+- [x] An evidence table for 300 papers × 20 fields renders within budget — **measured end to end, 2026-08-15**: 240–248 ms to first byte and 276–284 ms to largest contentful paint (median of 7, worst 352 ms), against a 3 s budget. The database half is 51–56 ms, so roughly 190 ms is server render and framework. `pnpm db:seed --all-extracted` then `pnpm --filter @porcupine/web measure` reproduces it.
 - [x] CSV export opens in Excel and Sheets with the right column headers — headers are field keys, asserted end to end. Excel itself is untested; the format is verified by `unzip` and by RFC 4180 unit tests.
 - [x] A cell with a quote opens the paper at the passage it came from — and a BROKEN anchor says so, in the reader where the truth is known
 - [x] The BUILD-LOG entry exists, with its Problems section non-empty

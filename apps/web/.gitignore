@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# UI-audit screenshots: evidence for a conversation, not artefacts to version.
+screenshots/
