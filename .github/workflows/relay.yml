@@ -1,0 +1,44 @@
+name: Relay
+
+# Split out of the main workflow because these tests download and run workerd,
+# and they exercise Phase 5 infrastructure that most pull requests never touch.
+# Running them on every change to the web app was ~45 s and a 40 MB download
+# spent proving that code nobody had edited still worked.
+#
+# The paths below are everything the relay actually depends on: its own source,
+# the ticket format it shares with the app, and its lockfile.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/relay/**"
+      - "packages/shared/src/relay-ticket.ts"
+      - ".github/workflows/relay.yml"
+      - "pnpm-lock.yaml"
+  pull_request:
+    paths:
+      - "apps/relay/**"
+      - "packages/shared/src/relay-ticket.ts"
+      - ".github/workflows/relay.yml"
+      - "pnpm-lock.yaml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  relay:
+    name: workerd + Durable Objects
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # R-21. Real workerd, real Durable Objects — an in-process mock would
+      # prove nothing about the part that is actually uncertain.
+      - run: pnpm --filter @porcupine/relay test
