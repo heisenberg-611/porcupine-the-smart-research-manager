@@ -84,9 +84,34 @@ export function valuesAgree(type: FieldType, a: unknown, b: unknown): boolean {
   }
 }
 
+/**
+ * The canonical text form of a value, for comparison only.
+ *
+ * Deliberately explicit per type rather than `JSON.stringify`. `public
+ * .agreement_norm()` in SQL mirrors this exactly and is the authority for the
+ * reconciliation queue — the queue has to count disagreements across every
+ * dual-extracted paper, which is 12,000 rows for a 300-paper review and not
+ * something to ship to the browser.
+ *
+ * Two implementations of one rule is a parity risk, so 10_agreement_parity.sql
+ * runs these same cases against the SQL side. `JSON.stringify` would have made
+ * that untestable: it emits `["a","b"]` where jsonb::text emits `["a", "b"]`,
+ * and the two would have disagreed on arrays forever without anyone noticing.
+ */
 function normalise(value: unknown): string {
+  if (value === null || value === undefined) return "";
   if (typeof value === "string") return value.trim().toLowerCase();
-  return JSON.stringify(value ?? null);
+  if (typeof value === "number") return String(value);
+  if (typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) {
+    // Sorted, so order is not a difference. U+0001 cannot occur in extracted
+    // text, so it cannot be mistaken for a separator inside a value.
+    return value
+      .map((v) => normalise(v))
+      .sort()
+      .join("\u0001");
+  }
+  return JSON.stringify(value);
 }
 
 function toNumber(value: unknown): number | null {
