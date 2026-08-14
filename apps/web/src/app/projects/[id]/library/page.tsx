@@ -164,9 +164,12 @@ export default async function LibraryPage({
               {rows.map((row) => (
                 <tr key={row.id}>
                   <td className="px-4 py-3">
-                    <span className="text-ink font-medium">
+                    <Link
+                      href={`/projects/${id}/read/${row.id}`}
+                      className="text-ink font-medium underline-offset-2 hover:underline"
+                    >
                       {row.works?.title ?? "Untitled"}
-                    </span>
+                    </Link>
                     <span className="text-muted mt-0.5 block text-xs">
                       {authorLine(row.works?.authors)}
                       {row.works?.venue && ` · ${row.works.venue}`}

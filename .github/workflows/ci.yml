@@ -103,6 +103,11 @@ jobs:
       # mocked resolver would prove nothing about either.
       - run: pnpm --filter @porcupine/discovery test
 
+      # The anchoring engine is pure logic with no services, and it is the
+      # highest-consequence code in Phase 1 — every Phase 2 extraction will
+      # resolve through it.
+      - run: pnpm --filter @porcupine/anchoring test
+
       # R-21. Real workerd, real Durable Objects — an in-process mock would
       # prove nothing about the part that is actually uncertain.
       - run: pnpm --filter @porcupine/relay test
