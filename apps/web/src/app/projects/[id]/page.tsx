@@ -101,6 +101,12 @@ export default async function ProjectPage({
             Protocol
           </Link>
           <Link
+            href={`/projects/${id}/evidence`}
+            className="border-border text-ink hover:bg-surface text-ui inline-flex min-h-11 items-center rounded-lg border px-4 font-medium"
+          >
+            Evidence
+          </Link>
+          <Link
             href={`/projects/${id}/prisma`}
             className="border-border text-ink hover:bg-surface text-ui inline-flex min-h-11 items-center rounded-lg border px-4 font-medium"
           >

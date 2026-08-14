@@ -1,4 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
+import { readFileSync } from "node:fs";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 /**
@@ -568,6 +569,97 @@ test.describe("Phase 0 exit criterion", () => {
     // And reopening is a door, not a wall.
     await page.getByRole("button", { name: /reopen as a draft/i }).click();
     await expect(page.getByLabel(/^dataset/i)).toBeEnabled();
+  });
+
+  test("the evidence table shows the extraction, holes included", async () => {
+    await page.goto("/projects");
+    await page.getByRole("link", { name: /transformer efficiency/i }).click();
+    await page.getByRole("link", { name: /^evidence$/i }).click();
+
+    await expect(page.getByRole("heading", { name: /^evidence$/i })).toBeVisible();
+
+    // The answers from the previous test, in a row of their own.
+    const row = page.getByRole("row", { name: /attention is all you need/i });
+    await expect(row).toContainText("WMT 2014");
+    await expect(row).toContainText("BLEU");
+
+    // 4.5. The row must LOOK incomplete, and say how incomplete: the previous
+    // test deliberately left fields unanswered.
+    const done = await row.getByText(/^\d+\/\d+$/).textContent();
+    const [answered, totalFields] = done!.split("/").map(Number);
+    expect(answered).toBeLessThan(totalFields!);
+
+    const results = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      .analyze();
+    if (results.violations.length > 0) {
+      console.error(results.violations.map((v) => `${v.id}: ${v.help}`).join("\n"));
+    }
+    expect(results.violations).toEqual([]);
+  });
+
+  test("sorting is a link, so a sorted table can be sent to a supervisor", async () => {
+    await page.goto("/projects");
+    await page.getByRole("link", { name: /transformer efficiency/i }).click();
+    await page.getByRole("link", { name: /^evidence$/i }).click();
+
+    await page.getByRole("link", { name: /^year/i }).click();
+
+    // The whole point of sorting server-side via the URL: the state is in the
+    // address bar, so the link is shareable and survives a reload.
+    await expect(page).toHaveURL(/sort=year/);
+    await expect(page.getByRole("columnheader", { name: /^year/i })).toHaveAttribute(
+      "aria-sort",
+      "ascending",
+    );
+
+    await page.getByRole("link", { name: /^year/i }).click();
+    await expect(page).toHaveURL(/dir=desc/);
+    await expect(page.getByRole("columnheader", { name: /^year/i })).toHaveAttribute(
+      "aria-sort",
+      "descending",
+    );
+  });
+
+  test("a quoted cell opens the paper at the passage it came from", async () => {
+    await page.goto("/projects");
+    await page.getByRole("link", { name: /transformer efficiency/i }).click();
+    await page.getByRole("link", { name: /^evidence$/i }).click();
+
+    // 4.3. The headline-metric answer was quoted from the abstract, so its
+    // cell is a link rather than plain text.
+    const row = page.getByRole("row", { name: /attention is all you need/i });
+    await row.getByRole("link", { name: /open the passage this came from/i }).click();
+
+    await expect(page).toHaveURL(/\/read\/.*anchor=/);
+    await expect(
+      page.getByText(/showing the passage this evidence came from/i),
+    ).toBeVisible();
+  });
+
+  test("the CSV export uses field keys as headers", async () => {
+    await page.goto("/projects");
+    await page.getByRole("link", { name: /transformer efficiency/i }).click();
+    await page.getByRole("link", { name: /^evidence$/i }).click();
+
+    const downloadPromise = page.waitForEvent("download");
+    await page.getByRole("link", { name: /export csv/i }).click();
+    const download = await downloadPromise;
+
+    const path = await download.path();
+    const csv = readFileSync(path, "utf8");
+    const [header, ...rows] = csv.split("\r\n");
+
+    // 4.4. The header is the field KEYS. `metric_name` is the key; the label
+    // on screen is "Metric name". Asserting the underscored form is what
+    // separates the two — an export headed with labels would break every
+    // script that joins on a column, silently, whenever someone reworded one.
+    expect(header).toContain("metric_name");
+    expect(header).not.toContain("Metric name");
+    expect(header!.startsWith("\uFEFFtitle,year,status,answered,fields,")).toBe(true);
+
+    expect(rows.some((r) => r.includes("WMT 2014"))).toBe(true);
+    expect(download.suggestedFilename()).toMatch(/^evidence-.*\.csv$/);
   });
 
   test("signs out and blocks the project list", async () => {

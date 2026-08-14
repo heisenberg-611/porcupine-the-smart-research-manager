@@ -28,6 +28,9 @@ run "shared"             pnpm --filter @porcupine/shared test
 run "crypto"             pnpm --filter @porcupine/crypto test
 run "discovery"          pnpm --filter @porcupine/discovery test
 run "anchoring"          pnpm --filter @porcupine/anchoring test
+# apps/web had a `test` script and a vitest config that NOTHING invoked. A unit
+# test written there would have run green locally and never once in CI.
+run "web"                pnpm --filter @porcupine/web test
 
 # Everything below needs the local stack. Say so plainly rather than letting
 # psql fail with ECONNREFUSED, which names a port and not a fix.
