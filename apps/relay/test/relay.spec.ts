@@ -204,7 +204,7 @@ describe("ticket authorization", () => {
     // "A" for "B" changes nothing but padding — it decodes to identical
     // bytes, the signature verifies, and the test fails about one run in four.
     const sig = Buffer.from(parts[2]!, "base64url");
-    sig[0] ^= 0x01;
+    sig.writeUInt8(sig.readUInt8(0) ^ 0x01, 0);
     const tampered = `${parts[0]}.${parts[1]}.${sig.toString("base64url")}`;
 
     expect(await expectRejection(tampered)).toBe(401);
