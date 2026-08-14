@@ -193,10 +193,19 @@ describe("ticket authorization", () => {
 
   it("rejects a forged signature", async () => {
     const valid = await ticket();
-    // Flip the last character of the signature segment.
     const parts = valid.split(".");
-    const sig = parts[2]!;
-    const tampered = `${parts[0]}.${parts[1]}.${sig.slice(0, -1)}${sig.at(-1) === "A" ? "B" : "A"}`;
+
+    // Flip a bit in the decoded signature, not in its base64url text.
+    //
+    // Editing the last character does not reliably forge anything: a 64-byte
+    // signature is 512 bits but 86 base64url characters carry 516, so the
+    // final character holds 2 meaningful bits and 4 of padding. Real
+    // signatures therefore end only in A, Q, g or w, and swapping a trailing
+    // "A" for "B" changes nothing but padding — it decodes to identical
+    // bytes, the signature verifies, and the test fails about one run in four.
+    const sig = Buffer.from(parts[2]!, "base64url");
+    sig.writeUInt8(sig.readUInt8(0) ^ 0x01, 0);
+    const tampered = `${parts[0]}.${parts[1]}.${sig.toString("base64url")}`;
 
     expect(await expectRejection(tampered)).toBe(401);
   });
