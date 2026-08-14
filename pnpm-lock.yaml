@@ -66,6 +66,9 @@ importers:
       '@porcupine/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@porcupine/discovery':
+        specifier: workspace:*
+        version: link:../../packages/discovery
       '@porcupine/shared':
         specifier: workspace:*
         version: link:../../packages/shared

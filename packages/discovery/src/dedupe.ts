@@ -1,5 +1,5 @@
-import { normalizeTitle } from "./normalize.js";
-import type { WorkInput } from "./types.js";
+import { normalizeTitle } from "./normalize";
+import type { WorkInput } from "./types";
 
 /**
  * Collapse the same paper returned by several providers into one record.

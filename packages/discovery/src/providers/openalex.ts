@@ -1,6 +1,6 @@
-import { normalizeArxivId, normalizeDoi, normalizeOpenAlexId } from "../normalize.js";
-import { safeFetch, userAgent } from "../ssrf.js";
-import type { Provider, SearchQuery, WorkInput } from "../types.js";
+import { normalizeArxivId, normalizeDoi, normalizeOpenAlexId } from "../normalize";
+import { safeFetch, userAgent } from "../ssrf";
+import type { Provider, SearchQuery, WorkInput } from "../types";
 
 /**
  * OpenAlex — the primary source.

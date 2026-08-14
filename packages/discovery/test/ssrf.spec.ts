@@ -10,7 +10,7 @@ import {
   safeFetch,
   SSRF_KNOWN_GAPS,
   SsrfError,
-} from "../src/ssrf.js";
+} from "../src/ssrf";
 
 /**
  * These are negative tests, so each one is written to be capable of failing:

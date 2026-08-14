@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { __testing as arxivInternals, arxiv } from "../src/providers/arxiv.js";
-import { stripJats } from "../src/providers/crossref.js";
-import { splitAuthorString } from "../src/providers/europepmc.js";
-import { rebuildAbstract } from "../src/providers/openalex.js";
-import { federatedSearch, InProcessRateLimiter } from "../src/search.js";
-import type { Provider, WorkInput } from "../src/types.js";
+import { __testing as arxivInternals, arxiv } from "../src/providers/arxiv";
+import { stripJats } from "../src/providers/crossref";
+import { splitAuthorString } from "../src/providers/europepmc";
+import { rebuildAbstract } from "../src/providers/openalex";
+import { federatedSearch, InProcessRateLimiter } from "../src/search";
+import type { Provider, WorkInput } from "../src/types";
 
 /**
  * Parsing is tested against recorded payload shapes rather than live calls.

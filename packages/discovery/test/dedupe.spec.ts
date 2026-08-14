@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { dedupe, findNearDuplicates, trigramSimilarity } from "../src/dedupe.js";
-import type { WorkInput } from "../src/types.js";
+import { dedupe, findNearDuplicates, trigramSimilarity } from "../src/dedupe";
+import type { WorkInput } from "../src/types";
 
 function work(overrides: Partial<WorkInput> & { title: string }): WorkInput {
   return {

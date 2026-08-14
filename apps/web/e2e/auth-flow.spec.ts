@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
+import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 /**
  * Phase 0 exit criterion, end to end:
@@ -71,13 +72,18 @@ test.describe("Phase 0 exit criterion", () => {
   // which would drop the session cookie between steps — and this is a single
   // continuous journey, not seven independent assertions.
   let page: Page;
+  // An explicit context, not browser.newPage(): @axe-core/playwright needs to
+  // reach the browser through page.context() to inject itself, and refuses a
+  // page created directly off the browser.
+  let context: BrowserContext;
 
   test.beforeAll(async ({ browser }) => {
-    page = await browser.newPage();
+    context = await browser.newContext();
+    page = await context.newPage();
   });
 
   test.afterAll(async () => {
-    await page.close();
+    await context.close();
   });
 
   test("signs up with an email OTP", async () => {
@@ -178,6 +184,44 @@ test.describe("Phase 0 exit criterion", () => {
     await page.getByRole("button", { name: /add member/i }).click();
 
     await expect(page.getByText(/no porcupine account/i)).toBeVisible();
+  });
+
+  test("search page is reachable, accessible, and degrades on provider failure", async () => {
+    await page.goto("/projects");
+    await page.getByRole("link", { name: /transformer efficiency/i }).click();
+    await page.getByRole("link", { name: /find papers/i }).click();
+
+    await expect(page.getByRole("heading", { name: /find papers/i })).toBeVisible();
+    await expect(page.getByLabel(/search terms/i)).toBeVisible();
+
+    // G-07 for an authenticated route. The a11y spec covers only public
+    // pages because it has no session; this one does, so the check belongs
+    // here rather than nowhere.
+    const results = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      .analyze();
+
+    if (results.violations.length > 0) {
+      console.error(
+        results.violations
+          .map(
+            (v: { id: string; impact?: string | null; help: string }) =>
+              `${v.id} (${v.impact}): ${v.help}`,
+          )
+          .join("\n"),
+      );
+    }
+    expect(results.violations).toEqual([]);
+
+    // A real federated search would hit five external APIs, which makes this
+    // suite depend on someone else's uptime. What is asserted instead is the
+    // part that is ours: validation runs, and the page reports rather than
+    // crashes.
+    await page.getByLabel(/search terms/i).fill("a");
+    await page.getByRole("button", { name: /^search$/i }).click();
+    // Scoped to the form's own alert: Next renders a route announcer with
+    // role="alert" too, so a bare getByRole("alert") is ambiguous.
+    await expect(page.getByText(/enter at least two characters/i)).toBeVisible();
   });
 
   test("signs out and blocks the project list", async () => {

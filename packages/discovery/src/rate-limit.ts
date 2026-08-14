@@ -1,4 +1,4 @@
-import type { RateLimit, RateLimiter } from "./types.js";
+import type { RateLimit, RateLimiter } from "./types";
 
 /**
  * The production limiter: the Postgres token bucket from R-22.

@@ -1,6 +1,6 @@
-import { normalizeDoi } from "../normalize.js";
-import { safeFetch } from "../ssrf.js";
-import type { Provider, SearchQuery, WorkInput } from "../types.js";
+import { normalizeDoi } from "../normalize";
+import { safeFetch } from "../ssrf";
+import type { Provider, SearchQuery, WorkInput } from "../types";
 
 /**
  * Europe PMC — biomedical literature, and the only provider carrying PMIDs.

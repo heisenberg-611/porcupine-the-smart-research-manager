@@ -1,9 +1,9 @@
-import { dedupe } from "./dedupe.js";
-import { arxiv } from "./providers/arxiv.js";
-import { crossref } from "./providers/crossref.js";
-import { europepmc } from "./providers/europepmc.js";
-import { openalex } from "./providers/openalex.js";
-import { semanticscholar } from "./providers/semanticscholar.js";
+import { dedupe } from "./dedupe";
+import { arxiv } from "./providers/arxiv";
+import { crossref } from "./providers/crossref";
+import { europepmc } from "./providers/europepmc";
+import { openalex } from "./providers/openalex";
+import { semanticscholar } from "./providers/semanticscholar";
 import type {
   FederatedResult,
   Provider,
@@ -11,7 +11,7 @@ import type {
   ProviderId,
   RateLimiter,
   SearchQuery,
-} from "./types.js";
+} from "./types";
 
 export const PROVIDERS: Record<ProviderId, Provider> = {
   openalex,

@@ -7,7 +7,7 @@ import {
   normalizeDoi,
   normalizeOpenAlexId,
   normalizeTitle,
-} from "../src/normalize.js";
+} from "../src/normalize";
 
 /**
  * The title pairs here are duplicated in packages/db/test/05_normalize_parity.sql,

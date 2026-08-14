@@ -1,17 +1,18 @@
-export * from "./types.js";
-export * from "./normalize.js";
-export * from "./dedupe.js";
-export * from "./search.js";
-export * from "./rate-limit.js";
+export * from "./types";
+export * from "./normalize";
+export * from "./dedupe";
+export * from "./search";
+export * from "./rate-limit";
 export {
   assertPublicUrl,
   classifyAddress,
   safeFetch,
   SsrfError,
   SSRF_KNOWN_GAPS,
-} from "./ssrf.js";
-export { openalex } from "./providers/openalex.js";
-export { crossref } from "./providers/crossref.js";
-export { arxiv } from "./providers/arxiv.js";
-export { europepmc } from "./providers/europepmc.js";
-export { semanticscholar } from "./providers/semanticscholar.js";
+} from "./ssrf";
+export { openalex } from "./providers/openalex";
+export { crossref } from "./providers/crossref";
+export { arxiv } from "./providers/arxiv";
+export { europepmc } from "./providers/europepmc";
+export { semanticscholar } from "./providers/semanticscholar";
+export * from "./relevance";
