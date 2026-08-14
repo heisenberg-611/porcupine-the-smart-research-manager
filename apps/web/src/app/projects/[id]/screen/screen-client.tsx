@@ -58,6 +58,7 @@ export function ScreenClient({
   const [done, setDone] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [conflicts, setConflicts] = useState(0);
   const [reason, setReason] = useState<ExclusionReason | "">("");
   const [pending, startTransition] = useTransition();
 
@@ -79,12 +80,26 @@ export function ScreenClient({
         projectWorkId: current.id,
         toStatus,
         excludeReason: toStatus === "EXCLUDED" ? reason || null : null,
+        // Compare-and-swap: the status this screen was SHOWING when the
+        // person decided. If the paper has moved since, the server refuses
+        // rather than letting this decision overwrite a colleague's.
+        seenStatus: current.screenStatus as typeof toStatus,
       });
 
       if (response.ok) {
         setDone((prev) => ({ ...prev, [current.id]: toStatus }));
         setReason("");
         setIndex(0);
+
+        // Not an error — the paper is simply already handled. Naming who did
+        // it explains why it left the queue, instead of leaving the person
+        // wondering whether their click registered.
+        if (response.data.conflict) {
+          setConflicts((n) => n + 1);
+          setStatus(`Already screened by ${response.data.conflict.by} — moved on.`);
+        } else {
+          setStatus(null);
+        }
       } else setError(response.error);
     });
   }
@@ -132,6 +147,10 @@ export function ScreenClient({
     <section className="space-y-4">
       <p className="text-muted text-sm" aria-live="polite">
         {remaining.length} left{decided > 0 && ` · ${decided} decided this session`}
+        {/* Duplicated effort is worth showing. Four people sharing one queue
+            will land on the same papers, and a screener who cannot see that
+            has no way to know their afternoon overlapped a colleague's. */}
+        {conflicts > 0 && ` · ${conflicts} already handled by someone else`}
       </p>
 
       <article className="border-border bg-surface rounded-lg border p-5">
