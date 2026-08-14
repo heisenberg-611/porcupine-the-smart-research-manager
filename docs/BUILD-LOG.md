@@ -351,3 +351,40 @@ A REVIEWER can annotate but cannot change a screening decision.
 - Unchanged from Phase 0: the 20-minute soak, `docEpoch` bootstrap authority, and the R-01 and ADR-007 spikes.
 
 ---
+
+## 2026-08-14 · Phase 1 weeks 3–6 and the R-04 measurement
+
+### Shipped
+
+Search (week 3), import and library (week 4), screening and the queue (week 5), the anchoring engine, reader and progress view (week 6). Each has its own PR and its own reasoning; what follows is what those entries would otherwise repeat.
+
+### The R-04 number, finally measured
+
+`05-resolution-plan.md` had carried "45 %, measure it in Phase 1" since the v6 replan. Measured across 293 deduplicated works in six fields: **66.6 %** report an open-access PDF.
+
+The assumption was pessimistic, and **its caveat was wrong in direction**: the plan said 45 % was "optimistic for humanities", but humanities measured 58 %. The lowest field was ecology at 46 % — at the assumed rate, not below it.
+
+It is a **ceiling, not the answer**. It measures OpenAlex's `is_oa`, which says a free copy exists; it does not check the licence, and R-04 only allows `R2_SHARED` for files verified redistributable. That needs Unpaywall, in Phase 2. The planning figure stays 45 % until then, because a green-OA copy in a repository is readable by anyone and still not ours to serve to a second user.
+
+The measurement lives in `packages/discovery/test/oa-rate.measure.ts`, deliberately outside the default suite: it makes real provider calls, and a measurement that runs in CI is one that eventually gets deleted for being flaky. It asserts only that the sample is large enough — **not** that the rate clears 45 %, because an assertion there would turn a measurement into something that gets adjusted until it passes.
+
+### Problems hit
+
+1. **A stacked PR missed the merge.** PR #7 (week 6) was based on `phase-1-screening`; PR #6 merged that branch into `main` at 08:06:22 and #7 merged into it 14 seconds later — into a branch that had already been merged away. Week 6 was absent from `main` and nobody would have noticed until the next branch cut from it. Landed via PR #8. A stacked PR only works if it merges first, and I did not say so when opening it.
+
+2. **Three bugs, one shape.** `previewImport` called external providers with no authorization check — it writes nothing, so the check looked unnecessary, but it spends the shared R-22 token bucket and any signed-in user could have used it as a free proxy. Annotations vanished entirely on a record with no abstract. A PostgREST embed failed and the ignored error rendered as "0 annotations".
+
+   The last two are the same mistake: **an error path and an empty path rendering identically**. Query errors now throw.
+
+3. **Vitest 4 removed the `--include` CLI flag**, so the measurement script needed its own config file rather than a one-line override.
+
+4. **A test that asserted nothing.** The first version of the reader e2e was called "highlights a passage" and only checked an empty state, because BibTeX imports carry no abstract. Fixed by giving the fixture a real abstract and driving a DOM selection, so it now highlights, reloads, and asserts the mark is painted with no drift warning.
+
+### Open
+
+- **The 300-paper, 4-person trial has not run.** Everything works at 2 papers and 1 person. That is Phase 1's exit criterion and the thing that would actually tell us whether this is usable.
+- Unpaywall licence verification, for the real redistributable rate.
+- PDF reading, which needs the R2 file pipeline.
+- Unchanged from Phase 0: the 20-minute relay soak, `docEpoch` bootstrap authority, and the R-01 and ADR-007 spikes.
+
+---
