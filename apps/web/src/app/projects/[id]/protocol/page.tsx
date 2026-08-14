@@ -105,13 +105,16 @@ export default async function ProtocolPage({
     }),
   );
 
-  const { data: membership } = await supabase
-    .from("project_members")
-    .select("access_role")
-    .eq("project_id", id)
-    .eq("user_id", user.id)
-    .is("removed_at", null)
-    .maybeSingle();
+  const membership = await must(
+    supabase
+      .from("project_members")
+      .select("access_role")
+      .eq("project_id", id)
+      .eq("user_id", user.id)
+      .is("removed_at", null)
+      .maybeSingle(),
+    "your role on this project",
+  );
 
   const role = (membership as { access_role?: string } | null)?.access_role;
   const canEdit = role === "OWNER" || role === "ADMIN";

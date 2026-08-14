@@ -20,7 +20,8 @@
     "db:reset": "supabase db reset",
     "db:diff": "pnpm --filter @porcupine/db diff",
     "db:generate": "pnpm --filter @porcupine/db generate",
-    "db:test": "pnpm --filter @porcupine/db test"
+    "db:test": "pnpm --filter @porcupine/db test",
+    "guards": "bash scripts/guards.sh"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
