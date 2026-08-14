@@ -1,4 +1,4 @@
-import { capabilities, OPEN_QUEUE_STATUSES, type ProjectKind } from "@porcupine/shared";
+import { capabilities, type ProjectKind } from "@porcupine/shared";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -115,10 +115,6 @@ export default async function ScreenPage({
         reasonRequired={caps.exclusionReasonRequired}
         currentUserId={user.id}
       />
-
-      <p className="text-muted text-xs">
-        Papers waiting: {OPEN_QUEUE_STATUSES.length > 0 ? rows.length : 0}
-      </p>
     </main>
   );
 }

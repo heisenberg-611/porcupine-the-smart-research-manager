@@ -70,13 +70,26 @@ export async function previewImport(
   const claims = await getUserClaims();
   if (!claims) return { ok: false, error: "Not signed in." };
 
-  const { source } = parsed.data;
+  const { projectId, source } = parsed.data;
   if (Buffer.byteLength(source, "utf8") > MAX_BYTES) {
     return {
       ok: false,
       error: `That is larger than ${MAX_BYTES / 1024} KB. Import it in parts.`,
     };
   }
+
+  // Authorize BEFORE touching any provider.
+  //
+  // Preview writes nothing, so it is tempting to skip this — but it does make
+  // outbound calls to OpenAlex, Crossref and arXiv, spending the shared token
+  // bucket (R-22). Without a membership check, any signed-in user could pass
+  // any project id and use the server as a free proxy to those APIs, and the
+  // cost lands on every other project's rate limit. The write path is
+  // protected by RLS; this path has to say so explicitly.
+  const member = await withUserContext(claims, async (tx) =>
+    tx.project.findUnique({ where: { id: projectId }, select: { id: true } }),
+  );
+  if (!member) return { ok: false, error: "Project not found." };
 
   const result = parseImport(source);
   const problems = [...result.problems];

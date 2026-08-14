@@ -236,7 +236,8 @@ test.describe("Phase 0 exit criterion", () => {
         title = {Attention Is All You Need},
         author = {Vaswani, Ashish and Shazeer, Noam},
         booktitle = {NeurIPS},
-        year = {2017}
+        year = {2017},
+        abstract = {The dominant sequence transduction models are based on complex recurrent or convolutional neural networks. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence entirely.}
       }
 
       @article{devlin2019,
@@ -335,6 +336,77 @@ test.describe("Phase 0 exit criterion", () => {
     await page.goto("/queue");
     await expect(page.getByRole("heading", { name: /my queue/i })).toBeVisible();
     await expect(page.getByText(title)).toBeVisible();
+  });
+
+  test("highlights a passage and re-resolves the anchor on reload", async () => {
+    await page.goto("/projects");
+    await page.getByRole("link", { name: /transformer efficiency/i }).click();
+    await page.getByRole("link", { name: /^library$/i }).click();
+    await page.getByRole("link", { name: /attention is all you need/i }).click();
+
+    await expect(
+      page.getByRole("heading", { name: /attention is all you need/i }),
+    ).toBeVisible();
+    const reader = page.getByTestId("reader-text");
+    await expect(reader).toBeVisible();
+
+    // Playwright cannot drag-select reliably across text nodes, so the
+    // selection is made through the DOM and the same mouseup the component
+    // listens for is dispatched.
+    const quote = await page.evaluate(() => {
+      const el = document.querySelector('[data-testid="reader-text"]');
+      if (!el?.firstChild) return null;
+      const node = el.firstChild;
+      const range = document.createRange();
+      range.setStart(node, 12);
+      range.setEnd(node, 64);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      el.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+      return range.toString();
+    });
+
+    expect(quote).toBeTruthy();
+    await expect(page.getByRole("button", { name: /^highlight$/i })).toBeVisible();
+    await page.getByRole("button", { name: /^highlight$/i }).click();
+    await expect(page.getByText(/highlight saved/i)).toBeVisible();
+
+    // Reload: the anchor is re-resolved server-side against the current text.
+    // If it came back OK the passage is painted and no warning is shown —
+    // which is what proves resolution ran rather than offsets being trusted.
+    await page.reload();
+    await expect(page.getByRole("heading", { name: /annotations/i })).toContainText(
+      "(1)",
+    );
+    await expect(page.locator("mark")).toHaveCount(1);
+    await expect(page.locator("mark")).toHaveText(quote!.trim());
+    await expect(page.getByText(/possibly moved|lost in this document/i)).toHaveCount(0);
+  });
+
+  test("progress reflects the screening decisions made", async () => {
+    await page.goto("/projects");
+    await page.getByRole("link", { name: /transformer efficiency/i }).click();
+    await page.getByRole("link", { name: /^progress$/i }).click();
+
+    await expect(page.getByRole("heading", { name: /^progress$/i })).toBeVisible();
+
+    // Two papers imported, one included during the screening test.
+    await expect(page.getByRole("term").filter({ hasText: /^Papers$/ })).toBeVisible();
+    const papers = page.locator("dt", { hasText: /^Papers$/ }).locator("+ dd");
+    await expect(papers).toHaveText("2");
+
+    const screened = page.locator("dt", { hasText: /^Screened$/ }).locator("+ dd");
+    await expect(screened).toHaveText("1");
+
+    // The pipeline meters announce their values rather than being decorative.
+    await expect(page.getByRole("meter", { name: /included/i })).toHaveAttribute(
+      "aria-valuenow",
+      "1",
+    );
+
+    // A rate this small must NOT produce a finish-date estimate.
+    await expect(page.getByText(/too few recent decisions/i)).toBeVisible();
   });
 
   test("signs out and blocks the project list", async () => {

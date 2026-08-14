@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // Browser-safe: this runs in the PDF reader as well as on the server, so
+    // it must not reach for Node APIs.
+    "lib": ["ES2023"]
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"]
+}
