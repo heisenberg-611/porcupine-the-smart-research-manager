@@ -240,8 +240,8 @@ export async function resolveAndValidate(
  * URL is unchanged — so certificate verification is unaffected and virtual
  * hosts still resolve correctly. Only the IP is pinned.
  */
-function pinnedAgent(address: string): Agent {
-  const family = isIP(address);
+function pinnedAgent(addresses: readonly string[]): Agent {
+  const targets = orderedTargets(addresses);
 
   return new Agent({
     connect: {
@@ -257,11 +257,54 @@ function pinnedAgent(address: string): Agent {
           family?: number,
         ) => void,
       ) => {
-        if (options.all) callback(null, [{ address, family }]);
-        else callback(null, address, family);
+        const first = targets[0];
+        if (!first) {
+          // Unreachable via resolveAndValidate, which never returns an empty
+          // or non-IP list. Reported rather than thrown: this runs inside a
+          // socket callback, where a throw is an unhandled exception.
+          callback(new Error("no validated address to connect to"), []);
+          return;
+        }
+        // `all: true` is the shape Node asks for when autoSelectFamily is on
+        // (the default since Node 20), and it is the one that matters: handing
+        // back every validated address is what lets the socket fail over.
+        if (options.all) callback(null, [...targets]);
+        else callback(null, first.address, first.family);
       }) as never,
     },
   });
+}
+
+/**
+ * Every validated address, IPv4 first.
+ *
+ * Two separate things, both learned the hard way when federated search started
+ * reporting every provider as failed on a machine with no IPv6 route:
+ *
+ *   1. ALL of them. This used to pin to `addresses[0]` alone, which meant one
+ *      unreachable address was a dead request even though DNS had handed us a
+ *      working alternative. Passing the whole list restores Node's own
+ *      connection failover (Happy Eyeballs). It costs nothing in safety —
+ *      resolveAndValidate has already classified every address in this array,
+ *      and an address absent from it can still never be connected to.
+ *
+ *   2. IPv4 FIRST. Happy Eyeballs races the families with a 250 ms head start,
+ *      which recovers from a blackholed AAAA in a quarter of a second — but
+ *      only when the stack actually attempts both. Leading with the reachable
+ *      family means the common case never pays even that, and the ordering is
+ *      the part that is cheap to be sure of.
+ *
+ * A non-IP string would sort to the front (isIP returns 0), so it is dropped
+ * instead: it cannot be a validated address, and silently preferring it would
+ * hand the socket something nothing checked.
+ */
+function orderedTargets(
+  addresses: readonly string[],
+): Array<{ address: string; family: number }> {
+  return addresses
+    .map((address) => ({ address, family: isIP(address) }))
+    .filter((t) => t.family !== 0)
+    .sort((a, b) => a.family - b.family);
 }
 
 // ── The fetch itself ─────────────────────────────────────────────────────────
@@ -299,8 +342,8 @@ export async function safeFetch(
     for (let hop = 0; hop <= maxRedirects; hop++) {
       const { url: current, addresses } = validated;
 
-      // Connect to the address we just approved rather than re-resolving.
-      const agent = pinnedAgent(addresses[0]!);
+      // Connect to the addresses we just approved rather than re-resolving.
+      const agent = pinnedAgent(addresses);
 
       try {
         const response = await undiciFetch(current.href, {
@@ -434,12 +477,6 @@ export function userAgent(): string {
  *
  * What remains, honestly:
  *
- *   * `lookup()` returns several addresses for many hosts and we validate all
- *     of them, but pin the FIRST. That is safe — every address passed — and
- *     it does mean no failover to the second address if the first is
- *     unreachable. A retry loop over the validated set would fix it; it has
- *     not been needed.
- *
  *   * A host that is public at validation time and becomes attacker-controlled
  *     later is out of scope for any client-side control. That is a BGP or
  *     domain-hijack scenario, not an SSRF one.
@@ -449,8 +486,14 @@ export function userAgent(): string {
  *     name — pinning would add little and break ordinary rotation.
  */
 /** Exposed so a test can prove the pin actually redirects the socket. */
-export const __testing = { pinnedAgent };
+export const __testing = { pinnedAgent, orderedTargets };
 
-export const SSRF_KNOWN_GAPS = [
-  "No failover to the second validated address if the first is unreachable (availability, not security)",
-] as const;
+/**
+ * Empty, and the tests enforce that it stays honest rather than merely empty:
+ * `ssrf.spec.ts` asserts no rebinding entry has reappeared, which would mean
+ * the pin was removed.
+ *
+ * The failover gap that used to be listed here is closed — `pinnedAgent` now
+ * hands the socket every validated address rather than the first.
+ */
+export const SSRF_KNOWN_GAPS: readonly string[] = [];
