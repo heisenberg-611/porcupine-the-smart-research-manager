@@ -243,6 +243,16 @@ are now loud. The message names what failed to load.
 **Search returns nothing.** The providers are real external APIs and need
 internet. The page names any provider that failed.
 
+**One provider says it failed and the rest worked.** Normal, and the design
+point — four sets of results beat an error page. Semantic Scholar is the usual
+one: it rate-limits unauthenticated callers hard and returns 429. Search again
+in a minute.
+
+**_Every_ provider says it failed.** Five independent APIs do not fail
+together, so that one is ours — please report it. One such bug is fixed
+(2026-08-15: an unreachable IPv6 address was pinned and the socket hung), and
+the failover that prevents it is now tested.
+
 **Starting over:** `pnpm db:reset` wipes all data and reapplies the schema.
 You will need to sign up again.
 

@@ -346,7 +346,7 @@ A REVIEWER can annotate but cannot change a screening decision.
 
   Proven in both directions, because "it failed" is not by itself evidence of a working security control: pinned to an unrelated public address the request fails, and pinned to the host's own real address it returns 200. The first alone would also pass if pinning simply broke everything.
 
-  `SSRF_KNOWN_GAPS` now lists one item, and it is an availability concern rather than a security one: we validate every address a host resolves to but pin the first, so there is no failover if that one is unreachable.
+  `SSRF_KNOWN_GAPS` now lists one item, and it is an availability concern rather than a security one: we validate every address a host resolves to but pin the first, so there is no failover if that one is unreachable. *(Closed 2026-08-15 — see the entry at the end of this log.)*
 - The R-04 OA dedupe rate (assumed 45 %) is still unmeasured; it needs a real corpus, which arrives with week 3's search UI.
 - Unchanged from Phase 0: the 20-minute soak, `docEpoch` bootstrap authority, and the R-01 and ADR-007 spikes.
 
@@ -744,3 +744,54 @@ submission, and a second reading of one work in one project.
   Four humans, one afternoon. No test replaces it.
 
 ---
+
+## 2026-08-15 · Every provider "down", and none of them were
+
+### The symptom
+
+Federated search reported all five providers as failed. Not one — all five,
+every time. Five independent external APIs do not fail together, so the
+failure was ours.
+
+### What it was
+
+`safeFetch` validates every address a hostname resolves to, then pins the
+socket to a validated one so DNS cannot be consulted a second time. It pinned
+`addresses[0]`. When that first address was an AAAA record and the machine's
+IPv6 route was a blackhole, the socket did not refuse — it *hung*, for the
+full 10 s, until `safeFetch`'s abort and undici's connect timeout (both 10 s;
+nothing in the search path shortens either) raced to end it. What surfaced was
+"provider unavailable", five times over, rather than "one address was
+unreachable", once.
+
+The A record was sitting right there in the validated list, unused.
+
+`pinnedAgent` now hands the socket **every** validated address, IPv4 first.
+Node's own connection failover (Happy Eyeballs) takes it from there.
+
+### Why this costs nothing in safety
+
+The array passed to `pinnedAgent` is exactly the array `resolveAndValidate`
+already classified, address by address — an address absent from it still can
+never be connected to, and no new DNS lookup happens. The pin is unchanged in
+what it forbids; it is only less arbitrary about what it permits.
+
+Two details that are easy to get wrong and are therefore tested directly:
+
+- **IPv4 first, but DNS order preserved within a family.** Resolvers rotate
+  records to spread load; re-sorting inside a family would quietly undo that
+  and pile every request onto one host.
+- **A non-IP string is dropped, not sorted.** `isIP` returns 0 for one, which
+  would sort it to the *front* — ahead of every real address. The failure mode
+  of keeping it is the worst one available, so it is filtered out.
+
+### Proven by sabotage
+
+Restoring the one-address behaviour (`.slice(0, 1)`) makes the new test fail
+with `UND_ERR_CONNECT_TIMEOUT` after 10 s against a host that is up — the
+production symptom exactly, reproduced on demand. End to end, search now
+returns four providers in 2.6 s; the fifth is a Semantic Scholar 429, which is
+a rate limit and is reported as one.
+
+`SSRF_KNOWN_GAPS` is now empty, and the test asserts that rather than trusting
+it.

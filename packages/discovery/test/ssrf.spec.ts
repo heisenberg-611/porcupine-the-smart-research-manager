@@ -153,7 +153,7 @@ describe("address pinning (DNS rebinding)", () => {
     // (An earlier draft pinned to 1.1.1.1 and got a 403 instead of a TLS
     // error: OpenAlex is behind Cloudflare, so 1.1.1.1 could serve a valid
     // certificate for it. Same conclusion, far more fragile.)
-    const agent = __testing.pinnedAgent("8.8.8.8");
+    const agent = __testing.pinnedAgent(["8.8.8.8"]);
     try {
       await expect(
         undiciFetch("https://api.openalex.org/works?per_page=1", { dispatcher: agent }),
@@ -166,7 +166,7 @@ describe("address pinning (DNS rebinding)", () => {
   it("still reaches a host when pinned to its own real address", async () => {
     // The complement: pinning is not simply breaking everything.
     const { addresses } = await resolveAndValidate("https://api.openalex.org/works");
-    const agent = __testing.pinnedAgent(addresses[0]!);
+    const agent = __testing.pinnedAgent(addresses);
     try {
       const response = await undiciFetch("https://api.openalex.org/works?per_page=1", {
         dispatcher: agent,
@@ -178,8 +178,79 @@ describe("address pinning (DNS rebinding)", () => {
     }
   }, 20_000);
 
-  it("reports no remaining security gaps, only an availability one", () => {
+  it("reports no remaining gaps", () => {
     // If a rebinding entry ever reappears here, the pin was removed.
     expect(SSRF_KNOWN_GAPS.join(" ")).not.toMatch(/rebinding/i);
+    expect(SSRF_KNOWN_GAPS).toHaveLength(0);
   });
+});
+
+/**
+ * The bug this closes: federated search reported every one of the five
+ * providers as failed on a machine whose IPv6 route was a blackhole. Nothing
+ * was wrong with the providers. `pinnedAgent` was handed `addresses[0]`, that
+ * happened to be the AAAA record, and the socket did not refuse — it hung,
+ * for the full 10 s, until safeFetch's abort and undici's connect timeout
+ * (both 10 s, and nothing in the search path shortens either) raced to end it.
+ * So the failure surfaced as "provider unavailable" five times over rather
+ * than as one unreachable address, which is what it was.
+ */
+describe("pinning every validated address", () => {
+  const { orderedTargets } = __testing;
+
+  it("puts IPv4 ahead of IPv6", () => {
+    expect(orderedTargets(["2606:4700::1111", "1.1.1.1"])).toEqual([
+      { address: "1.1.1.1", family: 4 },
+      { address: "2606:4700::1111", family: 6 },
+    ]);
+  });
+
+  it("keeps every address rather than choosing one", () => {
+    // The whole point. Dropping to one is what removed the failover.
+    const targets = orderedTargets(["2606:4700::1111", "1.1.1.1", "1.0.0.1"]);
+    expect(targets.map((t) => t.address).sort()).toEqual([
+      "1.0.0.1",
+      "1.1.1.1",
+      "2606:4700::1111",
+    ]);
+  });
+
+  it("preserves DNS order within a family", () => {
+    // Resolvers rotate records to spread load; re-sorting inside a family
+    // would quietly undo that and pile every request onto one host.
+    expect(
+      orderedTargets(["9.9.9.9", "1.1.1.1", "8.8.8.8"]).map((t) => t.address),
+    ).toEqual(["9.9.9.9", "1.1.1.1", "8.8.8.8"]);
+  });
+
+  it("drops anything that is not an IP", () => {
+    // isIP returns 0, which would sort to the FRONT — ahead of every real
+    // address — so the failure mode of keeping it is the worst available one.
+    expect(orderedTargets(["evil.example.com", "1.1.1.1"])).toEqual([
+      { address: "1.1.1.1", family: 4 },
+    ]);
+  });
+
+  it("connects through to the second address when the first is a blackhole", async () => {
+    // 192.0.2.1 is TEST-NET-1 (RFC 5737): routable-looking, reserved, and
+    // guaranteed to answer nothing. Listed FIRST, and same family as the real
+    // address, so it is genuinely attempted before the working one.
+    //
+    // This test is the reason the change exists: with `addresses[0]` pinning
+    // it cannot pass, because the request never reaches the second entry.
+    const { addresses } = await resolveAndValidate("https://api.openalex.org/works");
+    const ipv4 = addresses.find((a) => !a.includes(":"));
+    expect(ipv4, "OpenAlex should have an A record").toBeDefined();
+
+    const agent = __testing.pinnedAgent(["192.0.2.1", ipv4!]);
+    try {
+      const response = await undiciFetch("https://api.openalex.org/works?per_page=1", {
+        dispatcher: agent,
+      });
+      expect(response.status).toBe(200);
+      await response.body?.cancel();
+    } finally {
+      await agent.close();
+    }
+  }, 30_000);
 });
