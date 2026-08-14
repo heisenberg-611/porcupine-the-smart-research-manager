@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { ButtonLink, EmptyState, PageHeader } from "@/components/ui";
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -97,15 +98,16 @@ export default async function LibraryPage({
 
   return (
     <main id="main" className="mx-auto flex max-w-5xl flex-col gap-6 px-6 py-12">
-      <div>
-        <Link href={`/projects/${id}`} className="text-muted hover:text-ink text-sm">
-          ← {project.title}
-        </Link>
-        <h1 className="text-ink mt-2 text-2xl font-semibold">Library</h1>
-        <p className="text-muted mt-1 text-sm">
-          {total} {total === 1 ? "paper" : "papers"}
-        </p>
-      </div>
+      <PageHeader
+        backHref={`/projects/${id}`}
+        backLabel={project.title}
+        title="Library"
+        description={
+          <>
+            {total} {total === 1 ? "paper" : "papers"}
+          </>
+        }
+      />
 
       <div className="flex flex-wrap gap-2">
         <FilterChip
@@ -126,19 +128,18 @@ export default async function LibraryPage({
       </div>
 
       {rows.length === 0 ? (
-        <div className="border-border text-muted rounded-lg border border-dashed p-8 text-center text-sm">
-          <p>Nothing here yet.</p>
-          <p className="mt-2">
-            <Link href={`/projects/${id}/search`} className="text-accent underline">
-              Search for papers
-            </Link>{" "}
-            or{" "}
-            <Link href={`/projects/${id}/import`} className="text-accent underline">
-              import references
-            </Link>
-            .
-          </p>
-        </div>
+        <EmptyState
+          title="Nothing here yet"
+          description="Papers you find or import appear here, with their screening status."
+          action={
+            <div className="flex flex-wrap gap-2">
+              <ButtonLink href={`/projects/${id}/search`} variant="primary">
+                Search for papers
+              </ButtonLink>
+              <ButtonLink href={`/projects/${id}/import`}>Import references</ButtonLink>
+            </div>
+          }
+        />
       ) : (
         /* Horizontal scroll is on the wrapper, never the page body. */
         <div className="border-border overflow-x-auto rounded-lg border">

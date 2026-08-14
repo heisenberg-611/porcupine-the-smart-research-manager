@@ -1,8 +1,8 @@
 import { resolveAnchor } from "@porcupine/anchoring";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { PageHeader } from "@/components/ui";
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -153,22 +153,18 @@ export default async function ReadPage({
 
   return (
     <main id="main" className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-12">
-      <div>
-        <Link
-          href={`/projects/${id}/library`}
-          className="text-muted hover:text-ink text-sm"
-        >
-          ← {projectTitle}
-        </Link>
-        <h1 className="text-ink mt-2 text-2xl font-semibold">
-          {work?.title ?? "Untitled"}
-        </h1>
-        <p className="text-muted mt-1 text-sm">
-          {work?.venue}
-          {work?.published_year && ` · ${work.published_year}`}
-          {work?.doi && ` · doi:${work.doi}`}
-        </p>
-      </div>
+      <PageHeader
+        backHref={`/projects/${id}/library`}
+        backLabel={projectTitle}
+        title={work?.title ?? "Untitled"}
+        description={
+          <>
+            {work?.venue}
+            {work?.published_year && ` · ${work.published_year}`}
+            {work?.doi && ` · doi:${work.doi}`}
+          </>
+        }
+      />
 
       {!text && (
         <p className="border-border text-muted rounded-lg border border-dashed p-6 text-center text-sm">

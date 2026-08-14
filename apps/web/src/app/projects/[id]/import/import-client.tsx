@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 
-import { Button, Field } from "@/components/ui";
+import { Button, Field, Textarea } from "@/components/ui";
 
 import { commitImport, previewImport, type ImportPreview } from "./actions";
 
@@ -70,7 +70,7 @@ export function ImportClient({ projectId }: { projectId: string }) {
           id="source"
           hint="BibTeX, RIS, or a list of DOIs and arXiv ids. The format is detected automatically."
         >
-          <textarea
+          <Textarea
             id="source"
             value={source}
             onChange={(e) => setSource(e.target.value)}

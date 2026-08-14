@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { PageHeader } from "@/components/ui";
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -38,16 +38,17 @@ export default async function SearchPage({
 
   return (
     <main id="main" className="mx-auto flex max-w-3xl flex-col gap-8 px-6 py-12">
-      <div>
-        <Link href={`/projects/${id}`} className="text-muted hover:text-ink text-sm">
-          ← {project.title}
-        </Link>
-        <h1 className="text-ink mt-2 text-2xl font-semibold">Find papers</h1>
-        <p className="text-muted mt-1 text-sm">
-          Searches OpenAlex, Crossref, arXiv, Europe PMC and Semantic Scholar together,
-          then merges records that describe the same paper.
-        </p>
-      </div>
+      <PageHeader
+        backHref={`/projects/${id}`}
+        backLabel={project.title}
+        title="Find papers"
+        description={
+          <>
+            Searches OpenAlex, Crossref, arXiv, Europe PMC and Semantic Scholar together,
+            then merges records that describe the same paper.
+          </>
+        }
+      />
 
       <SearchClient projectId={id} hasQuestions={(count ?? 0) > 0} />
     </main>

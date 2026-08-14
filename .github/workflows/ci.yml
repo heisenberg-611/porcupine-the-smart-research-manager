@@ -76,6 +76,24 @@ jobs:
           fi
           echo "ok: set_config confined to the withUserContext helper"
 
+      - name: Form controls must use the shared primitives
+        run: |
+          # The design system died once already: eight primitives existed and
+          # pages were still hand-rolling <input>, <select> and <textarea>
+          # around them, so focus rings, touch targets and dark mode drifted
+          # per page.
+          #
+          # No exceptions. An earlier version exempted checkboxes by grepping
+          # for type="checkbox", which sits on the line AFTER the tag and so
+          # never matched — the carve-out silently let raw controls through.
+          # There is a Checkbox primitive instead.
+          if grep -rn --include='*.tsx' -E '<(input|select|textarea)\b' apps/*/src \
+             | grep -v '/components/ui.tsx'; then
+            echo "::error::Use Input / Select / Textarea from @/components/ui — raw controls drift on focus, touch target and theme."
+            exit 1
+          fi
+          echo "ok: form controls go through the primitives"
+
       - name: Supabase query errors must not be swallowed
         run: |
           # `const { data } = await supabase...` is the shortest thing to

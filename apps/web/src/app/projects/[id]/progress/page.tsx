@@ -1,8 +1,8 @@
 import { SCREEN_STATUSES, screenStatusLabel } from "@porcupine/shared";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { ButtonLink, EmptyState, PageHeader } from "@/components/ui";
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -92,25 +92,25 @@ export default async function ProgressPage({
 
   return (
     <main id="main" className="mx-auto flex max-w-3xl flex-col gap-8 px-6 py-12">
-      <div>
-        <Link href={`/projects/${id}`} className="text-muted hover:text-ink text-sm">
-          ← {project.title}
-        </Link>
-        <h1 className="text-ink mt-2 text-2xl font-semibold">Progress</h1>
-      </div>
+      <PageHeader
+        backHref={`/projects/${id}`}
+        backLabel={project.title}
+        title="Progress"
+      />
 
       {total === 0 ? (
-        <p className="border-border text-muted rounded-lg border border-dashed p-8 text-center text-sm">
-          No papers yet.{" "}
-          <Link href={`/projects/${id}/search`} className="text-accent underline">
-            Search
-          </Link>{" "}
-          or{" "}
-          <Link href={`/projects/${id}/import`} className="text-accent underline">
-            import
-          </Link>{" "}
-          to get started.
-        </p>
+        <EmptyState
+          title="No papers yet"
+          description="Progress appears once the library has records to screen."
+          action={
+            <div className="flex flex-wrap gap-2">
+              <ButtonLink href={`/projects/${id}/search`} variant="primary">
+                Search
+              </ButtonLink>
+              <ButtonLink href={`/projects/${id}/import`}>Import</ButtonLink>
+            </div>
+          }
+        />
       ) : (
         <>
           <section aria-labelledby="summary">

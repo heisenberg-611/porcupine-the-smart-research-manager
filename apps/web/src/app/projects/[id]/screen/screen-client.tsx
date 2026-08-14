@@ -7,7 +7,7 @@ import {
 } from "@porcupine/shared";
 import { useState, useTransition } from "react";
 
-import { Button } from "@/components/ui";
+import { Button, Select } from "@/components/ui";
 
 import { assignWork, recordDecision } from "./actions";
 
@@ -182,7 +182,7 @@ export function ScreenClient({
         <div className="flex items-end gap-2">
           <label className="text-muted flex flex-col gap-1 text-xs">
             Exclusion reason
-            <select
+            <Select
               value={reason}
               onChange={(e) => setReason(e.target.value as ExclusionReason | "")}
               className="border-border bg-surface text-ink min-h-11 rounded-lg border px-2 text-sm"
@@ -193,7 +193,7 @@ export function ScreenClient({
                   {r.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <Button variant="danger" onClick={() => decide("EXCLUDED")} disabled={pending}>
             Exclude
@@ -207,7 +207,7 @@ export function ScreenClient({
 
       <label className="text-muted flex max-w-xs flex-col gap-1 text-xs">
         Assign to
-        <select
+        <Select
           value={current.assigneeId ?? ""}
           onChange={(e) => assign(e.target.value)}
           disabled={pending}
@@ -219,7 +219,7 @@ export function ScreenClient({
               {m.userId === currentUserId ? `${m.name} (me)` : m.name}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
 
       <div aria-live="polite">
