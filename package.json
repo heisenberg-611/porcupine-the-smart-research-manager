@@ -22,6 +22,7 @@
     "db:generate": "pnpm --filter @porcupine/db generate",
     "db:test": "pnpm --filter @porcupine/db test",
     "guards": "bash scripts/guards.sh",
+    "check-tests": "bash scripts/check-tests.sh",
     "verify": "bash scripts/verify.sh"
   },
   "devDependencies": {

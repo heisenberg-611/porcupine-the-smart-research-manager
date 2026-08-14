@@ -24,6 +24,9 @@ run "typecheck"          pnpm typecheck
 run "lint"               pnpm lint
 run "format"             pnpm format:check
 run "guards"             pnpm guards
+# A test file no config collects is worse than no test: it reports coverage
+# it does not provide. Three have slipped through already.
+run "tests are wired"    bash scripts/check-tests.sh
 run "shared"             pnpm --filter @porcupine/shared test
 run "crypto"             pnpm --filter @porcupine/crypto test
 run "discovery"          pnpm --filter @porcupine/discovery test
