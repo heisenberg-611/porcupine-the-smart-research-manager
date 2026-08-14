@@ -76,10 +76,10 @@ export default async function QueuePage() {
             return (
               <li key={row.id} className="flex items-start justify-between gap-4 p-4">
                 <div className="min-w-0">
-                  <p className="text-ink text-sm font-medium">
+                  <p className="text-ink text-ui font-medium">
                     {row.works?.title ?? "Untitled"}
                   </p>
-                  <p className="text-muted mt-0.5 text-xs">
+                  <p className="text-muted text-fine mt-0.5">
                     <Link
                       href={`/projects/${row.project_id}`}
                       className="hover:text-ink underline underline-offset-2"
@@ -94,7 +94,7 @@ export default async function QueuePage() {
 
                 {row.due_at && (
                   <span
-                    className={`shrink-0 text-xs ${isOverdue ? "text-danger" : "text-muted"}`}
+                    className={`text-fine shrink-0 ${isOverdue ? "text-danger" : "text-muted"}`}
                   >
                     {/* Rendered from a timestamptz; the viewer's locale decides
                         the format. Never do date maths in local time (B-07). */}

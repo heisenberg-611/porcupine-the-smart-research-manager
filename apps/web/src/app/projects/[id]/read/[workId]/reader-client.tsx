@@ -124,29 +124,29 @@ export function ReaderClient({
         data-testid="reader-text"
         onMouseUp={captureSelection}
         onKeyUp={captureSelection}
-        className="border-border bg-surface text-ink/90 rounded-lg border p-5 text-sm leading-relaxed"
+        className="prose-body border-rule border-t py-6"
       >
         {renderWithHighlights(text, annotations)}
       </div>
 
       {selection && (
         <div className="border-accent/40 bg-surface space-y-3 rounded-lg border p-4">
-          <p className="text-muted text-xs">Selected</p>
-          <blockquote className="text-ink border-accent border-l-2 pl-3 text-sm">
+          <p className="text-muted text-fine">Selected</p>
+          <blockquote className="text-ink border-accent text-ui border-l-2 pl-3">
             {selection.quote}
           </blockquote>
 
-          <label className="text-muted flex flex-col gap-1 text-xs">
+          <label className="text-muted text-fine flex flex-col gap-1">
             Note (optional)
             <Textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
               rows={3}
-              className="border-border bg-surface text-ink rounded-lg border p-2 text-sm"
+              className="border-border bg-surface text-ink text-ui rounded-lg border p-2"
             />
           </label>
 
-          <label className="text-muted flex items-center gap-2 text-xs">
+          <label className="text-muted text-fine flex items-center gap-2">
             <Checkbox
               checked={isPrivate}
               onChange={(e) => setIsPrivate(e.target.checked)}
@@ -175,22 +175,22 @@ export function ReaderClient({
       )}
 
       <div aria-live="polite">
-        {status && <p className="text-muted text-sm">{status}</p>}
+        {status && <p className="text-muted text-ui">{status}</p>}
         {error && (
-          <p role="alert" className="text-danger text-sm">
+          <p role="alert" className="text-danger text-ui">
             {error}
           </p>
         )}
       </div>
 
       <section>
-        <h2 className="text-ink mb-3 text-lg font-medium">
+        <h2 className="text-ink text-heading mb-3 font-medium">
           Annotations{" "}
           <span className="text-muted font-normal">({annotations.length})</span>
         </h2>
 
         {annotations.length === 0 ? (
-          <p className="text-muted text-sm">
+          <p className="text-muted text-ui">
             Select any passage above to highlight it or attach a note.
           </p>
         ) : (
@@ -198,7 +198,7 @@ export function ReaderClient({
             {annotations.map((annotation) => (
               <li key={annotation.id} className="border-border rounded-lg border p-3">
                 <div className="flex items-start justify-between gap-3">
-                  <blockquote className="border-border text-ink border-l-2 pl-3 text-sm">
+                  <blockquote className="border-border text-ink text-ui border-l-2 pl-3">
                     {annotation.quote}
                   </blockquote>
                   {annotation.isMine && (
@@ -206,7 +206,7 @@ export function ReaderClient({
                       variant="ghost"
                       onClick={() => remove(annotation.id)}
                       disabled={pending}
-                      className="shrink-0 text-xs"
+                      className="text-fine shrink-0"
                     >
                       Delete
                     </Button>
@@ -214,10 +214,10 @@ export function ReaderClient({
                 </div>
 
                 {annotation.body && (
-                  <p className="text-ink/80 mt-2 text-sm">{annotation.body}</p>
+                  <p className="text-ink/80 text-ui mt-2">{annotation.body}</p>
                 )}
 
-                <p className="text-muted mt-2 flex flex-wrap items-center gap-2 text-xs">
+                <p className="text-muted text-fine mt-2 flex flex-wrap items-center gap-2">
                   <span>{annotation.authorName}</span>
                   <span>·</span>
                   <span>{annotation.kind.toLowerCase()}</span>
@@ -232,7 +232,7 @@ export function ReaderClient({
                 {/* The whole point of the DRIFTED state: say it, do not hide it. */}
                 {annotation.status !== "OK" && (
                   <p
-                    className={`mt-2 rounded px-2 py-1 text-xs ${
+                    className={`text-fine mt-2 rounded px-2 py-1 ${
                       annotation.status === "DRIFTED"
                         ? "bg-accent/10 text-ink"
                         : "bg-danger/10 text-danger"

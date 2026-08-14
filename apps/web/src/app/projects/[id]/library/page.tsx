@@ -143,9 +143,9 @@ export default async function LibraryPage({
       ) : (
         /* Horizontal scroll is on the wrapper, never the page body. */
         <div className="border-border overflow-x-auto rounded-lg border">
-          <table className="w-full text-left text-sm">
+          <table className="text-ui w-full text-left">
             <caption className="sr-only">Papers in this project, newest first</caption>
-            <thead className="border-border text-muted border-b text-xs uppercase">
+            <thead className="border-border text-muted text-fine border-b uppercase">
               <tr>
                 <th scope="col" className="px-4 py-3 font-medium">
                   Title
@@ -171,7 +171,7 @@ export default async function LibraryPage({
                     >
                       {row.works?.title ?? "Untitled"}
                     </Link>
-                    <span className="text-muted mt-0.5 block text-xs">
+                    <span className="text-muted text-fine mt-0.5 block">
                       {authorLine(row.works?.authors)}
                       {row.works?.venue && ` · ${row.works.venue}`}
                       {row.works?.oa_pdf_url && " · open access"}
@@ -184,7 +184,7 @@ export default async function LibraryPage({
                     {row.works?.cited_by_count ?? 0}
                   </td>
                   <td className="px-4 py-3">
-                    <span className="text-muted font-mono text-xs">
+                    <span className="text-muted text-fine font-mono">
                       {row.screen_status}
                     </span>
                   </td>
@@ -196,7 +196,7 @@ export default async function LibraryPage({
       )}
 
       {rows.length === 200 && (
-        <p className="text-muted text-sm">
+        <p className="text-muted text-ui">
           Showing the 200 most recent. Paging arrives with screening.
         </p>
       )}
@@ -219,12 +219,12 @@ function FilterChip({
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className={`inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm ${
+      className={`text-ui inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 ${
         active ? "border-accent text-ink" : "border-border text-muted hover:text-ink"
       }`}
     >
       {label}
-      <span className="text-muted text-xs tabular-nums">{count}</span>
+      <span className="text-muted text-fine tabular-nums">{count}</span>
     </Link>
   );
 }

@@ -130,7 +130,7 @@ export default async function ProgressPage({
           </section>
 
           <section aria-labelledby="pipeline">
-            <h2 id="pipeline" className="text-ink mb-3 text-lg font-medium">
+            <h2 id="pipeline" className="text-ink text-heading mb-3 font-medium">
               Pipeline
             </h2>
             <ul className="space-y-2">
@@ -140,7 +140,7 @@ export default async function ProgressPage({
                 const share = total === 0 ? 0 : Math.round((count / total) * 100);
                 return (
                   <li key={status} className="flex items-center gap-3">
-                    <span className="text-muted w-28 shrink-0 text-xs">
+                    <span className="text-muted text-fine w-28 shrink-0">
                       {screenStatusLabel(status)}
                     </span>
                     {/* A meter, not a decorative div: it announces its value. */}
@@ -154,7 +154,7 @@ export default async function ProgressPage({
                     >
                       <div className="bg-accent h-full" style={{ width: `${share}%` }} />
                     </div>
-                    <span className="text-ink w-10 shrink-0 text-right text-sm tabular-nums">
+                    <span className="text-ink text-ui w-10 shrink-0 text-right tabular-nums">
                       {count}
                     </span>
                   </li>
@@ -164,10 +164,10 @@ export default async function ProgressPage({
           </section>
 
           <section aria-labelledby="velocity">
-            <h2 id="velocity" className="text-ink mb-2 text-lg font-medium">
+            <h2 id="velocity" className="text-ink text-heading mb-2 font-medium">
               Reading velocity
             </h2>
-            <p className="text-muted text-sm">
+            <p className="text-muted text-ui">
               {decisions.length === 0 ? (
                 "No screening decisions in the last fortnight."
               ) : (
@@ -207,9 +207,9 @@ function Stat({
 }) {
   return (
     <div className="border-border rounded-lg border p-3">
-      <dt className="text-muted text-xs">{label}</dt>
+      <dt className="text-muted text-fine">{label}</dt>
       <dd
-        className={`mt-1 text-2xl font-semibold tabular-nums ${
+        className={`text-title mt-1 font-semibold tabular-nums ${
           tone === "danger" && value > 0 ? "text-danger" : "text-ink"
         }`}
       >

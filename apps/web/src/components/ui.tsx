@@ -27,11 +27,17 @@ export function Button({
   return (
     <button
       className={cx(
-        "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium",
-        "transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-        variant === "primary" && "bg-accent text-accent-ink hover:opacity-90",
-        variant === "ghost" && "border-border text-ink hover:bg-surface border",
-        variant === "danger" && "text-danger border-danger/40 hover:bg-danger/10 border",
+        "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4",
+        "text-ui font-medium transition-colors",
+        "focus-visible:ring-accent focus-visible:ring-2 focus-visible:ring-offset-2",
+        "focus-visible:ring-offset-canvas focus-visible:outline-none",
+        "disabled:cursor-not-allowed disabled:opacity-40",
+        variant === "primary" && "bg-accent text-accent-ink hover:brightness-110",
+        // Ghost is a text button with a hover ground, not an outlined box.
+        // Sixteen pages of outlined ghost buttons was most of why every screen
+        // read as a form.
+        variant === "ghost" && "text-ink hover:bg-surface",
+        variant === "danger" && "text-danger hover:bg-danger-soft",
         className,
       )}
       {...props}
@@ -57,11 +63,11 @@ export function Field({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-ink text-sm font-medium">
+      <label htmlFor={id} className="text-ink text-ui font-medium">
         {label}
       </label>
       {hint && (
-        <p id={hintId} className="text-muted text-xs">
+        <p id={hintId} className="text-muted text-fine">
           {hint}
         </p>
       )}
@@ -69,7 +75,7 @@ export function Field({
       {/* Announced on change so a screen reader hears the failure without
           the user having to hunt for it. */}
       {error && (
-        <p id={errorId} role="alert" className="text-danger text-xs">
+        <p id={errorId} role="alert" className="text-danger text-fine">
           {error}
         </p>
       )}
@@ -81,8 +87,11 @@ export function Input({ className, ...props }: ComponentProps<"input">) {
   return (
     <input
       className={cx(
-        "border-border bg-canvas text-ink min-h-11 rounded-lg border px-3 text-sm",
+        "border-border bg-raised text-ink text-ui w-full rounded-lg border px-3",
+        "min-h-11 transition-colors",
         "placeholder:text-muted/70",
+        "focus:border-accent focus-visible:ring-accent focus-visible:ring-2",
+        "focus-visible:outline-none",
         className,
       )}
       {...props}
@@ -94,8 +103,11 @@ export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
   return (
     <textarea
       className={cx(
-        "border-border bg-canvas text-ink min-h-24 rounded-lg border px-3 py-2 text-sm",
+        "border-border bg-raised text-ink text-ui w-full rounded-lg border px-3",
+        "py-2 transition-colors",
         "placeholder:text-muted/70",
+        "focus:border-accent focus-visible:ring-accent focus-visible:ring-2",
+        "focus-visible:outline-none",
         className,
       )}
       {...props}
@@ -107,7 +119,11 @@ export function Select({ className, ...props }: ComponentProps<"select">) {
   return (
     <select
       className={cx(
-        "border-border bg-canvas text-ink min-h-11 rounded-lg border px-3 text-sm",
+        "border-border bg-raised text-ink text-ui w-full rounded-lg border px-3",
+        "min-h-11 transition-colors",
+        "placeholder:text-muted/70",
+        "focus:border-accent focus-visible:ring-accent focus-visible:ring-2",
+        "focus-visible:outline-none",
         className,
       )}
       {...props}
@@ -162,7 +178,10 @@ export function Radio({ className, ...props }: ComponentProps<"input">) {
 export function Card({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
-      className={cx("border-border bg-surface rounded-xl border p-5", className)}
+      className={cx(
+        "border-rule bg-raised rounded-[--radius-card] border p-5",
+        className,
+      )}
       {...props}
     />
   );
@@ -183,11 +202,11 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <Card className="flex flex-col items-start gap-3 py-10 text-left">
-      <h2 className="text-ink text-base font-medium">{title}</h2>
-      <p className="text-muted max-w-prose text-sm text-pretty">{description}</p>
+    <div className="border-rule flex flex-col items-start gap-3 rounded-[--radius-card] border border-dashed px-6 py-10">
+      <h2 className="text-ink text-heading">{title}</h2>
+      <p className="text-muted measure text-ui text-pretty">{description}</p>
       {action}
-    </Card>
+    </div>
   );
 }
 
@@ -214,23 +233,25 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-4">
+    // A rule under the header rather than a card around it. Elevation from
+    // lines and space is quieter than a box and does the same work.
+    <header className="border-rule flex flex-wrap items-end justify-between gap-4 border-b pb-5">
       <div className="min-w-0">
         {backHref && backLabel && (
           <Link
             href={backHref}
-            className="text-muted hover:text-ink focus-visible:ring-accent inline-flex min-h-11 items-center rounded-lg text-sm focus-visible:ring-2 focus-visible:outline-none"
+            className="text-muted hover:text-ink text-fine focus-visible:ring-accent inline-flex items-center rounded focus-visible:ring-2 focus-visible:outline-none"
           >
             ← {backLabel}
           </Link>
         )}
-        <h1 className="text-ink text-2xl font-semibold tracking-tight">{title}</h1>
+        <h1 className="text-ink text-display mt-1">{title}</h1>
         {description && (
-          <p className="text-muted mt-1 max-w-prose text-sm text-pretty">{description}</p>
+          <p className="text-muted measure text-ui mt-2 text-pretty">{description}</p>
         )}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
-    </div>
+    </header>
   );
 }
 
@@ -256,7 +277,7 @@ export function ButtonLink({
     <Link
       href={href}
       className={cx(
-        "focus-visible:ring-accent inline-flex min-h-11 items-center justify-center rounded-lg px-4 text-sm font-medium",
+        "focus-visible:ring-accent text-ui inline-flex min-h-11 items-center justify-center rounded-lg px-4 font-medium",
         "transition-colors focus-visible:ring-2 focus-visible:outline-none",
         variant === "primary" && "bg-accent text-accent-ink hover:opacity-90",
         variant === "ghost" && "border-border text-ink hover:bg-surface border",
@@ -279,9 +300,11 @@ export function Banner({
     <div
       role={tone === "danger" ? "alert" : "status"}
       className={cx(
-        "rounded-lg border px-4 py-3 text-sm",
-        tone === "info" && "border-border bg-surface text-ink",
-        tone === "danger" && "border-danger/40 bg-danger/10 text-danger",
+        "text-ui rounded-lg px-4 py-3",
+        // A left rule and a tint: it reads as an aside rather than another
+        // card competing with the content.
+        tone === "info" && "border-accent bg-accent-soft text-ink border-l-2",
+        tone === "danger" && "border-danger bg-danger-soft text-danger border-l-2",
       )}
     >
       {children}

@@ -134,7 +134,7 @@ export function ScreenClient({
         <p className="text-ink font-medium">
           {decided > 0 ? "That is everything for now." : "Nothing to screen."}
         </p>
-        <p className="text-muted mt-1 text-sm">
+        <p className="text-muted text-ui mt-1">
           {decided > 0
             ? `${decided} ${decided === 1 ? "decision" : "decisions"} recorded.`
             : "Papers appear here once they are added to the library."}
@@ -145,7 +145,7 @@ export function ScreenClient({
 
   return (
     <section className="space-y-4">
-      <p className="text-muted text-sm" aria-live="polite">
+      <p className="text-muted text-ui" aria-live="polite">
         {remaining.length} left{decided > 0 && ` · ${decided} decided this session`}
         {/* Duplicated effort is worth showing. Four people sharing one queue
             will land on the same papers, and a screener who cannot see that
@@ -153,25 +153,26 @@ export function ScreenClient({
         {conflicts > 0 && ` · ${conflicts} already handled by someone else`}
       </p>
 
-      <article className="border-border bg-surface rounded-lg border p-5">
-        <h2 className="text-ink text-lg font-medium">{current.title}</h2>
-        <p className="text-muted mt-1 text-sm">
+      {/* The surface someone sees three hundred times in an afternoon. No
+          card, no border: the paper IS the page. Title in the display serif,
+          metadata quiet beneath it, abstract at reading size and measure. */}
+      <article className="border-rule border-t pt-6">
+        <h2 className="text-ink text-title">{current.title}</h2>
+        <p className="meta mt-2">
           {current.authors}
           {current.venue && ` · ${current.venue}`}
           {current.year && ` · ${current.year}`}
         </p>
 
         {current.abstract ? (
-          <p className="text-ink/80 mt-4 text-sm leading-relaxed">{current.abstract}</p>
+          <p className="prose-body mt-5">{current.abstract}</p>
         ) : (
-          <p className="text-muted mt-4 text-sm italic">
+          <p className="text-muted measure text-ui mt-5 italic">
             No abstract — decide from the title, or open the paper first.
           </p>
         )}
 
-        <p className="text-muted mt-4 font-mono text-xs uppercase">
-          {screenStatusLabel(current.screenStatus)}
-        </p>
+        <p className="meta mt-6 uppercase">{screenStatusLabel(current.screenStatus)}</p>
       </article>
 
       <div className="flex flex-wrap items-end gap-3">
@@ -180,12 +181,12 @@ export function ScreenClient({
         </Button>
 
         <div className="flex items-end gap-2">
-          <label className="text-muted flex flex-col gap-1 text-xs">
+          <label className="text-muted text-fine flex flex-col gap-1">
             Exclusion reason
             <Select
               value={reason}
               onChange={(e) => setReason(e.target.value as ExclusionReason | "")}
-              className="border-border bg-surface text-ink min-h-11 rounded-lg border px-2 text-sm"
+              className="border-border bg-surface text-ink text-ui min-h-11 rounded-lg border px-2"
             >
               <option value="">{reasonRequired ? "Choose one…" : "None"}</option>
               {EXCLUSION_REASONS.map((r) => (
@@ -205,13 +206,13 @@ export function ScreenClient({
         </Button>
       </div>
 
-      <label className="text-muted flex max-w-xs flex-col gap-1 text-xs">
+      <label className="text-muted text-fine flex max-w-xs flex-col gap-1">
         Assign to
         <Select
           value={current.assigneeId ?? ""}
           onChange={(e) => assign(e.target.value)}
           disabled={pending}
-          className="border-border bg-surface text-ink min-h-11 rounded-lg border px-2 text-sm"
+          className="border-border bg-surface text-ink text-ui min-h-11 rounded-lg border px-2"
         >
           <option value="">Nobody</option>
           {members.map((m) => (
@@ -223,9 +224,9 @@ export function ScreenClient({
       </label>
 
       <div aria-live="polite">
-        {status && <p className="text-muted text-sm">{status}</p>}
+        {status && <p className="text-muted text-ui">{status}</p>}
         {error && (
-          <p role="alert" className="text-danger text-sm">
+          <p role="alert" className="text-danger text-ui">
             {error}
           </p>
         )}

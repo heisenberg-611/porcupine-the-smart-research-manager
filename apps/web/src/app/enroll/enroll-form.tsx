@@ -68,15 +68,15 @@ export function EnrollForm({ next }: { next: string }) {
         </Banner>
 
         <Card>
-          <p className="text-muted text-xs font-medium tracking-widest uppercase">
+          <p className="text-muted text-fine font-medium tracking-widest uppercase">
             Recovery passphrase
           </p>
-          <p className="text-ink mt-3 font-mono text-lg break-all select-all">
+          <p className="text-ink text-heading mt-3 font-mono break-all select-all">
             {stage.passphrase}
           </p>
         </Card>
 
-        <label className="text-ink flex items-start gap-3 text-sm">
+        <label className="text-ink text-ui flex items-start gap-3">
           <Checkbox
             className="mt-1"
             checked={confirmed}
@@ -103,7 +103,7 @@ export function EnrollForm({ next }: { next: string }) {
       {stage.name === "error" && <Banner tone="danger">{stage.message}</Banner>}
 
       <Card>
-        <ul className="text-muted flex list-disc flex-col gap-2 pl-4 text-sm">
+        <ul className="text-muted text-ui flex list-disc flex-col gap-2 pl-4">
           <li>Your keys are generated here, on this device.</li>
           <li>
             We store the public half, plus your private half encrypted with a passphrase

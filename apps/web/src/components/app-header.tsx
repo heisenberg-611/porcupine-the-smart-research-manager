@@ -20,14 +20,14 @@ export async function AppHeader() {
   if (!user) return null;
 
   return (
-    <header className="border-border bg-canvas/80 sticky top-0 z-40 border-b backdrop-blur">
+    <header className="border-rule bg-canvas/85 sticky top-0 z-40 border-b backdrop-blur">
       <nav
         aria-label="Main"
         className="mx-auto flex max-w-5xl items-center gap-1 px-6 py-2"
       >
         <Link
           href="/projects"
-          className="text-ink mr-3 font-semibold tracking-tight"
+          className="text-ink text-heading mr-4 font-serif"
           aria-label="Porcupine home"
         >
           Porcupine
@@ -47,7 +47,7 @@ export async function AppHeader() {
             and to a screen reader it is the only place the answer exists. */}
         <span
           aria-hidden
-          className="text-muted hidden max-w-[16rem] truncate text-xs sm:block"
+          className="text-muted text-fine hidden max-w-[16rem] truncate sm:block"
         >
           {user.email}
         </span>
@@ -56,7 +56,7 @@ export async function AppHeader() {
           <button
             type="submit"
             aria-label={`Sign out ${user.email}`}
-            className="text-muted hover:text-ink focus-visible:ring-accent inline-flex min-h-11 items-center rounded-lg px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+            className="text-muted hover:text-ink hover:bg-surface focus-visible:ring-accent text-ui inline-flex min-h-11 items-center rounded-lg px-3 transition-colors focus-visible:ring-2 focus-visible:outline-none"
           >
             Sign out
           </button>
@@ -78,7 +78,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
   return (
     <Link
       href={href}
-      className="text-muted hover:text-ink hover:bg-surface focus-visible:ring-accent inline-flex min-h-11 items-center rounded-lg px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+      className="text-muted hover:text-ink hover:bg-surface focus-visible:ring-accent text-ui inline-flex min-h-11 items-center rounded-lg px-3 transition-colors focus-visible:ring-2 focus-visible:outline-none"
     >
       {children}
     </Link>

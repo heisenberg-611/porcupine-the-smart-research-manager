@@ -110,7 +110,7 @@ export function SearchClient({
         </Button>
       </form>
 
-      <p id="search-help" className="text-muted text-sm">
+      <p id="search-help" className="text-muted text-ui">
         {hasQuestions
           ? "Results are ranked against this project's research questions."
           : "Add research questions to this project and results will be ranked against them."}
@@ -120,7 +120,7 @@ export function SearchClient({
           which would lose the user's place in the form. */}
       <div aria-live="polite" className="space-y-4">
         {error && (
-          <p role="alert" className="text-danger text-sm">
+          <p role="alert" className="text-danger text-ui">
             {error}
           </p>
         )}
@@ -128,7 +128,7 @@ export function SearchClient({
         {results && (
           <>
             {results.failures.length > 0 && (
-              <div className="border-border bg-surface rounded-lg border p-3 text-sm">
+              <div className="border-border bg-surface text-ui rounded-lg border p-3">
                 <p className="text-ink font-medium">Some sources did not respond</p>
                 <ul className="text-muted mt-1 space-y-0.5">
                   {results.failures.map((failure) => (
@@ -143,7 +143,7 @@ export function SearchClient({
               </div>
             )}
 
-            <p className="text-muted text-sm">
+            <p className="text-muted text-ui">
               {results.ranked.length} {results.ranked.length === 1 ? "result" : "results"}{" "}
               after merging duplicates across sources.
             </p>
@@ -232,7 +232,7 @@ function ResultCard({
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h3 className="text-ink font-medium">{work.title}</h3>
-          <p className="text-muted mt-1 text-sm">
+          <p className="text-muted text-ui mt-1">
             {authors}
             {more}
             {work.venue && ` · ${work.venue}`}
@@ -250,10 +250,10 @@ function ResultCard({
       </div>
 
       {work.abstract && (
-        <p className="text-muted mt-2 line-clamp-3 text-sm">{work.abstract}</p>
+        <p className="text-muted text-ui mt-2 line-clamp-3">{work.abstract}</p>
       )}
 
-      <div className="text-muted mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+      <div className="text-muted text-fine mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
         {/* The "why is this here?" affordance. Without it the ranking is a
             black box, and a black box cannot go in a methods section. */}
         {matched.length > 0 && (
@@ -270,7 +270,7 @@ function ResultCard({
       </div>
 
       {failed && (
-        <p role="alert" className="text-danger mt-2 text-sm">
+        <p role="alert" className="text-danger text-ui mt-2">
           {failed}
         </p>
       )}
