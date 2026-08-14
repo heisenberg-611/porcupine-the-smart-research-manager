@@ -7,3 +7,4 @@ export * from "./capabilities";
 export * from "./relay-ticket";
 export * from "./screening";
 export * from "./queue-order";
+export * from "./protocol";

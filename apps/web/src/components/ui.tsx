@@ -47,8 +47,8 @@ export function Field({
   children,
 }: {
   label: string;
-  hint?: string;
-  error?: string;
+  hint?: string | undefined;
+  error?: string | undefined;
   id: string;
   children: ReactNode;
 }) {
@@ -130,6 +130,27 @@ export function Checkbox({ className, ...props }: ComponentProps<"input">) {
       type="checkbox"
       className={cx(
         "border-border text-accent accent-accent size-4 rounded",
+        "focus-visible:ring-accent focus-visible:ring-2 focus-visible:outline-none",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+/**
+ * A radio, for the same reason Checkbox exists.
+ *
+ * The CI rule forbids raw form controls outside this file and has no
+ * exceptions — the previous carve-out for checkboxes never matched and
+ * silently let raw controls back in.
+ */
+export function Radio({ className, ...props }: ComponentProps<"input">) {
+  return (
+    <input
+      type="radio"
+      className={cx(
+        "border-border accent-accent size-4",
         "focus-visible:ring-accent focus-visible:ring-2 focus-visible:outline-none",
         className,
       )}

@@ -461,6 +461,48 @@ test.describe("Phase 0 exit criterion", () => {
     ).toBeVisible();
   });
 
+  test("builds a protocol from a template and protects answered fields", async () => {
+    await page.goto("/projects");
+    await page.getByRole("link", { name: /transformer efficiency/i }).click();
+    await page.getByRole("link", { name: /^protocol$/i }).click();
+
+    await expect(page.getByRole("heading", { name: /^protocol$/i })).toBeVisible();
+
+    await page.getByLabel(/protocol name/i).fill("Data extraction");
+    await page.getByRole("radio", { name: /machine learning benchmarks/i }).check();
+    await page.getByRole("button", { name: /create protocol/i }).click();
+
+    // The template's fields arrive with it. Scoped to the field list: the
+    // create form's own input still holds the typed name, and the template
+    // preview lists the same labels, so an unscoped match proves nothing.
+    const fields = page.getByRole("list").first();
+    await expect(fields.getByText(/^Dataset/)).toBeVisible();
+    await expect(fields.getByText(/^Headline metric/)).toBeVisible();
+    await expect(page.getByText(/10 fields/)).toBeVisible();
+
+    // A field demanding provenance says so, because that is the constraint an
+    // extractor will hit later.
+    await expect(page.getByText(/needs a quoted source/).first()).toBeVisible();
+
+    // Adding a field derives a stable key from the label.
+    await page.getByRole("button", { name: /add a field/i }).click();
+    await page.getByLabel(/^label$/i).fill("Reported runtime (hours)");
+    await page.getByLabel(/^type$/i).selectOption("NUMBER");
+    await page.getByRole("button", { name: /^add field$/i }).click();
+
+    await expect(page.getByText("Reported runtime (hours)")).toBeVisible();
+    await expect(page.getByText("reported_runtime_hours")).toBeVisible();
+
+    // Removing a field with no answers is a two-step inline confirm, not a
+    // modal — and it works.
+    await page
+      .getByRole("button", { name: /remove reported runtime \(hours\)/i })
+      .click();
+    await page.getByRole("button", { name: /^confirm$/i }).click();
+    await expect(page.getByText(/removed "reported runtime/i)).toBeVisible();
+    await expect(page.getByText("reported_runtime_hours")).toHaveCount(0);
+  });
+
   test("signs out and blocks the project list", async () => {
     await page.goto("/projects");
     await page.getByRole("button", { name: /sign out/i }).click();
