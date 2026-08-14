@@ -1,4 +1,4 @@
-import { capabilities, type ProjectKind } from "@porcupine/shared";
+import { capabilities, orderForMember, type ProjectKind } from "@porcupine/shared";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -68,7 +68,23 @@ export default async function ScreenPage({
     "papers to screen",
   );
 
-  const rows: ScreenRow[] = ((data ?? []) as unknown as Row[]).map((row) => ({
+  // Every member is served the same relevance-ranked pool in a DIFFERENT
+  // deterministic order.
+  //
+  // Before this, all four members of the exit trial were handed the same list
+  // starting at position zero, so they screened the same papers: 20 decisions
+  // produced 5 screened papers. The compare-and-swap refused the other 15
+  // correctly, but fifteen refused decisions is still most of an afternoon.
+  //
+  // Ordering happens AFTER the relevance query, so the team is still working
+  // the papers that matter — this distributes where each person starts, it
+  // does not hand out different papers.
+  const ordered = orderForMember(
+    (data ?? []) as unknown as Array<Row & { id: string }>,
+    user.id,
+  );
+
+  const rows: ScreenRow[] = ordered.map((row) => ({
     id: row.id,
     screenStatus: row.screen_status,
     excludeReason: row.exclude_reason,

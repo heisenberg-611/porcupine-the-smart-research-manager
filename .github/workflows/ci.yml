@@ -148,6 +148,7 @@ jobs:
           echo "ok: no hardcoded text search configuration"
 
       # ── Tests that need no services ──────────────────────────────────────
+      - run: pnpm --filter @porcupine/shared test
       - run: pnpm --filter @porcupine/crypto test
 
       # Discovery's SSRF suite makes a few real outbound requests on purpose:

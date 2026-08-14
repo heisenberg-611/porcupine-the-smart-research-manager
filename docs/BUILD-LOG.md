@@ -446,3 +446,53 @@ Whether screening 300 papers in this UI is bearable. That needs four humans and 
 - Unchanged from Phase 0: the 20-minute relay soak, `docEpoch` bootstrap authority, R-01 and ADR-007.
 
 ---
+
+## 2026-08-14 · Per-member queue ordering — the last of the collision problem
+
+### The problem, restated with numbers
+
+The exit trial found four members screening the same papers. The
+compare-and-swap and row lock fixed the *correctness* half — no more silent
+overwrites — but left the *waste*: every attempt after the first landed on a
+paper someone else had already decided. Twenty decisions, five screened
+papers, fifteen refusals. Correct, and still most of an afternoon.
+
+### The fix, and what it is not
+
+Each member walks the **same** relevance-ranked pool in a **different**
+deterministic order, from a stable hash of `paperId:memberId`.
+
+It is deliberately not a claim table. Claims need expiry, and an expiry is
+wrong in both directions — too short and two people collide anyway, too long
+and a paper is frozen because somebody shut their laptop. This needs no
+schema, no state, and nothing to reconcile.
+
+Two properties, both tested: the order is **stable** for a member across
+renders — a list that reshuffles between page loads is unusable for work done
+by position — and every member still sees the **same set**, so this
+distributes starting points rather than partitioning ownership.
+
+### Measured
+
+| | recorded | distinct papers | overwrites | wasted |
+| --- | --- | --- | --- | --- |
+| original | 20 | 5 | **15** (silent) | — |
+| + compare-and-swap | 6 | 5 | 1 | 14 |
+| + `for update` | 5 | 5 | 0 | **15** |
+| + per-member order | **20** | **20** | **0** | **0** |
+
+The compare-and-swap stays. It is the backstop for the tail of the queue,
+where eight papers and four people collide by arithmetic rather than by
+design — a unit test asserts that overlap rises as the pool shrinks, so the
+limitation is recorded rather than discovered later.
+
+### Open
+
+- Unpaywall licence verification, for the real redistributable rate.
+- PDF reading, which needs the R2 file pipeline.
+- Unchanged from Phase 0: the 20-minute relay soak, `docEpoch` bootstrap
+  authority, R-01 and ADR-007.
+- **Still not proven: whether screening 300 papers in this UI is bearable.**
+  Four humans, one afternoon. No test replaces it.
+
+---
