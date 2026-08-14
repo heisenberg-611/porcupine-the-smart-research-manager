@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { Card } from "@/components/ui";
+import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 import { InviteMemberForm } from "./invite-member-form";
@@ -33,22 +34,28 @@ export default async function ProjectPage({
   // user is not a member of, so "not found" and "not permitted" are the same
   // response — which is also the behaviour we want, since distinguishing them
   // confirms the project exists.
-  const { data: project } = await supabase
-    .from("projects")
-    .select("id, title, description, kind, ownership_model, created_at")
-    .eq("id", id)
-    .maybeSingle();
+  const project = await must(
+    supabase
+      .from("projects")
+      .select("id, title, description, kind, ownership_model, created_at")
+      .eq("id", id)
+      .maybeSingle(),
+    "the project",
+  );
 
   if (!project) notFound();
 
-  const { data: memberData } = await supabase
-    .from("project_members")
-    .select(
-      "id, user_id, access_role, history_access, joined_at, users(display_name, email)",
-    )
-    .eq("project_id", id)
-    .is("removed_at", null)
-    .order("joined_at", { ascending: true });
+  const memberData = await must(
+    supabase
+      .from("project_members")
+      .select(
+        "id, user_id, access_role, history_access, joined_at, users(display_name, email)",
+      )
+      .eq("project_id", id)
+      .is("removed_at", null)
+      .order("joined_at", { ascending: true }),
+    "project members",
+  );
 
   const members = (memberData ?? []) as unknown as MemberRow[];
   const me = members.find((m) => m.user_id === user.id);

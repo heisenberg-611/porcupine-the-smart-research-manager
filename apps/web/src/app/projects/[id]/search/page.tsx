@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 import { SearchClient } from "./search-client";
@@ -23,11 +24,10 @@ export default async function SearchPage({
   // this user is not a member of, so "not found" and "not permitted" give the
   // same response — which is what we want, since telling them apart confirms
   // the project exists.
-  const { data: project } = await supabase
-    .from("projects")
-    .select("id, title")
-    .eq("id", id)
-    .maybeSingle();
+  const project = await must(
+    supabase.from("projects").select("id, title").eq("id", id).maybeSingle(),
+    "the project",
+  );
 
   if (!project) notFound();
 

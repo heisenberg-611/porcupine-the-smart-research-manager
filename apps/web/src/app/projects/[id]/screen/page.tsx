@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 import { ScreenClient, type Member, type ScreenRow } from "./screen-client";
@@ -46,24 +47,26 @@ export default async function ScreenPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: project } = await supabase
-    .from("projects")
-    .select("id, title, kind")
-    .eq("id", id)
-    .maybeSingle();
+  const project = await must(
+    supabase.from("projects").select("id, title, kind").eq("id", id).maybeSingle(),
+    "the project",
+  );
 
   if (!project) notFound();
 
-  const { data } = await supabase
-    .from("project_works")
-    .select(
-      "id, screen_status, exclude_reason, assignee_id, due_at, works(title, authors, venue, published_year, abstract)",
-    )
-    .eq("project_id", id)
-    .in("screen_status", ["IDENTIFIED", "SCREENING"])
-    .order("relevance_score", { ascending: false, nullsFirst: false })
-    .order("created_at", { ascending: true })
-    .limit(100);
+  const data = await must(
+    supabase
+      .from("project_works")
+      .select(
+        "id, screen_status, exclude_reason, assignee_id, due_at, works(title, authors, venue, published_year, abstract)",
+      )
+      .eq("project_id", id)
+      .in("screen_status", ["IDENTIFIED", "SCREENING"])
+      .order("relevance_score", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: true })
+      .limit(100),
+    "papers to screen",
+  );
 
   const rows: ScreenRow[] = ((data ?? []) as unknown as Row[]).map((row) => ({
     id: row.id,
@@ -78,11 +81,14 @@ export default async function ScreenPage({
     abstract: row.works?.abstract ?? null,
   }));
 
-  const { data: memberData } = await supabase
-    .from("project_members")
-    .select("user_id, users(display_name)")
-    .eq("project_id", id)
-    .is("removed_at", null);
+  const memberData = await must(
+    supabase
+      .from("project_members")
+      .select("user_id, users(display_name)")
+      .eq("project_id", id)
+      .is("removed_at", null),
+    "project members",
+  );
 
   const members: Member[] = (
     (memberData ?? []) as unknown as Array<{
