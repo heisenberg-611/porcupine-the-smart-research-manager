@@ -91,6 +91,78 @@ enum DigestCadence {
   WEEKLY
 }
 
+// ─────────────────────── Phase 1: corpus & reading ───────────────────────
+
+/// The screening pipeline. PRISMA 2020 reporting is derived from transitions
+/// through these states, so the set is fixed by the standard, not by taste.
+enum ScreenStatus {
+  IDENTIFIED
+  SCREENING
+  INCLUDED
+  EXCLUDED
+  READING
+  EXTRACTED
+  SYNTHESIZED
+}
+
+enum ReadStatus {
+  NOT_STARTED
+  SKIMMED
+  READ
+  REREAD
+}
+
+/// R-04: where a file's bytes are allowed to live.
+/// R2_SHARED is only ever reached by an Unpaywall-verified open-access file —
+/// publisher PDFs are never deduplicated between users (ADR-005, copyright).
+enum Residency {
+  R2_SHARED
+  R2_USER
+  DEVICE_ONLY
+}
+
+/// A presigned PUT can succeed without the app hearing about it, so upload
+/// state is tracked explicitly and reconciled against R2 by a nightly job.
+enum UploadState {
+  PENDING
+  COMPLETE
+  ORPHANED
+}
+
+enum TextStatus {
+  PENDING
+  EXTRACTED
+  FAILED
+  NOT_APPLICABLE
+}
+
+enum ScanStatus {
+  PENDING
+  CLEAN
+  INFECTED
+  FAILED
+}
+
+/// DRIFTED is first-class: an anchor that silently moved is far worse than one
+/// that breaks loudly, because the quote still renders and looks correct.
+enum AnchorStatus {
+  OK
+  DRIFTED
+  BROKEN
+}
+
+enum AnnotationKind {
+  HIGHLIGHT
+  NOTE
+  QUESTION
+  TODO
+}
+
+enum AnnotationVisibility {
+  PRIVATE
+  PROJECT
+}
+
 // ═══════════════════════ Identity & tenancy ═══════════════════════
 
 model User {
@@ -199,6 +271,12 @@ model Project {
   members ProjectMember[]
   keys    ProjectKey[]
 
+  questions     Question[]
+  savedSearches SavedSearch[]
+  projectWorks  ProjectWork[]
+  files         FileObject[]
+  anchors       Anchor[]
+
   @@unique([orgId, slug])
   @@index([createdBy])
   @@map("projects")
@@ -251,4 +329,301 @@ model ProjectKey {
   @@unique([projectId, userId, epoch])
   @@index([userId])
   @@map("project_keys")
+}
+
+// ═══════════════════════ Research questions ═══════════════════════
+
+/// The questions a project exists to answer. Plaintext by design: these drive
+/// keyword ranking at search time and the coverage view that shows which
+/// questions no included paper actually addresses.
+model Question {
+  id        String  @id @default(uuid()) @db.Uuid
+  projectId String  @map("project_id") @db.Uuid
+  parentId  String? @map("parent_id") @db.Uuid
+  order     Int
+  text      String
+  keywords  String[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  project  Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent   Question?  @relation("QuestionTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children Question[] @relation("QuestionTree")
+  works    ProjectWorkQuestion[]
+
+  @@index([projectId])
+  @@map("questions")
+}
+
+// ═══════════════════════ Bibliography (global) ═══════════════════════
+
+/// Global and deduplicated — NOT project-scoped. One row per paper in the
+/// world, readable by any authenticated user, writable only through the
+/// server (see the RLS migration: there is no INSERT policy for end users).
+///
+/// This is the one table in the system that is deliberately not tenant-scoped.
+/// Bibliographic metadata is public fact; duplicating it per project would
+/// mean re-fetching every provider for every project, which is both slower
+/// and ruder to APIs that are free.
+model Work {
+  id String @id @default(uuid()) @db.Uuid
+
+  // Identifiers, in descending order of dedupe confidence.
+  doi        String? @unique
+  arxivId    String? @unique @map("arxiv_id")
+  openalexId String? @unique @map("openalex_id")
+  pmid       String? @unique
+
+  /// Lowercased, punctuation-stripped, whitespace-collapsed. The last-resort
+  /// dedupe key when no identifier matches.
+  titleNorm String  @map("title_norm")
+  title     String
+  abstract  String?
+
+  /// [{ name, orcid, affiliation, position }]
+  authors       Json
+  venue         String?
+  publishedYear Int?      @map("published_year")
+  publishedOn   DateTime? @map("published_on") @db.Timestamptz(3)
+  type          String?
+
+  /// R-14: from provider metadata. Drives the FTS config; never assume English.
+  language String?
+
+  oaStatus     String?  @map("oa_status")
+  /// Set ONLY when Unpaywall verifies the file is legitimately redistributable.
+  oaPdfUrl     String?  @map("oa_pdf_url")
+  citedByCount Int      @default(0) @map("cited_by_count")
+  /// OpenAlex ids — the citation graph, used for snowballing.
+  referencedWorks String[] @map("referenced_works")
+  concepts     Json?
+
+  /// author_year_shorttitle. Stable and globally unique forever: changing one
+  /// breaks every \cite{} in every LaTeX project that used it.
+  citationKey String? @unique @map("citation_key")
+
+  /// R-15: a preprint and its published version are two rows joined by this
+  /// edge, taken from OpenAlex and never inferred. One library entry, one
+  /// PRISMA count.
+  versionOfId String? @map("version_of_id") @db.Uuid
+
+  fetchedAt DateTime? @map("fetched_at") @db.Timestamptz(3)
+  /// Cached provider payloads. Hit each API once, ever.
+  raw       Json?
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  /// Generated column, defined in hand-written SQL as
+  /// `build_tsvector(language, title/abstract)` — R-14.
+  ///
+  /// Declared here so `db:diff` sees no drift. Both halves matter: Unsupported
+  /// keeps Prisma from emitting a DROP COLUMN and keeps it out of the
+  /// generated client so nothing can write to it, and dbgenerated() keeps it
+  /// from emitting `ALTER COLUMN … DROP DEFAULT`, which reads harmlessly and
+  /// would delete the generation expression.
+  searchTsv Unsupported("tsvector")? @default(dbgenerated()) @map("search_tsv")
+
+  versionOf    Work?         @relation("WorkVersions", fields: [versionOfId], references: [id])
+  versions     Work[]        @relation("WorkVersions")
+  projectWorks ProjectWork[]
+  files        FileObject[]
+
+  @@index([titleNorm, publishedYear])
+  @@index([versionOfId])
+  /// Declared here, created in SQL. Without these two, `db:diff` proposes
+  /// dropping them on every run.
+  @@index([searchTsv(ops: raw("tsvector_ops"))], type: Gin, map: "works_search_idx")
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "works_title_trgm_idx")
+  @@map("works")
+}
+
+/// A stored federated query. Re-run on a schedule and diffed against what the
+/// project has already seen (R-22: pg_cron, since Vercel has no cron triggers).
+model SavedSearch {
+  id        String        @id @default(uuid()) @db.Uuid
+  projectId String        @map("project_id") @db.Uuid
+  name      String
+  /// { terms, providers, filters, dateRange }
+  query     Json
+  cadence   DigestCadence @default(WEEKLY)
+  lastRunAt DateTime?     @map("last_run_at") @db.Timestamptz(3)
+  /// Suppresses repeats across runs.
+  seenWorkIds String[]    @map("seen_work_ids") @db.Uuid
+  createdBy String        @map("created_by") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("saved_searches")
+}
+
+// ═══════════════════════ Files ═══════════════════════
+
+/// A pointer to bytes in R2, plus the authorization record for reaching them.
+/// R2 has no RLS, so every download goes: verify JWT → is_project_member() →
+/// presigned GET with a 5-minute TTL. Uploads are presigned PUT direct from
+/// the browser, so file bytes never pass through Vercel.
+model FileObject {
+  id        String  @id @default(uuid()) @db.Uuid
+  ownerId   String  @map("owner_id") @db.Uuid
+  projectId String? @map("project_id") @db.Uuid
+  workId    String? @map("work_id") @db.Uuid
+
+  bucket      String
+  /// Key within the bucket: {ownerId}/{uuid}.pdf
+  storagePath String @map("storage_path")
+  etag        String?
+
+  /// R-04. Defaults to a private per-user copy; only an Unpaywall-verified
+  /// open-access file may be promoted to R2_SHARED.
+  residency   Residency @default(R2_USER)
+  /// SHA-256, and the dedupe key — but for R2_SHARED rows only.
+  contentHash String?   @map("content_hash")
+  oaVerified  Boolean   @default(false) @map("oa_verified")
+
+  uploadState UploadState @default(PENDING) @map("upload_state")
+  mimeType    String      @map("mime_type")
+  sizeBytes   Int         @map("size_bytes")
+  sha256      String
+  pageCount   Int?        @map("page_count")
+  textStatus  TextStatus  @default(PENDING) @map("text_status")
+  scanStatus  ScanStatus  @default(PENDING) @map("scan_status")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  work    Work?    @relation(fields: [workId], references: [id])
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  anchors Anchor[]
+
+  @@index([ownerId])
+  @@index([projectId])
+  @@index([contentHash])
+  @@map("file_objects")
+}
+
+// ═══════════════════════ Corpus pipeline ═══════════════════════
+
+/// One paper's life inside one project. The join between the global `Work`
+/// and everything a team does with it.
+model ProjectWork {
+  id        String @id @default(uuid()) @db.Uuid
+  projectId String @map("project_id") @db.Uuid
+  workId    String @map("work_id") @db.Uuid
+  addedBy   String @map("added_by") @db.Uuid
+  /// search | doi | bibtex | ris | zotero | upload | snowball
+  source    String
+
+  screenStatus ScreenStatus @default(IDENTIFIED) @map("screen_status")
+  /// Controlled vocabulary, not free text: PRISMA requires exclusions reported
+  /// by category, and the Phase 2 flow diagram is derived from these.
+  excludeReason String?    @map("exclude_reason")
+  readStatus   ReadStatus   @default(NOT_STARTED) @map("read_status")
+  priority     Int          @default(0)
+  /// Computed from citations, recency, and Question.keywords overlap.
+  relevanceScore Float?     @map("relevance_score")
+
+  assigneeId String?   @map("assignee_id") @db.Uuid
+  dueAt      DateTime? @map("due_at") @db.Timestamptz(3)
+  readingPct Int       @default(0) @map("reading_pct")
+  tags       String[]
+  note       String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  project     Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  work        Work                  @relation(fields: [workId], references: [id])
+  questions   ProjectWorkQuestion[]
+  annotations Annotation[]
+
+  @@unique([projectId, workId])
+  @@index([projectId, screenStatus])
+  @@index([assigneeId])
+  @@map("project_works")
+}
+
+/// Which research questions a paper speaks to, and whether it supports or
+/// contradicts them.
+model ProjectWorkQuestion {
+  projectWorkId String @map("project_work_id") @db.Uuid
+  questionId    String @map("question_id") @db.Uuid
+  /// -1 contradicts · 0 unset · 1..3 supports
+  relevance     Int    @default(0)
+
+  projectWork ProjectWork @relation(fields: [projectWorkId], references: [id], onDelete: Cascade)
+  question    Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@id([projectWorkId, questionId])
+  @@index([questionId])
+  @@map("project_work_questions")
+}
+
+// ═══════════════════════ Reading ═══════════════════════
+
+/// A precise location in a source document.
+/// Resolution order: character offsets → exact quote → fuzzy quote match.
+///
+/// Every Phase 2 extraction resolves through this table, which makes it the
+/// highest-consequence thing in Phase 1.
+model Anchor {
+  id        String  @id @default(uuid()) @db.Uuid
+  projectId String  @map("project_id") @db.Uuid
+  fileId    String? @map("file_id") @db.Uuid
+
+  page   Int?
+  /// Plaintext, so cited passages are searchable.
+  quote  String
+  prefix String?
+  suffix String?
+  startOff Int? @map("start_off")
+  endOff   Int? @map("end_off")
+  /// Highlight geometry for the PDF layer.
+  rects   Json?
+  section String?
+
+  status AnchorStatus @default(OK)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  file        FileObject?  @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  annotations Annotation[]
+
+  @@index([projectId])
+  @@index([fileId, page])
+  @@index([quote(ops: raw("gin_trgm_ops"))], type: Gin, map: "anchors_quote_trgm_idx")
+  @@map("anchors")
+}
+
+model Annotation {
+  id            String @id @default(uuid()) @db.Uuid
+  projectId     String @map("project_id") @db.Uuid
+  projectWorkId String @map("project_work_id") @db.Uuid
+  anchorId      String @map("anchor_id") @db.Uuid
+  authorId      String @map("author_id") @db.Uuid
+
+  kind       AnnotationKind       @default(HIGHLIGHT)
+  color      String?
+  /// Plaintext — searchable. Annotations are server-confidential, not E2EE
+  /// (ADR-001): the whole point is that a supervisor can read them.
+  body       String?
+  visibility AnnotationVisibility @default(PROJECT)
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  projectWork ProjectWork @relation(fields: [projectWorkId], references: [id], onDelete: Cascade)
+  anchor      Anchor      @relation(fields: [anchorId], references: [id], onDelete: Cascade)
+
+  @@index([projectWorkId])
+  @@index([projectId, authorId])
+  @@index([anchorId])
+  @@map("annotations")
 }

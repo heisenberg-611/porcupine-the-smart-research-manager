@@ -1,9 +1,25 @@
 name: CI
 
+# Two jobs, not six.
+#
+# Actions bills each job rounded UP to the whole minute, and every job pays a
+# fresh checkout plus a fresh `pnpm install` before it does anything useful.
+# Six jobs meant six of those, and the 6-second boundary-grep job still billed
+# a full minute. The RLS and E2E jobs each pulled the entire Supabase Docker
+# stack — the single most expensive thing in the run, done twice.
+#
+# Coverage is unchanged: every check that ran before still runs. They are just
+# grouped by what they need, so the expensive setup happens once.
+#
+#   checks      — no services. Static analysis, boundaries, unit, relay.
+#   integration — needs Postgres. One `supabase start`, then pgTAP and E2E.
+
 on:
   push:
     branches: [main]
+    paths-ignore: ["**/*.md", "docs/**"]
   pull_request:
+    paths-ignore: ["**/*.md", "docs/**"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -14,10 +30,11 @@ env:
 
 jobs:
   # ───────────────────────────────────────────────────────────────────────────
-  # Static checks. Fast, so they run first and fail fast.
+  # Everything that needs no database. Ordered cheapest-first so a lint error
+  # does not wait behind workerd booting.
   # ───────────────────────────────────────────────────────────────────────────
-  static:
-    name: Typecheck · lint · format
+  checks:
+    name: Static · boundaries · unit · relay
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -28,19 +45,14 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:generate
+
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm format:check
 
-  # ───────────────────────────────────────────────────────────────────────────
-  # Secret-boundary checks. ESLint covers the AST cases; these catch the rest
-  # (string interpolation, template config, comments that become code).
-  # ───────────────────────────────────────────────────────────────────────────
-  boundaries:
-    name: Security boundaries
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
+      # ── Security boundaries ──────────────────────────────────────────────
+      # ESLint covers the AST cases; these catch the rest — string
+      # interpolation, template config, comments that become code.
 
       - name: Service-role key must not reach client-reachable code
         run: |
@@ -64,12 +76,42 @@ jobs:
           fi
           echo "ok: set_config confined to the withUserContext helper"
 
+      - name: FTS must be language-aware (R-14)
+        run: |
+          # `to_tsvector('english', …)` stems incorrectly for every other
+          # language and mangles CJK entirely. build_tsvector() defaults to
+          # `simple`. Retrofitting a generated column across a populated table
+          # is an outage, so this is a merge gate rather than a review note.
+          #
+          # Comment lines are excluded: the migrations that warn against this
+          # pattern necessarily contain it.
+          if grep -rn --include='*.sql' --include='*.ts' \
+               -iE "to_tsvector\(\s*'(english|simple)'" \
+               supabase packages apps --exclude-dir=node_modules --exclude-dir=generated \
+             | grep -v 'text_search_config' \
+             | grep -vE '^[^:]+:[0-9]+:[[:space:]]*(--|//|\*)'; then
+            echo "::error::Hardcoded FTS config. Use public.build_tsvector(language, body) — docs/05-resolution-plan.md R-14."
+            exit 1
+          fi
+          echo "ok: no hardcoded text search configuration"
+
+      # ── Tests that need no services ──────────────────────────────────────
+      - run: pnpm --filter @porcupine/crypto test
+
+      # R-21. Real workerd, real Durable Objects — an in-process mock would
+      # prove nothing about the part that is actually uncertain.
+      - run: pnpm --filter @porcupine/relay test
+
   # ───────────────────────────────────────────────────────────────────────────
-  # THE merge gate. Untested RLS is not security.
-  # docs/05-resolution-plan.md R-02 · hazard B-03 (keep it under 90s).
+  # Everything that needs Postgres. The Supabase stack starts ONCE here and is
+  # reused by both the RLS suite and the E2E run — it was previously started
+  # twice, which was the largest single cost in the workflow.
+  #
+  # THE merge gate lives in this job: untested RLS is not security.
+  # docs/05-resolution-plan.md R-02 · hazard B-03 (keep pgTAP under 90s).
   # ───────────────────────────────────────────────────────────────────────────
-  rls:
-    name: RLS suite (pgTAP + concurrency)
+  integration:
+    name: RLS suite · E2E · accessibility
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -79,13 +121,17 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
 
+      # Mailpit is kept: the E2E flow signs up for real and reads its OTP out
+      # of it. The rest are excluded because nothing here touches them.
       - name: Start Supabase
-        run: pnpm exec supabase start -x studio,realtime,storage-api,imgproxy,mailpit,edge-runtime
+        run: pnpm exec supabase start -x studio,realtime,storage-api,imgproxy,edge-runtime
 
       - name: Apply migrations
         run: pnpm exec supabase db reset --no-seed
 
+      # ── RLS: the merge gate ──────────────────────────────────────────────
       - name: Run RLS suite
         run: pnpm db:test
         env:
@@ -108,63 +154,24 @@ jobs:
           fi
           echo "ok: every public table has RLS enabled and forced"
 
-  # ───────────────────────────────────────────────────────────────────────────
-  # G-07: accessibility is a launch requirement and a procurement gate.
-  # Retrofitting it at Phase 7 is the classic way to miss it.
-  # ───────────────────────────────────────────────────────────────────────────
-  unit:
-    name: Unit tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @porcupine/crypto test
+      - name: Schema and migrations must not have drifted
+        run: |
+          # The database was just built from supabase/migrations/. If it does
+          # not match schema.prisma, one of the two was edited without the
+          # other — which is how a hand-written generated column or index gets
+          # silently dropped by the next `db:diff`.
+          if ! pnpm db:diff 2>&1 | grep -q 'No drift'; then
+            echo "::error::schema.prisma and supabase/migrations/ disagree. Run pnpm db:diff."
+            pnpm db:diff || true
+            exit 1
+          fi
+          echo "ok: no drift between schema.prisma and the applied migrations"
+        env:
+          DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
 
-  # ───────────────────────────────────────────────────────────────────────────
-  # R-21. Runs against real workerd and real Durable Objects — an in-process
-  # mock would prove nothing about the part that is actually uncertain.
-  # ───────────────────────────────────────────────────────────────────────────
-  relay:
-    name: Relay (workerd + Durable Objects)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @porcupine/relay test
-
-  # ───────────────────────────────────────────────────────────────────────────
-  # The Phase 0 exit criterion, plus G-07. Needs the full stack: the flow
-  # signs up for real, reads the OTP out of Mailpit, and generates real keys.
-  # ───────────────────────────────────────────────────────────────────────────
-  e2e:
-    name: E2E + accessibility
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm db:generate
-
-      - name: Start Supabase
-        run: pnpm exec supabase start -x studio,realtime,storage-api,imgproxy,edge-runtime
-
-      - name: Apply migrations
-        run: pnpm exec supabase db reset --no-seed
-
+      # ── E2E + accessibility (G-07) ───────────────────────────────────────
+      # Accessibility is a launch requirement and a procurement gate.
+      # Retrofitting it at Phase 7 is the classic way to miss it.
       - name: Write env for the app
         run: |
           # Local stack keys are fixed and public; this is not a secret.
@@ -177,8 +184,25 @@ jobs:
           ENV
           ln -sf ../../.env apps/web/.env.local
 
+      # Browsers are ~100MB and unchanged between runs; the cache turns a
+      # download into a restore.
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
       - run: pnpm exec playwright install --with-deps chromium
         working-directory: apps/web
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+
+      # Deps are still needed even on a cache hit — the browser binary is
+      # cached, the system libraries it links against are not.
+      - run: pnpm exec playwright install-deps chromium
+        working-directory: apps/web
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+
       - run: pnpm --filter @porcupine/web build
       - run: pnpm --filter @porcupine/web test:e2e
 

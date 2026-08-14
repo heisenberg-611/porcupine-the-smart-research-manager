@@ -76,9 +76,36 @@ function runSqlSuites() {
         { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
       );
       process.stdout.write(out);
-      if (/^not ok/m.test(out)) {
+
+      // A failing assertion is the obvious case. The rest of these are the
+      // ways a suite can report success while proving nothing:
+      //
+      //   * a plan mismatch means assertions did not run — the file may have
+      //     stopped early, or been edited without updating plan(N);
+      //   * "Looks like you failed" is pgTAP's own summary line;
+      //   * no `ok` lines at all means the file produced no assertions.
+      //
+      // Grepping only for `not ok` misses every one of them, which is how a
+      // suite ends up green while silently testing nothing.
+      const problems = [];
+      if (/^not ok/m.test(out)) problems.push("failing assertions");
+
+      const planMismatch = /# Looks like you planned (\d+) tests? but ran (\d+)/.exec(
+        out,
+      );
+      if (planMismatch) {
+        problems.push(
+          `plan mismatch — planned ${planMismatch[1]}, ran ${planMismatch[2]} ` +
+            `(assertions did not run; a passing count here would be meaningless)`,
+        );
+      }
+
+      if (/# Looks like you failed/.test(out)) problems.push("pgTAP reported failures");
+      if (!/^ok \d+/m.test(out)) problems.push("no assertions produced any output");
+
+      if (problems.length > 0) {
         failed = true;
-        console.error(`\x1b[31m✗ ${file} has failing assertions\x1b[0m`);
+        console.error(`\x1b[31m✗ ${file}: ${problems.join("; ")}\x1b[0m`);
       }
     } catch (err) {
       failed = true;

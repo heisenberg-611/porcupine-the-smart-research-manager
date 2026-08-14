@@ -961,17 +961,23 @@ All of these are now possible server-side, because the data they aggregate is pl
 **Server-side FTS (the plaintext tiers):**
 
 ```sql
-alter table work add column search_tsv tsvector
+-- Shipped in supabase/migrations/20260814030028_corpus_schema.sql.
+-- build_tsvector(language, body) — NEVER to_tsvector('english', …). R-14.
+alter table works add column search_tsv tsvector
   generated always as (
-    setweight(to_tsvector('english', coalesce(title,'')), 'A') ||
-    setweight(to_tsvector('english', coalesce(abstract,'')), 'B')
+    setweight(build_tsvector(language, title), 'A') ||
+    setweight(build_tsvector(language, abstract), 'B')
   ) stored;
-create index work_search_idx on work using gin (search_tsv);
-create index annotation_search_idx on annotation using gin (to_tsvector('english', coalesce(body,'')));
-create index anchor_quote_trgm on anchor using gin (quote gin_trgm_ops);
+create index works_search_idx on works using gin (search_tsv);
+create index annotations_body_idx on annotations using gin (build_tsvector(null, body));
+create index anchors_quote_trgm_idx on anchors using gin (quote gin_trgm_ops);
 ```
 
 This covers works, annotations, cited passages, and extraction values in one query surface.
+
+**The `english` version of this block was wrong and is corrected above.** It contradicted R-14 and Appendix A, and this section is the one a person copies from when adding a column — which is exactly how the outage R-14 warns about would have happened. CI now greps for hardcoded configurations.
+
+One further trap, found while building it: `text_search_config` was originally declared `STRICT`, so a NULL `language` returned NULL rather than falling through to `simple`. Since most providers do not report a language, most works would have had a NULL `search_tsv` and been silently unfindable. Fixed in `20260814030000_fix_r14_strictness.sql`. A search that returns too few results reports no error anywhere, so nothing would have surfaced it but a user wondering where their paper went.
 
 **Client-side search (the E2EE tiers):** Orama index in IndexedDB over decrypted messages and LaTeX sources. Rebuilt incrementally on sync. Small surface now that prose lives in Google Docs — which is searchable in Drive, not here. Cached `DocComment` rows _are_ server-side searchable, so supervisor feedback stays findable.
 
