@@ -1,18 +1,25 @@
 name: CI
 
-# Two jobs, not six.
+# One job. It was six, then two.
 #
 # Actions bills each job rounded UP to the whole minute, and every job pays a
 # fresh checkout plus a fresh `pnpm install` before it does anything useful.
 # Six jobs meant six of those, and the 6-second boundary-grep job still billed
-# a full minute. The RLS and E2E jobs each pulled the entire Supabase Docker
-# stack — the single most expensive thing in the run, done twice.
+# a full minute. Splitting them by what they needed got it to two; the second
+# split was still paying a checkout, an install and a rounded-up minute to
+# re-prove things about the same commit, so it is now one.
 #
-# Coverage is unchanged: every check that ran before still runs. They are just
-# grouped by what they need, so the expensive setup happens once.
+# Coverage is unchanged. Every check that has ever run here still runs — the
+# only thing removed is the relay suite, which moved to relay.yml so that
+# downloading and booting workerd happens when the relay actually changes
+# rather than on every pull request.
 #
-#   checks      — no services. Static analysis, boundaries, unit, relay.
-#   integration — needs Postgres. One `supabase start`, then pgTAP and E2E.
+# What is worth understanding about this file: none of it needs CI. Every step
+# below runs locally via `pnpm verify`. What CI adds is a CLEAN checkout on
+# Linux, --frozen-lockfile proving the lockfile is complete, and the fact that
+# it runs for changes nobody remembered to check. That is why it stays, and
+# also why it should stay cheap: it is a confirmation, not the place mistakes
+# are meant to be found.
 
 on:
   push:
@@ -30,8 +37,9 @@ env:
 
 jobs:
   # ───────────────────────────────────────────────────────────────────────────
-  # Everything that needs no database. Ordered cheapest-first so a lint error
-  # does not wait behind workerd booting.
+  # Ordered cheapest-first, and deliberately so: a typo should fail in thirty
+  # seconds, not after the Supabase stack has finished pulling images. Every
+  # step that needs no database comes before the one that starts one.
   # ───────────────────────────────────────────────────────────────────────────
   verify:
     name: Verify on a clean checkout
@@ -179,17 +187,19 @@ jobs:
       # resolve through it.
       - run: pnpm --filter @porcupine/anchoring test
 
-      # R-21. Real workerd, real Durable Objects — an in-process mock would
-      # prove nothing about the part that is actually uncertain.
+      # The relay suite (R-21 — real workerd, real Durable Objects) is NOT
+      # here. It lives in relay.yml, fired only when apps/relay or the shared
+      # ticket format changes: it downloads and boots workerd to exercise
+      # Phase 5 infrastructure that most pull requests never touch.
 
-      # ───────────────────────────────────────────────────────────────────────────
-      # Everything that needs Postgres. The Supabase stack starts ONCE here and is
-      # reused by both the RLS suite and the E2E run — it was previously started
-      # twice, which was the largest single cost in the workflow.
+      # ── Everything below needs Postgres ──────────────────────────────────
       #
-      # THE merge gate lives in this job: untested RLS is not security.
+      # The stack starts ONCE and is reused by the RLS suite and the E2E run.
+      # It was previously started twice, in two separate jobs, which was the
+      # largest single cost in the workflow.
+      #
+      # THE merge gate is here: untested RLS is not security.
       # docs/05-resolution-plan.md R-02 · hazard B-03 (keep pgTAP under 90s).
-      # ───────────────────────────────────────────────────────────────────────────
 
       # Pulling Docker images is the single largest cost in this workflow, so
       # only the containers the tests actually use are started: postgres,
