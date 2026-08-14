@@ -1,0 +1,254 @@
+// Porcupine — schema (Phase 0 slice)
+//
+// Source of truth for DDL. RLS policies live in hand-written SQL under
+// supabase/migrations/ and are the actual security boundary — Prisma cannot
+// express them.
+//
+// NEVER run `prisma migrate dev` against a Supabase database — it does not
+// know about policies, roles, or extensions and will drop them. Use
+// `pnpm db:diff` (prisma migrate diff) to emit SQL, then hand-edit.
+//
+// Conventions:
+//   * Tables and columns are snake_case in Postgres via @map/@@map. The RLS
+//     and pgTAP SQL is hand-written and read often; quoted camelCase there
+//     is a permanent tax.
+//   * All timestamps are `timestamptz`. Store UTC, render in the viewer's
+//     zone, never do date math in local time (hazard B-07).
+//
+// See docs/01-data-model.md and docs/05-resolution-plan.md R-02.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+// Prisma 7: connection URLs live in prisma.config.ts, and the runtime client
+// takes a driver adapter. See src/index.ts.
+datasource db {
+  provider = "postgresql"
+}
+
+// ═══════════════════════════ Enums ═══════════════════════════
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum ProjectKind {
+  THESIS
+  SYSTEMATIC_REVIEW
+  LAB_PAPER
+  GENERAL
+}
+
+/// R-09: separates "my supervisor" from "who runs this project".
+/// STUDENT_OWNED defaults the student to owner, supervisor to reviewer.
+/// LAB_OWNED defaults the PI to owner. Visible and changeable, never implicit.
+enum OwnershipModel {
+  STUDENT_OWNED
+  LAB_OWNED
+}
+
+enum Visibility {
+  PRIVATE
+  ORG
+}
+
+enum AccessRole {
+  OWNER
+  ADMIN
+  CONTRIBUTOR
+  REVIEWER
+  OBSERVER
+}
+
+/// CRediT-adjacent working roles. R-07/ADR-022: these describe *what someone
+/// does*, never how much they did. No scores, percentages, or rankings.
+enum FunctionRole {
+  CONCEPTUALIZATION
+  METHODOLOGY
+  INVESTIGATION
+  DATA_CURATION
+  FORMAL_ANALYSIS
+  WRITING_ORIGINAL
+  WRITING_REVIEW
+  VISUALIZATION
+  SUPERVISION
+  PROJECT_ADMIN
+}
+
+/// ADR-006: prompted when a member is added after project creation.
+enum HistoryAccess {
+  ALL_HISTORY
+  FROM_JOIN
+}
+
+enum DigestCadence {
+  NONE
+  DAILY
+  WEEKLY
+}
+
+// ═══════════════════════ Identity & tenancy ═══════════════════════
+
+model User {
+  id          String   @id @db.Uuid // = auth.users.id
+  email       String   @unique
+  displayName String   @map("display_name")
+  avatarUrl   String?  @map("avatar_url")
+  orcid       String?  @unique
+  affiliation String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  // E2EE identity — public halves only. Generated at signup from Phase 0,
+  // even though nothing is encrypted until Phase 3. Existing keys are why
+  // Phase 3 needs no painful re-enrollment.
+  identityPubKey Bytes? @map("identity_pub_key") // X25519, sealed-box key wrapping
+  signingPubKey  Bytes? @map("signing_pub_key") // Ed25519, signing key wraps
+  wrappedBundle  Bytes? @map("wrapped_bundle") // private keys under the Master Key
+  kdfSalt        Bytes? @map("kdf_salt") // Argon2id salt, distinct from auth's
+  keyBundleVer   Int    @default(0) @map("key_bundle_ver")
+
+  memberships ProjectMember[]
+  devices     Device[]
+  orgMembers  OrgMember[]
+  projectKeys ProjectKey[]
+
+  @@map("users")
+}
+
+model Device {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  label            String // "MacBook Pro", "Pixel 8"
+  devicePubKey     Bytes     @map("device_pub_key")
+  wrappedMasterKey Bytes     @map("wrapped_master_key") // sealed to this device
+  lastSeenAt       DateTime? @map("last_seen_at") @db.Timestamptz(3)
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("devices")
+}
+
+model Organization {
+  id            String   @id @default(uuid()) @db.Uuid
+  name          String
+  slug          String   @unique
+  ssoProvider   String?  @map("sso_provider") // saml | oidc | null
+  domain        String? // auto-join by email domain
+  retentionDays Int?     @map("retention_days")
+  escrowEnabled Boolean  @default(false) @map("escrow_enabled") // ADR-009, opt-in
+  escrowPubKey  Bytes?   @map("escrow_pub_key")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  members  OrgMember[]
+  projects Project[]
+
+  @@map("organizations")
+}
+
+model OrgMember {
+  orgId    String   @map("org_id") @db.Uuid
+  userId   String   @map("user_id") @db.Uuid
+  role     OrgRole  @default(MEMBER)
+  joinedAt DateTime @default(now()) @map("joined_at") @db.Timestamptz(3)
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([orgId, userId])
+  @@index([userId])
+  @@map("org_members")
+}
+
+// ═══════════════════════ Projects & membership ═══════════════════════
+
+model Project {
+  id    String  @id @default(uuid()) @db.Uuid
+  orgId String? @map("org_id") @db.Uuid
+  slug  String
+
+  title       String
+  description String?
+
+  /// R-06: this branches the UI via capabilities(kind), it does not merely
+  /// label the project. THESIS is the default and ships first.
+  kind           ProjectKind    @default(THESIS)
+  ownershipModel OwnershipModel @default(STUDENT_OWNED) @map("ownership_model")
+  visibility     Visibility     @default(PRIVATE)
+
+  /// Inert. Reserved so AI is addable later without a migration (ADR-003).
+  /// Do not build against this.
+  assistEnabled Boolean @default(false) @map("assist_enabled")
+
+  currentKeyEpoch Int       @default(1) @map("current_key_epoch")
+  archivedAt      DateTime? @map("archived_at") @db.Timestamptz(3)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdBy       String    @map("created_by") @db.Uuid
+
+  org     Organization?   @relation(fields: [orgId], references: [id])
+  members ProjectMember[]
+  keys    ProjectKey[]
+
+  @@unique([orgId, slug])
+  @@index([createdBy])
+  @@map("projects")
+}
+
+model ProjectMember {
+  id            String         @id @default(uuid()) @db.Uuid
+  projectId     String         @map("project_id") @db.Uuid
+  userId        String         @map("user_id") @db.Uuid
+  accessRole    AccessRole     @default(CONTRIBUTOR) @map("access_role")
+  functionRoles FunctionRole[] @map("function_roles")
+  invitedBy     String?        @map("invited_by") @db.Uuid
+  joinedAt      DateTime?      @map("joined_at") @db.Timestamptz(3)
+  removedAt     DateTime?      @map("removed_at") @db.Timestamptz(3)
+
+  /// ADR-006. Set by the prompt shown when adding a member after project
+  /// creation. Gates plaintext history and prior-epoch key re-wraps.
+  historyAccess HistoryAccess @default(ALL_HISTORY) @map("history_access")
+  historyFrom   DateTime?     @map("history_from") @db.Timestamptz(3)
+
+  digestCadence DigestCadence @default(DAILY) @map("digest_cadence")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId])
+  @@map("project_members")
+}
+
+/// The project symmetric key sealed to one member's identity key.
+/// One row per (project, member, epoch). Rotation = new epoch + N new rows.
+/// Old epochs are NEVER deleted — old ciphertext stays readable forever.
+model ProjectKey {
+  id         String   @id @default(uuid()) @db.Uuid
+  projectId  String   @map("project_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  epoch      Int
+  wrappedKey Bytes    @map("wrapped_key") // crypto_box_seal(key, identityPubKey)
+  wrappedBy  String   @map("wrapped_by") @db.Uuid
+  signature  Bytes // Ed25519 over (projectId|userId|epoch|wrappedKey)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId, epoch])
+  @@index([userId])
+  @@map("project_keys")
+}

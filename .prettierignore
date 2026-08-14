@@ -1,0 +1,10 @@
+node_modules
+.next
+dist
+pnpm-lock.yaml
+packages/db/generated
+supabase/.branches
+supabase/.temp
+
+# Prose docs are hand-formatted; prettier fights their tables.
+docs/**

@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. Phase 0 deliberately ships a small, deliberate palette
+ * rather than a component library's defaults — the reading surfaces in
+ * Phase 1 are long-form and warm-neutral beats pure grey for them.
+ *
+ * Contrast is a launch requirement, not a polish item (G-07): every ink/canvas
+ * pair here clears WCAG 2.2 AA, and axe-core blocks merges that break it.
+ */
+@theme {
+  --color-canvas: #fdfdfc;
+  --color-surface: #f6f6f4;
+  --color-border: #e2e2dd;
+  --color-ink: #1a1c1b;
+  --color-muted: #5f6360;
+  --color-accent: #2f6f5e;
+  --color-accent-ink: #ffffff;
+  --color-danger: #a03028;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+
+  --radius-card: 0.75rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  @theme {
+    --color-canvas: #101211;
+    --color-surface: #191c1b;
+    --color-border: #2b2f2d;
+    --color-ink: #eceeed;
+    --color-muted: #9aa09d;
+    --color-accent: #6fbfa6;
+    --color-accent-ink: #0d1a16;
+    --color-danger: #e8837a;
+  }
+}
+
+/* Respect the user's motion preference globally rather than per-component. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}

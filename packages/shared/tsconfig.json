@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // DOM for the Web Crypto, TextEncoder, and base64 globals used by
+    // relay-ticket.ts. These exist in both Node 24 and workerd; the DOM lib
+    // is just where TypeScript keeps their type declarations.
+    "lib": ["ES2023", "DOM"]
+  },
+  "include": ["src/**/*.ts"]
+}

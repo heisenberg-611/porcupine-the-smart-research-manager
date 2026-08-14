@@ -1,0 +1,36 @@
+# deps
+node_modules/
+.pnpm-store/
+
+# builds
+.next/
+out/
+dist/
+*.tsbuildinfo
+
+# env — never commit
+.env
+.env.*
+!.env.example
+
+# prisma generated client
+packages/db/generated/
+
+# supabase local state
+supabase/.branches/
+supabase/.temp/
+
+# test artifacts
+playwright-report/
+test-results/
+coverage/
+
+# editor / os
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Next only reads env from the app directory, so this symlinks the
+# workspace-root .env. Gitignored; production env comes from Vercel.
+apps/web/.env.local

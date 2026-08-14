@@ -12,11 +12,11 @@ Prisma is the source of truth for DDL. RLS policies live in hand-written SQL mig
 2. **Everything else is plaintext**, so Postgres can search, sort, filter, and aggregate it. This is what makes the evidence table fast.
 3. **`projectId` is denormalized onto every project-scoped table.** RLS must never need a join to decide access — that is both slow and easy to get wrong.
 4. **Soft-delete via `deletedAt`** on user content; hard-delete on join tables.
-5. **Append-only tables** (`ActivityEvent`, `ContributionEvent`, `AuditLog`, `Message`) get select+insert policies only. The *absence* of update/delete policies is the enforcement.
+5. **Append-only tables** (`ActivityEvent`, `ContributionEvent`, `AuditLog`, `Message`) get select+insert policies only. The _absence_ of update/delete policies is the enforcement.
 6. Every table gets `createdAt`/`updatedAt`; user content gets `createdBy`.
 7. File bytes never live in Postgres. `FileObject` is a pointer into R2 **and the authorization record** — since R2 has no RLS, this table is the only thing that decides who may fetch a key.
 8. All R2 access goes through a `StorageAdapter` interface (ADR-012 / decision #11). No `@aws-sdk` or R2 binding calls outside it.
-9. *(v6)* Schema deltas required by `05-resolution-plan.md` are listed in §Appendix A at the end of this file. They are not optional — each one is load-bearing for a resolution.
+9. _(v6)_ Schema deltas required by `05-resolution-plan.md` are listed in §Appendix A at the end of this file. They are not optional — each one is load-bearing for a resolution.
 
 ---
 
@@ -959,6 +959,7 @@ All of these are now possible server-side, because the data they aggregate is pl
 ## 4. Search, indexing, performance
 
 **Server-side FTS (the plaintext tiers):**
+
 ```sql
 alter table work add column search_tsv tsvector
   generated always as (
@@ -969,11 +970,13 @@ create index work_search_idx on work using gin (search_tsv);
 create index annotation_search_idx on annotation using gin (to_tsvector('english', coalesce(body,'')));
 create index anchor_quote_trgm on anchor using gin (quote gin_trgm_ops);
 ```
+
 This covers works, annotations, cited passages, and extraction values in one query surface.
 
-**Client-side search (the E2EE tiers):** Orama index in IndexedDB over decrypted messages and LaTeX sources. Rebuilt incrementally on sync. Small surface now that prose lives in Google Docs — which is searchable in Drive, not here. Cached `DocComment` rows *are* server-side searchable, so supervisor feedback stays findable.
+**Client-side search (the E2EE tiers):** Orama index in IndexedDB over decrypted messages and LaTeX sources. Rebuilt incrementally on sync. Small surface now that prose lives in Google Docs — which is searchable in Drive, not here. Cached `DocComment` rows _are_ server-side searchable, so supervisor feedback stays findable.
 
 **Hot indexes:**
+
 - `Work(titleNorm, publishedYear)` + `pg_trgm` GIN on `Work.title` — import-time dedupe
 - `ProjectWork(projectId, screenStatus)` and `(assigneeId)` — library view and my-queue
 - `ExtractionValue(projectId)` + GIN on `valueText` — evidence table filtering and duplicate detection
@@ -992,7 +995,7 @@ This covers works, annotations, cited passages, and extraction values in one que
 
 ## 5. Migration discipline
 
-- Migrations run against `DIRECT_URL` (port 5432) from CI on Node — `migrate deploy` issues `SET session_replication_role` and **cannot** run through a transaction pooler. Runtime queries reach Postgres through the **Supavisor transaction pooler** (6543, `pgbouncer=true`, `connection_limit=1`) directly from Vercel's Node runtime. *(v6: Hyperdrive removed with ADR-011; see ADR-019.)*
+- Migrations run against `DIRECT_URL` (port 5432) from CI on Node — `migrate deploy` issues `SET session_replication_role` and **cannot** run through a transaction pooler. Runtime queries reach Postgres through the **Supavisor transaction pooler** (6543, `pgbouncer=true`, `connection_limit=1`) directly from Vercel's Node runtime. _(v6: Hyperdrive removed with ADR-011; see ADR-019.)_
 - Any RLS-scoped Prisma query goes through `withUserContext(jwt, fn)`, which opens a `$transaction` and issues `set_config('request.jwt.claims', …, true)` as its first statement. The trailing `true` means `SET LOCAL` — **Postgres itself reverts it at commit or rollback**, so the isolation guarantee does not depend on pooler behaviour. With no claim set, every policy predicate evaluates NULL and returns zero rows: the failure mode is fail-closed. See `05-resolution-plan.md` R-02.
 - **Every migration creating a table must enable RLS and add policies in the same migration.** CI fails if any `public` table has `relrowsecurity = false`.
 - `ProtocolField.key` is immutable once any `ExtractionValue` references it. Changing a field means a new `Protocol.version` plus an explicit UI migration prompt.
@@ -1026,7 +1029,7 @@ model GitCommit {
 }
 ```
 
-Client-side, the IndexedDB Yjs provider is keyed `"<docId>:<docEpoch>"`. This is what makes a stale op *unreachable* rather than merely rejected.
+Client-side, the IndexedDB Yjs provider is keyed `"<docId>:<docEpoch>"`. This is what makes a stale op _unreachable_ rather than merely rejected.
 
 **R-04 — storage residency.** OA-verified files dedupe; paywalled files never reach R2.
 
@@ -1093,4 +1096,4 @@ model Work {
 }
 ```
 
-**R-07 — what to delete.** Any model or column holding a contribution *score*, percentage, or character/line volume aggregated across members. The CRediT ledger keeps role assignments and activity-kind evidence only. `YjsClient` stays (the blame gutter needs it) but is never aggregated, exported, or exposed to another member.
+**R-07 — what to delete.** Any model or column holding a contribution _score_, percentage, or character/line volume aggregated across members. The CRediT ledger keeps role assignments and activity-kind evidence only. `YjsClient` stays (the blame gutter needs it) but is never aggregated, exported, or exposed to another member.

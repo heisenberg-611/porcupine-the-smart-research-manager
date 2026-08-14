@@ -1,0 +1,29 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# Packages permitted to run install scripts. Everything else is blocked —
+# a postinstall script is arbitrary code execution at install time, so this
+# list should stay short and every addition should be deliberate.
+allowBuilds:
+  "@prisma/client": true
+  "@prisma/engines": true
+  prisma: true
+  unrs-resolver: true
+  esbuild: true
+  sharp: true
+  workerd: true
+
+minimumReleaseAgeExclude:
+  - "@supabase/cli-darwin-arm64@2.114.0"
+  - "@supabase/cli-darwin-x64@2.114.0"
+  - "@supabase/cli-linux-arm64-musl@2.114.0"
+  - "@supabase/cli-linux-arm64@2.114.0"
+  - "@supabase/cli-linux-x64-musl@2.114.0"
+  - "@supabase/cli-linux-x64@2.114.0"
+  - "@supabase/cli-windows-arm64@2.114.0"
+  - "@supabase/cli-windows-x64@2.114.0"
+  - supabase@2.114.0
+
+patchedDependencies:
+  libsodium-wrappers-sumo@0.7.16: patches/libsodium-wrappers-sumo@0.7.16.patch
