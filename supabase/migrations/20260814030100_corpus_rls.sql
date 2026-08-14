@@ -245,10 +245,16 @@ begin
 
   -- Normalization lives here rather than in application code so that every
   -- provider adapter, import path, and future backfill produces the same key.
-  v_title_norm := regexp_replace(
-                    regexp_replace(lower(v_title), '[^a-z0-9 ]', '', 'g'),
-                    '\s+', ' ', 'g');
-  v_title_norm := trim(v_title_norm);
+  --
+  -- Whitespace is collapsed FIRST. Stripping punctuation before that deletes
+  -- newlines and tabs outright, turning "Deep\n  Learning" into
+  -- "deeplearning" instead of "deep learning" — and arXiv's Atom feed wraps
+  -- titles across lines, so the papers indexed by both arXiv and OpenAlex are
+  -- exactly the ones that would then fail to dedupe. Kept in step with
+  -- normalizeTitle() in packages/discovery; 05_normalize_parity.sql checks.
+  v_title_norm := regexp_replace(lower(v_title), '\s+', ' ', 'g');
+  v_title_norm := regexp_replace(v_title_norm, '[^a-z0-9 ]', '', 'g');
+  v_title_norm := trim(regexp_replace(v_title_norm, '\s+', ' ', 'g'));
 
   select w.id into v_id
   from public.works w

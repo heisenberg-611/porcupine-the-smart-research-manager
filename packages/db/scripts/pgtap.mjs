@@ -259,11 +259,74 @@ async function concurrencyTest() {
   }
 }
 
+// ── R-22: is the token bucket actually atomic across invocations? ───────────
+//
+// The whole argument for putting the bucket in Postgres is that `for update`
+// serializes competing Lambda invocations, where a per-process counter would
+// not. That claim is untestable from a single session — which is exactly the
+// kind of claim that turns out to be false.
+//
+// So: N concurrent clients hammer one bucket that holds exactly N/2 tokens.
+// Precisely N/2 takes must be granted. Any other number means the
+// read-modify-write interleaved, which is the bug this design exists to
+// avoid — and the symptom in production would be a silent ban from arXiv.
+async function rateLimitConcurrencyTest() {
+  heading("▸ rate_limit_take (concurrent, R-22)");
+
+  const CLIENTS = 24;
+  const CAPACITY = CLIENTS / 2;
+  const key = `test:concurrency:${Date.now()}`;
+
+  const pool = new pg.Pool({ connectionString: CONN, max: 8 });
+
+  try {
+    const results = await Promise.all(
+      Array.from({ length: CLIENTS }, async () => {
+        const client = await pool.connect();
+        try {
+          await client.query("begin");
+          await client.query("set local role porcupine_app");
+          const { rows } = await client.query(
+            "select public.rate_limit_take($1, $2, $3) as wait",
+            [key, CAPACITY, 0.0001], // refill slow enough to be irrelevant here
+          );
+          await client.query("commit");
+          return Number(rows[0].wait);
+        } finally {
+          client.release();
+        }
+      }),
+    );
+
+    const granted = results.filter((wait) => wait === 0).length;
+
+    if (granted === CAPACITY) {
+      console.log(
+        `  \x1b[32mok\x1b[0m - exactly ${granted}/${CLIENTS} takes granted ` +
+          `against a bucket of ${CAPACITY}`,
+      );
+    } else {
+      failed = true;
+      console.error(
+        `  \x1b[31mnot ok\x1b[0m - ${granted} takes granted against a bucket ` +
+          `of ${CAPACITY}: the read-modify-write is not atomic`,
+      );
+    }
+  } finally {
+    await pool.end();
+    const cleanup = new pg.Client({ connectionString: CONN });
+    await cleanup.connect();
+    await cleanup.query("delete from rate_limit_buckets where key like 'test:%'");
+    await cleanup.end();
+  }
+}
+
 // ── Main ────────────────────────────────────────────────────────────────────
 try {
   await ensurePgTap();
   runSqlSuites();
   await concurrencyTest();
+  await rateLimitConcurrencyTest();
 } catch (err) {
   failed = true;
   console.error(`\x1b[31m✗ runner error:\x1b[0m ${err.message}`);

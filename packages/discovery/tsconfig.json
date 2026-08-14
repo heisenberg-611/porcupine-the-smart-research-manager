@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // Server-only package: it resolves DNS and opens sockets, so it is Node,
+    // never the browser. `types` is pinned so a stray DOM global fails here
+    // rather than at runtime on Lambda.
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"]
+}

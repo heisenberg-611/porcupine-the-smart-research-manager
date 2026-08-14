@@ -276,3 +276,74 @@ The 3.5 min RLS figure is **not** the pgTAP suite against its 90 s budget (hazar
 Unchanged from the entry above — the 20-minute soak, `docEpoch` bootstrap authority, and the R-01 and ADR-007 spikes.
 
 ---
+
+## 2026-08-14 · Phase 1, week 1 — corpus schema, RLS, language-aware FTS
+
+### Shipped
+
+Eight tables — `works`, `project_works`, `project_work_questions`, `questions`, `saved_searches`, `file_objects`, `anchors`, `annotations` — each with RLS enabled, forced, and policied in the same migration. Plus `packages/db/scripts/diff.mjs`, which `package.json` had referenced since Phase 0 without it existing.
+
+Two tables are not shaped like the Phase 0 ones:
+
+- **`works` is deliberately global.** Bibliographic metadata is public fact; per-project copies would mean re-fetching every provider for every project. It has **no write policy at all** — writes go through `upsert_work()`, a SECURITY DEFINER function owning normalization and identifier dedupe. A per-user write path on a shared table is a cross-tenant integrity risk, and `citation_key` must never move once a LaTeX project cites it.
+- **`annotations` separates PRIVATE from PROJECT**, and PRIVATE excludes the project owner. A private reading note a supervisor can read is not private. There is also no moderation path: an owner who could rewrite a supervisor's comment makes the review trail worthless.
+
+A REVIEWER can annotate but cannot change a screening decision.
+
+### Verification
+
+| Check | Result |
+| --- | --- |
+| `pnpm db:test` | 61 assertions + concurrency, 0.5 s (budget 90 s) |
+| sabotage probe | red in 3 independent places, restored, green |
+| `pnpm db:diff` | no drift |
+| CI | 2 jobs green on a clean runner |
+
+### Problems hit
+
+1. **A live R-14 bug.** `text_search_config` was `STRICT`, so a NULL language short-circuited to NULL instead of falling through to `simple` — making the `coalesce(lang,'')` in its body dead code for exactly the case it existed to handle. Most providers do not report a language, so most works would have had a NULL `search_tsv` and been **silently unfindable**: no error, just a search returning less than it should. Fixed in its own migration; CI now greps for hardcoded configs; `01-data-model.md` §4 contained the same wrong pattern and was corrected.
+2. **`db:diff` wanted to destroy search.** It proposed dropping the three GIN indexes and `ALTER COLUMN search_tsv DROP DEFAULT` — which reads harmlessly and deletes the generation expression. Fixed by declaring the generated column (`Unsupported` + `dbgenerated()`) and the GIN indexes in `schema.prisma`. A drift check now runs in CI.
+3. **The pgTAP runner had the relay flake's disease.** It only grepped `^not ok`, so a plan mismatch — assertions silently not running — reported success. Found because this week's first draft planned 18 tests, ran 16, and passed. It now also fails on plan mismatches, pgTAP's own failure summary, and suites producing no assertions.
+4. **RLS raises 42501 on INSERT but silently filters UPDATE.** A `throws_ok` assertion on a forbidden UPDATE was simply wrong; rewritten to assert the effect and read the value back.
+
+### Decisions made during the build
+
+**The mutation rule, now standing policy.** Every `count(*) = 0` assertion is paired with the same query run with RLS disabled, which must return rows. A zero in both conditions means the test was vacuous. This is the Phase 0 relay flake generalized, and it immediately caught a vacuous assertion of my own in week 2's rate-limit suite.
+
+---
+
+## 2026-08-14 · Phase 1, week 2 — providers, dedupe, rate limiting, SSRF
+
+### Shipped
+
+`packages/discovery`: SSRF-safe fetch, the Postgres token bucket, identifier and title normalization, five provider adapters (OpenAlex, Crossref, arXiv, Europe PMC, Semantic Scholar), union-find dedupe, and federated search with partial failure.
+
+### Verification
+
+| Check | Result |
+| --- | --- |
+| discovery tests | 96 passed |
+| `pnpm db:test` | 79 assertions + 2 concurrency proofs, 0.7 s |
+| token bucket under load | **exactly 12/24 takes granted against a bucket of 12** |
+| typecheck · lint · format | clean |
+
+### Problems hit
+
+1. **`timestamptz(3)` broke the token bucket.** Millisecond precision rounds the stored timestamp, and when it rounds *up* the next read computes a **negative** elapsed time — so a freshly created, full bucket refills by a negative amount and refuses its own first token. In production: the first arXiv call after a cold start intermittently sleeping three seconds for nothing. Fixed with full precision plus `greatest(0, …)`, which also guards a clock moving backwards.
+2. **Title normalization deleted whitespace instead of collapsing it.** Stripping punctuation before collapsing whitespace turned `Deep\n  Learning` into `deeplearning`. **arXiv's Atom feed wraps titles across lines**, so this would have broken arXiv↔OpenAlex dedupe on precisely the papers most likely to appear in both. The SQL had the identical bug, so the two agreed with each other and were both wrong. Fixed on both sides, with `05_normalize_parity.sql` as the canary.
+3. **A vacuous assertion of my own.** "The bucket table is not readable directly" ran before any bucket existed, so it compared an empty table against zero. Moved after the first take, with a companion assertion that the row it cannot see does exist.
+4. **`upsert_work()` in a WHERE clause never ran.** Postgres evaluates it per candidate row and `works` starts empty, so it scanned nothing and returned NULL. The insert has to precede the read explicitly.
+
+### Decisions made during the build
+
+- **Fuzzy title matching never auto-merges.** A wrong automatic merge destroys one of two genuinely different papers and gives the user no way to notice — the losing paper simply never appears and nothing looks broken. Near-matches are surfaced as candidates for a human instead.
+- **Partial failure is the design point**, not an error path. Five providers means five chances to be down; four sets of results beat an error page. A rate-limited provider is reported as a failure rather than stalling the search, so no search is as slow as the slowest provider.
+- **Ed25519-style reasoning applied to open access:** `oaPdfUrl` is set only when a provider states the file is open. Crossref's `link` entries are publisher URLs, not proof, so Crossref never sets it. R-04 depends on that field being trustworthy.
+
+### Open
+
+- **The DNS-rebinding TOCTOU window is not closed.** `assertPublicUrl` resolves, then `fetch` resolves again; a hostile authoritative DNS server can change the answer in between. Documented in `ssrf.ts` and exported as `SSRF_KNOWN_GAPS`. Must be closed before users can paste arbitrary URLs at scale — the Phase 4 Zotero import path. Closing it means pinning the resolved IP with a custom `undici` agent.
+- The R-04 OA dedupe rate (assumed 45 %) is still unmeasured; it needs a real corpus, which arrives with week 3's search UI.
+- Unchanged from Phase 0: the 20-minute soak, `docEpoch` bootstrap authority, and the R-01 and ADR-007 spikes.
+
+---
