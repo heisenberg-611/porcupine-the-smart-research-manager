@@ -795,3 +795,98 @@ a rate limit and is reported as one.
 
 `SSRF_KNOWN_GAPS` is now empty, and the test asserts that rather than trusting
 it.
+
+---
+
+## 2026-08-15 · Closing Phase 2's last open number, and the UI audit it enabled
+
+### Shipped
+
+`pnpm db:seed` — a demo project you can sign into. Two projects: a
+300-paper SYSTEMATIC_REVIEW with a 20-field protocol, a partly-screened
+library, a reconciliation backlog and 5,553 answers; and a small THESIS
+where none of that machinery appears. Deterministic RNG, so two runs give
+the same corpus. Idempotent, so re-running replaces exactly those two
+projects.
+
+`pnpm --filter @porcupine/web measure` — the page-level timing that Phase 2
+signed off without.
+
+### The measurement, finally
+
+Phase 2's exit criteria carried one unchecked box: the 3 s evidence-table
+budget had been proved against the **database** (51–56 ms per query shape)
+and nothing else. That number was real and it was the easy half. It says
+nothing about the server component awaiting the RPC, the React tree built
+from 5,000-odd cells, the payload on the wire, or the browser laying out 23
+columns — all of which sit between the query and the person waiting.
+
+300 papers × 20 fields, production build, local Supabase, median of 7 runs:
+
+| Shape | TTFB | LCP | HTML |
+|---|---|---|---|
+| page 1, default sort | 240 ms (worst 314) | 276 ms (worst 352) | 510 KB |
+| sorted by a number | 248 ms (worst 256) | 284 ms (worst 292) | 510 KB |
+| filtered | 245 ms (worst 290) | 284 ms (worst 328) | 510 KB |
+| grouped | 245 ms (worst 271) | 284 ms (worst 312) | 526 KB |
+| last page | 243 ms (worst 273) | 280 ms (worst 308) | 506 KB |
+
+**280 ms against a 3 s budget**, with about 190 ms of that being server
+render and framework rather than the query. The budget is not close to
+binding, which is a conclusion with a consequence: *performance is not what
+is wrong with this interface*, and the UI plan can afford to be ambitious
+without arguing about it first.
+
+Two caveats stated rather than buried. This is a developer laptop against a
+local database — not Vercel, not a pooler, not a phone on a train. And
+**510 KB of HTML for fifty rows** is the number to watch: it is fine over
+loopback and it is not fine over mobile data.
+
+It is deliberately not a merge gate. A timing assertion on a developer
+laptop is a flaky test, and a flaky test teaches people to ignore the suite.
+It prints numbers.
+
+### Problems
+
+**The seed script could not run twice.** Re-seeding deletes the previous
+demo project, and that failed with
+
+    ERROR: The field "Primary outcome" requires a quoted passage from the source.
+
+Two guards written for interactive editing were firing inside cascades,
+where the thing they protect is being deleted anyway.
+
+1. `extraction_values.anchor_id` was `on delete set null` — Prisma's default
+   for an optional relation, which means nobody chose it — while
+   `enforce_value_anchor` is a BEFORE UPDATE trigger refusing exactly that
+   null. The cascade's own UPDATE was vetoed by the trigger it triggered.
+2. `protect_answered_field` made any project containing one extracted answer
+   undeletable, and explained itself by naming a protocol field the user had
+   not touched.
+
+The trigger is right in both cases and the cascade was wrong. A QUOTE field
+exists so an answer is traceable to its passage; `set null` silently converts
+a traceable answer into an untraceable one, which is the outcome the field
+type was invented to prevent.
+
+**And the fix's first draft was wrong in an instructive way.** `no action`
+looks like the answer and is not: it differs from `restrict` only in whether
+other triggers run first, and both are checked immediately. The invariant is
+not "an anchor may never be deleted" but *"at the end of the transaction no
+answer cites a passage that is gone"* — and those differ by a whole project,
+because a project delete cascades to anchors and to extraction_values in an
+order Postgres does not promise. `deferrable initially deferred` is what
+actually states the invariant. The pgTAP suite caught the first draft.
+
+**A vacuous assertion, nearly shipped.** With a deferred constraint, a suite
+that ends in `rollback` never reaches a commit — so "the project deleted
+fine" would have passed no matter what the constraint did. Assertion 10
+forces the deferred check to run inside the transaction. Worth remembering
+next time a deferred constraint gets tested.
+
+### Open
+
+- The measurement is a laptop against loopback. Vercel + Supavisor + a real
+  network is a different number and is not yet known.
+- 510 KB of HTML per evidence page is untested on mobile data.
+- Everything under "Open" in the previous entry is unchanged.
