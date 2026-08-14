@@ -1,5 +1,5 @@
 import { normalizeTitle } from "./normalize.js";
-import type { ProviderId, WorkInput } from "./types.js";
+import type { WorkInput } from "./types.js";
 
 /**
  * Collapse the same paper returned by several providers into one record.
@@ -167,11 +167,4 @@ export function trigramSimilarity(a: string, b: string): number {
 
   const union = setA.size + setB.size - shared;
   return union === 0 ? 0 : shared / union;
-}
-
-/** Which providers contributed to a merged record — for the results UI. */
-export function provenance(works: WorkInput[], providerOf: Map<WorkInput, ProviderId>) {
-  return works
-    .map((work) => providerOf.get(work))
-    .filter((p): p is ProviderId => p !== undefined);
 }

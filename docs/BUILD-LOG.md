@@ -342,7 +342,11 @@ A REVIEWER can annotate but cannot change a screening decision.
 
 ### Open
 
-- **The DNS-rebinding TOCTOU window is not closed.** `assertPublicUrl` resolves, then `fetch` resolves again; a hostile authoritative DNS server can change the answer in between. Documented in `ssrf.ts` and exported as `SSRF_KNOWN_GAPS`. Must be closed before users can paste arbitrary URLs at scale — the Phase 4 Zotero import path. Closing it means pinning the resolved IP with a custom `undici` agent.
+- ~~The DNS-rebinding TOCTOU window is not closed.~~ **Closed the same day**, before starting week 3. `safeFetch` now connects through a `pinnedAgent` that overrides the socket's `lookup`, so the connection goes to the address that was validated instead of to whatever DNS answers a second time. Every redirect hop is revalidated and pinned independently; Host header and TLS SNI still carry the original hostname, so certificate verification is unaffected.
+
+  Proven in both directions, because "it failed" is not by itself evidence of a working security control: pinned to an unrelated public address the request fails, and pinned to the host's own real address it returns 200. The first alone would also pass if pinning simply broke everything.
+
+  `SSRF_KNOWN_GAPS` now lists one item, and it is an availability concern rather than a security one: we validate every address a host resolves to but pin the first, so there is no failover if that one is unreachable.
 - The R-04 OA dedupe rate (assumed 45 %) is still unmeasured; it needs a real corpus, which arrives with week 3's search UI.
 - Unchanged from Phase 0: the 20-minute soak, `docEpoch` bootstrap authority, and the R-01 and ADR-007 spikes.
 

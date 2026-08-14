@@ -159,6 +159,9 @@ importers:
 
   packages/discovery:
     dependencies:
+      undici:
+        specifier: ^7.29.0
+        version: 7.29.0
       zod:
         specifier: ^4.4.3
         version: 4.4.3

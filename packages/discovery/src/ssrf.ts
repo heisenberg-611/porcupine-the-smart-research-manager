@@ -23,11 +23,15 @@
  *      only the first URL misses it, so redirects are followed manually and
  *      every hop is revalidated.
  *
- * A residual gap is documented honestly at `connectToCheckedAddress` below.
+ * Both are closed: addresses are validated before connecting, and the
+ * connection is PINNED to a validated address so DNS cannot be consulted a
+ * second time. Residual risk is listed at SSRF_KNOWN_GAPS at the bottom.
  */
 
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
+
+import { Agent, fetch as undiciFetch, type Response as UndiciResponse } from "undici";
 
 export interface SafeFetchOptions {
   /** Abandon the request after this long, redirects included. */
@@ -158,6 +162,19 @@ export function classifyAddress(ip: string): string | null {
  * whichever the resolver happened to hand the socket.
  */
 export async function assertPublicUrl(input: string): Promise<URL> {
+  return (await resolveAndValidate(input)).url;
+}
+
+/**
+ * The same validation, but also returning the addresses it approved.
+ *
+ * `safeFetch` needs them: connecting to a validated ADDRESS rather than
+ * re-resolving the name is what closes the rebinding window. See
+ * `pinnedAgent`.
+ */
+export async function resolveAndValidate(
+  input: string,
+): Promise<{ url: URL; addresses: string[] }> {
   let url: URL;
   try {
     url = new URL(input);
@@ -181,7 +198,7 @@ export async function assertPublicUrl(input: string): Promise<URL> {
   if (isIP(host)) {
     const reason = classifyAddress(host);
     if (reason) throw new SsrfError(`refusing address ${host}: ${reason}`, input);
-    return url;
+    return { url, addresses: [host] };
   }
 
   let addresses: Array<{ address: string }>;
@@ -202,7 +219,49 @@ export async function assertPublicUrl(input: string): Promise<URL> {
     }
   }
 
-  return url;
+  return { url, addresses: addresses.map((a) => a.address) };
+}
+
+// ── Pinning the validated address ────────────────────────────────────────────
+
+/**
+ * A dispatcher that connects to `address` and refuses to consult DNS again.
+ *
+ * This is what closes the rebinding window. Without it the sequence is:
+ *
+ *   1. we resolve example.com   -> 93.184.216.34   (public, allowed)
+ *   2. fetch resolves it again  -> 169.254.169.254 (attacker swapped it)
+ *
+ * The validation in step 1 is then worthless, because nothing connects to
+ * what it checked. Overriding `lookup` makes the socket go to the address we
+ * actually approved.
+ *
+ * The Host header and TLS SNI still carry the original hostname, because the
+ * URL is unchanged — so certificate verification is unaffected and virtual
+ * hosts still resolve correctly. Only the IP is pinned.
+ */
+function pinnedAgent(address: string): Agent {
+  const family = isIP(address);
+
+  return new Agent({
+    connect: {
+      // Node's LookupFunction is overloaded on `options.all`, and the two
+      // shapes cannot both be expressed in one implementation signature.
+      // The cast is confined to this one function.
+      lookup: ((
+        _hostname: string,
+        options: { all?: boolean },
+        callback: (
+          err: Error | null,
+          address: string | Array<{ address: string; family: number }>,
+          family?: number,
+        ) => void,
+      ) => {
+        if (options.all) callback(null, [{ address, family }]);
+        else callback(null, address, family);
+      }) as never,
+    },
+  });
 }
 
 // ── The fetch itself ─────────────────────────────────────────────────────────
@@ -233,39 +292,56 @@ export async function safeFetch(
   }
 
   try {
-    let current = await assertPublicUrl(input);
-    let origin = current.origin;
+    let validated = await resolveAndValidate(input);
+    let origin = validated.url.origin;
     let headers = { ...options.headers };
 
     for (let hop = 0; hop <= maxRedirects; hop++) {
-      const response = await fetch(current, {
-        redirect: "manual",
-        signal: controller.signal,
-        headers: {
-          // Identify ourselves. OpenAlex and Crossref give a faster "polite
-          // pool" to requests that do, and it is basic courtesy to free APIs.
-          "user-agent": userAgent(),
-          accept: "application/json",
-          ...headers,
-        },
-      });
+      const { url: current, addresses } = validated;
 
-      if (response.status < 300 || response.status > 399) {
-        return await enforceSize(response, maxBytes, current.href);
+      // Connect to the address we just approved rather than re-resolving.
+      const agent = pinnedAgent(addresses[0]!);
+
+      try {
+        const response = await undiciFetch(current.href, {
+          redirect: "manual",
+          signal: controller.signal,
+          dispatcher: agent,
+          headers: {
+            // Identify ourselves. OpenAlex and Crossref give a faster "polite
+            // pool" to requests that do, and it is basic courtesy to free APIs.
+            "user-agent": userAgent(),
+            accept: "application/json",
+            ...headers,
+          },
+        });
+
+        const location = response.headers.get("location");
+        const isRedirect = response.status >= 300 && response.status <= 399 && location;
+
+        if (!isRedirect) {
+          // Body is buffered here, while the agent is still open.
+          return await enforceSize(response, maxBytes, current.href);
+        }
+
+        // Nothing useful in a redirect body, and leaving it unread keeps the
+        // socket from being held open by the pool we are about to destroy.
+        await response.body?.cancel();
+
+        validated = await resolveAndValidate(new URL(location, current).href);
+
+        // Cross-origin: drop anything that could be a credential.
+        if (validated.url.origin !== origin) {
+          const { authorization: _a, cookie: _c, ...rest } = lowercaseKeys(headers);
+          headers = rest;
+          origin = validated.url.origin;
+        }
+      } finally {
+        // One agent per hop; each is pinned to a different address.
+        void agent.close().catch(() => {
+          /* already torn down */
+        });
       }
-
-      const location = response.headers.get("location");
-      if (!location) return await enforceSize(response, maxBytes, current.href);
-
-      const next = await assertPublicUrl(new URL(location, current).href);
-
-      // Cross-origin: drop anything that could be a credential.
-      if (next.origin !== origin) {
-        const { authorization: _a, cookie: _c, ...rest } = lowercaseKeys(headers);
-        headers = rest;
-        origin = next.origin;
-      }
-      current = next;
     }
 
     throw new SsrfError(`more than ${maxRedirects} redirects`, input);
@@ -288,7 +364,7 @@ function lowercaseKeys(headers: Record<string, string>): Record<string, string> 
  * body and then measuring it is how a 10 GB response becomes an outage.
  */
 async function enforceSize(
-  response: Response,
+  response: UndiciResponse,
   maxBytes: number,
   url: string,
 ): Promise<Response> {
@@ -298,7 +374,13 @@ async function enforceSize(
     throw new SsrfError(`response declares ${declared} bytes, cap is ${maxBytes}`, url);
   }
 
-  if (!response.body) return response;
+  if (!response.body) {
+    return new Response(null, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: [...response.headers] as Array<[string, string]>,
+    });
+  }
 
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -322,10 +404,11 @@ async function enforceSize(
     offset += chunk.length;
   }
 
+  // Rebuilt as a platform Response so callers never see an undici type.
   return new Response(body, {
     status: response.status,
     statusText: response.statusText,
-    headers: response.headers,
+    headers: [...response.headers] as Array<[string, string]>,
   });
 }
 
@@ -341,26 +424,33 @@ export function userAgent(): string {
 }
 
 /**
- * KNOWN GAP — the TOCTOU window.
+ * Residual risk, kept current.
  *
- * `assertPublicUrl` resolves the hostname, then `fetch` resolves it again
- * when it opens the socket. Between those two resolutions a hostile DNS
- * server can change the answer, so a name that validated as public can be
- * connected to as private. This is classic DNS rebinding and it is NOT closed
- * by the code above.
+ * The DNS-rebinding TOCTOU window that used to be listed here is CLOSED:
+ * `safeFetch` connects through `pinnedAgent`, which overrides the socket's
+ * `lookup` so the connection goes to the address that was validated rather
+ * than to whatever DNS returns a second time. Every redirect hop is
+ * revalidated and pinned independently.
  *
- * Closing it properly means resolving once and connecting to the pinned IP
- * with the original Host header and SNI — which `undici` supports through a
- * custom agent, and `fetch` alone does not.
+ * What remains, honestly:
  *
- * It is not closed here because the window is small, exploiting it requires
- * controlling authoritative DNS for the submitted name, and Phase 1 fetches
- * only provider APIs and OA PDFs. It MUST be closed before users can paste
- * arbitrary URLs at scale, which is the Zotero import path in Phase 4.
+ *   * `lookup()` returns several addresses for many hosts and we validate all
+ *     of them, but pin the FIRST. That is safe — every address passed — and
+ *     it does mean no failover to the second address if the first is
+ *     unreachable. A retry loop over the validated set would fix it; it has
+ *     not been needed.
  *
- * Recorded rather than quietly accepted: a mitigation nobody wrote down is
- * indistinguishable from one nobody thought of.
+ *   * A host that is public at validation time and becomes attacker-controlled
+ *     later is out of scope for any client-side control. That is a BGP or
+ *     domain-hijack scenario, not an SSRF one.
+ *
+ *   * We do not pin the certificate. TLS verification still applies against
+ *     the original hostname, so an attacker needs a valid certificate for the
+ *     name — pinning would add little and break ordinary rotation.
  */
+/** Exposed so a test can prove the pin actually redirects the socket. */
+export const __testing = { pinnedAgent };
+
 export const SSRF_KNOWN_GAPS = [
-  "DNS rebinding between validation and connection (see comment above; close before Phase 4 Zotero import)",
+  "No failover to the second validated address if the first is unreachable (availability, not security)",
 ] as const;

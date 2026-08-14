@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { assertPublicUrl, classifyAddress, safeFetch, SsrfError } from "../src/ssrf.js";
+import { fetch as undiciFetch } from "undici";
+
+import {
+  __testing,
+  assertPublicUrl,
+  classifyAddress,
+  resolveAndValidate,
+  safeFetch,
+  SSRF_KNOWN_GAPS,
+  SsrfError,
+} from "../src/ssrf.js";
 
 /**
  * These are negative tests, so each one is written to be capable of failing:
@@ -115,4 +125,61 @@ describe("safeFetch", () => {
       safeFetch("https://api.openalex.org/works?per_page=1", { maxBytes: 1 }),
     ).rejects.toThrow(/bytes/);
   }, 20_000);
+});
+
+describe("address pinning (DNS rebinding)", () => {
+  /**
+   * The rebinding attack is: we resolve a name, approve the address, and then
+   * `fetch` resolves the SAME name again and gets a different one. Validation
+   * is worthless if nothing connects to what it checked.
+   *
+   * Proving the pin works needs evidence that the socket ignored DNS. So:
+   * pin api.openalex.org to a public address that is NOT OpenAlex. If the pin
+   * is in effect, the TCP connection lands on the wrong host and TLS fails on
+   * the certificate name. If the pin were ignored, DNS would resolve the real
+   * OpenAlex and the request would simply succeed — which is exactly the
+   * behaviour that would mean we are still vulnerable.
+   */
+  it("sends the socket to the pinned address, not to DNS", async () => {
+    // 8.8.8.8 serves HTTPS under a dns.google certificate, so a connection
+    // pinned there cannot complete a handshake for api.openalex.org.
+    //
+    // The assertion is deliberately "it fails" rather than a specific error:
+    // any failure proves the point, because WITHOUT the pin this exact
+    // request succeeds — DNS would resolve the real OpenAlex and return 200.
+    // The next test is the complement and stops this from passing merely
+    // because pinning broke everything.
+    //
+    // (An earlier draft pinned to 1.1.1.1 and got a 403 instead of a TLS
+    // error: OpenAlex is behind Cloudflare, so 1.1.1.1 could serve a valid
+    // certificate for it. Same conclusion, far more fragile.)
+    const agent = __testing.pinnedAgent("8.8.8.8");
+    try {
+      await expect(
+        undiciFetch("https://api.openalex.org/works?per_page=1", { dispatcher: agent }),
+      ).rejects.toThrow();
+    } finally {
+      await agent.close();
+    }
+  }, 20_000);
+
+  it("still reaches a host when pinned to its own real address", async () => {
+    // The complement: pinning is not simply breaking everything.
+    const { addresses } = await resolveAndValidate("https://api.openalex.org/works");
+    const agent = __testing.pinnedAgent(addresses[0]!);
+    try {
+      const response = await undiciFetch("https://api.openalex.org/works?per_page=1", {
+        dispatcher: agent,
+      });
+      expect(response.status).toBe(200);
+      await response.body?.cancel();
+    } finally {
+      await agent.close();
+    }
+  }, 20_000);
+
+  it("reports no remaining security gaps, only an availability one", () => {
+    // If a rebinding entry ever reappears here, the pin was removed.
+    expect(SSRF_KNOWN_GAPS.join(" ")).not.toMatch(/rebinding/i);
+  });
 });
