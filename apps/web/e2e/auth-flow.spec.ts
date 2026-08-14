@@ -292,6 +292,51 @@ test.describe("Phase 0 exit criterion", () => {
     await expect(page.getByText(/added 0 papers.*already in the library/i)).toBeVisible();
   });
 
+  test("screens a paper and records the decision", async () => {
+    await page.goto("/projects");
+    await page.getByRole("link", { name: /transformer efficiency/i }).click();
+    await page.getByRole("link", { name: /^screen$/i }).click();
+
+    await expect(page.getByRole("heading", { name: /^screen$/i })).toBeVisible();
+
+    // Two papers were imported earlier in this run.
+    await expect(page.getByText(/2 left/i)).toBeVisible();
+
+    const first = await page.locator("article h2").innerText();
+    await page.getByRole("button", { name: /^include$/i }).click();
+
+    await expect(page.getByText(/1 left/i)).toBeVisible();
+    await expect(page.getByText(/1 decided this session/i)).toBeVisible();
+    // The decided paper is gone from the queue, not merely re-labelled.
+    await expect(page.locator("article h2")).not.toHaveText(first);
+
+    // And it moved in the library.
+    await page.goto("/projects");
+    await page.getByRole("link", { name: /transformer efficiency/i }).click();
+    await page.getByRole("link", { name: /^library$/i }).click();
+    await expect(page.getByRole("link", { name: /included/i })).toBeVisible();
+  });
+
+  test("assignment puts a paper in my queue", async () => {
+    await page.goto("/projects");
+    await page.getByRole("link", { name: /transformer efficiency/i }).click();
+    await page.getByRole("link", { name: /^screen$/i }).click();
+
+    const title = await page.locator("article h2").innerText();
+    // selectOption takes a literal label, so pick the option whose text ends
+    // in "(me)" — the page marks the signed-in member that way.
+    const assign = page.getByLabel(/assign to/i);
+    const myOption = await assign.locator("option", { hasText: "(me)" }).innerText();
+    await assign.selectOption({ label: myOption });
+
+    // Wait for the confirmation rather than racing the server action.
+    await expect(page.getByText(/^assigned to /i)).toBeVisible();
+
+    await page.goto("/queue");
+    await expect(page.getByRole("heading", { name: /my queue/i })).toBeVisible();
+    await expect(page.getByText(title)).toBeVisible();
+  });
+
   test("signs out and blocks the project list", async () => {
     await page.goto("/projects");
     await page.getByRole("button", { name: /sign out/i }).click();

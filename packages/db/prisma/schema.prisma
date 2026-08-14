@@ -186,6 +186,7 @@ model User {
 
   memberships ProjectMember[]
   devices     Device[]
+  decisions   ScreeningDecision[]
   orgMembers  OrgMember[]
   projectKeys ProjectKey[]
 
@@ -271,11 +272,12 @@ model Project {
   members ProjectMember[]
   keys    ProjectKey[]
 
-  questions     Question[]
-  savedSearches SavedSearch[]
-  projectWorks  ProjectWork[]
-  files         FileObject[]
-  anchors       Anchor[]
+  questions          Question[]
+  savedSearches      SavedSearch[]
+  projectWorks       ProjectWork[]
+  files              FileObject[]
+  anchors            Anchor[]
+  screeningDecisions ScreeningDecision[]
 
   @@unique([orgId, slug])
   @@index([createdBy])
@@ -565,6 +567,7 @@ model ProjectWork {
   work        Work                  @relation(fields: [workId], references: [id])
   questions   ProjectWorkQuestion[]
   annotations Annotation[]
+  decisions   ScreeningDecision[]
 
   @@unique([projectId, workId])
   @@index([projectId, screenStatus])
@@ -586,6 +589,33 @@ model ProjectWorkQuestion {
   @@id([projectWorkId, questionId])
   @@index([questionId])
   @@map("project_work_questions")
+}
+
+/// Append-only log of screening transitions.
+///
+/// A screening decision that cannot be attributed is one a reviewer cannot
+/// defend — "the four of us agreed" is not a record. Also the raw material
+/// for Phase 2b's inter-rater agreement.
+///
+/// There is deliberately no UPDATE or DELETE policy on this table.
+model ScreeningDecision {
+  id            String        @id @default(uuid()) @db.Uuid
+  projectId     String        @map("project_id") @db.Uuid
+  projectWorkId String        @map("project_work_id") @db.Uuid
+  decidedBy     String        @map("decided_by") @db.Uuid
+  fromStatus    ScreenStatus? @map("from_status")
+  toStatus      ScreenStatus  @map("to_status")
+  excludeReason String?       @map("exclude_reason")
+  note          String?
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectWork ProjectWork @relation(fields: [projectWorkId], references: [id], onDelete: Cascade)
+  decider     User        @relation(fields: [decidedBy], references: [id])
+
+  @@index([projectId, createdAt(sort: Desc)], map: "screening_decisions_project_idx")
+  @@index([projectWorkId, createdAt(sort: Desc)], map: "screening_decisions_work_idx")
+  @@map("screening_decisions")
 }
 
 // ═══════════════════════ Reading ═══════════════════════
