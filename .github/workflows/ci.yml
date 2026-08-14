@@ -64,6 +64,24 @@ jobs:
           fi
           echo "ok: set_config confined to the withUserContext helper"
 
+      - name: FTS must be language-aware (R-14)
+        run: |
+          # `to_tsvector('english', …)` stems incorrectly for every other
+          # language and mangles CJK entirely. build_tsvector() defaults to
+          # `simple`. Retrofitting a generated column across a populated table
+          # is an outage, so this is a merge gate rather than a review note.
+          # Comment lines are excluded: the migrations that warn against this
+          # pattern necessarily contain it.
+          if grep -rn --include='*.sql' --include='*.ts' \
+               -iE "to_tsvector\(\s*'(english|simple)'" \
+               supabase packages apps --exclude-dir=node_modules --exclude-dir=generated \
+             | grep -v 'text_search_config' \
+             | grep -vE '^[^:]+:[0-9]+:[[:space:]]*(--|//|\*)'; then
+            echo "::error::Hardcoded FTS config. Use public.build_tsvector(language, body) — docs/05-resolution-plan.md R-14."
+            exit 1
+          fi
+          echo "ok: no hardcoded text search configuration"
+
   # ───────────────────────────────────────────────────────────────────────────
   # THE merge gate. Untested RLS is not security.
   # docs/05-resolution-plan.md R-02 · hazard B-03 (keep it under 90s).
