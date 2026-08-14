@@ -163,6 +163,45 @@ enum AnnotationVisibility {
   PROJECT
 }
 
+// ─────────────────────── Phase 2: extraction ───────────────────────
+
+/// The field types a protocol can declare.
+///
+/// QUOTE and CITATION are not decoration: a QUOTE field captures an Anchor
+/// when the extractor highlights, which is what makes "cell → the exact
+/// passage it came from" possible in the evidence table.
+enum FieldType {
+  TEXT
+  LONG_TEXT
+  NUMBER
+  BOOLEAN
+  ENUM
+  MULTI_ENUM
+  DATE
+  QUOTE
+  CITATION
+  URL
+}
+
+/// DRAFT until submitted, so a half-filled form is never mistaken for a
+/// finding. IN_CONFLICT and RECONCILED are reached only by dual extraction
+/// (Phase 2b) — declared now so that path needs no migration.
+enum ExtractionStatus {
+  DRAFT
+  SUBMITTED
+  IN_CONFLICT
+  RECONCILED
+  VERIFIED
+}
+
+/// Inert. ADR-003: no AI in v1. Reserved so an assisted extraction can be
+/// distinguished from a human one later without a migration, and so nothing
+/// has to guess retrospectively which was which.
+enum ExtractionOrigin {
+  HUMAN
+  ASSISTED
+}
+
 // ═══════════════════════ Identity & tenancy ═══════════════════════
 
 model User {
@@ -280,6 +319,8 @@ model Project {
   anchors            Anchor[]
   screeningDecisions ScreeningDecision[]
   importBatches      ImportBatch[]
+  protocols          Protocol[]
+  extractions        Extraction[]
 
   @@unique([orgId, slug])
   @@index([createdBy])
@@ -404,6 +445,7 @@ model Question {
   parent   Question?  @relation("QuestionTree", fields: [parentId], references: [id], onDelete: Cascade)
   children Question[] @relation("QuestionTree")
   works    ProjectWorkQuestion[]
+  protocolFields ProtocolField[]
 
   @@index([projectId])
   @@map("questions")
@@ -594,6 +636,7 @@ model ProjectWork {
   questions   ProjectWorkQuestion[]
   annotations Annotation[]
   decisions   ScreeningDecision[]
+  extractions Extraction[]
 
   @@unique([projectId, workId])
   @@index([projectId, screenStatus])
@@ -644,6 +687,115 @@ model ScreeningDecision {
   @@map("screening_decisions")
 }
 
+// ═══════════════════════ Extraction protocol ═══════════════════════
+
+/// The questions asked of every paper in a project.
+///
+/// Versioned rather than edited in place: an evidence table is only coherent
+/// if every row answered the same questions, so changing a protocol after
+/// extractions exist creates a new version instead of silently altering what
+/// past extractors were asked.
+model Protocol {
+  id          String   @id @default(uuid()) @db.Uuid
+  projectId   String   @map("project_id") @db.Uuid
+  name        String
+  version     Int      @default(1)
+  isActive    Boolean  @default(true) @map("is_active")
+  /// R-06 / Phase 2b: two independent extractions before a value is trusted.
+  dualExtract Boolean  @default(false) @map("dual_extract")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  project Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fields  ProtocolField[]
+  extractions Extraction[]
+
+  @@unique([projectId, name, version])
+  @@index([projectId, isActive])
+  @@map("protocols")
+}
+
+model ProtocolField {
+  id         String    @id @default(uuid()) @db.Uuid
+  protocolId String    @map("protocol_id") @db.Uuid
+  /// Stable machine key. IMMUTABLE once any ExtractionValue references it —
+  /// renaming would silently reassign every recorded answer to a different
+  /// question. Changing a field means a new protocol version.
+  key        String
+  label      String
+  type       FieldType
+  /// ENUM/MULTI_ENUM choices.
+  options    Json?
+  required   Boolean   @default(false)
+  /// Forces provenance: the value cannot be saved without an Anchor.
+  requiresAnchor Boolean @default(false) @map("requires_anchor")
+  helpText   String?   @map("help_text")
+  order      Int
+  /// Ties a field to the research question it answers, so coverage can be
+  /// reported per question rather than per field.
+  questionId String?   @map("question_id") @db.Uuid
+
+  protocol Protocol          @relation(fields: [protocolId], references: [id], onDelete: Cascade)
+  question Question?         @relation(fields: [questionId], references: [id])
+  values   ExtractionValue[]
+
+  @@unique([protocolId, key])
+  @@index([protocolId, order])
+  @@map("protocol_fields")
+}
+
+/// One extractor's answers for one paper under one protocol.
+model Extraction {
+  id            String           @id @default(uuid()) @db.Uuid
+  projectId     String           @map("project_id") @db.Uuid
+  projectWorkId String           @map("project_work_id") @db.Uuid
+  protocolId    String           @map("protocol_id") @db.Uuid
+  extractorId   String           @map("extractor_id") @db.Uuid
+  status        ExtractionStatus @default(DRAFT)
+  origin        ExtractionOrigin @default(HUMAN)
+  /// Phase 2b: the extraction ids a reconciliation drew from.
+  reconciledFrom String[]        @map("reconciled_from") @db.Uuid
+  verifiedBy    String?          @map("verified_by") @db.Uuid
+  submittedAt   DateTime?        @map("submitted_at") @db.Timestamptz(3)
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  project     Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectWork ProjectWork       @relation(fields: [projectWorkId], references: [id], onDelete: Cascade)
+  protocol    Protocol          @relation(fields: [protocolId], references: [id])
+  values      ExtractionValue[]
+
+  /// One extraction per person per paper per protocol. Dual extraction is two
+  /// rows by two people, never one row edited twice.
+  @@unique([projectWorkId, protocolId, extractorId])
+  @@index([projectId, status])
+  @@map("extractions")
+}
+
+model ExtractionValue {
+  id           String   @id @default(uuid()) @db.Uuid
+  projectId    String   @map("project_id") @db.Uuid
+  extractionId String   @map("extraction_id") @db.Uuid
+  fieldId      String   @map("field_id") @db.Uuid
+  /// Typed, and PLAINTEXT on purpose (ADR-001): the evidence table sorts,
+  /// filters and pivots server-side, which a ciphertext column cannot do.
+  value        Json
+  /// Flattened for FTS and duplicate detection.
+  valueText    String?  @map("value_text")
+  /// Required when the field sets requiresAnchor — enforced by trigger.
+  anchorId     String?  @map("anchor_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  extraction Extraction    @relation(fields: [extractionId], references: [id], onDelete: Cascade)
+  field      ProtocolField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  anchor     Anchor?       @relation(fields: [anchorId], references: [id])
+
+  @@unique([extractionId, fieldId])
+  @@index([projectId])
+  @@map("extraction_values")
+}
+
 // ═══════════════════════ Reading ═══════════════════════
 
 /// A precise location in a source document.
@@ -675,6 +827,7 @@ model Anchor {
   project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   file        FileObject?  @relation(fields: [fileId], references: [id], onDelete: Cascade)
   annotations Annotation[]
+  extractionValues ExtractionValue[]
 
   @@index([projectId])
   @@index([fileId, page])
