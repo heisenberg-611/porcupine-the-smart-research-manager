@@ -331,6 +331,31 @@ model ProjectKey {
   @@map("project_keys")
 }
 
+// ═══════════════════════ Infrastructure ═══════════════════════
+
+/// R-22: token buckets shared across every Lambda invocation.
+///
+/// Declared here only so `db:diff` sees no drift. Nothing reads or writes it
+/// through Prisma — the table is deny-all and the sole write path is the
+/// SECURITY DEFINER `rate_limit_take()`. See the migration for why the bucket
+/// has to live in Postgres at all.
+model RateLimitBucket {
+  key             String   @id
+  tokens          Float
+  capacity        Float
+  refillPerSecond Float    @map("refill_per_second")
+  /// Full precision, unlike every other timestamp here: at millisecond
+  /// precision the rounding can make elapsed time negative. See the migration.
+  ///
+  /// `clock_timestamp()`, not Prisma's `now()` — which maps to
+  /// CURRENT_TIMESTAMP, i.e. transaction start time, frozen for the whole
+  /// transaction. That is exactly the clock a token bucket must not use, and
+  /// leaving them mismatched also made `db:diff` want to rewrite the default.
+  updatedAt       DateTime @default(dbgenerated("clock_timestamp()")) @map("updated_at") @db.Timestamptz(6)
+
+  @@map("rate_limit_buckets")
+}
+
 // ═══════════════════════ Research questions ═══════════════════════
 
 /// The questions a project exists to answer. Plaintext by design: these drive

@@ -13,6 +13,7 @@
   "dependencies": {
     "@porcupine/crypto": "workspace:*",
     "@porcupine/db": "workspace:*",
+    "@porcupine/discovery": "workspace:*",
     "@porcupine/shared": "workspace:*",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",

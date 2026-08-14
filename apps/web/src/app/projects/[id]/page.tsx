@@ -73,6 +73,13 @@ export default async function ProjectPage({
           {String(project.kind).replace(/_/g, " ")} ·{" "}
           {String(project.ownership_model).replace(/_/g, " ").toLowerCase()}
         </p>
+
+        <Link
+          href={`/projects/${id}/search`}
+          className="border-border text-ink hover:bg-surface mt-4 inline-flex min-h-11 items-center rounded-lg border px-4 text-sm font-medium"
+        >
+          Find papers
+        </Link>
       </div>
 
       <section>

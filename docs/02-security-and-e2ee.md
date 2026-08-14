@@ -210,6 +210,7 @@ Required, and now load-bearing rather than belt-and-braces:
 - `https` only.
 - **Resolve the hostname first, then check the resolved IP** against RFC1918, loopback, link-local (`169.254.0.0/16` explicitly), CGNAT, and IPv6 equivalents — checking the hostname string alone is defeated by a DNS record pointing at a private address.
 - **Re-validate at every redirect hop**, not just the first, and cap redirect depth. DNS-rebinding and redirect-to-metadata are the two live attacks here.
+- **Pin the connection to the validated address.** Resolving, checking, and then calling `fetch` still lets the runtime resolve a *second* time, and a hostile authoritative DNS server can change the answer in between — so the check applies to an address nothing connects to. Implemented in `packages/discovery/src/ssrf.ts` via an `undici` agent with an overridden `lookup`; the Host header and TLS SNI keep the original hostname, so certificate verification is unaffected. _Implemented Phase 1 week 2._
 - Response size and time caps; never proxy an arbitrary URL back to the browser.
 - Outbound fetches carry no ambient credentials — no `Authorization` header is ever attached to a user-supplied URL.
 
