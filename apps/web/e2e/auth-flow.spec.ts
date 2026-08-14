@@ -503,6 +503,73 @@ test.describe("Phase 0 exit criterion", () => {
     await expect(page.getByText("reported_runtime_hours")).toHaveCount(0);
   });
 
+  test("extracts against the protocol, quoting the paper for provenance", async () => {
+    await page.goto("/projects");
+    await page.getByRole("link", { name: /transformer efficiency/i }).click();
+    await page.getByRole("link", { name: /^library$/i }).click();
+
+    // Attention Is All You Need is the one with an abstract, so it is the one
+    // a QUOTE field can actually be answered from.
+    await page
+      .getByRole("row", { name: /attention is all you need/i })
+      .getByRole("link", { name: /^extract$/i })
+      .click();
+
+    await expect(
+      page.getByRole("heading", { name: /attention is all you need/i }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: /start extracting/i }).click();
+
+    await expect(page.getByRole("heading", { name: /the questions/i })).toBeVisible();
+
+    // A required text field.
+    await page.getByLabel(/^task/i).fill("Sequence transduction");
+    await page.getByLabel(/^dataset/i).fill("WMT 2014");
+    await page.getByLabel(/^model/i).fill("Transformer");
+
+    // The ENUM renders as a select with the protocol's own options.
+    await page.getByLabel(/metric name/i).selectOption("BLEU");
+
+    // Submitting without the quoted field must be refused BY NAME, so the
+    // person knows which question is unanswered rather than that "something"
+    // is missing.
+    await page.getByRole("button", { name: /^submit$/i }).click();
+    // getByText, not getByRole("alert"): Next renders a route announcer with
+    // role="alert" too, so the role selector is ambiguous.
+    await expect(page.getByText(/still unanswered:.*headline metric/i)).toBeVisible();
+
+    // Answer it by quoting the paper — the field cannot be typed into.
+    await page.getByRole("button", { name: /quote from the paper/i }).click();
+    await expect(page.getByText(/select the sentence in the text/i)).toBeVisible();
+
+    const quote = await page.evaluate(() => {
+      const el = document.querySelector('[data-testid="extract-source"]');
+      if (!el?.firstChild) return null;
+      const range = document.createRange();
+      range.setStart(el.firstChild, 10);
+      range.setEnd(el.firstChild, 70);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      el.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+      return range.toString();
+    });
+    expect(quote).toBeTruthy();
+    await expect(page.getByRole("blockquote").first()).toContainText(quote!.slice(0, 20));
+
+    await page.getByRole("button", { name: /^submit$/i }).click();
+    await expect(page.getByText(/submitted\. it is frozen/i)).toBeVisible();
+
+    // Frozen means frozen: the inputs are disabled until it is reopened.
+    await page.reload();
+    await expect(page.getByText(/submitted and frozen/i)).toBeVisible();
+    await expect(page.getByLabel(/^dataset/i)).toBeDisabled();
+
+    // And reopening is a door, not a wall.
+    await page.getByRole("button", { name: /reopen as a draft/i }).click();
+    await expect(page.getByLabel(/^dataset/i)).toBeEnabled();
+  });
+
   test("signs out and blocks the project list", async () => {
     await page.goto("/projects");
     await page.getByRole("button", { name: /sign out/i }).click();
