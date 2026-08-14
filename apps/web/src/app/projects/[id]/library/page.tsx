@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Library" };
@@ -58,11 +59,10 @@ export default async function LibraryPage({
   const { status } = await searchParams;
   const supabase = await createClient();
 
-  const { data: project } = await supabase
-    .from("projects")
-    .select("id, title")
-    .eq("id", id)
-    .maybeSingle();
+  const project = await must(
+    supabase.from("projects").select("id, title").eq("id", id).maybeSingle(),
+    "the project",
+  );
 
   if (!project) notFound();
 
@@ -80,14 +80,14 @@ export default async function LibraryPage({
     query = query.eq("screen_status", status);
   }
 
-  const { data } = await query;
+  const data = await must(query, "the library");
   const rows = (data ?? []) as unknown as LibraryRow[];
 
   // Counts for the filter chips, from a separate unfiltered read.
-  const { data: allData } = await supabase
-    .from("project_works")
-    .select("screen_status")
-    .eq("project_id", id);
+  const allData = await must(
+    supabase.from("project_works").select("screen_status").eq("project_id", id),
+    "library counts",
+  );
 
   const counts = new Map<string, number>();
   for (const row of (allData ?? []) as Array<{ screen_status: string }>) {

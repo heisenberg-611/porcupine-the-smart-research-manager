@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "My queue" };
@@ -35,15 +36,18 @@ export default async function QueuePage() {
 
   const supabase = await createClient();
 
-  const { data } = await supabase
-    .from("project_works")
-    .select(
-      "id, project_id, screen_status, due_at, projects(title), works(title, published_year)",
-    )
-    .eq("assignee_id", user.id)
-    .in("screen_status", OPEN_QUEUE_STATUSES as unknown as string[])
-    .order("due_at", { ascending: true, nullsFirst: false })
-    .limit(200);
+  const data = await must(
+    supabase
+      .from("project_works")
+      .select(
+        "id, project_id, screen_status, due_at, projects(title), works(title, published_year)",
+      )
+      .eq("assignee_id", user.id)
+      .in("screen_status", OPEN_QUEUE_STATUSES as unknown as string[])
+      .order("due_at", { ascending: true, nullsFirst: false })
+      .limit(200),
+    "your queue",
+  );
 
   const rows = (data ?? []) as unknown as QueueRow[];
   const now = Date.now();

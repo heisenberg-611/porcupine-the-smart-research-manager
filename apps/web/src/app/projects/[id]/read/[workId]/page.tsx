@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 import { ReaderClient, type RenderedAnnotation } from "./reader-client";
@@ -37,14 +38,17 @@ export default async function ReadPage({
   const { id, workId } = await params;
   const supabase = await createClient();
 
-  const { data: projectWork } = await supabase
-    .from("project_works")
-    .select(
-      "id, project_id, screen_status, projects(title), works(title, abstract, doi, venue, published_year)",
-    )
-    .eq("id", workId)
-    .eq("project_id", id)
-    .maybeSingle();
+  const projectWork = await must(
+    supabase
+      .from("project_works")
+      .select(
+        "id, project_id, screen_status, projects(title), works(title, abstract, doi, venue, published_year)",
+      )
+      .eq("id", workId)
+      .eq("project_id", id)
+      .maybeSingle(),
+    "the paper",
+  );
 
   if (!projectWork) notFound();
 

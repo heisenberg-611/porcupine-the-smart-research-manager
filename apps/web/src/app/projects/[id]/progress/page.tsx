@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Progress" };
@@ -43,11 +44,10 @@ export default async function ProgressPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: project } = await supabase
-    .from("projects")
-    .select("id, title")
-    .eq("id", id)
-    .maybeSingle();
+  const project = await must(
+    supabase.from("projects").select("id, title").eq("id", id).maybeSingle(),
+    "the project",
+  );
 
   if (!project) notFound();
 
@@ -74,12 +74,15 @@ export default async function ProgressPage({
   const remaining = total - screened;
 
   const fortnightAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
-  const { data: decisionData } = await supabase
-    .from("screening_decisions")
-    .select("created_at, to_status")
-    .eq("project_id", id)
-    .gte("created_at", fortnightAgo)
-    .order("created_at", { ascending: true });
+  const decisionData = await must(
+    supabase
+      .from("screening_decisions")
+      .select("created_at, to_status")
+      .eq("project_id", id)
+      .gte("created_at", fortnightAgo)
+      .order("created_at", { ascending: true }),
+    "recent decisions",
+  );
 
   const decisions = (decisionData ?? []) as unknown as DecisionRow[];
   const perDay = decisions.length / 14;

@@ -76,6 +76,58 @@ jobs:
           fi
           echo "ok: set_config confined to the withUserContext helper"
 
+      - name: Supabase query errors must not be swallowed
+        run: |
+          # `const { data } = await supabase...` is the shortest thing to
+          # write and quietly the wrong thing: on error `data` is null and the
+          # page renders as though the table were empty, so "nothing here yet"
+          # and "the query is broken" look identical. That shipped three times
+          # in Phase 1. `must()` throws instead.
+          # Comment lines excluded: the helper's own docstring necessarily
+          # contains the pattern it exists to replace.
+          if grep -rn --include='*.ts' --include='*.tsx' \
+               -E 'const \{ *data(: *[A-Za-z_]+)? *\} *= *await' \
+               apps/*/src \
+             | grep -vE '^[^:]+:[0-9]+:[[:space:]]*(//|\*|/\*)'; then
+            echo "::error::Use must(query, what) from @/lib/supabase/query — a bare { data } destructure hides query errors as empty results."
+            exit 1
+          fi
+          echo "ok: no swallowed query errors"
+
+      - name: Relative imports must not carry .js extensions
+        run: |
+          # They resolve under vitest and NOT under Next's bundler, so the
+          # failure appears only at build time, in a package that tested green.
+          # `generated/` is excluded: Prisma emits real .js and the import
+          # must name it.
+          if grep -rn --include='*.ts' --include='*.tsx' \
+               -E 'from "\.{1,2}/[^"]+\.js"' \
+               apps/*/src packages/*/src packages/*/test \
+             | grep -v '/generated/'; then
+            echo "::error::Drop the .js extension — it resolves under vitest but not under Next's bundler."
+            exit 1
+          fi
+          echo "ok: no .js extensions in relative imports"
+
+      - name: A migration that creates a table must secure it
+        run: |
+          # The pgTAP suite catches an unprotected table after the fact; this
+          # catches it in review, naming the file. Every `create table
+          # public.x` needs `enable row level security` in the SAME migration.
+          fail=0
+          for file in supabase/migrations/*.sql; do
+            tables=$(grep -oiE 'create table (if not exists )?public\.[a-z_]+' "$file" \
+                     | sed -E 's/.*public\.//' | sort -u)
+            for table in $tables; do
+              if ! grep -qiE "alter table public\.$table enable row level security" "$file"; then
+                echo "::error file=$file::Table '$table' is created here but never has RLS enabled in this migration."
+                fail=1
+              fi
+            done
+          done
+          [ "$fail" -eq 0 ] || exit 1
+          echo "ok: every table is secured in the migration that creates it"
+
       - name: FTS must be language-aware (R-14)
         run: |
           # `to_tsvector('english', …)` stems incorrectly for every other
@@ -133,10 +185,19 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:generate
 
-      # Mailpit is kept: the E2E flow signs up for real and reads its OTP out
-      # of it. The rest are excluded because nothing here touches them.
+      # Pulling Docker images is the single largest cost in this workflow, so
+      # only the containers the tests actually use are started: postgres,
+      # kong, gotrue, postgrest, and mailpit — five instead of twelve.
+      #
+      # Mailpit stays because the E2E flow signs up for real and reads its OTP
+      # out of it. postgres-meta and studio are developer tooling; logflare
+      # and vector are log shipping; supavisor is the pooler, which the tests
+      # bypass by connecting directly. None of them is exercised here, and
+      # each one is an image to fetch on every run.
       - name: Start Supabase
-        run: pnpm exec supabase start -x studio,realtime,storage-api,imgproxy,edge-runtime
+        run: |
+          pnpm exec supabase start \
+            -x studio,realtime,storage-api,imgproxy,edge-runtime,logflare,vector,postgres-meta,supavisor
 
       - name: Apply migrations
         run: pnpm exec supabase db reset --no-seed

@@ -321,12 +321,162 @@ async function rateLimitConcurrencyTest() {
   }
 }
 
+// ── Lost updates on a screening decision ────────────────────────────────────
+//
+// The Phase 1 exit trial found four members silently overwriting each other's
+// screening decisions: 20 decisions produced 7 screened papers, and every
+// member's UI reported success. Last writer won, and a supervisor's exclusion
+// could be reversed by a colleague's include with no trace.
+//
+// The fix is a compare-and-swap over a `select … for update`. This test is
+// what keeps it fixed. It is here rather than in the browser trial because
+// the trial needs a 300-paper corpus from OpenAlex and takes minutes; this
+// runs in the merge path in well under a second.
+//
+// N clients read the SAME paper's status and then each try to decide on it.
+// Exactly one may succeed. Any other number is a lost update.
+async function screeningConcurrencyTest() {
+  heading("▸ screening decisions (concurrent, lost-update guard)");
+
+  const CLIENTS = 12;
+  const setup = new pg.Client({ connectionString: CONN });
+  await setup.connect();
+
+  const ids = {
+    user: "dddddddd-1111-1111-1111-111111111111",
+    project: "eeeeeeee-1111-1111-1111-111111111111",
+    work: "ffffffff-1111-1111-1111-111111111111",
+    projectWork: "aaaaaaaa-1111-1111-1111-111111111111",
+  };
+
+  const pool = new pg.Pool({ connectionString: CONN, max: 6 });
+
+  try {
+    await setup.query(
+      `insert into users (id, email, display_name, created_at, updated_at)
+       values ($1, 'screenrace@test.dev', 'Racer', now(), now())`,
+      [ids.user],
+    );
+    await setup.query(
+      `insert into projects (id, slug, title, kind, created_by, created_at, updated_at)
+       values ($1, 'screen-race', 'Screen Race', 'THESIS', $2, now(), now())`,
+      [ids.project, ids.user],
+    );
+    await setup.query(
+      `insert into project_members
+         (id, project_id, user_id, access_role, joined_at, created_at, updated_at)
+       values (gen_random_uuid(), $1, $2, 'OWNER', now(), now(), now())`,
+      [ids.project, ids.user],
+    );
+    await setup.query(
+      `insert into works (id, title_norm, title, authors, updated_at)
+       values ($1, 'race paper', 'Race Paper', '[]'::jsonb, now())`,
+      [ids.work],
+    );
+    await setup.query(
+      `insert into project_works
+         (id, project_id, work_id, added_by, source, created_at, updated_at)
+       values ($1, $2, $3, $4, 'search', now(), now())`,
+      [ids.projectWork, ids.project, ids.work, ids.user],
+    );
+
+    // Every client saw IDENTIFIED, which is the situation four screeners
+    // sharing one queue are actually in.
+    const SEEN = "IDENTIFIED";
+
+    const outcomes = await Promise.all(
+      Array.from({ length: CLIENTS }, async () => {
+        const client = await pool.connect();
+        try {
+          await client.query("begin");
+          await client.query("set local role porcupine_app");
+          await client.query(`select set_config('request.jwt.claims', $1, true)`, [
+            JSON.stringify({ sub: ids.user }),
+          ]);
+
+          // The application's read: locking, so the read-modify-write is
+          // serialized rather than merely checked.
+          const { rows } = await client.query(
+            "select screen_status from project_works where id = $1 for update",
+            [ids.projectWork],
+          );
+
+          const current = rows[0]?.screen_status;
+          if (current !== SEEN) {
+            await client.query("commit");
+            return "refused";
+          }
+
+          await client.query(
+            "update project_works set screen_status = 'INCLUDED' where id = $1",
+            [ids.projectWork],
+          );
+          await client.query(
+            `insert into screening_decisions
+               (id, project_id, project_work_id, decided_by, from_status, to_status, created_at)
+             values (gen_random_uuid(), $1, $2, $3, $4, 'INCLUDED', now())`,
+            [ids.project, ids.projectWork, ids.user, SEEN],
+          );
+          await client.query("commit");
+          return "recorded";
+        } catch (err) {
+          await client.query("rollback").catch(() => {});
+          throw err;
+        } finally {
+          client.release();
+        }
+      }),
+    );
+
+    const recorded = outcomes.filter((o) => o === "recorded").length;
+    const refused = outcomes.filter((o) => o === "refused").length;
+
+    const { rows: logged } = await setup.query(
+      "select count(*)::int as n from screening_decisions where project_work_id = $1",
+      [ids.projectWork],
+    );
+
+    if (recorded === 1 && logged[0].n === 1) {
+      console.log(
+        `  \x1b[32mok\x1b[0m - 1 of ${CLIENTS} decisions recorded, ${refused} refused ` +
+          `(no lost update)`,
+      );
+    } else {
+      failed = true;
+      console.error(
+        `  \x1b[31mnot ok\x1b[0m - ${recorded} decisions recorded and ${logged[0].n} logged ` +
+          `for one paper; concurrent screeners are overwriting each other`,
+      );
+    }
+
+    // And the refusals have to be real: if every client refused, the test
+    // would "pass" the overwrite check while proving nothing happened at all.
+    if (refused === CLIENTS - 1) {
+      console.log(
+        `  \x1b[32mok\x1b[0m - every other client was refused, not silently dropped`,
+      );
+    } else {
+      failed = true;
+      console.error(
+        `  \x1b[31mnot ok\x1b[0m - ${refused} refusals, expected ${CLIENTS - 1}`,
+      );
+    }
+  } finally {
+    await pool.end();
+    await setup.query("delete from projects where slug = 'screen-race'");
+    await setup.query("delete from works where title_norm = 'race paper'");
+    await setup.query("delete from users where email = 'screenrace@test.dev'");
+    await setup.end();
+  }
+}
+
 // ── Main ────────────────────────────────────────────────────────────────────
 try {
   await ensurePgTap();
   runSqlSuites();
   await concurrencyTest();
   await rateLimitConcurrencyTest();
+  await screeningConcurrencyTest();
 } catch (err) {
   failed = true;
   console.error(`\x1b[31m✗ runner error:\x1b[0m ${err.message}`);
