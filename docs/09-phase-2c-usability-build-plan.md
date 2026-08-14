@@ -49,10 +49,16 @@ And its copy is stale: *"Email invitations arrive in Phase 1."*
 
 ### 1.2 Clicks that lead to a refusal
 
-The hub offers **Reconcile** and **PRISMA** regardless of project kind. In a
-THESIS both are unavailable by design (R-06), so the sequence is: click, wait
-for a page load, read a paragraph explaining that this feature is for
-systematic reviews, go back.
+The hub offers **Reconcile** regardless of project kind. In a THESIS it is
+unavailable by design (R-06), so the sequence is: click, wait for a page load,
+read a paragraph explaining that this feature is for systematic reviews, go
+back.
+
+*(PRISMA looks like the same case and is not — the diagram renders for every
+kind, and `prismaDiagram` only controls a note saying exclusion reasons were
+optional. Week 1's first draft hid it on the strength of the flag's name and
+removed a working feature from three project kinds. Read what the destination
+does, not what the capability is called.)*
 
 `capabilities()` is consulted by five pages — `projects`, `reconcile`,
 `reconcile/[workId]`, `prisma`, `protocol`, `screen` — and by neither

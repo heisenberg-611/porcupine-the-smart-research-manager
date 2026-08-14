@@ -63,7 +63,7 @@ needs every guardrail. Same database, two products.
 | --- | --- | --- |
 | Protocol required before extracting | optional | **required** |
 | Exclusion reason required to exclude a paper | no | **yes** |
-| PRISMA diagram | hidden | **yes** |
+| PRISMA diagram | shown, with a note that exclusion reasons were optional | **yes**, complete |
 | Dual extraction + reconciliation | hidden | **yes** |
 | Cohen's κ (inter-rater agreement) | hidden | **yes** |
 

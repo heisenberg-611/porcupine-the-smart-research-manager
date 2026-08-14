@@ -240,7 +240,9 @@ function ProtocolEditor({
         </p>
       )}
 
-      <ol className="space-y-2">
+      {/* Named for the same reason the import preview is: "the first list on
+          the page" stopped being this one when the project nav arrived. */}
+      <ol aria-label="Protocol fields" className="space-y-2">
         {protocol.fields.map((field, index) => (
           <li key={field.id} className="border-border rounded-lg border p-3">
             <div className="flex flex-wrap items-start justify-between gap-3">

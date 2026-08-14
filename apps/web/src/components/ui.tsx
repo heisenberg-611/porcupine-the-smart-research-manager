@@ -336,6 +336,110 @@ export function ButtonLink({
   );
 }
 
+/**
+ * A placeholder for content that is on its way.
+ *
+ * Every page in this app is server-rendered on demand, and the measurement put
+ * time-to-first-byte at 240–248 ms on a laptop against a local database —
+ * considerably more on a real network. Until now that quarter-second produced
+ * no visible change at all: no skeleton, no progress, nothing. A fast app with
+ * no pending state feels broken in exactly the way a slow one does, and the
+ * user cannot tell which they have.
+ *
+ * `aria-hidden`, deliberately. A screen reader user is told the page is
+ * loading once, by the region wrapper below; hearing twelve grey rectangles
+ * announced is worse than silence.
+ */
+export function Skeleton({ className, ...props }: ComponentProps<"div">) {
+  return (
+    <div
+      aria-hidden
+      className={cx("bg-surface animate-pulse rounded", className)}
+      {...props}
+    />
+  );
+}
+
+/**
+ * A loading state shaped like the thing that is coming.
+ *
+ * A spinner says "wait". A skeleton in the shape of the page says "a table is
+ * coming, about this big" — so the layout does not jump when it arrives, and
+ * the wait is spent recognising the destination rather than staring at a
+ * void.
+ *
+ * `role="status"` with a real label, so the wait is announced once. `busy`
+ * rather than a live region full of noise.
+ */
+export function PageSkeleton({
+  shape = "list",
+  label = "Loading",
+}: {
+  shape?: "list" | "table" | "form" | "prose";
+  label?: string;
+}) {
+  return (
+    <main
+      id="main"
+      role="status"
+      aria-busy="true"
+      aria-label={label}
+      className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-12"
+    >
+      {/* The header block, which every page has. */}
+      <div className="border-rule flex flex-col gap-3 border-b pb-5">
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-4 w-96 max-w-full" />
+      </div>
+
+      {shape === "table" && (
+        <div className="border-border overflow-hidden rounded-lg border">
+          <div className="border-rule bg-surface/60 flex gap-4 border-b p-3">
+            {Array.from({ length: 5 }, (_, i) => (
+              <Skeleton key={i} className="h-4 flex-1" />
+            ))}
+          </div>
+          {Array.from({ length: 8 }, (_, row) => (
+            <div key={row} className="border-rule flex gap-4 border-b p-3 last:border-0">
+              {Array.from({ length: 5 }, (_, col) => (
+                <Skeleton key={col} className="h-4 flex-1" />
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {shape === "list" &&
+        Array.from({ length: 6 }, (_, i) => (
+          <div key={i} className="border-rule flex flex-col gap-2 rounded-lg border p-4">
+            <Skeleton className="h-4 w-2/3" />
+            <Skeleton className="h-3 w-1/3" />
+          </div>
+        ))}
+
+      {shape === "form" && (
+        <div className="flex max-w-xl flex-col gap-5">
+          {Array.from({ length: 5 }, (_, i) => (
+            <div key={i} className="flex flex-col gap-2">
+              <Skeleton className="h-3 w-32" />
+              <Skeleton className="h-11 w-full" />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {shape === "prose" && (
+        <div className="measure flex flex-col gap-3">
+          {Array.from({ length: 10 }, (_, i) => (
+            <Skeleton key={i} className={cx("h-4", i % 4 === 3 ? "w-2/3" : "w-full")} />
+          ))}
+        </div>
+      )}
+    </main>
+  );
+}
+
 export function Banner({
   tone = "info",
   children,

@@ -890,3 +890,91 @@ next time a deferred constraint gets tested.
   network is a different number and is not yet known.
 - 510 KB of HTML per evidence page is untested on mobile data.
 - Everything under "Open" in the previous entry is unchanged.
+
+---
+
+## 2026-08-15 · Phase 2c week 1 — the shell
+
+### Shipped
+
+A project layout with its own navigation; the hub rebuilt as an overview that
+reflects state; capability gating moved to the door; `loading.tsx` and
+`error.tsx` where there were none.
+
+`lib/project-sections.ts` is the single source of truth for which screens a
+project kind has. The hub and the nav both read it, so a section that is not
+in that list for a kind cannot be linked from anywhere — a stronger guarantee
+than remembering to check in two places.
+
+### What the hub was
+
+Nine identical outline buttons in one flat wrapping row, in an order that was
+neither the workflow's nor alphabetical, carrying no state whatsoever. Not the
+paper count, not whether a protocol existed, not what was left to screen.
+Every number the app had already computed was one click away and none of it was
+there. It was also the only page that hand-rolled its header instead of using
+`PageHeader`, and its copy still said "Email invitations arrive in Phase 1".
+
+It now opens with four counts — papers, unscreened, included, excluded — each
+a link to the filtered library view it counts, and one named next action
+derived from the project's actual state ("24 papers are still unscreened →
+Continue screening"). Sections follow, grouped Collect · Screen · Extract ·
+Synthesise.
+
+### The measurement moved, and not all in one direction
+
+Same fixture, same machine, before and after:
+
+| | TTFB | LCP | HTML |
+|---|---|---|---|
+| before | 240 ms | 276 ms | 510 KB |
+| after | 64 ms | 416 ms | 562 KB |
+
+**First byte is roughly four times faster and largest contentful paint is
+about 120 ms slower.** Both are real and the trade was the point: the page now
+streams, so a skeleton is on screen in 64 ms where there used to be 240 ms of
+nothing at all. The table itself arrives later — partly the extra 52 KB the
+navigation adds to every page, partly a client component to hydrate.
+
+Worth being plain about, because "we added skeletons and everything got
+faster" would be the comfortable version and is not what happened. Against a
+3 s budget, 416 ms leaves the same order of magnitude of headroom. The 562 KB
+is the number that is now growing rather than shrinking, and week 3.5 owns it.
+
+### Problems
+
+**I hid a working feature.** `projectSections` gated PRISMA behind
+`capabilities().prismaDiagram`, which is false for a thesis — so three of the
+four project kinds silently lost a screen they had. The flag does not gate the
+diagram at all: the page renders it for every kind and uses the flag only to
+add a note saying exclusion reasons were optional here, so the boxes may be
+sparse. I read the capability's NAME instead of what the destination does.
+
+Caught by an existing e2e test that clicks through to PRISMA in a THESIS, and
+by nothing else — my own "no link leads to a refusal" test passed happily,
+because it looks for refusal *wording* and the PRISMA page never had any. A
+test that checks the symptom does not check the judgement. `USING-PORCUPINE.md`
+had the same error in its capability table and is corrected.
+
+**Two pre-existing tests broke on `getByRole("list").first()`.** The project
+nav is a list, and it now precedes everything. The selectors were fragile and
+the fix is not a more specific index: the import preview and the protocol field
+list have accessible names now, which is what they should have had anyway.
+
+**A serious axe violation, self-inflicted.** The four counts started as a `dl`
+with an anchor wrapping each `dt`/`dd` pair. A `dl` may contain only `dt`, `dd`
+or a `div` grouping them, so the anchor broke the association — WCAG 1.3.1,
+serious. They are four navigation targets that happen to carry numbers, so
+they are a list of links now.
+
+**The first e2e run found zero sections on the hub** and blamed the hub. It was
+the skeleton: `waitForURL` returns while the RSC payload is still streaming, so
+the page at that instant is a `main` with no links in it. The new loading state
+working exactly as intended, mistaken for the thing it was hiding.
+
+### Open
+
+- 562 KB per evidence page, up from 510 KB. Week 3.5.
+- The nav is horizontally scrollable on a phone rather than collapsing into a
+  menu. It is reachable and labelled, and it is not what a menu would be.
+- Weeks 2–5 of `09-phase-2c-usability-build-plan.md` are untouched.

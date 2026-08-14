@@ -255,7 +255,7 @@ test.describe("Phase 0 exit criterion", () => {
 
     // Scoped to the preview list: the textarea still holds the pasted source,
     // so a bare getByText matches the input as well as the parsed result.
-    const preview = page.getByRole("list").first();
+    const preview = page.getByRole("list", { name: /references to import/i });
     await expect(preview.getByText("Attention Is All You Need")).toBeVisible();
     // Brace-protected capitalization survives as plain text.
     await expect(preview.getByText(/^BERT: Pre-training/)).toBeVisible();
@@ -476,7 +476,7 @@ test.describe("Phase 0 exit criterion", () => {
     // The template's fields arrive with it. Scoped to the field list: the
     // create form's own input still holds the typed name, and the template
     // preview lists the same labels, so an unscoped match proves nothing.
-    const fields = page.getByRole("list").first();
+    const fields = page.getByRole("list", { name: /protocol fields/i });
     await expect(fields.getByText(/^Dataset/)).toBeVisible();
     await expect(fields.getByText(/^Headline metric/)).toBeVisible();
     await expect(page.getByText(/10 fields/)).toBeVisible();
