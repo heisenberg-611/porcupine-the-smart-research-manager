@@ -107,6 +107,12 @@ export default async function ProjectPage({
             Evidence
           </Link>
           <Link
+            href={`/projects/${id}/reconcile`}
+            className="border-border text-ink hover:bg-surface text-ui inline-flex min-h-11 items-center rounded-lg border px-4 font-medium"
+          >
+            Reconcile
+          </Link>
+          <Link
             href={`/projects/${id}/prisma`}
             className="border-border text-ink hover:bg-surface text-ui inline-flex min-h-11 items-center rounded-lg border px-4 font-medium"
           >

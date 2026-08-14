@@ -61,7 +61,11 @@ This is what the previous three weeks were for. A protocol nobody can read the a
 
 **The export is the reason for several earlier decisions.** Values are plaintext so the database can sort and pivot them; numbers are numbers so a column can be averaged; keys are immutable so two exports of the same review agree about what a column is called. If the export is wrong, those decisions bought nothing.
 
-## Deferred to 2b — *after real usage, per R-06*
+## Phase 2b — dual extraction ✅ *shipped, branch `phase-2b-reconciliation`*
+
+Built on request, ahead of the sequencing below. The argument for waiting was not answered, it was overridden — recorded in the BUILD-LOG so the order is readable as a decision rather than an oversight.
+
+### Originally: deferred to 2b — *after real usage, per R-06*
 
 Dual extraction and reconciliation: two independent extractions, a diff view, a verifier who resolves, Cohen's κ reported. `Extraction.reconciledFrom`, `verifiedBy` and `IN_CONFLICT`/`RECONCILED` already exist so this needs no migration.
 
