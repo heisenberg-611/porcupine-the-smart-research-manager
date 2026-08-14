@@ -224,6 +224,74 @@ test.describe("Phase 0 exit criterion", () => {
     await expect(page.getByText(/enter at least two characters/i)).toBeVisible();
   });
 
+  test("imports BibTeX into the library", async () => {
+    await page.goto("/projects");
+    await page.getByRole("link", { name: /transformer efficiency/i }).click();
+    await page.getByRole("link", { name: /^import$/i }).click();
+
+    // No DOIs and no arXiv ids, so this exercises parsing and writing without
+    // depending on any external provider being up.
+    await page.getByLabel(/paste references/i).fill(`
+      @inproceedings{vaswani2017,
+        title = {Attention Is All You Need},
+        author = {Vaswani, Ashish and Shazeer, Noam},
+        booktitle = {NeurIPS},
+        year = {2017}
+      }
+
+      @article{devlin2019,
+        title = {{BERT}: Pre-training of Deep Bidirectional Transformers},
+        author = {Devlin, Jacob},
+        journal = {NAACL},
+        year = {2019}
+      }
+    `);
+
+    await page.getByRole("button", { name: /preview/i }).click();
+
+    await expect(page.getByText(/read as .*bibtex/i)).toBeVisible();
+
+    // Scoped to the preview list: the textarea still holds the pasted source,
+    // so a bare getByText matches the input as well as the parsed result.
+    const preview = page.getByRole("list").first();
+    await expect(preview.getByText("Attention Is All You Need")).toBeVisible();
+    // Brace-protected capitalization survives as plain text.
+    await expect(preview.getByText(/^BERT: Pre-training/)).toBeVisible();
+
+    await page.getByRole("button", { name: /add 2 papers/i }).click();
+    await expect(page.getByText(/added 2 papers/i)).toBeVisible();
+
+    // And it is actually in the library, which is the part that proves the
+    // upsert_work + project_works transaction ran under RLS.
+    await page.goto("/projects");
+    await page.getByRole("link", { name: /transformer efficiency/i }).click();
+    await page.getByRole("link", { name: /^library$/i }).click();
+
+    await expect(page.getByRole("heading", { name: /library/i })).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: /attention is all you need/i }),
+    ).toBeVisible();
+    await expect(page.getByText(/2 papers/i).first()).toBeVisible();
+  });
+
+  test("re-importing the same references adds nothing", async () => {
+    // upsert_work dedupes on (title_norm, year) when there is no identifier,
+    // so the second import must be a no-op rather than a duplicate.
+    await page.goto("/projects");
+    await page.getByRole("link", { name: /transformer efficiency/i }).click();
+    await page.getByRole("link", { name: /^import$/i }).click();
+
+    await page
+      .getByLabel(/paste references/i)
+      .fill(
+        `@inproceedings{vaswani2017, title = {Attention Is All You Need}, year = {2017}}`,
+      );
+    await page.getByRole("button", { name: /preview/i }).click();
+    await page.getByRole("button", { name: /add 1 paper/i }).click();
+
+    await expect(page.getByText(/added 0 papers.*already in the library/i)).toBeVisible();
+  });
+
   test("signs out and blocks the project list", async () => {
     await page.goto("/projects");
     await page.getByRole("button", { name: /sign out/i }).click();

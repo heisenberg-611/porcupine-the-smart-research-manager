@@ -38,7 +38,19 @@ export default defineConfig({
   webServer: {
     command: "pnpm start",
     url: "http://127.0.0.1:3000",
-    reuseExistingServer: !process.env.CI,
+    // Never reuse whatever happens to be on port 3000.
+    //
+    // `reuseExistingServer: !process.env.CI` looks harmless and is not: a
+    // `pnpm dev` left running locally gets silently adopted, so the suite
+    // tests a stale Turbopack dev build instead of the production build it
+    // just made. The symptom is 403s on client chunks, no hydration, and
+    // every interactive test timing out with an error that names none of
+    // that — which cost a long debugging session to trace back to a
+    // forgotten terminal tab.
+    //
+    // Playwright fails fast with "port 3000 is used" instead, which is a
+    // sentence someone can act on.
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });

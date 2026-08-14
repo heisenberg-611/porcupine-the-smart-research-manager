@@ -133,4 +133,33 @@ export const arxiv: Provider = {
   },
 };
 
+/**
+ * Fetch specific papers by id.
+ *
+ * Separate from `search` because the import path resolves bare identifiers,
+ * and `id_list` accepts up to 100 at once — one rate-limited request for a
+ * whole pasted list rather than one per line, which at 1 request/3s would
+ * make a 50-item import take two and a half minutes.
+ */
+export async function arxivByIds(ids: string[]): Promise<WorkInput[]> {
+  const normalized = ids
+    .map((id) => normalizeArxivId(id))
+    .filter((id): id is string => id !== null);
+  if (normalized.length === 0) return [];
+
+  const url = new URL("https://export.arxiv.org/api/query");
+  url.searchParams.set("id_list", normalized.slice(0, 100).join(","));
+  url.searchParams.set("max_results", String(Math.min(normalized.length, 100)));
+
+  const response = await safeFetch(url.href, {
+    headers: { accept: "application/atom+xml" },
+  });
+  if (!response.ok) throw new Error(`arXiv returned ${response.status}`);
+
+  const xml = await response.text();
+  return [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/gi)]
+    .map((m) => entryToWorkInput(m[1] ?? ""))
+    .filter((w): w is WorkInput => w !== null);
+}
+
 export const __testing = { entryToWorkInput, decodeEntities, extractTag };
