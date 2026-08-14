@@ -978,3 +978,88 @@ working exactly as intended, mistaken for the thing it was hiding.
 - The nav is horizontally scrollable on a phone rather than collapsing into a
   menu. It is reachable and labelled, and it is not what a menu would be.
 - Weeks 2–5 of `09-phase-2c-usability-build-plan.md` are untouched.
+
+---
+
+## 2026-08-15 · Phase 2c week 2 — screening at speed, and a plan that was mostly wrong
+
+### Most of this week was already built
+
+Week 2 was written from audit finding 1.5: "there is no overlay layer, so there
+is no feedback layer." The first half is true. The second does not follow from
+it, and I did not check before planning four tasks on top of it.
+
+What the code actually had:
+
+- **Pending state on every mutation.** Every form and action disables its
+  control and names what it is doing — "Sending…", "Creating…", "Adding…",
+  "Recording…". Hand-rolled with `useState` rather than `useFormStatus`, which
+  is exactly why the audit's grep for `useTransition|useActionState|
+  useFormStatus` reported zero and I believed it.
+- **A shared announcement path.** `Banner` carries `role="alert"`; the pages
+  that report progress wrap it in `aria-live="polite"`. Consistent, through a
+  primitive, not improvised six times.
+- **Confirmation on the destructive action that warrants it.** Deleting a
+  protocol field is a two-step inline confirm, with a comment arguing that a
+  modal needs a focus trap and escape handling to be correct and that inline is
+  *harder to trigger by accident than a dialog whose default button is OK*.
+
+So Radix is deferred. Nothing needs a dialog yet, and adding a dependency
+because a plan written the day before said so would contradict this plan's own
+decisions section. It arrives with the first screen that genuinely needs an
+overlay — the evidence table's column manager is the likely candidate.
+
+A grep for three API names is not an audit of whether feedback exists. Noted
+for the remaining weeks: check the behaviour, not the imports.
+
+### What was real
+
+**Optimistic screening.** A decision now applies immediately instead of waiting
+for the round trip. That trip is 100–250 ms — imperceptible once, and a minute
+of thumb-twiddling across 300 papers, distributed into 300 separate pauses each
+landing exactly where the person had built up rhythm.
+
+Optimism is safe here for a specific reason: the failure case was already
+solved. `recordDecision` is a compare-and-swap against the status the screen
+was showing, so a colleague deciding the same paper first is refused rather
+than overwritten — the lost-update guard proved in `pgtap.mjs`. That gives a
+real answer to roll back to, which is the thing most optimistic UIs do not
+have.
+
+Plain state, not `useOptimistic`: `done` is client-only and never comes back
+from the server, so there is nothing to reconcile against and `useOptimistic`
+would add a rollback we would then have to suppress.
+
+**Keyboard-first screening**, pulled forward from week 4 because it targets the
+same surface and shares the same end-to-end setup. `i` include, `e` exclude,
+`s` skip, `1`–`9` exclusion reason, `?` for the list — with a visible hint,
+because a shortcut nobody is told about is a feature for whoever wrote it.
+
+### Problems
+
+**The optimistic path could not handle a dropped connection.** A server action
+that cannot REACH the server throws; it does not return `{ ok: false }`. The
+first draft only handled the returned-failure case, so the rejection escaped
+the transition, the paper stayed optimistically decided, and the person was
+told nothing — the exact failure optimism is accused of and usually guilty of.
+A dropped connection is the *likeliest* way to lose a decision, not a refusal.
+
+Found because the rollback test aborts the request rather than mocking a failed
+response. Mocking the response would have passed against the broken code.
+
+**A test that would have passed either way.** The first version of "advances
+without waiting for the server" simply clicked and asserted the queue moved —
+which is also true of a blocking implementation against a fast local server. It
+now holds the action open for three seconds and asserts the queue moved within
+250 ms, so it can only pass if the advance really is optimistic.
+
+**`getByRole("alert")` resolves to Next's route announcer**, an empty
+`role="alert"` div the framework renders on every page. An unscoped query finds
+it first and waits out the timeout against an empty string.
+
+### Open
+
+- Radix, and the overlay layer, when something needs it.
+- Weeks 3 and 5 untouched; week 4 is down to the extraction form, the split
+  reader, and the queue.
+- The 562 KB evidence page is still growing rather than shrinking.
