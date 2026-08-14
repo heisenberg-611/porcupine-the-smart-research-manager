@@ -254,3 +254,25 @@ The last two Phase 0 pre-flight items, both doc-only:
 - The remaining two spikes: **R-01** (`docEpoch` protocol, offline-Alice/PR-Bob) and **ADR-007** (WASM TeX on a real thesis).
 
 ---
+
+## 2026-08-14 · Phase 0 merged — CI runs for the first time
+
+### Shipped
+
+PR #1 merged to `main`. All six jobs green on a clean Ubuntu runner, first attempt: static 0.9 min · boundaries 0.1 min · RLS 3.5 min · unit 0.7 min · relay 0.8 min · e2e 4.8 min.
+
+The 3.5 min RLS figure is **not** the pgTAP suite against its 90 s budget (hazard B-03) — nearly all of it is `supabase start` pulling Docker images. The suite itself is still 0.5 s. Watch the suite, not the job.
+
+### Problems hit
+
+1. **CI had never actually run.** The workflow triggers on `push: branches: [main]` and `pull_request`; `phase-0-foundations` was pushed but was neither, so every "green" result through Phase 0 was local-only and "pgTAP is a merge gate" was a claim about a YAML file. Closed by opening PR #1. Worth remembering: a gate is not a gate until it has been observed to run.
+2. **Duplicated `upload-artifact` step** in the e2e job — same artifact name twice, both `if: failure()`. v4 rejects a duplicate name, so the second would 409 exactly when a test had failed and the report was worth having. Removed.
+3. **The forged-signature relay test was flaky at ~25%, and failed on the post-merge `main` run.** No relay bug: the test was wrong. It tampered with the ticket by editing the *last base64url character* of the signature. A 64-byte Ed25519 signature is 512 bits, but 86 base64url characters carry 516 — the final character holds 2 meaningful bits and 4 of padding, so real signatures only ever end in `A`, `Q`, `g`, or `w`. Swapping a trailing `A` for `B` changes nothing but padding, decodes to identical bytes, and the relay then correctly verified a genuine signature. The PR run passed on luck. Fixed by flipping a bit in the *decoded* signature. Verified 5/5 consecutive runs.
+
+   The general lesson, worth carrying into Phase 1: **a negative test that passes is not evidence until you know it can fail.** This one asserted a rejection that the relay was never asked to make.
+
+### Open
+
+Unchanged from the entry above — the 20-minute soak, `docEpoch` bootstrap authority, and the R-01 and ADR-007 spikes.
+
+---
