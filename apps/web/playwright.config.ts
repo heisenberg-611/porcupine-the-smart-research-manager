@@ -15,6 +15,17 @@ for (const candidate of [".env.local", "../../.env"]) {
   }
 }
 
+/**
+ * The port the suite runs its own server on.
+ *
+ * Overridable because a developer looking at the app on :3000 should not have
+ * to shut it down to run the tests — that happened three times before this
+ * existed, and twice I killed someone else's server to get past it.
+ *
+ *     E2E_PORT=3100 pnpm --filter @porcupine/web test:e2e
+ */
+const PORT = Number(process.env.E2E_PORT ?? 3000);
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -25,7 +36,7 @@ export default defineConfig({
   ...(process.env.CI ? { workers: 2 } : {}),
   reporter: process.env.CI ? [["html"], ["list"]] : "list",
   use: {
-    baseURL: "http://127.0.0.1:3000",
+    baseURL: `http://127.0.0.1:${PORT}`,
     trace: "on-first-retry",
   },
   projects: [
@@ -36,8 +47,8 @@ export default defineConfig({
     { name: "mobile", use: { ...devices["Pixel 7"] } },
   ],
   webServer: {
-    command: "pnpm start",
-    url: "http://127.0.0.1:3000",
+    command: `pnpm start --port ${PORT}`,
+    url: `http://127.0.0.1:${PORT}`,
     // Never reuse whatever happens to be on port 3000.
     //
     // `reuseExistingServer: !process.env.CI` looks harmless and is not: a
