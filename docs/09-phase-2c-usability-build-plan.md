@@ -300,17 +300,23 @@ have meant two rounds of the same end-to-end setup. `i` / `e` / `s`, `1`–`9`
 for exclusion reasons, `?` for the list, and a visible hint rather than a
 hidden feature.
 
-**4.2 The extraction form gets a spine.** Field progress ("12 of 20 answered"),
-visible autosave state, jump-to-field navigation, and required-but-empty called
-out before submission rather than by a trigger afterwards.
+**4.2 The extraction form gets a spine.** ✅ Field progress ("12 of 20
+answered"), an unsaved-changes warning, and every empty required field named at
+once with a link to each. *Not* "visible autosave state" — the form does not
+autosave and that is defensible, so what it needed was to say the work is only
+in the browser, not to invent a background save.
 
-**4.3 Reader and extraction side by side.** Today extracting means alternating
-between two routes. A split view — passage on the left, form on the right —
-is what makes a QUOTE field pleasant instead of a chore, and it is the feature
-that most distinguishes this from a spreadsheet.
+**4.3 ~~Reader and extraction side by side~~ — already built.** The premise was
+wrong: the extraction form has shown the paper and the questions side by side
+since Phase 2, with the source sticky while the questions scroll, and the file
+says why in its header. Written into this plan without checking, like several
+of week 2's items.
 
-**4.4 The queue explains itself.** `/queue` currently lists assignments with no
-sense of priority, age, or which project each belongs to.
+**4.4 The queue explains itself.** ✅ — though not for the stated reason, which
+was also wrong: the queue already showed the project, the status and the due
+date, sorted soonest-first with overdue in red. What it had was no way to *act*
+— every row named a paper and linked only to its project — and no empty state
+at all.
 
 ---
 

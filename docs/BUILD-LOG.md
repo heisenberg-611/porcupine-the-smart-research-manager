@@ -1149,3 +1149,79 @@ is worth removing rather than formatting.
 - Saved views and column reordering: both need somewhere per-person to live,
   and this phase does not touch the database.
 - The payload was not re-measured, because the measurement needs a clean tree.
+
+---
+
+## 2026-08-15 · Phase 2c week 4 — orientation on the two long screens
+
+### Shipped
+
+**The extraction form now says where you are.** "12 of 20 answered", live, in a
+sticky header beside the questions — on a form long enough that "am I nearly
+done" was only answerable by scrolling and counting. Beside it, an unsaved-
+changes marker and a `beforeunload` guard.
+
+**Every empty required field, named at once, each a link to itself.** Twenty
+fields against a paper is twenty minutes of reading, and finding out about the
+holes one at a time costs one failed submission per hole.
+
+**The queue can be acted on.** Every row is now a link to the thing it is
+asking for — the screening surface for unscreened work, the reader for
+everything else — and an empty queue says what would put something in it. It
+used to name a paper and link only to its PROJECT, which made it a list of
+instructions with no way to follow any of them: you read "screen this paper",
+clicked, and arrived at an overview to start navigating from scratch.
+
+### Two more plan items that were already done
+
+**4.3, "reader and extraction side by side", was built in Phase 2.** The form
+has shown the paper and the questions in two columns from the start, with the
+source sticky while the questions scroll, and its header says why. I wrote the
+task without opening the file.
+
+**4.4's stated reason was wrong too.** The queue already showed the project,
+the status and the due date, sorted soonest-first with overdue in red. The
+audit claimed it had "no sense of priority, age, or which project each belongs
+to"; it had all but age. The real defect was that none of it was actionable.
+
+That is three weeks running where the plan described work that existed. The
+pattern is consistent: the audit measured the code with greps and inferred
+behaviour from what they did not find. Week 5 gets read first.
+
+### Problems
+
+**My first version of the required-field check made a server rule untestable.**
+It computed the missing fields and returned early, refusing to submit. That
+felt obviously right and quietly broke something: `submitExtraction` is where
+that rule actually lives — in the server action, not a trigger — and the only
+thing proving it was an e2e assertion that a submission with a hole comes back
+refused. A client check that short-circuits the request makes the server rule
+untested and, in time, untrue. The existing test failed on the changed message,
+which is exactly what it was there for.
+
+So the server stays the gate and stays the headline message; the client adds
+the part the server cannot give, which is every missing field at once with a
+link to each.
+
+**`isVisible()` again, for the third time in this phase.** It answers
+immediately and every route streams, so it kept answering "no" about a button
+that was on its way. `waitFor({ state: "visible" })` is the answer and now
+carries a comment saying so.
+
+**Two ordinary selector traps**, both from names that overlap: an unanchored
+`/extract/i` matched the back-link to a project called "Extraction spine", and
+`/add field/i` did not match the button that opens the form, which is called
+"Add a field" — one word apart from the "Add field" that submits it.
+
+**A stale build cost a debugging cycle**: the test ran against the previous
+`next build` and reported the old message, so the fix looked like it had not
+applied.
+
+### Open
+
+- Week 5 (arrival: the project-kind choice, empty states, a first-run path, a
+  root README) is untouched.
+- The narrow-layout interaction from week 3 is still unexplained, and still
+  blocks the row-detail panel.
+- Four stray debug files remain in the working tree and are not mine; they
+  break `next build` and `pnpm verify` until finished or removed.
