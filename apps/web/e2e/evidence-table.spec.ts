@@ -1,6 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
+import { goto } from "./ready";
+
 /**
  * Phase 2c week 3 — the evidence table at 300 × 20.
  *
@@ -103,7 +105,7 @@ test.describe("the evidence table at scale", () => {
 
     const before = await newestId(SEED_EMAIL);
 
-    await page.goto("/sign-in");
+    await goto(page, "/sign-in");
     await page.getByLabel("Email").fill(SEED_EMAIL);
     await page.getByRole("button", { name: /email me a code/i }).click();
 
@@ -143,7 +145,7 @@ test.describe("the evidence table at scale", () => {
 
     await page.waitForURL(/\/projects/, { timeout: 60_000 });
 
-    await page.goto("/projects");
+    await goto(page, "/projects");
     const link = page.getByRole("link", { name: SEED_TITLE });
     // waitFor, not isVisible: `isVisible` answers immediately, and the answer
     // it gave was about the loading skeleton rather than the project list —
@@ -165,7 +167,7 @@ test.describe("the evidence table at scale", () => {
   });
 
   test("shows every protocol field by default", async () => {
-    await page.goto(evidence);
+    await goto(page, evidence);
     // 20 fields + Paper, Year, Done. The detail trigger shares the Paper cell
     // rather than taking a column of its own.
     await expect(page.locator("thead th")).toHaveCount(23);
@@ -173,7 +175,7 @@ test.describe("the evidence table at scale", () => {
   });
 
   test("narrowing the columns changes the table and the URL", async () => {
-    await page.goto(evidence);
+    await goto(page, evidence);
     await page.getByRole("button", { name: /columns/i }).click();
 
     // Scoped to the popover throughout. The filter controls above the table
@@ -204,19 +206,19 @@ test.describe("the evidence table at scale", () => {
   test("an unknown column key is dropped, not rendered blank", async () => {
     // The obvious thing to do with a URL parameter is edit it. A typo must
     // vanish rather than becoming a column with no header and no data.
-    await page.goto(`${evidence}?cols=sample_size,not_a_real_field`);
+    await goto(page, `${evidence}?cols=sample_size,not_a_real_field`);
     await expect(page.locator("thead th")).toHaveCount(4);
   });
 
   test("and a wholly unrecognised list falls back to every column", async () => {
     // Otherwise the table becomes a list of titles with no way back that is
     // visible on the page.
-    await page.goto(`${evidence}?cols=nonsense`);
+    await goto(page, `${evidence}?cols=nonsense`);
     await expect(page.locator("thead th")).toHaveCount(23);
   });
 
   test("the export follows the columns on screen", async () => {
-    await page.goto(`${evidence}?cols=sample_size,design`);
+    await goto(page, `${evidence}?cols=sample_size,design`);
 
     /*
      * Read the href off the REAL button rather than constructing the URL.
@@ -245,7 +247,7 @@ test.describe("the evidence table at scale", () => {
   });
 
   test("no accessibility violations, with the column chooser open", async () => {
-    await page.goto(evidence);
+    await goto(page, evidence);
     await page.getByRole("button", { name: /columns/i }).click();
     await expect(page.getByLabel("Columns")).toBeVisible();
 

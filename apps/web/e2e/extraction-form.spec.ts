@@ -1,5 +1,7 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
+import { goto } from "./ready";
+
 /**
  * Phase 2c week 4 — the extraction form's spine, and a queue you can act from.
  *
@@ -54,7 +56,7 @@ async function createConfirmedUser(email: string) {
 async function signInAndEnroll(browser: Browser, email: string): Promise<Page> {
   const context = await browser.newContext();
   const page = await context.newPage();
-  await page.goto("/sign-in");
+  await goto(page, "/sign-in");
   await page.getByLabel("Email").fill(email);
   await page.getByRole("button", { name: /email me a code/i }).click();
   await page.getByLabel(/six-digit code/i).fill(await fetchOtp(email));
@@ -99,7 +101,7 @@ test.describe("the extraction form's spine", () => {
     await createConfirmedUser(email);
     page = await signInAndEnroll(browser, email);
 
-    await page.goto("/projects");
+    await goto(page, "/projects");
     await page.getByLabel("Title").fill("Extraction spine");
     await page
       .getByRole("group", { name: /kind/i })
@@ -111,7 +113,7 @@ test.describe("the extraction form's spine", () => {
     await expect(page.getByRole("heading", { name: "Workspace" })).toBeVisible();
     projectId = page.url().split("/").pop()!;
 
-    await page.goto(`/projects/${projectId}/import`);
+    await goto(page, `/projects/${projectId}/import`);
     await page.getByLabel(/paste references/i).fill(BIB);
     await page.getByRole("button", { name: /preview/i }).click();
     await page.getByRole("button", { name: /^add 1 paper$/i }).click();
@@ -119,7 +121,7 @@ test.describe("the extraction form's spine", () => {
 
     // A protocol with one required field and one optional one — the smallest
     // fixture that can tell "required and empty" from "empty".
-    await page.goto(`/projects/${projectId}/protocol`);
+    await goto(page, `/projects/${projectId}/protocol`);
     await page.getByLabel(/protocol name/i).fill("Spine");
     // "Start from nothing", so the protocol has exactly the two fields added
     // below. The default template is PICO and would bring ten more, which
@@ -151,7 +153,7 @@ test.describe("the extraction form's spine", () => {
   });
 
   test("says how far through the paper you are", async () => {
-    await page.goto(`/projects/${projectId}/library`);
+    await goto(page, `/projects/${projectId}/library`);
     // Anchored. The project is called "Extraction spine", so an unanchored
     // /extract/i matched the back-link to the project and navigated there.
     await page
@@ -233,11 +235,13 @@ test.describe("the queue can be acted on", () => {
   });
 
   test("an empty queue says what would put something in it", async () => {
-    await page.goto("/queue");
+    await goto(page, "/queue");
     // The one screen someone lands on with nothing to do. It used to render a
     // header and then nothing at all — no next action, on the surface most
     // likely to be a new collaborator's first impression.
-    await expect(page.getByText(/nothing is waiting for you/i)).toBeVisible();
+    await expect(
+      page.getByRole("main").getByText(/nothing is waiting for you/i),
+    ).toBeVisible();
     await expect(page.getByRole("link", { name: /go to your projects/i })).toBeVisible();
   });
 });
@@ -257,24 +261,29 @@ test.describe("choosing a project kind", () => {
     const page = await signInAndEnroll(browser, email);
 
     try {
-      await page.goto("/projects");
+      await goto(page, "/projects");
 
+      // Scoped to <main>, and that is not incidental. React streams content
+      // into a `<div hidden>` before an inline script relocates it, so for a
+      // moment the DOM holds two copies of the page. `getByText` matches
+      // hidden nodes and saw both; role queries skip the hidden subtree.
+      const main = page.getByRole("main");
       const kinds = page.getByRole("group", { name: /kind/i });
       await expect(kinds.getByRole("radio", { name: /thesis/i })).toBeChecked();
 
       // The consequences of the CURRENT choice, in place. Reading them after
       // creating the project is reading them too late.
-      await expect(page.getByText(/a protocol is optional/i)).toBeVisible();
-      await expect(page.getByText(/no reconciliation step/i)).toBeVisible();
+      await expect(main.getByText(/a protocol is optional/i)).toBeVisible();
+      await expect(main.getByText(/no reconciliation step/i)).toBeVisible();
 
       await kinds.getByRole("radio", { name: /systematic review/i }).check();
 
-      await expect(page.getByText(/a protocol is required/i)).toBeVisible();
+      await expect(main.getByText(/a protocol is required/i)).toBeVisible();
       await expect(page.getByText(/two people extract each paper/i)).toBeVisible();
       await expect(page.getByText(/cohen/i)).toBeVisible();
 
       // And the irreversibility, said where the choice is made.
-      await expect(page.getByText(/cannot be changed afterwards/i)).toBeVisible();
+      await expect(main.getByText(/cannot be changed afterwards/i)).toBeVisible();
     } finally {
       await page.context().close();
     }

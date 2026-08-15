@@ -1,5 +1,7 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
+import { goto } from "./ready";
+
 /**
  * Phase 2c week 2 — screening at speed.
  *
@@ -61,7 +63,7 @@ async function createConfirmedUser(email: string) {
 async function signInAndEnroll(browser: Browser, email: string): Promise<Page> {
   const context = await browser.newContext();
   const page = await context.newPage();
-  await page.goto("/sign-in");
+  await goto(page, "/sign-in");
   await page.getByLabel("Email").fill(email);
   await page.getByRole("button", { name: /email me a code/i }).click();
   await page.getByLabel(/six-digit code/i).fill(await fetchOtp(email));
@@ -117,7 +119,7 @@ test.describe("screening at speed", () => {
 
     // A THESIS, so an exclusion reason is optional and `e` alone is a
     // complete decision. The reason-required path has its own test below.
-    await page.goto("/projects");
+    await goto(page, "/projects");
     await page.getByLabel("Title").fill("Screening throughput");
     await page
       .getByRole("group", { name: /kind/i })
@@ -129,7 +131,7 @@ test.describe("screening at speed", () => {
     await expect(page.getByRole("heading", { name: "Workspace" })).toBeVisible();
     projectId = page.url().split("/").pop()!;
 
-    await page.goto(`/projects/${projectId}/import`);
+    await goto(page, `/projects/${projectId}/import`);
     await page.getByLabel(/paste references/i).fill(BIB);
     await page.getByRole("button", { name: /preview/i }).click();
     await expect(page.getByRole("list", { name: /references to import/i })).toBeVisible();
@@ -142,8 +144,8 @@ test.describe("screening at speed", () => {
   });
 
   test("a decision advances the queue without waiting for the server", async () => {
-    await page.goto(`/projects/${projectId}/screen`);
-    await expect(page.getByText(/3 left/i)).toBeVisible();
+    await goto(page, `/projects/${projectId}/screen`);
+    await expect(page.getByRole("main").getByText(/3 left/i)).toBeVisible();
 
     const first = await page.locator("article h2").innerText();
 
@@ -205,7 +207,7 @@ test.describe("screening at speed", () => {
   });
 
   test("and rolls the paper back when the server refuses", async () => {
-    await page.goto(`/projects/${projectId}/screen`);
+    await goto(page, `/projects/${projectId}/screen`);
 
     /*
      * Counts are READ, never hard-coded.
@@ -253,7 +255,7 @@ test.describe("screening at speed", () => {
     // instead. It is the reason so many apps quietly abandoned their
     // shortcuts, and it is invisible until someone uses the app without a
     // mouse.
-    await page.goto(`/projects/${projectId}/screen`);
+    await goto(page, `/projects/${projectId}/screen`);
 
     const remaining = page.getByText(/\d+ left/);
     await expect(remaining).toBeVisible();
@@ -270,7 +272,7 @@ test.describe("screening at speed", () => {
   });
 
   test("the shortcut list is visible, not hidden", async () => {
-    await page.goto(`/projects/${projectId}/screen`);
+    await goto(page, `/projects/${projectId}/screen`);
     // A shortcut nobody is told about is a feature for whoever wrote it.
     const hint = page.getByRole("button", { name: /keyboard/i });
     await expect(hint).toBeVisible();
@@ -278,7 +280,7 @@ test.describe("screening at speed", () => {
     await expect(page.getByText(/skip — leaves it undecided/i)).toBeVisible();
   });
   test("the whole queue can be driven from the keyboard", async () => {
-    await page.goto(`/projects/${projectId}/screen`);
+    await goto(page, `/projects/${projectId}/screen`);
 
     const remaining = page.getByText(/\d+ left/);
     await expect(remaining).toBeVisible();
