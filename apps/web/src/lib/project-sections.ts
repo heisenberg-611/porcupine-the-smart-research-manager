@@ -113,6 +113,12 @@ const ALL_SECTIONS: ReadonlyArray<
     group: "Synthesise",
     blurb: "Papers as rows, protocol fields as columns. Exports.",
   },
+  {
+    slug: "keys",
+    label: "Encryption",
+    group: "Synthesise",
+    blurb: "The project's content key, and who holds a copy.",
+  },
 ];
 
 /** The sections this project kind actually has, in workflow order. */

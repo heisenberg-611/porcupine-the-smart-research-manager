@@ -301,7 +301,7 @@ model Project {
   /// Do not build against this.
   assistEnabled Boolean @default(false) @map("assist_enabled")
 
-  currentKeyEpoch Int       @default(1) @map("current_key_epoch")
+  currentKeyEpoch Int       @default(0) @map("current_key_epoch")
   archivedAt      DateTime? @map("archived_at") @db.Timestamptz(3)
   deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(3)
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)

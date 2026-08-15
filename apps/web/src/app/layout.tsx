@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 
 import { AppHeader } from "@/components/app-header";
+import { CryptoSessionProvider } from "@/lib/crypto/session";
 
 import "./globals.css";
 
@@ -31,8 +32,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         >
           Skip to content
         </a>
-        <AppHeader />
-        {children}
+        {/* Wraps everything, because an unlocked identity has to survive
+            navigation between project screens. It holds nothing until someone
+            unlocks, and holds it only in memory — see the provider. */}
+        <CryptoSessionProvider>
+          <AppHeader />
+          {children}
+        </CryptoSessionProvider>
       </body>
     </html>
   );
