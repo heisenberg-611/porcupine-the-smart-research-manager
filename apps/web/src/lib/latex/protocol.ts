@@ -14,6 +14,15 @@ export type CompileRequestMessage = {
   /** Every file in the project, not only the entry point. */
   files: Record<string, string>;
   entry: string;
+  /**
+   * Changes whenever the browser's own package store changes.
+   *
+   * The worker rebuilds its virtual filesystem when this differs from what it
+   * last saw. Without it an upload would not take effect until a reload, and —
+   * worse — a REMOVAL would not take effect at all, because the engine would
+   * still be holding a file nobody had told it to forget.
+   */
+  packagesToken: string;
 };
 
 export type WorkerRequest = CompileRequestMessage;

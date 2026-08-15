@@ -21,10 +21,13 @@ import type { CompileOutcome } from "@/lib/latex/use-compiler";
 export function CompilerPanel({
   outcome,
   error,
+  entry,
   onGoToLine,
 }: {
   outcome: CompileOutcome | null;
   error: string | null;
+  /** The root document, so its own auxiliaries can be recognised as noise. */
+  entry: string;
   /** Jump the editor to a line. Undefined when the diagnostic has no line. */
   onGoToLine: (line: number) => void;
 }) {
@@ -63,18 +66,30 @@ export function CompilerPanel({
     }
 
     /*
-     * Drop the extension probing.
+     * Collapse the probing.
      *
-     * When TeX cannot find `biblatex.sty` it tries `biblatex.sty.tex`,
-     * `.sty.sty`, `.sty.def`, `.sty.cls` and half a dozen more before giving
-     * up — every one of which comes back as a missing file. Reported plainly
-     * that is ten lines about one absent package, and the reader has to work
-     * out that nine of them are the same problem.
+     * TeX hunts. When it cannot find `biblatex.sty` it tries `.sty.tex`,
+     * `.sty.sty`, `.sty.def` and half a dozen more; for a font it tries
+     * `.pfb`, `.ttf`, `.TTC`, `.dfont` and the rest; and on the first pass it
+     * asks for its own `.aux`, which by definition does not exist yet. A CLEAN
+     * compile of a two-line document produced forty of these, not one of them
+     * a problem.
+     *
+     * So: reduce each to a root, drop the job's own auxiliaries, drop anything
+     * already named as fatal, and show what is left.
      */
-    const probed = rest.filter((name) => !fatal.some((f) => name.startsWith(`${f}.`)));
+    const jobname = entry.replace(/\.[^.]+$/, "");
+    const roots = new Set<string>();
 
-    return { fatal, probed };
-  }, [outcome, diagnostics]);
+    for (const name of rest) {
+      const root = probeRoot(name);
+      if (fatal.some((f) => root === probeRoot(f))) continue;
+      if (root === jobname || root.startsWith(`${jobname}.`)) continue;
+      roots.add(root);
+    }
+
+    return { fatal, probed: [...roots] };
+  }, [outcome, diagnostics, entry]);
 
   const errorCount = diagnostics.filter((d) => d.severity === "error").length;
   const warningCount = diagnostics.filter((d) => d.severity === "warning").length;
@@ -195,8 +210,10 @@ function ProblemList({
           </p>
           <p className="text-muted mt-1">
             The document cannot be typeset without {fatal.length === 1 ? "it" : "them"}.
-            Remove the <code className="font-mono">\usepackage</code> line, or use one of
-            the packages this distribution does ship.
+            Add {fatal.length === 1 ? "it" : "them"} under{" "}
+            <strong className="text-ink">Packages</strong> — download the package from
+            CTAN and drop the archive in, and it stays in this browser — or remove the{" "}
+            <code className="font-mono">\usepackage</code> line.
           </p>
         </li>
       )}
@@ -235,7 +252,8 @@ function ProblemList({
           {/* Kept, but out of the way. These are files TeX looked for and
               carried on without; showing them as errors sends people hunting
               for a problem that is not there. */}
-          Also absent, and not needed: {probed.join(", ")}.
+          TeX also looked for {probed.slice(0, 6).join(", ")}
+          {probed.length > 6 && ` and ${probed.length - 6} more`} and managed without.
         </li>
       )}
     </ul>
@@ -263,6 +281,26 @@ function Tab({
       {children}
     </button>
   );
+}
+
+/**
+ * Strip the extensions TeX appends while hunting, down to one root.
+ *
+ * `lmroman10-bold.TTC`, `.pfb`, `.dfont` and `lmroman10-bold` are one font
+ * asked for eight ways; `biblatex.sty.tex` and `biblatex.sty` are one package.
+ */
+function probeRoot(name: string): string {
+  let root = name.split(/[:/]/)[0] ?? name;
+  // Repeatedly, because the hunt stacks them: `biblatex.sty.tex`.
+  for (let i = 0; i < 3; i++) {
+    const next = root.replace(
+      /\.(sty|cls|def|cfg|clo|ldf|fd|tex|bst|bbx|cbx|lbx|enc|map|tfm|vf|pfa|pfb|otf|ttf|ttc|TTC|TTF|dfont|aux|bbl|toc|out)$/,
+      "",
+    );
+    if (next === root) break;
+    root = next;
+  }
+  return root;
 }
 
 /** `biblatex.sty` → `biblatex`; tikz library files → the library's name. */

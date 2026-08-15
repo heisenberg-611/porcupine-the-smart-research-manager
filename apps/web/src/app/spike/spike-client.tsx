@@ -11,6 +11,7 @@ import { Button } from "@/components/ui";
 import { useCompiler } from "@/lib/latex/use-compiler";
 
 import { CompilerPanel } from "./compiler-panel";
+import { PackageManager } from "./package-manager";
 
 const ENTRY = "main.tex";
 const DRAFT_KEY = "porcupine.latex.spike";
@@ -44,6 +45,8 @@ export function SpikeClient() {
   const [dark, setDark] = useState(false);
   const [restored, setRestored] = useState(false);
   const editor = useRef<EditorView | null>(null);
+  const [packagesToken, setPackagesToken] = useState("0:0");
+  const [showPackages, setShowPackages] = useState(false);
 
   /**
    * Jump to the line a diagnostic points at.
@@ -131,7 +134,15 @@ export function SpikeClient() {
             {busy ? (step ?? "Working") : outcome ? describe(outcome.status) : "Ready"}
           </span>
           <Button
-            onClick={() => compile({ [ENTRY]: source }, ENTRY)}
+            variant="ghost"
+            className="border-border border"
+            onClick={() => setShowPackages((v) => !v)}
+            aria-expanded={showPackages}
+          >
+            Packages
+          </Button>
+          <Button
+            onClick={() => compile({ [ENTRY]: source }, ENTRY, packagesToken)}
             disabled={busy}
             variant="primary"
           >
@@ -139,6 +150,13 @@ export function SpikeClient() {
           </Button>
         </div>
       </header>
+
+      {showPackages && (
+        <div className="border-rule bg-surface shrink-0 border-b px-4 py-3">
+          <h2 className="text-ink text-ui mb-2 font-medium">Packages in this browser</h2>
+          <PackageManager onChange={setPackagesToken} />
+        </div>
+      )}
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <section
@@ -189,7 +207,12 @@ export function SpikeClient() {
         </section>
       </div>
 
-      <CompilerPanel outcome={outcome} error={error} onGoToLine={goToLine} />
+      <CompilerPanel
+        outcome={outcome}
+        error={error}
+        entry={ENTRY}
+        onGoToLine={goToLine}
+      />
     </div>
   );
 }

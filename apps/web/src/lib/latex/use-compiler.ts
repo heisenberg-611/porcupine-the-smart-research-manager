@@ -109,18 +109,27 @@ export function useCompiler() {
     };
   }, []);
 
-  const compile = useCallback((files: Record<string, string>, entry: string) => {
-    if (!worker.current) return;
+  const compile = useCallback(
+    (files: Record<string, string>, entry: string, packagesToken: string) => {
+      if (!worker.current) return;
 
-    const id = ++nextId.current;
-    activeId.current = id;
-    setBusy(true);
-    setError(null);
-    setStep("Preparing");
+      const id = ++nextId.current;
+      activeId.current = id;
+      setBusy(true);
+      setError(null);
+      setStep("Preparing");
 
-    const request: WorkerRequest = { kind: "compile", id, files, entry };
-    worker.current.postMessage(request);
-  }, []);
+      const request: WorkerRequest = {
+        kind: "compile",
+        id,
+        files,
+        entry,
+        packagesToken,
+      };
+      worker.current.postMessage(request);
+    },
+    [],
+  );
 
   return { compile, busy, step, outcome, error };
 }

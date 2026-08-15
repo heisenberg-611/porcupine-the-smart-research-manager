@@ -10,6 +10,7 @@ import {
   type PackIndex,
 } from "glyphtex-engine";
 
+import { loadAll } from "./package-store";
 import { untar } from "./untar";
 import type { CompiledMessage, WorkerRequest, WorkerResponse } from "./protocol";
 
@@ -45,6 +46,16 @@ let engine: TexEngine | null = null;
 let bundle: Map<string, Uint8Array> | null = null;
 let packIndex: PackIndex | null = null;
 const installed: InstalledPack[] = [];
+/**
+ * Pack contents, kept so the filesystem can be rebuilt without refetching.
+ *
+ * The engine has no "remove these files" for a whole pack, so when the user's
+ * own package set changes the only correct move is to clear the filesystem and
+ * lay it down again: bundle, then packs, then the user's files. Holding the
+ * bytes here is what makes that cost nothing.
+ */
+const packFiles = new Map<string, Uint8Array>();
+let packagesToken: string | null = null;
 
 const scope = self as unknown as DedicatedWorkerGlobalScope;
 
@@ -77,6 +88,9 @@ async function ensureEngine(id: number): Promise<TexEngine> {
   created.addFiles(bundle);
 
   engine = created;
+  // Force the next check to rebuild: a fresh engine has the bundle and nothing
+  // else, whatever token the caller thinks is current.
+  packagesToken = null;
   return created;
 }
 
@@ -112,6 +126,7 @@ async function installFor(
 
   for (const pack of packs) {
     const files = untar(gunzipSync(await fetchBytes(packUrl(pack.id))));
+    for (const [name, bytes] of files) packFiles.set(name, bytes);
     engine?.addFiles(files);
     installed.push({ id: pack.id, hash: pack.hash });
   }
@@ -119,9 +134,41 @@ async function installFor(
   return { unsupported, installedCount: packs.length };
 }
 
+/**
+ * Lay the filesystem down in precedence order: bundle, packs, then yours.
+ *
+ * Last write wins in the engine, so a `.sty` a person uploaded deliberately
+ * overrides the one shipped in the base bundle. That is the behaviour someone
+ * uploading a package wants — they are usually doing it because the shipped
+ * version is absent or wrong.
+ */
+async function rebuildFilesystem(token: string, id: number): Promise<void> {
+  const active = engine;
+  if (!active) return;
+
+  post({ kind: "progress", id, step: "Loading your packages" });
+
+  active.clearFiles();
+  // The previous run's auxiliary files were computed against a different
+  // filesystem, so keeping them would let a stale .aux decide the layout.
+  active.clearOutputs();
+
+  if (bundle) active.addFiles(bundle);
+  if (packFiles.size > 0) active.addFiles(packFiles);
+
+  const mine = await loadAll();
+  if (mine.size > 0) active.addFiles(mine);
+
+  packagesToken = token;
+}
+
 async function compile(request: WorkerRequest): Promise<void> {
   const { id, files, entry } = request;
   const active = await ensureEngine(id);
+
+  if (request.packagesToken !== packagesToken) {
+    await rebuildFilesystem(request.packagesToken, id);
+  }
 
   for (const [name, contents] of Object.entries(files)) active.addFile(name, contents);
 
