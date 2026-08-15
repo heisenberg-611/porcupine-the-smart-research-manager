@@ -59,11 +59,40 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        /*
+         * The TeX distribution: a 3.5 MB wasm module, a 13 MB bundle, 8 MB of
+         * packs.
+         *
+         * `public/` is served with `max-age=0` by default, so every visit
+         * revalidated 24 MB of assets that had not changed since the engine
+         * was released — and any miss in the browser's HTTP cache, which for
+         * entries this size is common, meant downloading it all again.
+         *
+         * Safe to call immutable because the contents are copied out of a
+         * versioned npm package: they change only when `glyphtex-engine` does,
+         * and the worker's Cache Storage key carries that version, so an
+         * upgrade lands in a new cache rather than reusing a stale one.
+         */
         source: "/latex/:path*",
         headers: [
           { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
           { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
           { key: "Cross-Origin-Resource-Policy", value: "cross-origin" },
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
+      {
+        // The worker script itself, AFTER the rule above so it wins: Next
+        // applies every matching block in order and the last one to set a
+        // header keeps it. Short-lived on purpose — the worker is rebuilt on
+        // every deploy, and an immutable copy of last week's worker talking to
+        // this week's protocol is a bug nobody would ever find.
+        source: "/latex/compile.worker.js",
+        headers: [
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+          { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
+          { key: "Cross-Origin-Resource-Policy", value: "cross-origin" },
+          { key: "Cache-Control", value: "public, max-age=0, must-revalidate" },
         ],
       },
     ];

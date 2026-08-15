@@ -36,6 +36,23 @@ import type { CompiledMessage, WorkerRequest, WorkerResponse } from "./protocol"
  * lets a second run converge in fewer passes.
  */
 
+/** Injected by the build from the engine package's version. */
+declare const __LATEX_ASSET_VERSION__: string;
+
+/**
+ * The TeX distribution, cached across sessions.
+ *
+ * Without this the 3.5 MB wasm module and the 13 MB bundle are re-fetched
+ * whenever the browser's HTTP cache decides not to keep them — which for
+ * entries that size is often, and always after a hard reload. Cache Storage is
+ * explicit instead of heuristic: the bytes stay until this code deletes them.
+ *
+ * The cache name carries the engine version, so a new release lands in a new
+ * cache and the old one is swept below. That is also why the assets can be
+ * served `immutable`: their content only changes when their version does.
+ */
+const CACHE = `porcupine-latex-${__LATEX_ASSET_VERSION__}`;
+
 const WASM_URL = "/latex/tectonic_wasm.wasm";
 const BUNDLE_URL = "/latex/tectonic-bundle.tar.gz";
 const PACK_INDEX_URL = "/latex/packs/packs-index.json";
@@ -63,23 +80,61 @@ function post(message: WorkerResponse, transfer: Transferable[] = []) {
   scope.postMessage(message, transfer);
 }
 
-/** Fetch that says which URL failed, and refuses an HTML error page. */
-async function fetchBytes(url: string): Promise<Uint8Array> {
+/**
+ * Cache Storage first, network second.
+ *
+ * Returns a Response rather than bytes so the wasm can still be instantiated
+ * from a stream — that path compiles while it downloads and is the only one V8
+ * populates its compiled-code cache from.
+ */
+async function cached(url: string): Promise<Response> {
+  let store: Cache | null = null;
+  try {
+    store = await caches.open(CACHE);
+    const hit = await store.match(url);
+    if (hit) return hit;
+  } catch {
+    // Cache Storage is unavailable in some contexts (private windows, older
+    // embedded webviews). Falling through to the network is correct: slower,
+    // and still works.
+  }
+
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`${url} returned ${response.status}. Is the asset deployed?`);
   }
+
+  // Clone before storing: putting a response consumes its body, and the caller
+  // still needs to read it.
+  if (store) await store.put(url, response.clone()).catch(() => {});
+  return response;
+}
+
+async function fetchBytes(url: string): Promise<Uint8Array> {
+  const response = await cached(url);
   return new Uint8Array(await response.arrayBuffer());
+}
+
+/** Delete caches from earlier engine versions, once per worker. */
+async function sweepOldCaches(): Promise<void> {
+  try {
+    const names = await caches.keys();
+    await Promise.all(
+      names
+        .filter((name) => name.startsWith("porcupine-latex-") && name !== CACHE)
+        .map((name) => caches.delete(name)),
+    );
+  } catch {
+    // Nothing here is load-bearing; a stale cache costs disk, not correctness.
+  }
 }
 
 async function ensureEngine(id: number): Promise<TexEngine> {
   if (engine) return engine;
 
   post({ kind: "progress", id, step: "Starting the TeX engine" });
-  // A Response, not bytes: it is the streaming path, and the only one V8 will
-  // populate its compiled-code cache from — which is what makes the SECOND
-  // page load fast.
-  const created = await TexEngine.load(fetch(WASM_URL));
+  void sweepOldCaches();
+  const created = await TexEngine.load(cached(WASM_URL));
 
   post({ kind: "progress", id, step: "Unpacking the TeX distribution" });
   if (!bundle) {
