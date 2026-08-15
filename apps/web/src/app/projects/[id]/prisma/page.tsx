@@ -6,6 +6,7 @@ import { ButtonLink, EmptyState, PageHeader, TableScroll } from "@/components/ui
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
+import { CopyNumbers } from "./copy-numbers";
 import { PrismaDiagram, type ExclusionRow, type PrismaCounts } from "./prisma-diagram";
 
 export const metadata: Metadata = { title: "PRISMA" };
@@ -75,7 +76,16 @@ export default async function PrismaPage({
         backLabel={project.title}
         title="PRISMA 2020 flow"
         description={
-          <>Derived from recorded screening decisions. Nothing here is estimated.</>
+          <>
+            {/* The old description said only "derived from recorded screening
+                decisions, nothing here is estimated" — true, and no help at all
+                to anyone who does not already know what PRISMA is. This page is
+                in a thesis student's sidebar too. */}
+            The diagram journals ask for in a review&rsquo;s methods section: how many
+            papers you found, how many you threw out, why, and how many survived. It is
+            drawn from your recorded screening decisions, so it is always the truth about
+            this project rather than a figure anyone typed. Nothing here is estimated.
+          </>
         }
       />
 
@@ -118,7 +128,24 @@ export default async function PrismaPage({
           {/* The same figures as a table. A screen reader cannot follow arrows,
               and a methods section needs the numbers as text anyway. */}
           <section>
-            <h2 className="text-ink text-heading mb-3 font-medium">The numbers</h2>
+            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
+              <h2 className="text-ink text-heading font-medium">The numbers</h2>
+              {/* Getting these into a manuscript was a screenshot or retyping,
+                  and retyping a count is how a methods section ends up
+                  disagreeing with the data it describes. */}
+              <CopyNumbers
+                lines={[
+                  `Records identified: ${counts.recordsIdentified}`,
+                  `Records removed before screening (duplicates): ${counts.recordsRemovedBeforeScreening}`,
+                  `Records screened: ${counts.recordsScreened}`,
+                  `Records excluded: ${counts.recordsExcluded}`,
+                  ...exclusions.map(
+                    (e) => `  ${exclusionReasonLabel(e.reason)}: ${e.count}`,
+                  ),
+                  `Studies included: ${counts.studiesIncluded}`,
+                ]}
+              />
+            </div>
             <TableScroll label="Exclusion reasons">
               <table className="text-ui w-full text-left">
                 <caption className="sr-only">PRISMA 2020 counts for this review</caption>

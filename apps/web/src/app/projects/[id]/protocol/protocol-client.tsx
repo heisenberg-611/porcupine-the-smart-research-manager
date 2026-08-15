@@ -43,7 +43,7 @@ export interface Protocol {
 /**
  * The protocol builder.
  *
- * A protocol is the set of questions asked of every paper, so the cost of
+ * A protocol is the set of FIELDS recorded for every paper, so the cost of
  * getting it wrong is paid once per paper. The editor's job is to make the
  * consequences visible before they are paid — which is why every field shows
  * how many answers it already has, and why a field with answers cannot be
@@ -65,7 +65,8 @@ export function ProtocolClient({
       <NewProtocol projectId={projectId} />
     ) : (
       <p className="text-muted text-ui">
-        No protocol yet. An owner or admin sets up the questions this review asks.
+        No extraction form yet. An owner or admin sets up the fields recorded for every
+        paper.
       </p>
     );
   }
@@ -99,7 +100,11 @@ function NewProtocol({ projectId }: { projectId: string }) {
 
   return (
     <form onSubmit={submit} className="space-y-5">
-      <Field label="Protocol name" id="name" hint="What this set of questions is called.">
+      <Field
+        label="Form name"
+        id="name"
+        hint="What this set of fields is called — a reader of your methods section will see it."
+      >
         <Input
           id="name"
           value={name}
@@ -144,7 +149,7 @@ function NewProtocol({ projectId }: { projectId: string }) {
       {template && template.fields.length > 0 && (
         <details className="border-border rounded-lg border p-3">
           <summary className="text-ink text-ui cursor-pointer font-medium">
-            What {template.name} asks
+            What {template.name} records
           </summary>
           <ul className="text-muted text-fine mt-2 space-y-1">
             {template.fields.map((f) => (

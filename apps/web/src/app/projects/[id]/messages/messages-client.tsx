@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import { InlineUnlock } from "@/components/inline-unlock";
+import { SetUpEncryption } from "@/components/set-up-encryption";
 import { Banner, Button, Card, Field, Input } from "@/components/ui";
 import { useCryptoSession } from "@/lib/crypto/session";
 import { useProjectKeys } from "@/lib/crypto/use-project-keys";
@@ -151,7 +153,13 @@ export function MessagesClient({ projectId }: { projectId: string }) {
 
   async function addChannel(event: React.FormEvent) {
     event.preventDefault();
-    if (!currentKey || newChannel.trim() === "") return;
+    await createNamed(newChannel);
+  }
+
+  /** One path for both the form and the "start with #general" shortcut. */
+  async function createNamed(rawName: string) {
+    const name = rawName.trim();
+    if (!currentKey || name === "") return;
     setPending(true);
     setError(null);
 
@@ -159,7 +167,7 @@ export function MessagesClient({ projectId }: { projectId: string }) {
       // The id is minted here because it is authenticated inside the name's
       // own ciphertext. A database-assigned id could not be.
       const channelId = crypto.randomUUID();
-      const nameCt = await sealMessage(newChannel.trim(), currentKey, {
+      const nameCt = await sealMessage(name, currentKey, {
         channelId,
         messageId: channelId,
         epoch: keys.currentEpoch,
@@ -221,18 +229,36 @@ export function MessagesClient({ projectId }: { projectId: string }) {
     }
   }
 
+  /*
+   * Setup happens HERE, not somewhere else.
+   *
+   * This used to be a link to /unlock, which returned you to a page that then
+   * linked to /projects/[id]/keys, which returned you here to make a channel:
+   * five screens and three concepts — recovery passphrase, project key with an
+   * epoch, channel — before anyone said a word. Each step was a full
+   * navigation away from the thing being attempted.
+   *
+   * The concepts are still real and still named. They just no longer cost a
+   * journey each.
+   */
   if (!unlocked) {
     return (
       <Card className="flex flex-col gap-3">
         <p className="text-ink text-ui">
-          Messages are encrypted with a key only members hold. Unlock yours to read them.
+          Messages here are encrypted in your browser, so the server cannot read them —
+          and neither can we. Your passphrase is what opens them.
         </p>
-        <Link
-          href={`/unlock?next=${encodeURIComponent(pathname ?? "/projects")}`}
-          className="text-accent text-ui underline underline-offset-4"
-        >
-          Unlock your keys
-        </Link>
+        <InlineUnlock />
+        <p className="text-muted text-fine">
+          Lost it?{" "}
+          <Link
+            href={`/unlock?next=${encodeURIComponent(pathname ?? "/projects")}`}
+            className="text-accent underline underline-offset-4"
+          >
+            Manage your keys and devices
+          </Link>
+          .
+        </p>
       </Card>
     );
   }
@@ -243,15 +269,11 @@ export function MessagesClient({ projectId }: { projectId: string }) {
     return (
       <Card className="flex flex-col gap-3">
         <p className="text-ink text-ui">
-          This project has no content key yet, so there is nothing to encrypt messages
-          with.
+          This project has no content key yet. One key is created for the project and
+          sealed to each member, so everyone can read the conversation and nobody else
+          can.
         </p>
-        <Link
-          href={`/projects/${projectId}/keys`}
-          className="text-accent text-ui underline underline-offset-4"
-        >
-          Set up encryption
-        </Link>
+        <SetUpEncryption projectId={projectId} onReady={keys.reload} />
       </Card>
     );
   }
@@ -280,6 +302,26 @@ export function MessagesClient({ projectId }: { projectId: string }) {
           Create
         </Button>
       </form>
+
+      {channels.length === 0 && (
+        // The end of setup should be a place to type, not another empty form
+        // asking you to invent a name for something you have not used yet.
+        <Card className="flex flex-col gap-3">
+          <p className="text-ink text-ui">
+            Encryption is set up. Messages live in channels — one per topic, or just one
+            for everything.
+          </p>
+          <div>
+            <Button
+              variant="primary"
+              disabled={pending}
+              onClick={() => void createNamed("general")}
+            >
+              Start with a #general channel
+            </Button>
+          </div>
+        </Card>
+      )}
 
       {channels.length > 0 && (
         <nav aria-label="Channels" className="flex flex-wrap gap-2">

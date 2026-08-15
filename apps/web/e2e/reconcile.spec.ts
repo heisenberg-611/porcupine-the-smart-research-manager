@@ -188,8 +188,8 @@ test.describe("Phase 2b — dual extraction", () => {
 
     await goto(alice, "/projects");
     await alice.getByRole("link", { name: PROJECT }).click();
-    await alice.getByRole("link", { name: /^protocol$/i }).click();
-    await alice.getByLabel(/protocol name/i).fill("Data extraction");
+    await alice.getByRole("link", { name: /^extraction form$/i }).click();
+    await alice.getByLabel(/form name/i).fill("Data extraction");
     await alice.getByRole("radio", { name: /machine learning benchmarks/i }).check();
     await alice.getByRole("button", { name: /create protocol/i }).click();
     await expect(alice.getByText(/10 fields/)).toBeVisible();

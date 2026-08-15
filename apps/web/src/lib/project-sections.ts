@@ -104,10 +104,18 @@ const ALL_SECTIONS: ReadonlyArray<
     // called.
   },
   {
+    // "Protocol" is the methodology term, and it hid the feature from the
+    // person who asked for it: what this screen defines is the set of things
+    // everyone records about every paper. The route, the table and the docs
+    // keep the word; the label says what it does.
+    //
+    // In Collect, not Extract. It must exist before any extraction happens,
+    // and it should shape what you collect — meeting it after screening is
+    // meeting it too late to change anything.
     slug: "protocol",
-    label: "Protocol",
-    group: "Extract",
-    blurb: "The questions you ask of every paper.",
+    label: "Extraction form",
+    group: "Collect",
+    blurb: "What everyone records about every paper, so papers can be compared.",
   },
   {
     slug: "reconcile",
@@ -129,8 +137,13 @@ const ALL_SECTIONS: ReadonlyArray<
     blurb: "Encrypted conversation. The server cannot read it.",
   },
   {
+    // Named after the job, not the mechanism. It was "Encryption", which is
+    // what the page uses rather than what it is for — and it stopped being a
+    // stop on the way to a conversation when messages absorbed setup, so what
+    // is left here is the administrative work: rotation, removal, devices,
+    // safety numbers.
     slug: "keys",
-    label: "Encryption",
+    label: "Keys & members",
     group: "Synthesise",
     blurb: "The project's content key, and who holds a copy.",
   },

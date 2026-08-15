@@ -122,7 +122,7 @@ test.describe("the extraction form's spine", () => {
     // A protocol with one required field and one optional one — the smallest
     // fixture that can tell "required and empty" from "empty".
     await goto(page, `/projects/${projectId}/protocol`);
-    await page.getByLabel(/protocol name/i).fill("Spine");
+    await page.getByLabel(/form name/i).fill("Spine");
     // "Start from nothing", so the protocol has exactly the two fields added
     // below. The default template is PICO and would bring ten more, which
     // would make "0 of 2 answered" meaningless.

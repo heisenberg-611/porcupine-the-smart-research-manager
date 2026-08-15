@@ -304,7 +304,7 @@ test.describe("two people, one encrypted conversation", () => {
     // Remove and rotate, in one action.
     await alice
       .getByRole("navigation", { name: /sections/i })
-      .getByRole("link", { name: "Encryption" })
+      .getByRole("link", { name: "Keys & members" })
       .click();
     await expect(alice.getByRole("heading", { name: "Who holds a key" })).toBeVisible();
 

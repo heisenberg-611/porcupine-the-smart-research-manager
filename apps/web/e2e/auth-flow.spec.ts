@@ -477,11 +477,11 @@ test.describe("Phase 0 exit criterion", () => {
   test("builds a protocol from a template and protects answered fields", async () => {
     await goto(page, "/projects");
     await page.getByRole("link", { name: /transformer efficiency/i }).click();
-    await page.getByRole("link", { name: /^protocol$/i }).click();
+    await page.getByRole("link", { name: /^extraction form$/i }).click();
 
-    await expect(page.getByRole("heading", { name: /^protocol$/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^extraction form$/i })).toBeVisible();
 
-    await page.getByLabel(/protocol name/i).fill("Data extraction");
+    await page.getByLabel(/form name/i).fill("Data extraction");
     await page.getByRole("radio", { name: /machine learning benchmarks/i }).check();
     await page.getByRole("button", { name: /create protocol/i }).click();
 

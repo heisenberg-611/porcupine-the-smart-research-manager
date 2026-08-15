@@ -8,7 +8,7 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 import { ProtocolClient, type Protocol } from "./protocol-client";
 
-export const metadata: Metadata = { title: "Protocol" };
+export const metadata: Metadata = { title: "Extraction form" };
 
 interface ProtocolRow {
   id: string;
@@ -126,11 +126,21 @@ export default async function ProtocolPage({
       <PageHeader
         backHref={`/projects/${id}`}
         backLabel={project.title}
-        title="Protocol"
+        title="Extraction form"
         description={
-          caps.protocolRequired
-            ? "The questions this review asks of every paper. A systematic review is only reproducible if every row answered the same ones."
-            : "The questions asked of every paper. Optional for a thesis — add fields only where a consistent answer is worth having."
+          <>
+            {/* What it IS, in the words someone would use to ask for it —
+                "a specific pipeline we all extract against" — before the
+                methodology term that made it unrecognisable. */}
+            The set of things everyone records about every paper — how many participants,
+            what design, which outcome, whatever this review needs. Fill it in once per
+            paper and twenty papers become a table you can compare instead of twenty
+            things you have to remember.{" "}
+            {caps.protocolRequired
+              ? "A systematic review is only reproducible if every paper answered the same fields, so this is required before extraction starts."
+              : "Optional for a thesis — add fields only where a consistent answer is worth having."}{" "}
+            Also called the review protocol.
+          </>
         }
       />
 
