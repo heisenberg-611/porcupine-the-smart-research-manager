@@ -253,6 +253,44 @@ export const PROTOCOL_TEMPLATES: ProtocolTemplate[] = [
     ],
   },
   {
+    id: "literature-review",
+    name: "Literature review / Thesis",
+    description: "Research question, methodology, findings, and relevance — for scoping a topic.",
+    fields: [
+      {
+        label: "Research objective",
+        type: "TEXT",
+        required: true,
+        helpText: "What is the main goal or question of the paper?",
+      },
+      {
+        label: "Methodology",
+        type: "TEXT",
+        required: true,
+        helpText: "How did they conduct the research?",
+      },
+      {
+        label: "Key finding",
+        type: "QUOTE",
+        required: true,
+        requiresAnchor: true,
+        helpText: "Quote the paper's main conclusion or finding.",
+      },
+      {
+        label: "Limitations",
+        type: "TEXT",
+        helpText: "What are the weaknesses or gaps identified by the authors?",
+      },
+      {
+        label: "Relevance to thesis",
+        type: "LONG_TEXT",
+        required: true,
+        helpText: "How does this paper contribute to your own research?",
+      },
+      { label: "Notes", type: "LONG_TEXT" },
+    ],
+  },
+  {
     id: "blank",
     name: "Start from nothing",
     description: "An empty protocol. Add the fields your review actually needs.",
