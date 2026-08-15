@@ -8,3 +8,6 @@ supabase/.temp
 
 # Prose docs are hand-formatted; prettier fights their tables.
 docs/**
+
+# Throwaway debugging probes; see .gitignore.
+debug-scratch

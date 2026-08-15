@@ -12,6 +12,8 @@ export default tseslint.config(
       "**/generated/**",
       "**/*.config.*",
       "supabase/**",
+      // Throwaway debugging probes; see .gitignore.
+      "debug-scratch/**",
     ],
   },
 

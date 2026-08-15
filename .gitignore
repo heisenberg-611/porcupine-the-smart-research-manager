@@ -37,3 +37,12 @@ apps/web/.env.local
 
 # Trial corpus, regenerated on demand (measure:corpus)
 fixtures/
+
+# Throwaway debugging probes.
+#
+# Scripts and one-off routes written to answer a single question and then kept
+# lying around. Two of these broke `next build` outright — a route importing a
+# path that did not exist — and the rest failed the format check, so CI went
+# red for reasons unrelated to any change. They live here so they stay on disk
+# and out of the toolchain's way.
+debug-scratch/
