@@ -4,13 +4,18 @@ A guide to what the app actually does today, in the order you would use it —
 and an honest list of what is **not built yet**, because a good deal isn't, and
 not knowing which is which is the most confusing thing about the app right now.
 
-Last checked against the code on **2026-08-14**, at `main`.
+Last checked against the code on **2026-08-15**, at `main`, after the
+usability phase.
 
 ---
 
 ## 1. Getting it running
 
 Everything runs on your machine. There is no deployed environment yet.
+
+There is also a root `README.md` now, aimed at someone opening the repository
+rather than the app. This document is the one to read if you are lost in the
+product.
 
 ```bash
 # 1. Docker Desktop must be RUNNING first. The database lives in containers,
@@ -25,6 +30,17 @@ pnpm dev               # http://localhost:3000
 ```
 
 To stop: `pnpm db:stop`. Your data survives a stop; `pnpm db:reset` wipes it.
+
+**An empty app is hard to judge.** To fill it with something real:
+
+```bash
+pnpm db:seed     # a 300-paper systematic review and a small thesis
+```
+
+Then sign in as `demo@test.dev`. The review has a 20-field protocol, a
+half-screened library, papers waiting in reconciliation and 5,553 answers —
+which is the shape these screens are actually designed for, and nothing like
+what four rows of test data looks like.
 
 ### Signing in — the thing that catches everyone
 
@@ -76,8 +92,15 @@ If you want to see everything the app can do, create a **SYSTEMATIC_REVIEW**.
 
 ## 3. The workflow, in order
 
-Every screen below is reachable from the project page. There is no wizard; you
-move between stages yourself.
+Every screen is in the bar at the top of a project, which also tells you which
+project and which section you are in. The project's own overview page carries
+the same list grouped by stage — Collect, Screen, Extract, Synthesise — with
+live counts, and names **one next action** based on what the project actually
+needs: an empty library asks you to find papers, unscreened papers ask you to
+screen, and so on through protocol, reconciliation and evidence.
+
+So there is no wizard, and you do not need one: the overview always answers
+"what now" from the project's real state rather than from a checklist.
 
 ### Stage 1 — Get papers in
 
@@ -99,6 +122,13 @@ Both land papers in the **Library**.
 **`Screen`** — one paper at a time: include or exclude. In a systematic review
 you must give a reason to exclude, from a controlled list — that list is what
 the PRISMA diagram is built from later.
+
+Screening three hundred papers with a mouse is the most repetitive thing this
+product asks of anyone, so it works from the keyboard: **`i`** include,
+**`e`** exclude, **`s`** skip, **`1`**–**`9`** to pick an exclusion reason,
+**`?`** for the list. Decisions apply immediately rather than waiting for the
+server; if one is refused — because a colleague decided the same paper first —
+the paper comes back with an explanation naming it.
 
 You can **assign** a paper to a specific person here. Assigned papers show up
 in that person's **`Queue`** (top nav). If several people screen at once, each
@@ -132,9 +162,15 @@ Two rules will stop you later, by design:
 Both exist so two exports of the same review never disagree about what a column
 means. Make a new protocol version instead.
 
-**`Extract`** (from a paper in the Library) — answer the protocol for that
-paper. Save drafts as you go. **Submitting freezes it**; reopen it as a draft
-to edit again.
+**`Extract`** (from a paper in the Library) — the paper on the left, the
+questions on the right, so you are not scrolling between them once per field.
+A header counts how many of the questions you have answered and says plainly
+when there are changes you have not saved — this form does **not** autosave, on
+purpose, so a half-typed number never becomes a recorded answer.
+
+Save drafts as you go. **Submitting freezes it**; reopen it as a draft to edit
+again. If a required field is still empty, submitting names every one of them
+at once, each a link straight to the field.
 
 ### Stage 5 — See the results
 
@@ -143,10 +179,16 @@ columns.
 
 - click any column header to sort (it sorts numbers as numbers)
 - filter and group by any field
+- **Columns** — choose which of the protocol's fields are shown. Twenty columns
+  is rarely the five you care about today. The choice lives in the URL, so a
+  narrowed table is a link you can send to a supervisor; it does not survive to
+  your next visit, which needs somewhere per-person to store it. *Desktop only
+  — see §6.*
 - a cell in *italic dash* is unanswered — an incomplete row looks incomplete
 - a **dotted-underlined** cell was quoted; click it to open the paper at that
   exact passage, and it will tell you if the passage no longer exists
-- **Export CSV / Export Excel** — exports exactly what your filters show
+- **Export CSV / Export Excel** — exports exactly what your filters *and
+  columns* show
 
 Column headers in the export are the field **keys** (`sample_size`), not the
 labels, so scripts that read the file keep working when someone rewords a
@@ -226,6 +268,14 @@ version.
 **"This extraction has been submitted."** Reopen it as a draft first.
 
 **An exclusion that will not save.** Systematic reviews require a reason.
+
+**No Columns button on a phone.** Deliberate, and half of it is an admission.
+Choosing among twenty columns is a desktop-shaped problem — on a phone the
+table scrolls sideways whatever you do. It is also containment: with that
+control present on a narrow layout, a cell link elsewhere in the table became
+unclickable, and five separate explanations for that turned out to be wrong.
+The `?cols=` link still works on any screen; only the button is desktop-only.
+`docs/BUILD-LOG.md` has the whole story.
 
 ---
 

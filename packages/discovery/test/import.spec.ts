@@ -11,6 +11,7 @@ import {
   parseRis,
   splitBibtexAuthors,
 } from "../src/import";
+import { parseWorkInput } from "../src/types";
 
 /**
  * These fixtures are shaped like real exports, not like the tidy examples in
@@ -342,5 +343,52 @@ describe("deLatex nesting", () => {
 
   it("keeps an accented letter inside a formatting command", () => {
     expect(deLatex('\\emph{Sch{\\"o}nberg}')).toBe("Schönberg");
+  });
+});
+
+describe("the boundary check", () => {
+  /**
+   * `workInputSchema` sat in this package for months deriving a type and
+   * validating nothing, which is how five external APIs and any pasted file
+   * reached `upsert_work()` with only a compile-time cast between them and the
+   * database. These assertions exist so that cannot quietly become true again.
+   */
+  it("accepts a well-formed work", () => {
+    expect(
+      parseWorkInput({
+        title: "A perfectly ordinary paper",
+        authors: [{ name: "Okonkwo, A." }],
+        publishedYear: 2021,
+      }),
+    ).not.toBeNull();
+  });
+
+  it("rejects a work with no title", () => {
+    // The single most common shape of a bad record: a provider answering 200
+    // with an error document, or a converter that found no title field.
+    expect(parseWorkInput({ title: "", authors: [] })).toBeNull();
+    expect(parseWorkInput({ authors: [] })).toBeNull();
+  });
+
+  it("rejects an impossible publication year", () => {
+    // 20024 is a typo away from 2002 and survives every type check there is.
+    expect(parseWorkInput({ title: "Ok", authors: [], publishedYear: 20024 })).toBeNull();
+  });
+
+  it("rejects authors that are not a list of authors", () => {
+    expect(parseWorkInput({ title: "Ok", authors: "Okonkwo, A." })).toBeNull();
+    expect(parseWorkInput({ title: "Ok", authors: [{ nome: "wrong key" }] })).toBeNull();
+  });
+
+  it("reports a rejected entry rather than dropping it silently", () => {
+    // The import path's contract: one bad record costs that record, and the
+    // person is told which. Silence would leave them counting rows.
+    const { entries, problems } = importBibtex(`
+      @article{good, title = {A real title}, author = {Okonkwo, A.}, year = {2021}}
+      @article{bad, author = {Nobody}, year = {2021}}
+    `);
+
+    expect(entries).toHaveLength(1);
+    expect(problems.join(" ")).toMatch(/bad/);
   });
 });

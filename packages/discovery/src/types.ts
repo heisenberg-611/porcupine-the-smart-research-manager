@@ -45,6 +45,32 @@ export const workInputSchema = z.object({
 
 export type WorkInput = z.infer<typeof workInputSchema>;
 
+/**
+ * Check a work at the boundary, rather than trusting the type.
+ *
+ * `workInputSchema` existed for a long time and validated nothing: its only
+ * job was to be the source of the `WorkInput` type via `z.infer`. That reads
+ * as a control and is not one — `WorkInput` is erased at compile time, so five
+ * external APIs and any pasted BibTeX reached `upsert_work()` with nothing
+ * between them and the database except a cast.
+ *
+ * NOT a security boundary, and it should not be mistaken for one.
+ * `upsert_work()` takes jsonb through a bound parameter, so injection was
+ * never the risk. What this prevents is a provider changing its payload — or
+ * answering 200 with an error document — and silently writing rows with no
+ * title, a publication year of 20024, or an author field that is a string
+ * where an array belongs. Those survive as permanent corpus entries and are
+ * found much later, by a person.
+ *
+ * Returns null rather than throwing, because every caller already has a way to
+ * report one bad record without failing the batch: `problems` on an import,
+ * `failures` on a search. One malformed record should cost that record.
+ */
+export function parseWorkInput(value: unknown): WorkInput | null {
+  const result = workInputSchema.safeParse(value);
+  return result.success ? result.data : null;
+}
+
 export const PROVIDER_IDS = [
   "openalex",
   "crossref",
