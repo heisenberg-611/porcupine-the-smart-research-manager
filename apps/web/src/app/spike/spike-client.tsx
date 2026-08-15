@@ -6,6 +6,7 @@ import { stex } from "@codemirror/legacy-modes/mode/stex";
 import { githubDark, githubLight } from "@uiw/codemirror-theme-github";
 import CodeMirror from "@uiw/react-codemirror";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Prec } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
 import type { KeyBinding } from "@codemirror/view";
 
@@ -43,6 +44,11 @@ const COMPILE_KEY: KeyBinding = {
   preventDefault: true,
 };
 
+const SPLIT_KEY = "porcupine.latex.split";
+/** Neither pane is useful below a fifth of the width. */
+const MIN_SPLIT = 20;
+const MAX_SPLIT = 80;
+
 /** Set by the component; the keymap is created once, outside React. */
 let compileFromKeyboard: () => void = () => {};
 
@@ -78,6 +84,43 @@ export function SpikeClient() {
   const [packagesToken, setPackagesToken] = useState("0:0");
   const [showPackages, setShowPackages] = useState(false);
   const [wrap, setWrap] = useState(true);
+  /** Editor width as a percentage of the split. Dragged, and remembered. */
+  const [split, setSplit] = useState(50);
+  const [dragging, setDragging] = useState(false);
+  const panes = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const saved = Number(localStorage.getItem(SPLIT_KEY));
+    if (Number.isFinite(saved) && saved >= MIN_SPLIT && saved <= MAX_SPLIT) {
+      setSplit(saved);
+    }
+  }, []);
+
+  const moveSplit = useCallback((next: number) => {
+    const clamped = Math.min(MAX_SPLIT, Math.max(MIN_SPLIT, next));
+    setSplit(clamped);
+    try {
+      localStorage.setItem(SPLIT_KEY, String(Math.round(clamped)));
+    } catch {
+      // The split still moves; it just will not be remembered.
+    }
+  }, []);
+
+  /*
+   * Pointer capture, not window listeners.
+   *
+   * Capture keeps the events coming to the handle even when the pointer leaves
+   * it — which it always does, since dragging means moving away from where you
+   * started — and it ends cleanly if the pointer is lost.
+   */
+  const onDrag = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (!dragging || !panes.current) return;
+      const box = panes.current.getBoundingClientRect();
+      moveSplit(((event.clientX - box.left) / box.width) * 100);
+    },
+    [dragging, moveSplit],
+  );
 
   /*
    * Built once, not per render.
@@ -98,7 +141,15 @@ export function SpikeClient() {
         closeOnBlur: true,
       }),
       closeEnvironmentOnBrace,
-      keymap.of([COMPILE_KEY]),
+      /*
+       * Highest precedence, or it does nothing.
+       *
+       * CodeMirror's own `defaultKeymap` — which `basicSetup` installs —
+       * already binds Mod-Enter, to `insertBlankLine`. Extensions passed after
+       * basicSetup sit at LOWER precedence, so the default won every time and
+       * Cmd-Enter quietly added a blank line instead of compiling.
+       */
+      Prec.highest(keymap.of([COMPILE_KEY])),
       ...(wrap ? [EditorView.lineWrapping] : []),
     ],
     [wrap],
@@ -314,10 +365,13 @@ export function SpikeClient() {
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+      <div ref={panes} className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <section
           aria-label="LaTeX source"
-          className="border-rule flex min-h-0 flex-1 border-b lg:border-r lg:border-b-0"
+          // The basis only means anything once the panes sit side by side; on
+          // a narrow screen they stack and each takes half the height.
+          style={{ flexBasis: `${split}%` }}
+          className="border-rule flex min-h-0 flex-1 border-b lg:flex-none lg:border-r lg:border-b-0"
         >
           <FileTree
             files={files}
@@ -399,6 +453,53 @@ export function SpikeClient() {
           </div>
         </section>
 
+        {/*
+          The handle between the panes.
+
+          A `separator` with a value, not a bare div: dragging is a pointer
+          gesture, and this would otherwise be the only control on the screen
+          that cannot be worked without one. Arrows move it, Home and End throw
+          it to either extreme, double-click evens the panes up.
+        */}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize the editor and preview"
+          aria-valuenow={Math.round(split)}
+          aria-valuemin={MIN_SPLIT}
+          aria-valuemax={MAX_SPLIT}
+          tabIndex={0}
+          onPointerDown={(e) => {
+            e.currentTarget.setPointerCapture(e.pointerId);
+            setDragging(true);
+          }}
+          onPointerMove={onDrag}
+          onPointerUp={(e) => {
+            e.currentTarget.releasePointerCapture(e.pointerId);
+            setDragging(false);
+          }}
+          onKeyDown={(e) => {
+            const step = e.shiftKey ? 10 : 2;
+            if (e.key === "ArrowLeft") moveSplit(split - step);
+            else if (e.key === "ArrowRight") moveSplit(split + step);
+            else if (e.key === "Home") moveSplit(MIN_SPLIT);
+            else if (e.key === "End") moveSplit(MAX_SPLIT);
+            else return;
+            e.preventDefault();
+          }}
+          onDoubleClick={() => moveSplit(50)}
+          title="Drag to resize · double-click to even them up"
+          className={cx(
+            "hidden shrink-0 cursor-col-resize items-center justify-center lg:flex",
+            // A one-pixel rule would be a one-pixel target. The bar is wider
+            // than it looks and the visible line sits inside it.
+            "focus-visible:ring-accent w-2 focus-visible:ring-2 focus-visible:outline-none",
+            dragging ? "bg-accent/20" : "hover:bg-accent/10",
+          )}
+        >
+          <span aria-hidden className="bg-rule h-8 w-px" />
+        </div>
+
         <section
           aria-label="PDF preview"
           className="bg-surface flex min-h-0 flex-1 flex-col"
@@ -413,6 +514,10 @@ export function SpikeClient() {
                 // and a screen reader announces it as "frame".
                 title="Compiled PDF"
                 src={outcome.pdfUrl}
+                // An iframe eats pointer events, so a drag that crossed into
+                // the preview simply stopped. Disabling them for the duration
+                // is what lets the handle travel the whole width.
+                style={dragging ? { pointerEvents: "none" } : undefined}
                 className="border-border bg-raised mx-auto h-full w-full max-w-[850px] border"
               />
             ) : (
@@ -448,4 +553,8 @@ function describe(status: string): string {
     default:
       return status;
   }
+}
+
+function cx(...parts: Array<string | false | null | undefined>) {
+  return parts.filter(Boolean).join(" ");
 }

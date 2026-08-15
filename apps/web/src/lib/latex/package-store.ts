@@ -21,7 +21,7 @@
  * directly, so the megabytes never cross a postMessage boundary.
  */
 
-import { FILES, META, openLatexDb, runTx } from "./idb";
+import { FILES, META, openLatexDb, openLatexDbForReading, runTx } from "./idb";
 
 /**
  * Thirty days, then gone.
@@ -148,9 +148,20 @@ export async function putFiles(
   return files.size;
 }
 
-/** Every stored file, for the engine's virtual filesystem. */
+/**
+ * Every stored file, for the engine's virtual filesystem.
+ *
+ * Called from the compile worker, which is why it reads without naming a
+ * version and tolerates the store not existing — a browser that has never had
+ * a package uploaded has no `files` store, and that is not an error.
+ */
 export async function loadAll(): Promise<Map<string, Uint8Array>> {
-  const db = await openLatexDb();
+  const db = await openLatexDbForReading();
+
+  if (!db.objectStoreNames.contains(FILES)) {
+    db.close();
+    return new Map();
+  }
 
   const files = await runTx(db, [FILES], "readonly", (tx) => {
     const map = new Map<string, Uint8Array>();

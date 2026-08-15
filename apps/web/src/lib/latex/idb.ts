@@ -18,6 +18,12 @@ export const META = "meta";
 /** The user's own document: every file in the project, keyed by path. */
 export const PROJECT = "project";
 
+/**
+ * Open for writing, creating or upgrading the stores.
+ *
+ * Only the page does this. See `openLatexDbForReading` for why the worker
+ * must not.
+ */
 export function openLatexDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -29,6 +35,29 @@ export function openLatexDb(): Promise<IDBDatabase> {
       }
     };
 
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error ?? new Error("IndexedDB refused"));
+  });
+}
+
+/**
+ * Open whatever version already exists, without asking for one.
+ *
+ * The compile worker only READS. Naming a version there is not merely
+ * unnecessary, it is a bug waiting for a schema change: the worker is built by
+ * a separate esbuild step, so a stale bundle can outlive the page that
+ * upgraded the database, and `indexedDB.open` with a version lower than the
+ * stored one fails outright — "The requested version (1) is less than the
+ * existing version (2)", reported to the user as a compiler error, which it
+ * is not.
+ *
+ * Omitting the version opens the current one whatever it is, and can never
+ * trigger an upgrade or a downgrade error. A reader that finds a store missing
+ * treats it as empty, which is the truth.
+ */
+export function openLatexDbForReading(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME);
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error ?? new Error("IndexedDB refused"));
   });

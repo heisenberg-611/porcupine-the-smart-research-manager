@@ -40,6 +40,10 @@ export function FileTree({
 }) {
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
+  const [editingName, setEditingName] = useState<string | null>(null);
+  const [rename, setRename] = useState("");
+  /** Deleting takes two clicks. There is no undo behind it. */
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const upload = useRef<HTMLInputElement>(null);
 
   const names = [...files.keys()].sort((a, b) => a.localeCompare(b));
@@ -59,24 +63,24 @@ export function FileTree({
     <div className="border-rule bg-surface/60 flex w-52 shrink-0 flex-col border-r">
       <div className="border-rule flex items-center justify-between gap-1 border-b px-2 py-1.5">
         <span className="text-muted text-fine font-medium">Files</span>
-        <span className="flex items-center gap-1">
+        <span className="flex items-center gap-2">
+          {/* Words, not glyphs. `+` and `↑` are guessable and this panel has
+              room for the answer; a symbol whose meaning has to be hovered for
+              is the same mistake as a button that only appears on hover. */}
           <button
             type="button"
             onClick={() => setAdding((v) => !v)}
-            aria-label="New file"
-            title="New file"
-            className="text-muted hover:text-ink focus-visible:ring-accent rounded px-1.5 focus-visible:ring-2 focus-visible:outline-none"
+            className="text-muted hover:text-ink focus-visible:ring-accent text-fine rounded px-1 py-0.5 focus-visible:ring-2 focus-visible:outline-none"
           >
-            +
+            New
           </button>
           <button
             type="button"
             onClick={() => upload.current?.click()}
-            aria-label="Upload figures or data"
-            title="Upload figures or data"
-            className="text-muted hover:text-ink focus-visible:ring-accent rounded px-1.5 focus-visible:ring-2 focus-visible:outline-none"
+            title="Add figures, data, or .tex files from your machine"
+            className="text-muted hover:text-ink focus-visible:ring-accent text-fine rounded px-1 py-0.5 focus-visible:ring-2 focus-visible:outline-none"
           >
-            ↑
+            Upload
           </button>
           <input
             ref={upload}
@@ -111,9 +115,39 @@ export function FileTree({
           const current = name === active;
           const isRoot = name === entry;
           const editable = isEditable(name) && isText(files.get(name)!);
+          const renaming = editingName === name;
+
+          if (renaming) {
+            return (
+              <li key={name} className="px-1 py-0.5">
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const next = rename.trim();
+                    if (next && next !== name) onRename(name, next);
+                    setEditingName(null);
+                  }}
+                >
+                  {/* An inline field, not `prompt()`. A native prompt blocks
+                      the whole page, cannot be styled or cancelled with Escape
+                      in the usual way, and is suppressed outright in some
+                      browsers — a rename that silently does nothing. */}
+                  <input
+                    autoFocus
+                    value={rename}
+                    onChange={(e) => setRename(e.target.value)}
+                    onKeyDown={(e) => e.key === "Escape" && setEditingName(null)}
+                    onBlur={() => setEditingName(null)}
+                    aria-label={`Rename ${name}`}
+                    className="border-accent bg-raised text-ink text-fine w-full rounded border px-2 py-1 font-mono"
+                  />
+                </form>
+              </li>
+            );
+          }
 
           return (
-            <li key={name} className="group flex items-center">
+            <li key={name} className="flex items-center gap-0.5 pr-1">
               <button
                 type="button"
                 onClick={() => editable && onOpen(name)}
@@ -121,7 +155,7 @@ export function FileTree({
                 aria-current={current ? "true" : undefined}
                 title={editable ? name : `${name} — binary, carried but not editable`}
                 className={cx(
-                  "text-fine focus-visible:ring-accent min-w-0 flex-1 truncate px-2 py-1 text-left font-mono",
+                  "text-fine focus-visible:ring-accent min-w-0 flex-1 truncate px-2 py-1.5 text-left font-mono",
                   "focus-visible:ring-2 focus-visible:outline-none",
                   current ? "bg-accent-soft text-ink" : "text-muted",
                   editable ? "hover:text-ink hover:bg-surface" : "cursor-default italic",
@@ -137,51 +171,103 @@ export function FileTree({
                 {name}
               </button>
 
-              {/* Kept out of the way until the row is touched: eight rows each
-                  carrying three permanent buttons is a toolbar, not a list. */}
-              <span className="flex opacity-0 group-focus-within:opacity-100 group-hover:opacity-100">
-                {!isRoot && editable && name.endsWith(".tex") && (
-                  <button
-                    type="button"
-                    onClick={() => onSetEntry(name)}
-                    aria-label={`Compile ${name} as the root document`}
-                    title="Make this the root document"
-                    className="text-muted hover:text-accent px-1"
-                  >
-                    ▸
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = prompt("Rename to", name);
-                    if (next && next !== name) onRename(name, next);
-                  }}
-                  aria-label={`Rename ${name}`}
-                  className="text-muted hover:text-ink px-1"
+              {/*
+                Always visible, and that is a correction.
+
+                These were revealed on hover, on the reasoning that a permanent
+                three-button strip per row reads as a toolbar rather than a
+                list. It does — and it is still the wrong trade: a control you
+                cannot see is a control that does not exist, hover does not
+                happen at all on a touch screen, and the first person to use
+                this asked where the delete button was. Quiet until pointed at
+                is as far as this should go.
+              */}
+              {!isRoot && editable && name.endsWith(".tex") && (
+                <IconButton
+                  label={`Make ${name} the root document`}
+                  onClick={() => onSetEntry(name)}
+                  hover="hover:text-accent"
                 >
-                  ✎
-                </button>
-                {!isRoot && (
-                  <button
-                    type="button"
-                    onClick={() => onDelete(name)}
-                    aria-label={`Delete ${name}`}
-                    className="text-muted hover:text-danger px-1"
-                  >
-                    ×
-                  </button>
-                )}
-              </span>
+                  ▸
+                </IconButton>
+              )}
+              <IconButton
+                label={`Rename ${name}`}
+                onClick={() => {
+                  setEditingName(name);
+                  setRename(name);
+                }}
+                hover="hover:text-ink"
+              >
+                ✎
+              </IconButton>
+              <IconButton
+                label={
+                  isRoot
+                    ? `${name} is the root document and cannot be deleted`
+                    : `Delete ${name}`
+                }
+                // Shown rather than hidden on the root: an absent button asks
+                // the reader to work out why, and "you cannot delete the file
+                // being compiled" is the answer.
+                disabled={isRoot}
+                onClick={() => {
+                  if (confirmDelete === name) {
+                    onDelete(name);
+                    setConfirmDelete(null);
+                  } else {
+                    setConfirmDelete(name);
+                  }
+                }}
+                hover="hover:text-danger"
+                active={confirmDelete === name}
+              >
+                {confirmDelete === name ? "sure?" : "×"}
+              </IconButton>
             </li>
           );
         })}
       </ul>
 
       <p className="border-rule text-muted text-fine border-t px-2 py-1.5">
-        {names.length} {names.length === 1 ? "file" : "files"}
+        {names.length} {names.length === 1 ? "file" : "files"} · ▸ is the root
       </p>
     </div>
+  );
+}
+
+/** A small, always-visible row action with a real accessible name. */
+function IconButton({
+  label,
+  onClick,
+  children,
+  hover,
+  disabled = false,
+  active = false,
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+  hover: string;
+  disabled?: boolean;
+  active?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      className={cx(
+        "text-fine focus-visible:ring-accent shrink-0 rounded px-1.5 py-1 transition-colors",
+        "focus-visible:ring-2 focus-visible:outline-none",
+        disabled ? "text-muted/40 cursor-not-allowed" : `text-muted ${hover}`,
+        active && "text-danger bg-danger-soft",
+      )}
+    >
+      {children}
+    </button>
   );
 }
 
