@@ -1546,3 +1546,95 @@ stating plainly rather than implying the signature prevents more than it does.
   are the next thing, and they need an unlock flow — `rewrapIdentity` from week
   1 is still uncalled for the same reason.
 - `devices` remains unread; week 4.
+
+---
+
+## 2026-08-15 · Phase 3 week 3a — unlock, and the first key written outside a test
+
+Two weeks of correct cryptography were called by nothing. This is the week it
+became reachable, and it was taken before messages deliberately: an unlock flow
+is the thing standing between the key hierarchy and anything a person can see.
+
+### Shipped
+
+**`/unlock`** — a route, not a dialog. Unlocking is consequential and
+occasionally slow, and a modal over whatever you were doing is the wrong shape
+for both. A route is bookmarkable, survives a reload, takes a `next`, and needs
+no focus trap. Same-site `next` only: an open redirect on the page that asks
+for the passphrase would be a bad one to have.
+
+**The unlocked identity lives in memory, in one React tree, and nowhere else.**
+Not localStorage, not sessionStorage. That costs a re-unlock on every reload
+and in every new tab, which the UI says out loud rather than leaving to be
+discovered. Anything that would fix it stores private keys where an XSS bug
+could read them, which would make "end-to-end" mean noticeably less than the
+person reading it assumes. Device registration is the real answer and is week 4
+— it is why week 1 put a Master Key in the middle of the hierarchy at all.
+
+**The v1 → v2 migration is finally called.** Week 1 wrote `rewrapIdentity` with
+nothing invoking it, which is exactly how a migration quietly stops working.
+Unlock now upgrades a v1 bundle in place — and a failed upgrade does not block
+the unlock, because the keys in hand are correct either way and turning a
+housekeeping write into an outage would be a poor trade.
+
+**`project_keys` gets its first rows outside a test**, through a screen that
+creates an epoch, seals it to every member who can hold one, and opens its own
+wrap while verifying who sealed it.
+
+### The bug in the schema's own default
+
+`projects.current_key_epoch` defaulted to **1**, so a brand-new project claimed
+to be at epoch 1 while holding no keys. Every caller then needs a special case:
+is this the first provisioning, which writes 1, or a rotation, which writes 2?
+The column alone cannot say.
+
+Answering it from `project_keys` does not work, and the reason is worth
+recording: that table's SELECT policy is `user_id = current_user_id()`, so a
+member counting rows sees only their **own** wraps. A member not yet given a
+key counts zero, concludes the project was never provisioned, writes epoch-1
+wraps for everybody and collides with the existing ones. RLS doing exactly its
+job turns a convenient query into a wrong answer.
+
+The default is 0 now, meaning "none", and the rule has no branches: the next
+epoch is always `current + 1`. The server decides it and the client signs what
+it is told — the epoch is inside the signed context, so if the two disagreed
+the recipient would see a forgery, which is the correct failure and a baffling
+one.
+
+### Verification
+
+Seven end-to-end assertions, and the one that matters most is
+**`the passphrase never leaves the browser`**: every request the page makes
+while unlocking is captured and searched for it. Also asserted: a wrong
+passphrase is refused rather than producing wrong keys; a member opens their
+own wrap and the signature verifies against the member who made it; rotation
+adds an epoch and the previous one still opens; and a reload locks it again,
+because nothing is persisted.
+
+That last one is a test for a *limitation*. It will be deleted in week 4, and
+until then it stops the limitation being forgotten.
+
+### Problems
+
+**A stale Prisma client cost a debugging cycle.** The migration changed the
+default to 0, the database agreed, and projects were still created at 1 —
+because Prisma emits `@default()` values from the generated client, and it had
+not been regenerated. `pnpm db:generate` is not part of `pnpm verify`, which is
+worth knowing.
+
+**`getMyProjectKeys` became unused within an hour of being written**, once
+`getKeyState` subsumed it. Deleted rather than left — that is the exact pattern
+this session has spent a day removing elsewhere.
+
+**Playwright's browser binary vanished mid-session**, unrelated to any change
+here; every test failed at 0 ms with a launch error. Recorded only because
+"everything fails instantly" looks alarming and means the environment, not the
+code.
+
+### Open
+
+- Messages. The envelope and schema are next, and they now have a key to use.
+- `devices` is still read by nothing. Week 4, and it is what removes the
+  re-unlock.
+- Argon2id still runs on the main thread. One call behind a disabled button,
+  noted in the crypto package since Phase 0, still owed a Web Worker.
