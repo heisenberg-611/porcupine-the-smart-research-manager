@@ -1638,3 +1638,78 @@ code.
   re-unlock.
 - Argon2id still runs on the main thread. One call behind a disabled button,
   noted in the crypto package since Phase 0, still owed a Web Worker.
+
+---
+
+## 2026-08-15 · Phase 3 week 3b — two people, one encrypted conversation
+
+### Shipped
+
+Channels and messages, encrypted in the browser under the project key for an
+epoch. A messages screen, an `/unlock`-gated key hook shared with the
+encryption screen, and an end-to-end test in which **Bob reads Alice's message
+using his own identity and his own copy of the key**.
+
+### The assertion the rest of it exists for
+
+Everything else could pass while the product leaked. The test that decides it
+reads Postgres directly, as `postgres`, over `psql` — not through PostgREST —
+and asserts the plaintext is not in `messages.ciphertext` or in
+`channels.name_ct`. That is the view an operator, a backup or a subpoena gets,
+with RLS not merely satisfied but absent.
+
+Going through the API would have been easier and would have proved less: it
+tests a policy, not a property, and PostgREST's schema cache is a needless way
+for a claim like this to become flaky.
+
+The pgTAP suite has a sibling assertion — **no `text` or `varchar` column
+exists on either table** — because the realistic way an end-to-end claim gets
+quietly broken is a helpful `body_preview` or `search_text` added later by
+someone who did not know.
+
+### Two browsers, not one
+
+A single-browser round trip proves almost nothing: the same code encrypted and
+decrypted, so a bug that consistently used the wrong key would pass. Two
+members, two enrolments, two passphrases, one project key sealed separately to
+each is the actual chain — and the first test asserts the wrap count is **two**,
+because a key sealed only to its creator is not a shared key.
+
+### What is deliberately missing
+
+**Live delivery.** Nothing pushes. The v6 replan found Supabase Realtime bills
+per delivered message *per subscriber*, which makes a socket per member per
+channel the most expensive thing this product could switch on, and polling is
+the same bill in a different shape. What is here instead: a refetch when the
+tab regains focus, and an explicit Refresh. That covers the case that actually
+happens — you were reading something else, you come back — without a
+subscription. Live delivery arrives when someone has decided what it is worth.
+
+**Metadata.** Who wrote what, when, in which channel, and roughly how long it
+was, are all columns and lengths. The migration says so in its header rather
+than letting "end-to-end encrypted" imply more than it does.
+
+### Problems
+
+**The test hit the in-memory session working as designed.** `page.goto` is a
+full load, so Alice arrived at the messages screen locked. Fixed by clicking
+the nav link — client-side navigation — which is also what a person does. Worth
+recording because it is the first time the cost of not persisting keys showed
+up as a *behaviour* rather than a paragraph.
+
+**Alice never saw Bob's reply**, which is how the missing refetch was found
+rather than shipped. A conversation that only updates on a route change is a
+conversation people would assume was broken.
+
+**Prisma and the SQL disagreed three ways** before `db:diff` was quiet: a
+database default on an id that must be client-generated, `timestamptz` versus
+`timestamptz(3)`, and FK actions — Prisma emits `ON UPDATE CASCADE` and
+`RESTRICT` for a required relation, my hand-written SQL emitted neither. None
+of it was interesting, all of it would have been drift.
+
+### Open
+
+- Live delivery, costed rather than assumed.
+- Member removal does not yet rotate the epoch. The rotation path exists and is
+  tested; nothing calls it when a member leaves.
+- `devices` is still unread — week 4, and it is what removes the re-unlock.

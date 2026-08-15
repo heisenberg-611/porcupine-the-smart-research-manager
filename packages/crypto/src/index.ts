@@ -7,3 +7,4 @@
 export * from "./identity";
 export { toBase64, fromBase64 } from "./encoding";
 export * from "./project-key";
+export * from "./message";
