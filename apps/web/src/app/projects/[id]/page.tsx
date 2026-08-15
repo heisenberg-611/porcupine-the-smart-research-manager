@@ -137,7 +137,13 @@ export default async function ProjectPage({
     papers === 0
       ? {
           href: sectionHref(id, "search"),
-          label: "Find papers",
+          // NOT "Find papers", which is what the nav link and the Collect
+          // section card are both already called — three links to one
+          // destination on one page, and Playwright's strict mode was right
+          // to call it ambiguous. Every other next-action here names the
+          // ACTION rather than the screen ("Continue screening", "Build the
+          // protocol"); this one had drifted into naming the screen.
+          label: "Find your first papers",
           why: "The library is empty.",
         }
       : unscreened > 0

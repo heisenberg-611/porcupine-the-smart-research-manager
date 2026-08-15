@@ -190,7 +190,12 @@ test.describe("Phase 0 exit criterion", () => {
   test("search page is reachable, accessible, and degrades on provider failure", async () => {
     await page.goto("/projects");
     await page.getByRole("link", { name: /transformer efficiency/i }).click();
-    await page.getByRole("link", { name: /find papers/i }).click();
+    // Anchored. A project page legitimately offers this destination more than
+    // once now — the section nav, the workspace directory, and (on an empty
+    // library) the recommended next action — and an unanchored regex matches
+    // an accessible name by substring, so it caught all three. The nav link is
+    // the stable one.
+    await page.getByRole("link", { name: /^find papers$/i }).click();
 
     await expect(page.getByRole("heading", { name: /find papers/i })).toBeVisible();
     await expect(page.getByLabel(/search terms/i)).toBeVisible();

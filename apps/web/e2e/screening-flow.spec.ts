@@ -144,23 +144,35 @@ test.describe("screening at speed", () => {
 
     const first = await page.locator("article h2").innerText();
 
-    // Block the server action so it cannot possibly have answered, then
-    // decide. If the queue still advances, it advanced optimistically —
-    // which is the whole claim. Without the route block this test passes
-    // against a blocking implementation too, on a fast local server.
+    /*
+     * Hold the server action open so it cannot possibly have answered, then
+     * decide. If the queue still advances, it advanced optimistically — which
+     * is the whole claim. Without this, the test passes against a blocking
+     * implementation too, on a fast local server.
+     *
+     * Scoped to POST and wrapped in try/finally, both learned from CI. A
+     * server action posts to the CURRENT url, so an unscoped `**\/screen`
+     * route also intercepts the page's own document and RSC requests; and an
+     * unroute that only runs on success leaks the interception into the next
+     * test, because these tests share one page. In CI that took down the
+     * shortcut test two cases later with an error naming neither.
+     */
     await page.route("**/screen", (route) => {
+      if (route.request().method() !== "POST") return route.continue();
       setTimeout(() => route.continue(), 3000);
     });
 
-    await page.getByRole("button", { name: /^include$/i }).click();
+    try {
+      await page.getByRole("button", { name: /^include$/i }).click();
 
-    // 250 ms is far below the 3 s the action is being held for, and well
-    // above a render.
-    await page.waitForTimeout(250);
-    await expect(page.locator("article h2")).not.toHaveText(first);
-    await expect(page.getByText(/2 left/i)).toBeVisible();
-
-    await page.unroute("**/screen");
+      // 250 ms is far below the 3 s the action is being held for, and well
+      // above a render.
+      await page.waitForTimeout(250);
+      await expect(page.locator("article h2")).not.toHaveText(first);
+      await expect(page.getByText(/2 left/i)).toBeVisible();
+    } finally {
+      await page.unroute("**/screen");
+    }
   });
 
   test("and rolls the paper back when the server refuses", async () => {
@@ -169,21 +181,26 @@ test.describe("screening at speed", () => {
 
     const target = await page.locator("article h2").innerText();
 
-    // Fail the action outright. The decision must not survive as a silent
-    // success: the paper returns, the count returns, and the message names
-    // the paper rather than saying "something went wrong".
-    await page.route("**/screen", (route) => route.abort("failed"));
-    await page.getByRole("button", { name: /^include$/i }).click();
+    // Fail the action outright — POST only, so the page's own navigation and
+    // RSC requests still work, and in a try/finally so a failure here cannot
+    // leave the interception in place for the next test.
+    await page.route("**/screen", (route) =>
+      route.request().method() === "POST" ? route.abort("failed") : route.continue(),
+    );
 
-    // Scoped: Next ships its own empty role="alert" route announcer, and an
-    // unscoped getByRole("alert") resolves to that first and waits forever on
-    // an empty string.
-    const failure = page.locator("section p[role='alert']");
-    await expect(failure).toContainText(target, { timeout: 15_000 });
-    await expect(failure).toContainText(/back in the queue/i);
-    await expect(page.getByText(/2 left/i)).toBeVisible();
+    try {
+      await page.getByRole("button", { name: /^include$/i }).click();
 
-    await page.unroute("**/screen");
+      // Scoped: Next ships its own empty role="alert" route announcer, and an
+      // unscoped getByRole("alert") resolves to that first and waits forever on
+      // an empty string.
+      const failure = page.locator("section p[role='alert']");
+      await expect(failure).toContainText(target, { timeout: 15_000 });
+      await expect(failure).toContainText(/back in the queue/i);
+      await expect(page.getByText(/2 left/i)).toBeVisible();
+    } finally {
+      await page.unroute("**/screen");
+    }
   });
 
   test("shortcuts stay out of the way while a control is focused", async () => {
