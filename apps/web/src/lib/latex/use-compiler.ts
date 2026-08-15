@@ -35,9 +35,21 @@ export function useCompiler() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const instance = new Worker(new URL("./compile.worker.ts", import.meta.url), {
-      type: "module",
-    });
+    /*
+     * A static file, not a bundler-resolved module URL.
+     *
+     * `new Worker(new URL("./compile.worker.ts", import.meta.url))` is the
+     * webpack idiom and it does not work here: Turbopack treats
+     * `new URL(..., import.meta.url)` as an ASSET reference, so the build
+     * emitted the raw TypeScript — triple-slash directive, `import type`, bare
+     * specifiers and all — to `.next/static/media/compile.worker.<hash>.ts`.
+     * The browser could not parse it, the worker never started, and the only
+     * symptom was that nothing ever compiled.
+     *
+     * `scripts/build-latex-worker.mjs` bundles it instead, into the same
+     * directory as the TeX assets it loads.
+     */
+    const instance = new Worker("/latex/compile.worker.js", { type: "module" });
 
     instance.addEventListener("message", (event: MessageEvent<WorkerResponse>) => {
       const data = event.data;

@@ -89,17 +89,20 @@ async function ensureEngine(id: number): Promise<TexEngine> {
  * sat unused in `public/`. Returns the names nothing provides, so the UI can
  * say which package is genuinely unavailable rather than "compilation failed".
  */
-async function installFor(missing: readonly string[], id: number): Promise<string[]> {
-  if (missing.length === 0) return [];
+async function installFor(
+  missing: readonly string[],
+  id: number,
+): Promise<{ unsupported: string[]; installedCount: number }> {
+  if (missing.length === 0) return { unsupported: [], installedCount: 0 };
 
   if (!packIndex) {
     const response = await fetch(PACK_INDEX_URL);
-    if (!response.ok) return [...missing];
+    if (!response.ok) return { unsupported: [...missing], installedCount: 0 };
     packIndex = parsePackIndex(await response.json());
   }
 
   const { packs, unsupported } = resolveMissing(packIndex, missing, installed);
-  if (packs.length === 0) return unsupported;
+  if (packs.length === 0) return { unsupported, installedCount: 0 };
 
   post({
     kind: "progress",
@@ -113,7 +116,7 @@ async function installFor(missing: readonly string[], id: number): Promise<strin
     installed.push({ id: pack.id, hash: pack.hash });
   }
 
-  return unsupported;
+  return { unsupported, installedCount: packs.length };
 }
 
 async function compile(request: WorkerRequest): Promise<void> {
@@ -129,8 +132,14 @@ async function compile(request: WorkerRequest): Promise<void> {
   // second run picks up where the first stopped rather than starting cold.
   let unsupported: string[] = [];
   if (result.missingFiles.length > 0) {
-    unsupported = await installFor(result.missingFiles, id);
-    if (unsupported.length < result.missingFiles.length) {
+    // Only when something was actually installed. The first version retried
+    // whenever anything at all was missing, which meant a document needing no
+    // packs still paid for a second full typesetting pass — TeX asks for
+    // plenty of files it copes fine without.
+    const outcome = await installFor(result.missingFiles, id);
+    unsupported = outcome.unsupported;
+
+    if (outcome.installedCount > 0) {
       post({ kind: "progress", id, step: "Typesetting again with the new packages" });
       result = active.compile({ entry, synctex: true });
     }
