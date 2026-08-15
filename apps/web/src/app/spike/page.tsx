@@ -5,7 +5,7 @@ import { getCurrentUser } from "@/lib/supabase/server";
 
 import { SpikeClient } from "./spike-client";
 
-export const metadata: Metadata = { title: "LaTeX spike" };
+export const metadata: Metadata = { title: "LaTeX Studio" };
 
 export default async function SpikePage() {
   const user = await getCurrentUser();

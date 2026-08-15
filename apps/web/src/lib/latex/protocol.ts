@@ -74,6 +74,16 @@ export type FailedMessage = {
   kind: "failed";
   id: number;
   message: string;
+  /**
+   * The engine may be dead, not the document.
+   *
+   * A trap inside the wasm module tears down its stack without unwinding
+   * Rust, which leaves the session permanently borrowed — every later compile
+   * fails the same way, and nothing inside the module can recover it. The page
+   * responds by replacing the whole worker, which is the only thing that
+   * reliably frees the wasm memory too.
+   */
+  poisoned: boolean;
 };
 
 export type WorkerResponse = ProgressMessage | CompiledMessage | FailedMessage;

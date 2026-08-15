@@ -311,16 +311,30 @@ scope.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
   const request = event.data;
 
   void compile(request).catch((error: unknown) => {
-    // A poisoned engine cannot be recovered from the inside: the session stays
-    // borrowed and every later compile fails the same way. Discard it so the
-    // next attempt rebuilds, rather than reporting a document error for what
-    // is an engine error.
-    if (error instanceof EnginePoisonedError) engine = null;
+    /*
+     * Anything thrown out of here means the ENGINE failed, not the document.
+     *
+     * A document that TeX rejects comes back as `status: "failed"` through the
+     * normal path; it does not throw. So a throw is a trap in the wasm module,
+     * an out-of-memory, or a fetch that died — and after any of those the
+     * engine cannot be trusted, whether or not it announced itself as
+     * poisoned. Discarding it here is not enough on its own: a trap leaves the
+     * module's memory unreclaimable from the inside, which is why the page is
+     * told to replace this worker entirely.
+     */
+    engine = null;
+    packagesToken = null;
+
+    const poisoned =
+      error instanceof EnginePoisonedError ||
+      error instanceof WebAssembly.RuntimeError ||
+      error instanceof RangeError;
 
     post({
       kind: "failed",
       id: request.id,
       message: error instanceof Error ? error.message : "The compiler stopped.",
+      poisoned,
     });
   });
 });

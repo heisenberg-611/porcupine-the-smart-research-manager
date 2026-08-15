@@ -62,7 +62,7 @@ let compileFromKeyboard: () => void = () => {};
 
 const DEFAULT_TEX = `\\documentclass{article}
 \\begin{document}
-\\section{Compiled in this browser}
+\\section{Welcome to Porcupine LaTeX Studio}
 Tectonic (XeTeX) as WebAssembly. Nothing left the machine to typeset this.
 
 Math: $E = mc^2$
@@ -83,7 +83,7 @@ Edit the source and press Compile.
  * it saves nowhere but this browser.
  */
 export function SpikeClient() {
-  const { compile, busy, step, outcome, error } = useCompiler();
+  const { compile, busy, step, outcome, error, restart } = useCompiler();
   const [files, setFiles] = useState<ProjectFiles>(new Map());
   const [entry, setEntryState] = useState(DEFAULT_ENTRY);
   const [active, setActive] = useState(DEFAULT_ENTRY);
@@ -396,30 +396,45 @@ export function SpikeClient() {
 
   return (
     <div className="text-ink flex h-full flex-col overflow-hidden">
-      <header className="border-rule bg-surface flex shrink-0 flex-wrap items-center justify-between gap-3 border-b px-4 py-2">
-        <h1 className="text-ink text-ui font-medium">LaTeX studio — spike</h1>
+      <header className="border-rule bg-canvas flex h-14 shrink-0 flex-wrap items-center justify-between gap-3 border-b px-6 shadow-sm relative z-20">
+        <h1 className="text-ink text-sm font-semibold tracking-wide">Porcupine LaTeX Studio</h1>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           {/* Announced, not merely displayed: a compile can take fifteen
               seconds on a cold start and the only feedback used to be a
               disabled button. */}
-          <span aria-live="polite" className="text-muted text-fine">
+          <span aria-live="polite" className="text-muted text-xs font-mono font-medium bg-surface px-2 py-1 rounded border border-rule">
             {busy ? (step ?? "Working") : outcome ? describe(outcome.status) : "Ready"}
           </span>
           <Button
             variant="ghost"
-            className="border-border border"
+            className="hover:bg-accent/5 text-ink-soft transition-colors text-sm px-3 border border-transparent hover:border-rule shadow-sm"
             onClick={() => setShowPackages((v) => !v)}
             aria-expanded={showPackages}
           >
             Packages
           </Button>
+          {/* A way out that is not a page reload.
+              A wasm module that has trapped cannot be recovered from inside,
+              and one that has merely gone slow gives no signal at all. Both
+              are fixed by throwing the worker away — and the alternative
+              people reach for, reloading, loses the compile and the scroll
+              position for no extra benefit. */}
+          <Button
+            variant="ghost"
+            className="hover:bg-accent/5 text-ink-soft transition-colors text-sm px-3 border border-transparent hover:border-rule shadow-sm"
+            onClick={restart}
+            title="Throw away the TeX engine and start a fresh one"
+          >
+            Restart
+          </Button>
           <Button
             onClick={() => compile(asRecord(), entry, packagesToken)}
             disabled={busy}
             variant="primary"
+            className="shadow-sm transition-all active:scale-95 ml-2"
           >
-            {busy ? "Compiling…" : "Compile"}
+            {busy ? "Compiling…" : "Compile PDF"}
           </Button>
         </div>
       </header>
@@ -431,13 +446,13 @@ export function SpikeClient() {
         </div>
       )}
 
-      <div ref={panes} className="flex min-h-0 flex-1 flex-col lg:flex-row">
+      <div ref={panes} className="bg-surface flex min-h-0 flex-1 flex-col lg:flex-row">
         <section
           aria-label="LaTeX source"
           // The basis only means anything once the panes sit side by side; on
           // a narrow screen they stack and each takes half the height.
           style={{ flexBasis: `${split}%` }}
-          className="border-rule flex min-h-0 flex-1 border-b lg:flex-none lg:border-r lg:border-b-0"
+          className="border-rule bg-canvas relative z-10 flex min-h-0 flex-1 border-b shadow-[1px_0_10px_rgba(0,0,0,0.02)] lg:flex-none lg:border-b-0"
         >
           <div className="flex w-52 shrink-0 flex-col">
             <FileTree
@@ -486,17 +501,21 @@ export function SpikeClient() {
           </div>
 
           <div className="flex min-w-0 flex-1 flex-col">
-            <div className="border-rule bg-surface flex shrink-0 items-center justify-between gap-3 border-b px-4 py-1.5">
-              <span className="text-muted text-fine font-mono">
-                {active}
-                {active === entry && (
-                  <span className="text-accent" title="Root document">
-                    {" "}
-                    ▸ root
+            <div className="border-rule bg-canvas flex h-11 shrink-0 items-center justify-between gap-3 border-b pr-4 pl-2">
+              <div className="flex h-full items-center pt-1.5">
+                <div className="bg-raised border-rule border-t-accent border-b-raised relative z-10 -mb-[1px] flex h-full items-center gap-2 rounded-t-md border-x border-t-[3px] border-b px-4">
+                  <span className="text-ink font-mono text-sm font-medium">
+                    {active}
+                    {active === entry && (
+                      <span className="text-accent" title="Root document">
+                        {" "}
+                        ▸ root
+                      </span>
+                    )}
                   </span>
-                )}
-              </span>
-              <span className="text-muted text-fine flex items-center gap-3">
+                </div>
+              </div>
+              <span className="text-muted text-fine flex items-center gap-4">
                 {/* LaTeX paragraphs are often one very long line, so wrapping is
                   on by default — but anyone editing a table wants the columns
                   to stay put. */}
@@ -611,36 +630,41 @@ export function SpikeClient() {
           onDoubleClick={() => moveSplit(50)}
           title="Drag to resize · double-click to even them up"
           className={cx(
-            "hidden shrink-0 cursor-col-resize items-center justify-center lg:flex",
-            // A one-pixel rule would be a one-pixel target. The bar is wider
-            // than it looks and the visible line sits inside it.
-            "focus-visible:ring-accent w-2 focus-visible:ring-2 focus-visible:outline-none",
-            dragging ? "bg-accent/20" : "hover:bg-accent/10",
+            "group relative z-20 hidden shrink-0 cursor-col-resize items-center justify-center lg:flex",
+            "focus-visible:ring-accent w-3 transition-colors focus-visible:ring-2 focus-visible:outline-none",
+            dragging ? "bg-accent/10" : "hover:bg-accent/5",
           )}
         >
-          <span aria-hidden className="bg-rule h-8 w-px" />
+          {/* Visible Drag Handle */}
+          <div className="bg-rule group-hover:bg-accent group-focus-visible:bg-accent group-active:bg-accent flex h-8 w-1.5 flex-col items-center justify-center gap-1 rounded-full opacity-60 transition-colors group-hover:opacity-100" />
         </div>
 
         <section
           aria-label="PDF preview"
-          className="bg-surface flex min-h-0 flex-1 flex-col"
+          className="bg-surface z-10 flex min-h-0 flex-1 flex-col shadow-[-1px_0_10px_rgba(0,0,0,0.02)]"
         >
-          <p className="border-rule bg-surface text-muted text-fine shrink-0 border-b px-4 py-1.5">
-            Preview
-          </p>
-          <div className="min-h-0 flex-1 p-4">
+          <div className="border-rule bg-canvas flex h-11 shrink-0 items-center justify-between gap-3 border-b pr-4 pl-2">
+            <div className="flex h-full items-center pt-1.5">
+              <div className="bg-surface border-rule border-b-surface text-ink-soft relative z-10 -mb-[1px] flex h-full items-center gap-2 rounded-t-md border-x border-t-[3px] border-b border-t-transparent px-4">
+                <span className="text-sm font-medium">Preview</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex min-h-0 flex-1 items-start justify-center overflow-auto p-6">
             {outcome?.pdfUrl ? (
-              <iframe
-                // Titled, because an untitled frame is an unlabelled landmark
-                // and a screen reader announces it as "frame".
-                title="Compiled PDF"
-                src={outcome.pdfUrl}
-                // An iframe eats pointer events, so a drag that crossed into
-                // the preview simply stopped. Disabling them for the duration
-                // is what lets the handle travel the whole width.
-                style={dragging ? { pointerEvents: "none" } : undefined}
-                className="border-border bg-raised mx-auto h-full w-full max-w-[850px] border"
-              />
+              <div className="bg-raised border-border aspect-[1/1.414] w-full max-w-[850px] overflow-hidden rounded-sm border shadow-xl ring-1 ring-black/5 transition-shadow hover:shadow-2xl dark:ring-white/5">
+                <iframe
+                  // Titled, because an untitled frame is an unlabelled landmark
+                  // and a screen reader announces it as "frame".
+                  title="Compiled PDF"
+                  src={outcome.pdfUrl}
+                  // An iframe eats pointer events, so a drag that crossed into
+                  // the preview simply stopped. Disabling them for the duration
+                  // is what lets the handle travel the whole width.
+                  style={dragging ? { pointerEvents: "none" } : undefined}
+                  className="h-full w-full border-0 bg-white"
+                />
+              </div>
             ) : (
               <p className="text-muted text-ui flex h-full items-center justify-center">
                 {busy ? (step ?? "Compiling…") : "No PDF yet. Press Compile."}
