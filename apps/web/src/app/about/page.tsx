@@ -102,11 +102,6 @@ export default function AboutPage() {
         </ul>
       </section>
 
-      <div className="mt-12">
-        <ButtonLink href="/sign-in" variant="primary">
-          Sign in
-        </ButtonLink>
-      </div>
     </main>
   );
 }

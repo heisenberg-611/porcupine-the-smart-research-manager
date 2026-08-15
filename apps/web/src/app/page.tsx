@@ -11,80 +11,75 @@ export const metadata: Metadata = {
     "Run a systematic review or a thesis literature search end to end: find papers across five databases, screen them with your reasons recorded, extract the same fields from every one, and get the evidence table and PRISMA diagram out at the end.",
 };
 
-/**
- * The landing page.
- *
- * The version this replaces had a headline, a sentence and three columns —
- * Find, Screen, Read. It was honest and it described a third of the product:
- * extraction, reconciliation, the evidence table and encrypted messages were
- * all absent, which is to say the reason the screening exists was absent. It
- * never said who the tool is for, and it never explained the four words the app
- * then uses on every screen. A visitor's only way to find out what this was,
- * was to make an account.
- *
- * The order below is the order of the work, because that is the explanation. A
- * feature list would need the reader to already know how a review is done; a
- * sequence teaches it in passing.
- *
- * A signed-in visitor is sent straight to their projects. Landing on a
- * marketing page when you have screening waiting is a small insult repeated
- * every session.
- */
 export default async function Home() {
   const user = await getCurrentUser();
   if (user) redirect("/dashboard");
 
   return (
-    <main id="main" className="mx-auto max-w-3xl px-6 py-20">
-      {/* The product's name, which the last rewrite dropped entirely — the
-          page opened on a claim with nothing to attach it to, so a visitor
-          could read the whole thing and not learn what it was called. */}
-      <p className="text-ink text-heading font-serif">Porcupine</p>
+    <main id="main" className="mx-auto max-w-5xl px-6 py-16 flex flex-col min-h-[calc(100dvh-var(--app-header-h))]">
+      <div className="flex-1">
+        <header className="mb-20 pb-12 border-b border-rule">
+          <p className="text-accent text-ui font-mono tracking-widest uppercase mb-4">
+            The Smart Research Manager
+          </p>
+          <h1 className="text-ink text-5xl sm:text-7xl font-serif tracking-tight text-balance leading-tight">
+            Porcupine
+          </h1>
+          <p className="text-ink text-display font-serif mt-6 text-balance leading-tight max-w-3xl">
+            Every paper you read, in one defensible pile.
+          </p>
 
-      <h1 className="text-ink text-display mt-2 text-balance">
-        Every paper you read, in one defensible pile.
-      </h1>
+          <p className="text-ink-soft measure text-body mt-8 text-pretty">
+            A literature review, from the first search to the finished evidence table. For
+            teams running a systematic review that has to be reproducible, and for students
+            running a thesis search on the same machinery.
+          </p>
 
-      <p className="text-ink-soft measure text-body mt-5 text-pretty">
-        A literature review, from the first search to the finished evidence table. For
-        teams running a systematic review that has to be reproducible, and for students
-        running a thesis search on the same machinery.
-      </p>
+          <div className="mt-10 flex flex-wrap gap-4 items-center">
+            <ButtonLink href="/sign-in" variant="primary">
+              Sign in
+            </ButtonLink>
+            <ButtonLink href="/about">
+              How it works
+            </ButtonLink>
+          </div>
+        </header>
 
-      <div className="mt-8 flex flex-wrap gap-3">
-        <ButtonLink href="/sign-in" variant="primary">
-          Sign in
-        </ButtonLink>
-        <ButtonLink href="/about">How it works</ButtonLink>
+        <section aria-label="Workflow steps" className="mb-10">
+          <ol className="grid gap-x-8 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
+            {STEPS.map(({ term, detail }, index) => (
+              <li key={term} className="bg-surface/50 p-6 rounded-[--radius-card] border border-rule">
+                <p className="text-accent text-fine font-mono mb-2">
+                  Step {String(index + 1).padStart(2, "0")}
+                </p>
+                <h2 className="text-ink text-title font-serif">{term}</h2>
+                <p className="text-ink-soft text-ui mt-3 text-pretty leading-relaxed">
+                  {detail}
+                </p>
+              </li>
+            ))}
+          </ol>
+        </section>
       </div>
 
-      {/* The whole workflow, in order, at a glance. Six steps, not three: the
-          first version of this page stopped at "Read", which is the point
-          where the work starts producing something.
-
-          One line each, deliberately. This page's job is to let someone decide
-          in fifteen seconds whether to keep reading; the detail is at /about,
-          where a reader has already said yes. */}
-      <ol className="border-rule mt-14 grid gap-x-8 gap-y-6 border-t pt-8 sm:grid-cols-3">
-        {STEPS.map(({ term, detail }, index) => (
-          <li key={term}>
-            <p className="text-muted text-fine font-mono">
-              {String(index + 1).padStart(2, "0")}
-            </p>
-            <h2 className="text-ink text-heading mt-0.5">{term}</h2>
-            <p className="text-muted text-fine mt-1 text-pretty">{detail}</p>
-          </li>
-        ))}
-      </ol>
-
-      <p className="text-muted measure text-fine mt-12 text-pretty">
-        Your notes and messages are encrypted in your browser, so we cannot read them —
-        and cannot recover them for you either.{" "}
-        <Link href="/about" className="text-accent underline underline-offset-4">
-          What that means, and what this does not do
-        </Link>
-        .
-      </p>
+      <footer className="mt-16 border-t border-rule pt-10 pb-12 flex flex-col md:flex-row justify-between gap-10">
+        <div className="max-w-lg">
+          <p className="text-ink font-medium mb-2">Privacy & Encryption</p>
+          <p className="text-muted text-fine text-pretty leading-relaxed">
+            Your notes and messages are encrypted in your browser, so we cannot read them —
+            and cannot recover them for you either.{" "}
+            <Link href="/about" className="text-accent underline underline-offset-4 hover:text-ink transition-colors">
+              What that means, and what this does not do
+            </Link>
+            .
+          </p>
+        </div>
+        <div className="text-muted text-fine md:text-right">
+          <p className="text-ink font-medium">Porcupine Research Manager</p>
+          <p className="mt-2">Designed & Developed by Dhrubojyoti</p>
+          <p className="mt-1">&copy; {new Date().getFullYear()} All rights reserved.</p>
+        </div>
+      </footer>
     </main>
   );
 }

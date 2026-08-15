@@ -19,7 +19,7 @@ export default async function EnrollPage({
   const { next } = await searchParams;
   // Only ever redirect to a local path — an open redirect here would be a
   // phishing primitive on a sign-in flow.
-  const destination = next?.startsWith("/") ? next : "/projects";
+  const destination = next?.startsWith("/") ? next : "/dashboard";
 
   if (!(await needsEnrollment())) redirect(destination);
 

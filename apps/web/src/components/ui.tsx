@@ -294,7 +294,7 @@ export function PageHeader({
         )}
         <h1 className="text-ink text-display mt-1">{title}</h1>
         {description && (
-          <p className="text-muted measure text-ui mt-2 text-pretty">{description}</p>
+          <div className="text-muted measure text-ui mt-2 text-pretty">{description}</div>
         )}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}

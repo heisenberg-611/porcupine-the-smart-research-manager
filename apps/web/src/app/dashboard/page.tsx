@@ -214,9 +214,8 @@ function Stat({
       >
         <span className="text-muted text-fine block">{label}</span>
         <span
-          className={`text-title mt-1 block font-semibold tabular-nums ${
-            tone === "danger" && value > 0 ? "text-danger" : "text-ink"
-          }`}
+          className={`text-title mt-1 block font-semibold tabular-nums ${tone === "danger" && value > 0 ? "text-danger" : "text-ink"
+            }`}
         >
           {value}
         </span>

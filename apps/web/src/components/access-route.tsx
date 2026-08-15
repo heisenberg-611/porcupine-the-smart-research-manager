@@ -96,7 +96,12 @@ export function AccessHelp({
  */
 export function resolve(url: string, doi?: string | null): string {
   if (!doi) return url;
-  if (url.includes("{doi}")) return url.replace("{doi}", encodeURIComponent(doi));
+  if (url.includes("{doi}")) {
+    // DOIs contain slashes (e.g. 10.1038/nature123). When used in a path segment,
+    // the slash must remain unencoded so the resolver routes it correctly.
+    const encoded = encodeURIComponent(doi).replace(/%2F/g, "/");
+    return url.replace("{doi}", encoded);
+  }
   if (url.endsWith("=") || url.endsWith("?") || url.endsWith("&")) {
     return `${url}${encodeURIComponent(doi)}`;
   }

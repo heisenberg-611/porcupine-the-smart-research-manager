@@ -48,75 +48,76 @@ export function ProjectSidebar({
   }
 
   return (
-    <nav
-      aria-label={`${projectTitle} sections`}
-      // Sticky under the app header rather than scrolling away: on the
-      // evidence table or a 300-row library, a menu that requires scrolling
-      // back to the top is a menu people stop using.
-      className="sticky top-[var(--app-header-h)] hidden max-h-[calc(100dvh-var(--app-header-h))] w-56 shrink-0 overflow-y-auto py-8 lg:block"
-    >
-      <Link
-        href={sectionHref(projectId, "")}
-        aria-current={active === "" ? "page" : undefined}
-        className={cx(
-          "block rounded-lg px-3 py-2 transition-colors",
-          "focus-visible:ring-accent focus-visible:ring-2 focus-visible:outline-none",
-          active === "" ? "bg-accent-soft" : "hover:bg-surface",
-        )}
+    <>
+      <nav
+        aria-label={`${projectTitle} sections`}
+        className="fixed top-[var(--app-header-h)] hidden max-h-[calc(100dvh-var(--app-header-h))] w-56 shrink-0 overflow-y-auto py-8 lg:block"
       >
-        <span className="text-muted text-fine block">Project</span>
-        <span className="text-ink text-ui mt-0.5 block leading-snug font-medium text-pretty">
-          {projectTitle}
-        </span>
-      </Link>
-
-      <div className="mt-6 flex flex-col gap-6">
-        {SECTION_GROUPS.map((group) => {
-          const inGroup = byGroup.get(group);
-          if (!inGroup || inGroup.length === 0) return null;
-
-          return (
-            <div key={group}>
-              <h2 className="text-muted text-fine mb-1 px-3 font-mono tracking-wider uppercase">
-                {group}
-              </h2>
-              <ul>
-                {inGroup.map((section) => {
-                  const current = active === section.slug;
-                  return (
-                    <li key={section.slug}>
-                      <Link
-                        href={sectionHref(projectId, section.slug)}
-                        aria-current={current ? "page" : undefined}
-                        className={cx(
-                          "text-ui flex min-h-10 items-center rounded-lg px-3 transition-colors",
-                          "focus-visible:ring-accent focus-visible:ring-2 focus-visible:outline-none",
-                          current
-                            ? "bg-accent-soft text-ink font-medium"
-                            : "text-muted hover:text-ink hover:bg-surface",
-                        )}
-                      >
-                        {/* A rule down the left of the active item, drawn in
-                            the accent. The tinted background alone reads as
-                            hover on a warm palette; the marker does not. */}
-                        <span
-                          aria-hidden
+        <Link
+          href={sectionHref(projectId, "")}
+          aria-current={active === "" ? "page" : undefined}
+          className={cx(
+            "block rounded-lg px-3 py-2 transition-colors",
+            "focus-visible:ring-accent focus-visible:ring-2 focus-visible:outline-none",
+            active === "" ? "bg-accent-soft" : "hover:bg-surface",
+          )}
+        >
+          <span className="text-muted text-fine block">Project</span>
+          <span className="text-ink text-ui mt-0.5 block leading-snug font-medium text-pretty">
+            {projectTitle}
+          </span>
+        </Link>
+  
+        <div className="mt-6 flex flex-col gap-6">
+          {SECTION_GROUPS.map((group) => {
+            const inGroup = byGroup.get(group);
+            if (!inGroup || inGroup.length === 0) return null;
+  
+            return (
+              <div key={group}>
+                <h2 className="text-muted text-fine mb-1 px-3 font-mono tracking-wider uppercase">
+                  {group}
+                </h2>
+                <ul>
+                  {inGroup.map((section) => {
+                    const current = active === section.slug;
+                    return (
+                      <li key={section.slug}>
+                        <Link
+                          href={sectionHref(projectId, section.slug)}
+                          aria-current={current ? "page" : undefined}
                           className={cx(
-                            "mr-2 h-4 w-0.5 rounded-full",
-                            current ? "bg-accent" : "bg-transparent",
+                            "text-ui flex min-h-10 items-center rounded-lg px-3 transition-colors",
+                            "focus-visible:ring-accent focus-visible:ring-2 focus-visible:outline-none",
+                            current
+                              ? "bg-accent-soft text-ink font-medium"
+                              : "text-muted hover:text-ink hover:bg-surface",
                           )}
-                        />
-                        {section.label}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          );
-        })}
-      </div>
-    </nav>
+                        >
+                          {/* A rule down the left of the active item, drawn in
+                              the accent. The tinted background alone reads as
+                              hover on a warm palette; the marker does not. */}
+                          <span
+                            aria-hidden
+                            className={cx(
+                              "mr-2 h-4 w-0.5 rounded-full",
+                              current ? "bg-accent" : "bg-transparent",
+                            )}
+                          />
+                          {section.label}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+      </nav>
+      {/* Spacer to hold the width in the flex container since the nav is fixed */}
+      <div className="hidden w-56 shrink-0 lg:block" aria-hidden />
+    </>
   );
 }
 

@@ -45,60 +45,63 @@ export function ProjectNav({
     // a translucent bar over scrolling text reads as a rendering fault. The
     // wide-screen sidebar has been sticky since it was built; this is the
     // narrow-screen half catching up.
-    <div className="border-rule bg-canvas sticky top-[var(--app-header-h)] z-30 border-b lg:hidden">
-      <div className="mx-auto max-w-5xl px-6">
-        <nav aria-label={`${projectTitle} sections`}>
-          {/* Scrolls on a phone rather than wrapping to three lines. The
-              region is focusable for the same reason TableScroll is: a
-              scroll container a keyboard cannot reach hides its own contents
-              (WCAG 2.1.1). */}
-          <ul
-            className="focus-visible:ring-accent -mx-2 flex items-center gap-1 overflow-x-auto px-2 focus-visible:ring-2 focus-visible:outline-none"
-            tabIndex={0}
-          >
-            <li className="shrink-0">
-              <Link
-                href={sectionHref(projectId, "")}
-                aria-current={active === "" ? "page" : undefined}
-                className={cx(
-                  "text-ui inline-flex min-h-11 items-center rounded-lg px-3 font-medium",
-                  "focus-visible:ring-accent transition-colors focus-visible:ring-2 focus-visible:outline-none",
-                  active === ""
-                    ? "text-ink bg-raised"
-                    : "text-muted hover:text-ink hover:bg-raised/70",
-                )}
-              >
-                {/* The project's name IS the overview link. One less thing on
-                    the bar, and it reads as a breadcrumb rather than a tab. */}
-                <span className="max-w-[14rem] truncate">{projectTitle}</span>
-              </Link>
-            </li>
-
-            <li aria-hidden className="text-muted/50 shrink-0 px-1">
-              /
-            </li>
-
-            {sections.map((section) => (
-              <li key={section.slug} className="shrink-0">
+    <>
+      <div className="border-rule bg-canvas fixed inset-x-0 top-[var(--app-header-h)] z-30 border-b lg:hidden">
+        <div className="mx-auto max-w-5xl px-6">
+          <nav aria-label={`${projectTitle} sections`}>
+            {/* Scrolls on a phone rather than wrapping to three lines. The
+                region is focusable for the same reason TableScroll is: a
+                scroll container a keyboard cannot reach hides its own contents
+                (WCAG 2.1.1). */}
+            <ul
+              className="focus-visible:ring-accent -mx-2 flex items-center gap-1 overflow-x-auto px-2 focus-visible:ring-2 focus-visible:outline-none"
+              tabIndex={0}
+            >
+              <li className="shrink-0">
                 <Link
-                  href={sectionHref(projectId, section.slug)}
-                  aria-current={active === section.slug ? "page" : undefined}
+                  href={sectionHref(projectId, "")}
+                  aria-current={active === "" ? "page" : undefined}
                   className={cx(
-                    "text-ui inline-flex min-h-11 items-center rounded-lg px-3",
+                    "text-ui inline-flex min-h-11 items-center rounded-lg px-3 font-medium",
                     "focus-visible:ring-accent transition-colors focus-visible:ring-2 focus-visible:outline-none",
-                    active === section.slug
-                      ? "text-ink bg-raised font-medium"
+                    active === ""
+                      ? "text-ink bg-raised"
                       : "text-muted hover:text-ink hover:bg-raised/70",
                   )}
                 >
-                  {section.label}
+                  {/* The project's name IS the overview link. One less thing on
+                      the bar, and it reads as a breadcrumb rather than a tab. */}
+                  <span className="max-w-[14rem] truncate">{projectTitle}</span>
                 </Link>
               </li>
-            ))}
-          </ul>
-        </nav>
+  
+              <li aria-hidden className="text-muted/50 shrink-0 px-1">
+                /
+              </li>
+  
+              {sections.map((section) => (
+                <li key={section.slug} className="shrink-0">
+                  <Link
+                    href={sectionHref(projectId, section.slug)}
+                    aria-current={active === section.slug ? "page" : undefined}
+                    className={cx(
+                      "text-ui inline-flex min-h-11 items-center rounded-lg px-3",
+                      "focus-visible:ring-accent transition-colors focus-visible:ring-2 focus-visible:outline-none",
+                      active === section.slug
+                        ? "text-ink bg-raised font-medium"
+                        : "text-muted hover:text-ink hover:bg-raised/70",
+                    )}
+                  >
+                    {section.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        </div>
       </div>
-    </div>
+      <div className="h-[var(--project-nav-h)] shrink-0 lg:hidden" aria-hidden />
+    </>
   );
 }
 

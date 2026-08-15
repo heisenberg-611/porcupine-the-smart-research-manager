@@ -17,7 +17,7 @@ import { createClient } from "@/lib/supabase/client";
 export function SignInForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const next = params.get("next") ?? "/projects";
+  const next = params.get("next") ?? "/dashboard";
 
   const [stage, setStage] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");

@@ -38,7 +38,7 @@ export default async function UnlockPage({
   const next =
     candidate && candidate.startsWith("/") && !candidate.startsWith("//")
       ? candidate
-      : "/projects";
+      : "/dashboard";
 
   return (
     <main id="main" className="mx-auto flex max-w-xl flex-col gap-6 px-6 py-12">

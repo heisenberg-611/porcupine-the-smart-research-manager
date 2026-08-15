@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
 
   // Local paths only — an open redirect on an auth callback is a phishing
   // primitive, and this is the highest-trust moment in the whole flow.
-  const destination = next?.startsWith("/") ? next : "/projects";
+  const destination = next?.startsWith("/") ? next : "/dashboard";
 
   if (!code) {
     return NextResponse.redirect(`${origin}/sign-in?error=missing_code`);
