@@ -114,6 +114,12 @@ const ALL_SECTIONS: ReadonlyArray<
     blurb: "Papers as rows, protocol fields as columns. Exports.",
   },
   {
+    slug: "messages",
+    label: "Messages",
+    group: "Synthesise",
+    blurb: "Encrypted conversation. The server cannot read it.",
+  },
+  {
     slug: "keys",
     label: "Encryption",
     group: "Synthesise",
