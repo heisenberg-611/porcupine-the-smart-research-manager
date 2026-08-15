@@ -20,6 +20,16 @@ interface DecisionRow {
   to_status: string;
 }
 
+/** The velocity window, and the cap on how long a project is assumed to be. */
+const VELOCITY_DAYS = 14;
+
+/** Sum the counts for a set of statuses. Same rule the overview uses. */
+function countOf(rows: ProgressRow[], ...statuses: string[]) {
+  return rows
+    .filter((r) => statuses.includes(r.screen_status))
+    .reduce((sum, r) => sum + r.count, 0);
+}
+
 /**
  * Where the project actually is.
  *
@@ -28,10 +38,15 @@ interface DecisionRow {
  * from SQL. The view is `security_invoker`, so RLS still applies — see
  * packages/db/test/06_screening.sql, which asserts it.
  *
- * The velocity figure is deliberately blunt: decisions per day over the last
+ * The velocity figure is deliberately blunt: verdicts per day over the last
  * fortnight, and an estimate only when the recent rate is non-zero. A burndown
  * that projects a finish date from four decisions is worse than no estimate,
  * because people plan around it.
+ *
+ * The bars are SHARES OF THE LIBRARY, one per status — not a funnel. Each is
+ * `count / total`, so they sum to the whole. Read as a funnel they would be
+ * nonsense, which is why every bar carries its own count beside it rather than
+ * relying on the reader to infer one from a width.
  */
 export default async function ProgressPage({
   params,
@@ -45,7 +60,7 @@ export default async function ProgressPage({
   const supabase = await createClient();
 
   const project = await must(
-    supabase.from("projects").select("id, title").eq("id", id).maybeSingle(),
+    supabase.from("projects").select("id, title, created_at").eq("id", id).maybeSingle(),
     "the project",
   );
 
@@ -67,28 +82,72 @@ export default async function ProgressPage({
   const total = rows.reduce((sum, r) => sum + r.count, 0);
   const overdue = rows.reduce((sum, r) => sum + r.overdue, 0);
 
-  // Screened = anything past the initial identification stage.
-  const screened = rows
-    .filter((r) => r.screen_status !== "IDENTIFIED")
-    .reduce((sum, r) => sum + r.count, 0);
-  const remaining = total - screened;
+  /*
+   * Screened = a paper that has been DECIDED about.
+   *
+   * This used to be "anything that is not IDENTIFIED", which counted SCREENING
+   * as screened. SCREENING means someone has the paper open and has not
+   * decided yet — the one status that is explicitly unfinished. So the number
+   * overstated progress, `Remaining` understated the work, and the two got
+   * further apart the busier the team was.
+   *
+   * It also disagreed with the project overview, which has always counted
+   * IDENTIFIED + SCREENING as unscreened. Two pages, one question, two
+   * answers. This one was wrong.
+   */
+  const undecided = countOf(rows, "IDENTIFIED", "SCREENING");
+  const screened = total - undecided;
+  const remaining = undecided;
 
-  const fortnightAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+  const window = new Date(Date.now() - VELOCITY_DAYS * 24 * 60 * 60 * 1000);
   const decisionData = await must(
     supabase
       .from("screening_decisions")
       .select("created_at, to_status")
       .eq("project_id", id)
-      .gte("created_at", fortnightAgo)
+      .gte("created_at", window.toISOString())
       .order("created_at", { ascending: true }),
     "recent decisions",
   );
 
-  const decisions = (decisionData ?? []) as unknown as DecisionRow[];
-  const perDay = decisions.length / 14;
+  /*
+   * Velocity counts VERDICTS, not row inserts.
+   *
+   * Backwards moves are deliberately allowed — a decision gets revised, a
+   * misclick gets undone — and each one writes a `screening_decisions` row. As
+   * throughput they are worse than noise: reopening ten papers would have read
+   * as a productive afternoon while the pile got bigger.
+   */
+  const decisions = ((decisionData ?? []) as unknown as DecisionRow[]).filter(
+    (d) => d.to_status === "INCLUDED" || d.to_status === "EXCLUDED",
+  );
 
-  // Only estimate when there is a rate worth extrapolating from.
-  const daysLeft = perDay >= 0.5 && remaining > 0 ? Math.ceil(remaining / perDay) : null;
+  /*
+   * Divided by the days the project has actually existed, capped at the
+   * window. Dividing by a flat 14 meant a project three days old reported a
+   * fifth of its real rate, and the estimate below then refused to appear at
+   * all — worst on exactly the projects where someone is checking whether this
+   * is going to work.
+   */
+  const ageDays = (Date.now() - new Date(project.created_at).getTime()) / 86_400_000;
+  const observedDays = Math.max(1, Math.min(VELOCITY_DAYS, ageDays));
+  const perDay = decisions.length / observedDays;
+
+  /*
+   * Only estimate when there is a SAMPLE worth extrapolating from.
+   *
+   * Two gates, because each catches what the other misses. The rate gate
+   * alone let a project created twenty minutes ago turn one decision into
+   * "1.0 per day" and a confident finish date — dividing by a floor of one day
+   * makes any first decision look like a daily habit. The count gate alone
+   * would extrapolate five decisions spread over a dead fortnight.
+   *
+   * Five is a judgement, not a calculation: it is roughly the point where a
+   * number stops being one afternoon's mood.
+   */
+  const enoughToExtrapolate = decisions.length >= 5 && perDay >= 0.5;
+  const daysLeft =
+    enoughToExtrapolate && remaining > 0 ? Math.ceil(remaining / perDay) : null;
 
   return (
     <main id="main" className="mx-auto flex max-w-3xl flex-col gap-8 px-6 py-12">
@@ -119,12 +178,13 @@ export default async function ProgressPage({
             </h2>
             <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
               <Stat label="Papers" value={total} />
-              <Stat label="Screened" value={screened} />
-              <Stat label="Remaining" value={remaining} />
+              <Stat label="Decided" value={screened} hint="included or excluded" />
+              <Stat label="Remaining" value={remaining} hint="not yet decided" />
               <Stat
                 label="Overdue"
                 value={overdue}
                 tone={overdue > 0 ? "danger" : "normal"}
+                hint="past their due date"
               />
             </dl>
           </section>
@@ -169,11 +229,13 @@ export default async function ProgressPage({
             </h2>
             <p className="text-muted text-ui">
               {decisions.length === 0 ? (
-                "No screening decisions in the last fortnight."
+                "No papers included or excluded in the last fortnight."
               ) : (
                 <>
-                  {decisions.length} {decisions.length === 1 ? "decision" : "decisions"}{" "}
-                  in the last 14 days — about {perDay.toFixed(1)} per day.
+                  {decisions.length} {decisions.length === 1 ? "paper" : "papers"} decided
+                  in the last {Math.round(observedDays)}{" "}
+                  {Math.round(observedDays) === 1 ? "day" : "days"} — about{" "}
+                  {perDay.toFixed(1)} per day.
                   {daysLeft !== null ? (
                     <>
                       {" "}
@@ -200,14 +262,25 @@ function Stat({
   label,
   value,
   tone = "normal",
+  hint,
 }: {
   label: string;
   value: number;
   tone?: "normal" | "danger";
+  /** What the number counts. On screen, not only in a comment — the previous
+   *  version's "Screened" meant something different here than on the overview
+   *  and there was no way to tell from either page. */
+  hint?: string;
 }) {
   return (
     <div className="border-border rounded-lg border p-3">
-      <dt className="text-muted text-fine">{label}</dt>
+      {/* The hint belongs to the TERM, not the value. Putting it in the `dd`
+          made the definition read "1 included or excluded", which is a
+          sentence about a number rather than the number itself. */}
+      <dt className="text-muted text-fine">
+        {label}
+        {hint && <span className="mt-0.5 block opacity-80">{hint}</span>}
+      </dt>
       <dd
         className={`text-title mt-1 font-semibold tabular-nums ${
           tone === "danger" && value > 0 ? "text-danger" : "text-ink"
