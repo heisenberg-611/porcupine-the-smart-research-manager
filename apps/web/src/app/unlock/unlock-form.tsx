@@ -4,10 +4,17 @@ import { fromBase64, rewrapIdentity, toBase64, unwrapIdentity } from "@porcupine
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { Banner, Button, Field, Input } from "@/components/ui";
+import { Banner, Button, Checkbox, Field, Input } from "@/components/ui";
+import {
+  exportDevicePublicKey,
+  getOrCreateDeviceKey,
+  markRegistered,
+  wrapMasterKeyForDevice,
+} from "@/lib/crypto/device";
 import { useCryptoSession } from "@/lib/crypto/session";
 
 import { getMyKeyMaterial, storeRewrappedBundle } from "./actions";
+import { registerDevice } from "./device-actions";
 
 /**
  * Turn the recovery passphrase into keys, in this browser.
@@ -24,12 +31,22 @@ import { getMyKeyMaterial, storeRewrappedBundle } from "./actions";
  */
 export function UnlockForm({ next }: { next: string }) {
   const router = useRouter();
-  const { setIdentity } = useCryptoSession();
+  const { setIdentity, restoring } = useCryptoSession();
 
   const [passphrase, setPassphrase] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const [remember, setRemember] = useState(false);
+
+  /*
+   * The device attempt lives in `CryptoSessionProvider`, not here.
+   *
+   * It was here first, and that made "remember this browser" look broken:
+   * opening a project link directly never rendered this form, so nothing tried
+   * the device and the page arrived locked. Being remembered has to hold
+   * everywhere or it holds nowhere.
+   */
 
   async function unlock(event: React.FormEvent) {
     event.preventDefault();
@@ -70,6 +87,24 @@ export function UnlockForm({ next }: { next: string }) {
         );
       }
 
+      if (remember) {
+        // Registering AFTER a successful unlock, never before: the master key
+        // has to exist in hand to be sealed to anything.
+        try {
+          const device = await getOrCreateDeviceKey();
+          const wrapped = await wrapMasterKeyForDevice(identity.masterKey, device);
+          const registered = await registerDevice({
+            label: deviceLabel(),
+            devicePubKey: await toBase64(await exportDevicePublicKey(device)),
+            wrappedMasterKey: await toBase64(wrapped),
+          });
+          if (registered.ok) markRegistered();
+          else setNote("Unlocked, but this browser could not be remembered.");
+        } catch {
+          setNote("Unlocked, but this browser could not be remembered.");
+        }
+      }
+
       setIdentity(identity);
       router.push(next);
       router.refresh();
@@ -106,15 +141,53 @@ export function UnlockForm({ next }: { next: string }) {
         />
       </Field>
 
-      <Button type="submit" disabled={pending || passphrase.trim().length === 0}>
-        {pending ? "Unlocking…" : "Unlock"}
+      <label className="text-ink-soft text-ui flex min-h-11 items-center gap-2">
+        <Checkbox checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+        Remember this browser
+      </label>
+
+      <Button
+        type="submit"
+        disabled={pending || restoring || passphrase.trim().length === 0}
+      >
+        {pending ? "Unlocking…" : restoring ? "Checking this browser…" : "Unlock"}
       </Button>
 
-      <p className="text-muted text-fine">
-        {/* Said here rather than discovered later. */}
-        This unlock lasts until you reload or close the tab. Registering a device will
-        remove that step; until then the passphrase is the only way in.
+      <p className="text-muted measure text-fine">
+        {/* Precise about what remembering does and does not do. Overstating it
+            would be worse than not offering it at all. */}
+        Without this, an unlock lasts until you reload or close the tab. Remembering
+        stores a key in this browser that it cannot read back or send anywhere, and keeps
+        your master key on the server sealed to that key — so neither half is enough on
+        its own. Revoking the device later deletes the server&rsquo;s half and leaves this
+        browser with nothing to open.
       </p>
     </form>
   );
+}
+
+/** A label a person will recognise in a list of devices. */
+function deviceLabel(): string {
+  const ua = navigator.userAgent;
+  const platform = /Macintosh/.test(ua)
+    ? "Mac"
+    : /Windows/.test(ua)
+      ? "Windows"
+      : /Android/.test(ua)
+        ? "Android"
+        : /iPhone|iPad/.test(ua)
+          ? "iOS"
+          : /Linux/.test(ua)
+            ? "Linux"
+            : "Browser";
+  const browser = /Firefox/.test(ua)
+    ? "Firefox"
+    : /Edg\//.test(ua)
+      ? "Edge"
+      : /Chrome/.test(ua)
+        ? "Chrome"
+        : /Safari/.test(ua)
+          ? "Safari"
+          : "browser";
+  return `${browser} on ${platform}`;
 }

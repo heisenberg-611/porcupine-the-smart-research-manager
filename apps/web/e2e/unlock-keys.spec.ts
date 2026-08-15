@@ -1,5 +1,7 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
+import { goto } from "./ready";
+
 /**
  * Phase 3 week 3a — unlock, and the first project key written outside a test.
  *
@@ -92,7 +94,7 @@ test.describe("unlocking, and a project key", () => {
     const context = await browser.newContext();
     page = await context.newPage();
 
-    await page.goto("/sign-in");
+    await goto(page, "/sign-in");
     await page.getByLabel("Email").fill(email);
     await page.getByRole("button", { name: /email me a code/i }).click();
     await page.getByLabel(/six-digit code/i).fill(await fetchOtp(email));
@@ -131,8 +133,8 @@ test.describe("unlocking, and a project key", () => {
   });
 
   test("the encryption page asks to be unlocked before it will do anything", async () => {
-    await page.goto(`/projects/${projectId}/keys`);
-    await expect(page.getByText(/your keys are locked/i)).toBeVisible();
+    await goto(page, `/projects/${projectId}/keys`);
+    await expect(page.getByRole("main").getByText(/your keys are locked/i)).toBeVisible();
     await expect(page.getByRole("link", { name: /unlock your keys/i })).toBeVisible();
     // Nothing cryptographic is offered while locked.
     await expect(
@@ -141,7 +143,7 @@ test.describe("unlocking, and a project key", () => {
   });
 
   test("a wrong passphrase is refused, not guessed at", async () => {
-    await page.goto("/unlock");
+    await goto(page, "/unlock");
     await page.getByLabel(/recovery passphrase/i).fill("WRONG-WRONG-WRONG-WRONG");
     await page.getByRole("button", { name: /^unlock$/i }).click();
     // By text, not by role: Next renders its own empty role="alert" route
@@ -162,7 +164,7 @@ test.describe("unlocking, and a project key", () => {
       if (body) bodies.push(body);
     });
 
-    await page.goto(`/unlock?next=${encodeURIComponent(`/projects/${projectId}/keys`)}`);
+    await goto(page, `/unlock?next=${encodeURIComponent(`/projects/${projectId}/keys`)}`);
     await page.getByLabel(/recovery passphrase/i).fill(passphrase);
     await page.getByRole("button", { name: /^unlock$/i }).click();
 
@@ -215,6 +217,54 @@ test.describe("unlocking, and a project key", () => {
     // The cost of keeping the identity in memory only, asserted rather than
     // assumed. Device registration is what removes this, and it is week 4.
     await page.reload();
-    await expect(page.getByText(/your keys are locked/i)).toBeVisible();
+    await expect(page.getByRole("main").getByText(/your keys are locked/i)).toBeVisible();
+  });
+
+  test("a remembered browser unlocks without the passphrase", async () => {
+    /*
+     * The point of the whole Master Key layer, finally visible: no Argon2id,
+     * no passphrase, and the identity comes out the same. The device holds a
+     * key it cannot export; the server holds the master key sealed to it.
+     * Neither half is enough alone.
+     */
+    await goto(page, "/unlock");
+    await page.getByLabel(/recovery passphrase/i).fill(passphrase);
+    await page.getByLabel(/remember this browser/i).check();
+    await page.getByRole("button", { name: /^unlock$/i }).click();
+    await page.waitForURL(/\/projects/, { timeout: 120_000 });
+
+    // A full reload — which, before this, always meant re-entering the
+    // passphrase. The "a reload locks it again" test above is the one this
+    // replaces, and it is kept because it still describes browsers that have
+    // NOT been remembered.
+    await goto(page, `/projects/${projectId}/keys`);
+    await expect(page.getByText(/current epoch/i)).toBeVisible({ timeout: 120_000 });
+    await expect(page.getByRole("main").getByText(/your keys are locked/i)).toHaveCount(
+      0,
+    );
+  });
+
+  test("the remembered browser is listed, and revoking it is real", async () => {
+    await goto(page, "/unlock");
+    await expect(
+      page.getByRole("heading", { name: /remembered browsers/i }),
+    ).toBeVisible();
+
+    await page
+      .getByRole("button", { name: /^revoke$/i })
+      .first()
+      .click();
+    await expect(page.getByRole("heading", { name: /remembered browsers/i })).toHaveCount(
+      0,
+      { timeout: 30_000 },
+    );
+
+    // Revocation deletes the server's half. The browser still has its key and
+    // now has nothing to open with it, so the next visit is locked again —
+    // which is the difference between revoking and merely hiding a row.
+    await goto(page, `/projects/${projectId}/keys`);
+    await expect(page.getByRole("main").getByText(/your keys are locked/i)).toBeVisible({
+      timeout: 120_000,
+    });
   });
 });

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/ui";
 import { getCurrentUser } from "@/lib/supabase/server";
 
+import { DeviceList } from "./device-list";
 import { UnlockForm } from "./unlock-form";
 
 export const metadata: Metadata = { title: "Unlock" };
@@ -48,6 +49,7 @@ export default async function UnlockPage({
         description="Encrypted content is opened in this browser, with a key only you hold. Nothing here is sent to the server."
       />
       <UnlockForm next={next} />
+      <DeviceList />
     </main>
   );
 }

@@ -3,6 +3,7 @@
 import {
   createProjectKey,
   fromBase64,
+  keyFingerprint,
   toBase64,
   unwrapProjectKey,
   wrapProjectKeyFor,
@@ -45,6 +46,7 @@ export function KeysClient({ projectId }: { projectId: string }) {
   const [confirming, setConfirming] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [fingerprints, setFingerprints] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     const [memberResult, state] = await Promise.all([
@@ -67,6 +69,40 @@ export function KeysClient({ projectId }: { projectId: string }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  /**
+   * Safety numbers for everyone in the project.
+   *
+   * `keyFingerprint` has existed since Phase 0 and was displayed NOWHERE,
+   * which made it decoration. It is the only defence against a server that
+   * hands you a public key of its own choosing: every wrap this project makes
+   * is sealed to keys the server served, and a swapped key is undetectable
+   * from inside the app. Two people reading these aloud — on a call, in a
+   * corridor — is what detects it, and that is only possible if the number is
+   * on the screen.
+   *
+   * Computed from the same bytes the wraps are sealed to, deliberately: a
+   * fingerprint derived from anything else would verify the wrong thing.
+   */
+  useEffect(() => {
+    if (!members) return;
+    let cancelled = false;
+
+    void (async () => {
+      const next: Record<string, string> = {};
+      for (const member of members) {
+        if (member.identityPubKey === "") continue;
+        next[member.userId] = await keyFingerprint(
+          await fromBase64(member.identityPubKey),
+        );
+      }
+      if (!cancelled) setFingerprints(next);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [members]);
 
   /**
    * Mint an epoch and seal it to every member who can receive one.
@@ -314,9 +350,13 @@ export function KeysClient({ projectId }: { projectId: string }) {
               <span className="text-ink text-ui">
                 {member.displayName}
                 {member.isMe && <span className="text-muted"> — you</span>}
-                {member.identityPubKey === "" && (
+                {member.identityPubKey === "" ? (
                   <span className="text-muted text-fine block">
                     Has not set up keys yet, so cannot be given one.
+                  </span>
+                ) : (
+                  <span className="text-muted text-fine block font-mono">
+                    {fingerprints[member.userId] ?? "…"}
                   </span>
                 )}
               </span>
@@ -350,6 +390,15 @@ export function KeysClient({ projectId }: { projectId: string }) {
             </li>
           ))}
         </ul>
+        <p className="text-muted text-fine mt-2">
+          {/* What the number under each name is FOR. A safety number nobody is
+              told to compare is a string of characters. */}
+          The line under each name is that person&rsquo;s safety number. Read it to them
+          out loud, on a call or in person — if it matches what they see under their own
+          name, nobody has swapped their key. Every key this project seals is sealed to
+          keys the server handed us, so this is the only check that does not depend on
+          trusting it.
+        </p>
         <p className="text-muted text-fine mt-2">
           {/* Two steps, said as one thing, because they are one thing. */}
           Removing someone rotates the key in the same action: they lose access to

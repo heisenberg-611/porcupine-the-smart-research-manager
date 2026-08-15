@@ -1,6 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
+import { goto } from "./ready";
+
 /**
  * Phase 2b — dual extraction and reconciliation, end to end.
  *
@@ -59,7 +61,7 @@ async function signInAndEnroll(browser: Browser, email: string): Promise<Page> {
   const context = await browser.newContext();
   const page = await context.newPage();
 
-  await page.goto("/sign-in");
+  await goto(page, "/sign-in");
   await page.getByLabel("Email").fill(email);
   await page.getByRole("button", { name: /email me a code/i }).click();
   await page.getByLabel(/six-digit code/i).fill(await fetchOtp(email));
@@ -84,7 +86,7 @@ async function signInAndEnroll(browser: Browser, email: string): Promise<Page> {
 
 /** Fill the extraction form with a given design answer, then submit. */
 async function extractAs(page: Page, projectName: RegExp, design: string, task: string) {
-  await page.goto("/projects");
+  await goto(page, "/projects");
   await page.getByRole("link", { name: projectName }).click();
   await page.getByRole("link", { name: /^library$/i }).click();
   await page
@@ -146,7 +148,7 @@ test.describe("Phase 2b — dual extraction", () => {
   });
 
   test("a review project is set up with three readers", async () => {
-    await alice.goto("/projects");
+    await goto(alice, "/projects");
     await alice.getByLabel("Title").fill("Statin adherence review");
     await alice
       .getByRole("group", { name: /kind/i })
@@ -184,7 +186,7 @@ test.describe("Phase 2b — dual extraction", () => {
     await alice.getByRole("button", { name: /add 1 paper/i }).click();
     await expect(alice.getByText(/added 1 paper/i)).toBeVisible();
 
-    await alice.goto("/projects");
+    await goto(alice, "/projects");
     await alice.getByRole("link", { name: PROJECT }).click();
     await alice.getByRole("link", { name: /^protocol$/i }).click();
     await alice.getByLabel(/protocol name/i).fill("Data extraction");
@@ -208,7 +210,7 @@ test.describe("Phase 2b — dual extraction", () => {
   });
 
   test("the queue shows the disagreement, and κ is reported honestly", async () => {
-    await carol.goto("/projects");
+    await goto(carol, "/projects");
     await carol.getByRole("link", { name: PROJECT }).click();
     await carol.getByRole("link", { name: /^reconcile$/i }).click();
 
@@ -235,7 +237,7 @@ test.describe("Phase 2b — dual extraction", () => {
   });
 
   test("an extractor cannot reconcile their own disagreement", async () => {
-    await alice.goto("/projects");
+    await goto(alice, "/projects");
     await alice.getByRole("link", { name: PROJECT }).click();
     await alice.getByRole("link", { name: /^reconcile$/i }).click();
     await alice.getByRole("link", { name: /attention is all you need/i }).click();
@@ -245,7 +247,7 @@ test.describe("Phase 2b — dual extraction", () => {
   });
 
   test("a third reader resolves it", async () => {
-    await carol.goto("/projects");
+    await goto(carol, "/projects");
     await carol.getByRole("link", { name: PROJECT }).click();
     await carol.getByRole("link", { name: /^reconcile$/i }).click();
     await carol.getByRole("link", { name: /attention is all you need/i }).click();
@@ -263,7 +265,7 @@ test.describe("Phase 2b — dual extraction", () => {
   });
 
   test("the reconciled answers reach the evidence table", async () => {
-    await carol.goto("/projects");
+    await goto(carol, "/projects");
     await carol.getByRole("link", { name: PROJECT }).click();
     await carol.getByRole("link", { name: /^evidence$/i }).click();
 

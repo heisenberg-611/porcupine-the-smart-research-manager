@@ -2,6 +2,8 @@ import AxeBuilder from "@axe-core/playwright";
 import { readFileSync } from "node:fs";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
+import { goto } from "./ready";
+
 /**
  * Phase 0 exit criterion, end to end:
  *   sign up → enroll identity keys → create a project → invite a member
@@ -88,7 +90,7 @@ test.describe("Phase 0 exit criterion", () => {
   });
 
   test("signs up with an email OTP", async () => {
-    await page.goto("/sign-in");
+    await goto(page, "/sign-in");
 
     await page.getByLabel("Email").fill(email);
     await page.getByRole("button", { name: /email me a code/i }).click();
@@ -105,7 +107,7 @@ test.describe("Phase 0 exit criterion", () => {
   });
 
   test("generates identity keys and shows the recovery passphrase once", async () => {
-    await page.goto("/enroll");
+    await goto(page, "/enroll");
     await page.getByRole("button", { name: /generate my keys/i }).click();
 
     // Argon2id is deliberately slow.
@@ -130,13 +132,15 @@ test.describe("Phase 0 exit criterion", () => {
   test("enrollment does not run twice", async () => {
     // Keys already exist, so /enroll must redirect rather than offer to
     // overwrite them — regenerating would strand every existing ciphertext.
-    await page.goto("/enroll");
+    await goto(page, "/enroll");
     await expect(page).toHaveURL(/\/projects/);
   });
 
   test("creates a project and becomes its owner", async () => {
-    await page.goto("/projects");
-    await expect(page.getByText(/no projects yet/i)).toBeVisible();
+    await goto(page, "/projects");
+    // Scoped: React streams into a `<div hidden>` that survives until
+    // hydration, so an unscoped `getByText` can match the page twice.
+    await expect(page.getByRole("main").getByText(/no projects yet/i)).toBeVisible();
 
     await page.getByLabel("Title").fill("Transformer efficiency in low-resource NLP");
     await page
@@ -162,7 +166,7 @@ test.describe("Phase 0 exit criterion", () => {
   test("invites an existing user as a supervisor", async () => {
     await createConfirmedUser(inviteeEmail);
 
-    await page.goto("/projects");
+    await goto(page, "/projects");
     await page.getByRole("link", { name: /transformer efficiency/i }).click();
 
     await page.getByLabel("Email").fill(inviteeEmail);
@@ -181,7 +185,7 @@ test.describe("Phase 0 exit criterion", () => {
   });
 
   test("refuses to invite an address with no account", async () => {
-    await page.goto("/projects");
+    await goto(page, "/projects");
     await page.getByRole("link", { name: /transformer efficiency/i }).click();
 
     await page.getByLabel("Email").fill(uniqueEmail("stranger"));
@@ -191,7 +195,7 @@ test.describe("Phase 0 exit criterion", () => {
   });
 
   test("search page is reachable, accessible, and degrades on provider failure", async () => {
-    await page.goto("/projects");
+    await goto(page, "/projects");
     await page.getByRole("link", { name: /transformer efficiency/i }).click();
     // Anchored. A project page legitimately offers this destination more than
     // once now — the section nav, the workspace directory, and (on an empty
@@ -234,7 +238,7 @@ test.describe("Phase 0 exit criterion", () => {
   });
 
   test("imports BibTeX into the library", async () => {
-    await page.goto("/projects");
+    await goto(page, "/projects");
     await page.getByRole("link", { name: /transformer efficiency/i }).click();
     await page.getByRole("link", { name: /^import$/i }).click();
 
@@ -273,7 +277,7 @@ test.describe("Phase 0 exit criterion", () => {
 
     // And it is actually in the library, which is the part that proves the
     // upsert_work + project_works transaction ran under RLS.
-    await page.goto("/projects");
+    await goto(page, "/projects");
     await page.getByRole("link", { name: /transformer efficiency/i }).click();
     await page.getByRole("link", { name: /^library$/i }).click();
 
@@ -287,7 +291,7 @@ test.describe("Phase 0 exit criterion", () => {
   test("re-importing the same references adds nothing", async () => {
     // upsert_work dedupes on (title_norm, year) when there is no identifier,
     // so the second import must be a no-op rather than a duplicate.
-    await page.goto("/projects");
+    await goto(page, "/projects");
     await page.getByRole("link", { name: /transformer efficiency/i }).click();
     await page.getByRole("link", { name: /^import$/i }).click();
 
@@ -303,7 +307,7 @@ test.describe("Phase 0 exit criterion", () => {
   });
 
   test("screens a paper and records the decision", async () => {
-    await page.goto("/projects");
+    await goto(page, "/projects");
     await page.getByRole("link", { name: /transformer efficiency/i }).click();
     await page.getByRole("link", { name: /^screen$/i }).click();
 
@@ -321,14 +325,14 @@ test.describe("Phase 0 exit criterion", () => {
     await expect(page.locator("article h2")).not.toHaveText(first);
 
     // And it moved in the library.
-    await page.goto("/projects");
+    await goto(page, "/projects");
     await page.getByRole("link", { name: /transformer efficiency/i }).click();
     await page.getByRole("link", { name: /^library$/i }).click();
     await expect(page.getByRole("link", { name: /included/i })).toBeVisible();
   });
 
   test("assignment puts a paper in my queue", async () => {
-    await page.goto("/projects");
+    await goto(page, "/projects");
     await page.getByRole("link", { name: /transformer efficiency/i }).click();
     await page.getByRole("link", { name: /^screen$/i }).click();
 
@@ -340,15 +344,15 @@ test.describe("Phase 0 exit criterion", () => {
     await assign.selectOption({ label: myOption });
 
     // Wait for the confirmation rather than racing the server action.
-    await expect(page.getByText(/^assigned to /i)).toBeVisible();
+    await expect(page.getByRole("main").getByText(/^assigned to /i)).toBeVisible();
 
-    await page.goto("/queue");
+    await goto(page, "/queue");
     await expect(page.getByRole("heading", { name: /my queue/i })).toBeVisible();
-    await expect(page.getByText(title)).toBeVisible();
+    await expect(page.getByRole("main").getByText(title)).toBeVisible();
   });
 
   test("highlights a passage and re-resolves the anchor on reload", async () => {
-    await page.goto("/projects");
+    await goto(page, "/projects");
     await page.getByRole("link", { name: /transformer efficiency/i }).click();
     await page.getByRole("link", { name: /^library$/i }).click();
     await page.getByRole("link", { name: /attention is all you need/i }).click();
@@ -394,7 +398,7 @@ test.describe("Phase 0 exit criterion", () => {
   });
 
   test("progress reflects the screening decisions made", async () => {
-    await page.goto("/projects");
+    await goto(page, "/projects");
     await page.getByRole("link", { name: /transformer efficiency/i }).click();
     await page.getByRole("link", { name: /^progress$/i }).click();
 
@@ -419,7 +423,7 @@ test.describe("Phase 0 exit criterion", () => {
   });
 
   test("PRISMA flow is derived from real decisions", async () => {
-    await page.goto("/projects");
+    await goto(page, "/projects");
     await page.getByRole("link", { name: /transformer efficiency/i }).click();
     await page.getByRole("link", { name: /^prisma$/i }).click();
 
@@ -450,7 +454,7 @@ test.describe("Phase 0 exit criterion", () => {
     // The defect this shell fixes: thirteen pages shipped with no navigation,
     // so landing on /queue left nowhere to go. Asserted from a deep page, not
     // from /projects, because that was exactly the trap.
-    await page.goto("/queue");
+    await goto(page, "/queue");
 
     const nav = page.getByRole("navigation", { name: /main/i });
     await expect(nav).toBeVisible();
@@ -471,7 +475,7 @@ test.describe("Phase 0 exit criterion", () => {
   });
 
   test("builds a protocol from a template and protects answered fields", async () => {
-    await page.goto("/projects");
+    await goto(page, "/projects");
     await page.getByRole("link", { name: /transformer efficiency/i }).click();
     await page.getByRole("link", { name: /^protocol$/i }).click();
 
@@ -513,7 +517,7 @@ test.describe("Phase 0 exit criterion", () => {
   });
 
   test("extracts against the protocol, quoting the paper for provenance", async () => {
-    await page.goto("/projects");
+    await goto(page, "/projects");
     await page.getByRole("link", { name: /transformer efficiency/i }).click();
     await page.getByRole("link", { name: /^library$/i }).click();
 
@@ -580,7 +584,7 @@ test.describe("Phase 0 exit criterion", () => {
   });
 
   test("the evidence table shows the extraction, holes included", async () => {
-    await page.goto("/projects");
+    await goto(page, "/projects");
     await page.getByRole("link", { name: /transformer efficiency/i }).click();
     await page.getByRole("link", { name: /^evidence$/i }).click();
 
@@ -607,7 +611,7 @@ test.describe("Phase 0 exit criterion", () => {
   });
 
   test("sorting is a link, so a sorted table can be sent to a supervisor", async () => {
-    await page.goto("/projects");
+    await goto(page, "/projects");
     await page.getByRole("link", { name: /transformer efficiency/i }).click();
     await page.getByRole("link", { name: /^evidence$/i }).click();
 
@@ -630,7 +634,7 @@ test.describe("Phase 0 exit criterion", () => {
   });
 
   test("a quoted cell opens the paper at the passage it came from", async () => {
-    await page.goto("/projects");
+    await goto(page, "/projects");
     await page.getByRole("link", { name: /transformer efficiency/i }).click();
     await page.getByRole("link", { name: /^evidence$/i }).click();
 
@@ -646,7 +650,7 @@ test.describe("Phase 0 exit criterion", () => {
   });
 
   test("the CSV export uses field keys as headers", async () => {
-    await page.goto("/projects");
+    await goto(page, "/projects");
     await page.getByRole("link", { name: /transformer efficiency/i }).click();
     await page.getByRole("link", { name: /^evidence$/i }).click();
 
@@ -671,12 +675,12 @@ test.describe("Phase 0 exit criterion", () => {
   });
 
   test("signs out and blocks the project list", async () => {
-    await page.goto("/projects");
+    await goto(page, "/projects");
     await page.getByRole("button", { name: /sign out/i }).click();
     await expect(page).toHaveURL(/\/sign-in/);
 
     // Middleware gates it, RLS backs that up.
-    await page.goto("/projects");
+    await goto(page, "/projects");
     await expect(page).toHaveURL(/\/sign-in/);
   });
 });

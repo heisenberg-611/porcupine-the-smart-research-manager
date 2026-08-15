@@ -1,6 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
+import { goto } from "./ready";
+
 /**
  * G-07 — accessibility runs in CI from Phase 0.
  *
@@ -15,7 +17,7 @@ const ROUTES = ["/", "/sign-in"] as const;
 
 for (const route of ROUTES) {
   test(`${route} has no WCAG 2.2 AA violations`, async ({ page }) => {
-    await page.goto(route);
+    await goto(page, route);
 
     const results = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
@@ -43,14 +45,14 @@ test("the landing page offers a way in", async ({ page }) => {
   // It did not, for the whole of Phase 1: the placeholder described the
   // product and then offered no link to sign in. A visitor could read about
   // it and had nowhere to go.
-  await page.goto("/");
+  await goto(page, "/");
   await expect(page.getByRole("link", { name: /sign in/i })).toBeVisible();
   await page.getByRole("link", { name: /sign in/i }).click();
   await expect(page).toHaveURL(/\/sign-in/);
 });
 
 test("skip link is reachable by keyboard and moves focus to main", async ({ page }) => {
-  await page.goto("/");
+  await goto(page, "/");
   await page.keyboard.press("Tab");
 
   const skipLink = page.getByRole("link", { name: /skip to content/i });

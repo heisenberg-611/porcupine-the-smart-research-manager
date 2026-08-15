@@ -1,6 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
+import { goto } from "./ready";
+
 /**
  * Phase 2c week 1 — no link leads to a refusal, and every screen says where
  * you are.
@@ -74,7 +76,7 @@ async function createConfirmedUser(email: string) {
 async function signInAndEnroll(browser: Browser, email: string): Promise<Page> {
   const context = await browser.newContext();
   const page = await context.newPage();
-  await page.goto("/sign-in");
+  await goto(page, "/sign-in");
   await page.getByLabel("Email").fill(email);
   await page.getByRole("button", { name: /email me a code/i }).click();
   await page.getByLabel(/six-digit code/i).fill(await fetchOtp(email));
@@ -101,7 +103,7 @@ const KIND_LABEL: Record<string, RegExp> = {
 };
 
 async function createProject(page: Page, title: string, kind: string): Promise<string> {
-  await page.goto("/projects");
+  await goto(page, "/projects");
   await page.getByLabel("Title").fill(title);
   await page
     .getByRole("group", { name: /kind/i })
@@ -156,7 +158,7 @@ test.describe("project navigation", () => {
       // network activity, which never arrives reliably on a slower machine
       // and hung this test for the full 30 s three times in CI while passing
       // locally every time.
-      await page.goto(href, { waitUntil: "load" });
+      await goto(page, href, { waitUntil: "load" });
       await expect(
         page.locator("body"),
         `${href} answered with a capability refusal, so it should not have been linked`,
@@ -169,7 +171,7 @@ test.describe("project navigation", () => {
     // navigation convenience, not the security boundary. If this ever passes
     // by rendering the feature, the gate has been moved into the nav by
     // mistake.
-    await page.goto(`/projects/${thesisId}/reconcile`);
+    await goto(page, `/projects/${thesisId}/reconcile`);
     await expect(page.getByText(REFUSAL)).toBeVisible();
   });
 
@@ -181,7 +183,7 @@ test.describe("project navigation", () => {
 
     // And the thesis genuinely lacks it — otherwise the assertion above
     // proves only that links exist somewhere.
-    await page.goto(`/projects/${thesisId}`);
+    await goto(page, `/projects/${thesisId}`);
     await expect(page.getByRole("heading", { name: "Workspace" })).toBeVisible();
     const thesisNav = page.getByRole("navigation", { name: /sections/i });
     await expect(thesisNav.getByRole("link", { name: "Reconcile" })).toHaveCount(0);
@@ -196,7 +198,7 @@ test.describe("project navigation", () => {
 
   test("every project screen says which project and which section", async () => {
     for (const section of ["library", "evidence", "protocol", "progress"]) {
-      await page.goto(`/projects/${reviewId}/${section}`);
+      await goto(page, `/projects/${reviewId}/${section}`);
 
       const nav = page.getByRole("navigation", { name: /sections/i });
       await expect(nav.getByRole("link", { name: "Nav review" })).toBeVisible();
@@ -212,7 +214,7 @@ test.describe("project navigation", () => {
   });
 
   test("the overview counts what is there and links where it counts", async () => {
-    await page.goto(`/projects/${reviewId}`);
+    await goto(page, `/projects/${reviewId}`);
     await expect(page.getByRole("heading", { name: "Workspace" })).toBeVisible();
 
     // An empty project: the next action must be "find papers", not a generic
@@ -227,7 +229,7 @@ test.describe("project navigation", () => {
   });
 
   test("the new navigation has no accessibility violations", async () => {
-    await page.goto(`/projects/${reviewId}`);
+    await goto(page, `/projects/${reviewId}`);
     await expect(page.getByRole("heading", { name: "Workspace" })).toBeVisible();
 
     const results = await new AxeBuilder({ page })

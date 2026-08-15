@@ -117,14 +117,20 @@ select is(
 -- that RLS is not filtering at all, because there is nothing in it.
 set local role postgres;
 
+-- Scoped to this fixture's project, not the whole table. Counting every row
+-- meant the check silently depended on the database holding nothing else; once
+-- the app had written real keys it started failing on a count of 112, which
+-- says nothing about whether RLS filters.
 select is(
-  (select count(*)::int from project_keys),
+  (select count(*)::int from project_keys
+    where project_id = 'aa000000-0000-0000-0000-0000000000a1'),
   2,
   'MUTATION: there really are two wraps to filter'
 );
 
 select is(
-  (select count(distinct user_id)::int from project_keys),
+  (select count(distinct user_id)::int from project_keys
+    where project_id = 'aa000000-0000-0000-0000-0000000000a1'),
   2,
   'MUTATION: addressed to two different members'
 );

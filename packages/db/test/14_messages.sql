@@ -119,9 +119,14 @@ select is((select count(*)::int from channels), 0, 'a non-member sees no channel
 select is((select count(*)::int from messages), 0, 'and no messages (fail closed)');
 
 set local role postgres;
-select is((select count(*)::int from channels), 1,
+-- Scoped to this fixture's project: an unscoped count passes or fails on
+-- whatever else happens to be in the database, which is not what is being
+-- asserted. See the same correction in 13_project_keys.sql.
+select is((select count(*)::int from channels
+            where project_id = 'bb000000-0000-0000-0000-0000000000a1'), 1,
   'MUTATION: there is a channel to hide');
-select is((select count(*)::int from messages), 2,
+select is((select count(*)::int from messages
+            where project_id = 'bb000000-0000-0000-0000-0000000000a1'), 2,
   'MUTATION: there are two messages to hide');
 
 -- ── Append-only ─────────────────────────────────────────────────────────────

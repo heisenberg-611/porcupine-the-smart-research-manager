@@ -2,6 +2,8 @@ import { execFileSync } from "node:child_process";
 
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
+import { goto } from "./ready";
+
 /**
  * Phase 3 week 3b — two people, one encrypted conversation.
  *
@@ -64,7 +66,7 @@ async function signUp(
   const context = await browser.newContext();
   const page = await context.newPage();
 
-  await page.goto("/sign-in");
+  await goto(page, "/sign-in");
   await page.getByLabel("Email").fill(email);
   await page.getByRole("button", { name: /email me a code/i }).click();
   await page.getByLabel(/six-digit code/i).fill(await fetchOtp(email));
@@ -84,7 +86,7 @@ async function signUp(
 }
 
 async function unlock(page: Page, passphrase: string, next: string) {
-  await page.goto(`/unlock?next=${encodeURIComponent(next)}`);
+  await goto(page, `/unlock?next=${encodeURIComponent(next)}`);
   await page.getByLabel(/recovery passphrase/i).fill(passphrase);
   await page.getByRole("button", { name: /^unlock$/i }).click();
   await page.waitForURL(new RegExp(next.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), {

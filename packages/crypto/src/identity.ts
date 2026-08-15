@@ -292,6 +292,40 @@ export async function unwrapIdentity(
   }
 }
 
+/**
+ * Open the identity bundle with a Master Key obtained some other way — from a
+ * device, and later from an escrow key.
+ *
+ * v2 only, deliberately. A v1 bundle has no Master Key inside it, so there was
+ * never one to hand a device; an account still on v1 has not unlocked since the
+ * upgrade and belongs on the passphrase path, where the migration lives.
+ *
+ * This is the function that makes the Master Key layer worth having: no
+ * Argon2id, no passphrase, and the identity keys come out the same.
+ */
+export async function unwrapIdentityWithMasterKey(
+  wrappedBundle: Uint8Array,
+  masterKey: Uint8Array,
+): Promise<UnwrappedIdentity> {
+  await initCrypto();
+
+  if (wrappedBundle[0] !== BUNDLE_V2) {
+    throw new Error("This key bundle predates device support.");
+  }
+
+  const { idWrap } = decodeV2(wrappedBundle);
+  let plaintext: Uint8Array;
+  try {
+    plaintext = open(idWrap, masterKey);
+  } catch {
+    throw new Error("That master key does not open this bundle.");
+  }
+
+  const identity = decodePrivateBundle(plaintext);
+  sodium.memzero(plaintext);
+  return { ...identity, masterKey, needsRewrap: false };
+}
+
 /** Every failure to open under a passphrase-derived key means one thing. */
 function openOrThrow(sealed: Uint8Array, key: Uint8Array): Uint8Array {
   try {
