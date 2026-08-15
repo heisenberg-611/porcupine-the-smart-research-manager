@@ -21,12 +21,7 @@
  * directly, so the megabytes never cross a postMessage boundary.
  */
 
-const DB_NAME = "porcupine-latex";
-const DB_VERSION = 1;
-/** Bytes, keyed by the name TeX will ask for. */
-const FILES = "files";
-/** Name, size and age — so the list can be drawn without reading megabytes. */
-const META = "meta";
+import { FILES, META, openLatexDb, runTx } from "./idb";
 
 /**
  * Thirty days, then gone.
@@ -53,36 +48,6 @@ export interface StoredPackage extends PackageMeta {
   daysLeft: number;
 }
 
-function open(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(FILES)) db.createObjectStore(FILES);
-      if (!db.objectStoreNames.contains(META)) db.createObjectStore(META);
-    };
-
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error("IndexedDB refused"));
-  });
-}
-
-function run<T>(
-  db: IDBDatabase,
-  stores: string[],
-  mode: IDBTransactionMode,
-  work: (tx: IDBTransaction) => T,
-): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(stores, mode);
-    const result = work(tx);
-    tx.oncomplete = () => resolve(result);
-    tx.onerror = () => reject(tx.error ?? new Error("IndexedDB transaction failed"));
-    tx.onabort = () => reject(tx.error ?? new Error("IndexedDB transaction aborted"));
-  });
-}
-
 /**
  * Ask the browser not to evict this data.
  *
@@ -104,10 +69,10 @@ export async function requestPersistence(): Promise<boolean> {
 
 /** Delete everything past its thirty days. Returns how many went. */
 export async function sweepExpired(now = Date.now()): Promise<number> {
-  const db = await open();
+  const db = await openLatexDb();
   const cutoff = now - TTL_MS;
 
-  const expired = await run(db, [META], "readonly", (tx) => {
+  const expired = await runTx(db, [META], "readonly", (tx) => {
     const names: string[] = [];
     const store = tx.objectStore(META);
     const cursor = store.openCursor();
@@ -122,7 +87,7 @@ export async function sweepExpired(now = Date.now()): Promise<number> {
   });
 
   if (expired.length > 0) {
-    await run(db, [FILES, META], "readwrite", (tx) => {
+    await runTx(db, [FILES, META], "readwrite", (tx) => {
       for (const name of expired) {
         tx.objectStore(FILES).delete(name);
         tx.objectStore(META).delete(name);
@@ -136,9 +101,9 @@ export async function sweepExpired(now = Date.now()): Promise<number> {
 
 /** Everything present, newest first, with its remaining life. */
 export async function listPackages(now = Date.now()): Promise<StoredPackage[]> {
-  const db = await open();
+  const db = await openLatexDb();
 
-  const metas = await run(db, [META], "readonly", (tx) => {
+  const metas = await runTx(db, [META], "readonly", (tx) => {
     const all: PackageMeta[] = [];
     const cursor = tx.objectStore(META).openCursor();
     cursor.onsuccess = () => {
@@ -167,10 +132,10 @@ export async function putFiles(
 ): Promise<number> {
   if (files.size === 0) return 0;
 
-  const db = await open();
+  const db = await openLatexDb();
   const addedAt = Date.now();
 
-  await run(db, [FILES, META], "readwrite", (tx) => {
+  await runTx(db, [FILES, META], "readwrite", (tx) => {
     const fileStore = tx.objectStore(FILES);
     const metaStore = tx.objectStore(META);
     for (const [name, bytes] of files) {
@@ -185,9 +150,9 @@ export async function putFiles(
 
 /** Every stored file, for the engine's virtual filesystem. */
 export async function loadAll(): Promise<Map<string, Uint8Array>> {
-  const db = await open();
+  const db = await openLatexDb();
 
-  const files = await run(db, [FILES], "readonly", (tx) => {
+  const files = await runTx(db, [FILES], "readonly", (tx) => {
     const map = new Map<string, Uint8Array>();
     const cursor = tx.objectStore(FILES).openCursor();
     cursor.onsuccess = () => {
@@ -204,8 +169,8 @@ export async function loadAll(): Promise<Map<string, Uint8Array>> {
 }
 
 export async function removePackage(name: string): Promise<void> {
-  const db = await open();
-  await run(db, [FILES, META], "readwrite", (tx) => {
+  const db = await openLatexDb();
+  await runTx(db, [FILES, META], "readwrite", (tx) => {
     tx.objectStore(FILES).delete(name);
     tx.objectStore(META).delete(name);
   });
@@ -213,8 +178,8 @@ export async function removePackage(name: string): Promise<void> {
 }
 
 export async function removeAll(): Promise<void> {
-  const db = await open();
-  await run(db, [FILES, META], "readwrite", (tx) => {
+  const db = await openLatexDb();
+  await runTx(db, [FILES, META], "readwrite", (tx) => {
     tx.objectStore(FILES).clear();
     tx.objectStore(META).clear();
   });

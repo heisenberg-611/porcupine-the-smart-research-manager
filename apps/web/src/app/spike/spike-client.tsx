@@ -13,11 +13,19 @@ import { Button } from "@/components/ui";
 import { closeEnvironmentOnBrace, latexCompletions } from "@/lib/latex/editor-support";
 import { useCompiler } from "@/lib/latex/use-compiler";
 
-import { CompilerPanel } from "./compiler-panel";
-import { PackageManager } from "./package-manager";
+import {
+  DEFAULT_ENTRY,
+  deleteFile,
+  loadProject,
+  renameFile,
+  saveFile,
+  setEntry as persistEntry,
+  type ProjectFiles,
+} from "@/lib/latex/project-store";
 
-const ENTRY = "main.tex";
-const DRAFT_KEY = "porcupine.latex.spike";
+import { CompilerPanel } from "./compiler-panel";
+import { FileTree } from "./file-tree";
+import { PackageManager } from "./package-manager";
 
 /**
  * Compile from the keyboard.
@@ -57,15 +65,15 @@ Edit the source and press Compile.
  * The button never changed and the page stopped responding until the PDF
  * appeared.
  *
- * What this spike is still not: multi-file projects, SyncTeX click-through,
- * or saving anywhere but this browser. It answers the feasibility question and
- * stops.
+ * What this is still not: SyncTeX click-through between source and PDF, and
+ * it saves nowhere but this browser.
  */
 export function SpikeClient() {
   const { compile, busy, step, outcome, error } = useCompiler();
-  const [source, setSource] = useState(DEFAULT_TEX);
+  const [files, setFiles] = useState<ProjectFiles>(new Map());
+  const [entry, setEntryState] = useState(DEFAULT_ENTRY);
+  const [active, setActive] = useState(DEFAULT_ENTRY);
   const [dark, setDark] = useState(false);
-  const [restored, setRestored] = useState(false);
   const editor = useRef<EditorView | null>(null);
   const [packagesToken, setPackagesToken] = useState("0:0");
   const [showPackages, setShowPackages] = useState(false);
@@ -119,29 +127,127 @@ export function SpikeClient() {
     view.focus();
   }, []);
 
-  // The draft survives a reload. Losing an hour's LaTeX to a refresh is the
-  // kind of thing that makes people stop trusting a tool, and this is four
-  // lines.
+  /*
+   * The project survives a reload — all of it.
+   *
+   * Losing an hour's LaTeX to a refresh is what makes people stop trusting an
+   * editor. Writes go through per file rather than being batched: a batch is
+   * a window in which a crash loses work, and it would buy nothing but writes
+   * nobody is waiting on.
+   */
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(DRAFT_KEY);
-      if (saved) setSource(saved);
-    } catch {
-      // Storage denied. The editor still works; it just will not remember.
-    }
-    setRestored(true);
+    void (async () => {
+      const project = await loadProject();
+
+      if (project.files.size === 0) {
+        // A first-run project rather than an empty one: an editor that opens
+        // on a blank buffer with no `\documentclass` teaches nothing.
+        project.files.set(DEFAULT_ENTRY, DEFAULT_TEX);
+        await saveFile(DEFAULT_ENTRY, DEFAULT_TEX);
+      }
+
+      setFiles(project.files);
+      setEntryState(project.entry);
+      setActive(project.files.has(project.entry) ? project.entry : DEFAULT_ENTRY);
+    })();
   }, []);
 
-  compileFromKeyboard = () => compile({ [ENTRY]: source }, ENTRY, packagesToken);
+  /** Every file, as the worker wants them. */
+  const asRecord = useCallback(() => Object.fromEntries(files), [files]);
 
-  useEffect(() => {
-    if (!restored) return;
-    try {
-      localStorage.setItem(DRAFT_KEY, source);
-    } catch {
-      // As above.
-    }
-  }, [source, restored]);
+  compileFromKeyboard = () => compile(asRecord(), entry, packagesToken);
+
+  const edit = useCallback(
+    (next: string) => {
+      setFiles((current) => new Map(current).set(active, next));
+      void saveFile(active, next);
+    },
+    [active],
+  );
+
+  /** The open file's text. Binary files are listed but never opened. */
+  const openFile = files.get(active);
+  const text = typeof openFile === "string" ? openFile : "";
+
+  const createFile = useCallback(
+    (name: string) => {
+      if (files.has(name)) {
+        setActive(name);
+        return;
+      }
+      // A new `.tex` gets nothing but a comment: a stub `\documentclass` in a
+      // file meant to be `\input` from the root is a mistake that produces a
+      // baffling error much later.
+      const seed = name.endsWith(".bib") ? "" : `% ${name}\n`;
+      setFiles((current) => new Map(current).set(name, seed));
+      setActive(name);
+      void saveFile(name, seed);
+    },
+    [files],
+  );
+
+  /**
+   * Figures and data, carried into the compile as bytes.
+   *
+   * Text arrives as text so it can be edited; anything else is stored as bytes
+   * and shown in the list but not opened. Decoding a PNG into a string would
+   * corrupt it silently, which is worse than refusing to show it.
+   */
+  const uploadFiles = useCallback((list: FileList) => {
+    void (async () => {
+      for (const file of Array.from(list)) {
+        const editableName = /\.(tex|bib|cls|sty|txt|md|csv)$/i.test(file.name);
+        const contents = editableName
+          ? await file.text()
+          : new Uint8Array(await file.arrayBuffer());
+
+        setFiles((current) => new Map(current).set(file.name, contents));
+        await saveFile(file.name, contents);
+      }
+    })();
+  }, []);
+
+  const rename = useCallback(
+    (from: string, to: string) => {
+      setFiles((current) => {
+        const next = new Map(current);
+        const contents = next.get(from);
+        if (contents === undefined) return current;
+        next.delete(from);
+        next.set(to, contents);
+        return next;
+      });
+      void renameFile(from, to);
+
+      // The root document following its own rename, and the open tab with it.
+      if (entry === from) {
+        setEntryState(to);
+        void persistEntry(to);
+      }
+      if (active === from) setActive(to);
+    },
+    [active, entry],
+  );
+
+  const remove = useCallback(
+    (name: string) => {
+      // The root is not deletable from the tree, so this cannot orphan the
+      // compile — but the open tab still has to go somewhere real.
+      setFiles((current) => {
+        const next = new Map(current);
+        next.delete(name);
+        return next;
+      });
+      void deleteFile(name);
+      if (active === name) setActive(entry);
+    },
+    [active, entry],
+  );
+
+  const chooseEntry = useCallback((name: string) => {
+    setEntryState(name);
+    void persistEntry(name);
+  }, []);
 
   /*
    * CodeMirror needs to be told which theme to use — it does not read the
@@ -192,7 +298,7 @@ export function SpikeClient() {
             Packages
           </Button>
           <Button
-            onClick={() => compile({ [ENTRY]: source }, ENTRY, packagesToken)}
+            onClick={() => compile(asRecord(), entry, packagesToken)}
             disabled={busy}
             variant="primary"
           >
@@ -211,27 +317,48 @@ export function SpikeClient() {
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <section
           aria-label="LaTeX source"
-          className="border-rule flex min-h-0 flex-1 flex-col border-b lg:border-r lg:border-b-0"
+          className="border-rule flex min-h-0 flex-1 border-b lg:border-r lg:border-b-0"
         >
-          <div className="border-rule bg-surface flex shrink-0 items-center justify-between gap-3 border-b px-4 py-1.5">
-            <span className="text-muted text-fine font-mono">{ENTRY}</span>
-            <span className="text-muted text-fine flex items-center gap-3">
-              {/* LaTeX paragraphs are often one very long line, so wrapping is
+          <FileTree
+            files={files}
+            active={active}
+            entry={entry}
+            onOpen={setActive}
+            onCreate={createFile}
+            onUpload={uploadFiles}
+            onRename={rename}
+            onDelete={remove}
+            onSetEntry={chooseEntry}
+          />
+
+          <div className="flex min-w-0 flex-1 flex-col">
+            <div className="border-rule bg-surface flex shrink-0 items-center justify-between gap-3 border-b px-4 py-1.5">
+              <span className="text-muted text-fine font-mono">
+                {active}
+                {active === entry && (
+                  <span className="text-accent" title="Root document">
+                    {" "}
+                    ▸ root
+                  </span>
+                )}
+              </span>
+              <span className="text-muted text-fine flex items-center gap-3">
+                {/* LaTeX paragraphs are often one very long line, so wrapping is
                   on by default — but anyone editing a table wants the columns
                   to stay put. */}
-              <label className="flex items-center gap-1.5">
-                <input
-                  type="checkbox"
-                  checked={wrap}
-                  onChange={(e) => setWrap(e.target.checked)}
-                  className="accent-accent"
-                />
-                Wrap
-              </label>
-              <span aria-hidden>⌘↵ compile · ⌃Space complete</span>
-            </span>
-          </div>
-          {/*
+                <label className="flex items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    checked={wrap}
+                    onChange={(e) => setWrap(e.target.checked)}
+                    className="accent-accent"
+                  />
+                  Wrap
+                </label>
+                <span aria-hidden>⌘↵ compile · ⌃Space complete</span>
+              </span>
+            </div>
+            {/*
             `relative` + `absolute inset-0`, and it is the whole reason the
             editor scrolls.
 
@@ -242,32 +369,33 @@ export function SpikeClient() {
             for 92 lines — and `.cm-scroller` never had anything to scroll, so
             a long file simply ran off the bottom of the page.
           */}
-          <div className="relative min-h-0 flex-1">
-            <CodeMirror
-              // `absolute inset-0` goes on the COMPONENT, which is where the
-              // class lands on the wrapper div react-codemirror renders. An
-              // extra div around it does not help: `.cm-editor`'s `height:100%`
-              // resolves against that wrapper, and a wrapper with no height of
-              // its own leaves the percentage as `auto`.
-              className="absolute inset-0"
-              value={source}
-              height="100%"
-              theme={dark ? githubDark : githubLight}
-              extensions={extensions}
-              onChange={setSource}
-              onCreateEditor={(view) => {
-                editor.current = view;
-              }}
-              basicSetup={{
-                lineNumbers: true,
-                foldGutter: true,
-                bracketMatching: true,
-                closeBrackets: true,
-                highlightActiveLine: true,
-                highlightSelectionMatches: true,
-                autocompletion: false,
-              }}
-            />
+            <div className="relative min-h-0 flex-1">
+              <CodeMirror
+                // `absolute inset-0` goes on the COMPONENT, which is where the
+                // class lands on the wrapper div react-codemirror renders. An
+                // extra div around it does not help: `.cm-editor`'s `height:100%`
+                // resolves against that wrapper, and a wrapper with no height of
+                // its own leaves the percentage as `auto`.
+                className="absolute inset-0"
+                value={text}
+                height="100%"
+                theme={dark ? githubDark : githubLight}
+                extensions={extensions}
+                onChange={edit}
+                onCreateEditor={(view) => {
+                  editor.current = view;
+                }}
+                basicSetup={{
+                  lineNumbers: true,
+                  foldGutter: true,
+                  bracketMatching: true,
+                  closeBrackets: true,
+                  highlightActiveLine: true,
+                  highlightSelectionMatches: true,
+                  autocompletion: false,
+                }}
+              />
+            </div>
           </div>
         </section>
 
@@ -299,7 +427,7 @@ export function SpikeClient() {
       <CompilerPanel
         outcome={outcome}
         error={error}
-        entry={ENTRY}
+        entry={entry}
         onGoToLine={goToLine}
       />
     </div>

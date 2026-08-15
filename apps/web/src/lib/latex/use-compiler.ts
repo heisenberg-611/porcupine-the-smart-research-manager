@@ -113,7 +113,11 @@ export function useCompiler() {
   }, []);
 
   const compile = useCallback(
-    (files: Record<string, string>, entry: string, packagesToken: string) => {
+    (
+      files: Record<string, string | Uint8Array>,
+      entry: string,
+      packagesToken: string,
+    ) => {
       if (!worker.current) return;
 
       const id = ++nextId.current;

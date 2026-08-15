@@ -12,7 +12,12 @@ export type CompileRequestMessage = {
   /** Echoed back, so a stale reply from a superseded run can be dropped. */
   id: number;
   /** Every file in the project, not only the entry point. */
-  files: Record<string, string>;
+  /**
+   * Every file in the project, not only the entry point — and bytes as well
+   * as text. A figure is as much a part of a document as a chapter, and
+   * `\includegraphics` cannot resolve one that never crossed.
+   */
+  files: Record<string, string | Uint8Array>;
   entry: string;
   /**
    * Changes whenever the browser's own package store changes.
