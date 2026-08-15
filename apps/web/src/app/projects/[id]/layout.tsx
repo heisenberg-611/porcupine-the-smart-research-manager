@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { notFound, redirect } from "next/navigation";
 
 import { ProjectNav } from "@/components/project-nav";
+import { ProjectSidebar } from "@/components/project-sidebar";
 import { getProject } from "@/lib/project";
 import { projectSections } from "@/lib/project-sections";
 import { getCurrentUser } from "@/lib/supabase/server";
@@ -47,14 +48,36 @@ export default async function ProjectLayout({
   // restrictive set rather than guessing generously.
   const kind = isProjectKind(project.kind) ? project.kind : "GENERAL";
 
+  const sections = projectSections(kind);
+
+  /*
+   * Two presentations of one menu, and only ever one of them rendered.
+   *
+   * Both are in the DOM; `display: none` decides which. That is deliberate —
+   * choosing between them on the server would need the viewport, which the
+   * server does not have, and choosing in the browser would mean the menu
+   * arrives after the page it navigates.
+   *
+   * Wide: a grouped sidebar, which has room to say Collect / Screen / Extract
+   * / Synthesise and so doubles as a map of the workflow. Narrow: the same
+   * links as a scrolling strip, because 200px of a phone's width is not
+   * available for permanent chrome.
+   */
   return (
     <>
       <ProjectNav
         projectId={project.id}
         projectTitle={project.title}
-        sections={projectSections(kind)}
+        sections={sections}
       />
-      {children}
+      <div className="mx-auto flex w-full max-w-6xl gap-10 px-0 lg:px-6">
+        <ProjectSidebar
+          projectId={project.id}
+          projectTitle={project.title}
+          sections={sections}
+        />
+        <div className="min-w-0 flex-1">{children}</div>
+      </div>
     </>
   );
 }

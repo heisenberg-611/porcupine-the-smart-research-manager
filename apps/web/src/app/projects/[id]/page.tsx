@@ -50,6 +50,13 @@ interface ProgressRow {
  *
  * Every count on this page links to the view it counts. A number you cannot
  * click is a dead end with extra steps.
+ *
+ * The grid of section cards is now `lg:hidden`. On a wide screen the sidebar
+ * lists the same destinations, grouped the same way, permanently — so the grid
+ * was a second copy of the menu sitting directly beneath the first. Below
+ * `lg` there is no sidebar, and the cards are how you get anywhere, so they
+ * stay. What the overview is FOR is the four counts and the next action;
+ * neither belongs in a menu.
  */
 export default async function ProjectPage({
   params,
@@ -232,8 +239,8 @@ export default async function ProjectPage({
         </Card>
       </section>
 
-      {/* ── Everything this project can do, in the order it happens ──────── */}
-      <section aria-labelledby="sections">
+      {/* ── Where to go, on a screen too narrow for the sidebar ──────────── */}
+      <section aria-labelledby="sections" className="lg:hidden">
         <h2 id="sections" className="text-ink text-heading mb-4 font-medium">
           Workspace
         </h2>
@@ -269,19 +276,19 @@ export default async function ProjectPage({
             );
           })}
         </div>
-
-        <p className="text-muted text-fine mt-5">
-          {/* The kind is the reason half of these screens exist or do not, so
-              it belongs here as an explanation rather than as a label in the
-              corner. It is also irreversible, which people should learn now
-              rather than when they go looking for the setting. */}
-          This is a {kind.replace(/_/g, " ").toLowerCase()} project, which is why{" "}
-          {caps.dualExtraction
-            ? "reconciliation and PRISMA are available"
-            : "there is no reconciliation or PRISMA diagram"}
-          . A project&rsquo;s kind is fixed when it is created.
-        </p>
       </section>
+
+      <p className="text-muted text-fine">
+        {/* The kind is the reason half the sections exist or do not, so it
+            belongs on the overview as an explanation rather than as a label in
+            a corner. It is also irreversible, which people should learn now
+            rather than when they go looking for the setting. */}
+        This is a {kind.replace(/_/g, " ").toLowerCase()} project, which is why{" "}
+        {caps.dualExtraction
+          ? "reconciliation and PRISMA are available"
+          : "there is no reconciliation or PRISMA diagram"}
+        . A project&rsquo;s kind is fixed when it is created.
+      </p>
 
       {/* ── Who is on it ─────────────────────────────────────────────────── */}
       <section aria-labelledby="members">

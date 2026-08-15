@@ -6,7 +6,10 @@ import { usePathname } from "next/navigation";
 import { activeSection, sectionHref, type ProjectSection } from "@/lib/project-sections";
 
 /**
- * The bar that says which project you are in and which part of it.
+ * The bar that says which project you are in and which part of it — on a
+ * narrow screen only. Wide screens get `ProjectSidebar`, which can afford to
+ * group the same links by workflow phase; this is the version for a viewport
+ * that cannot spare a column.
  *
  * A client component, reversing an earlier call. `AppHeader` deliberately
  * omitted `aria-current` on the reasoning that marking the active item needs
@@ -38,7 +41,7 @@ export function ProjectNav({
   const active = activeSection(pathname ?? "", projectId);
 
   return (
-    <div className="border-rule bg-surface/60 border-b">
+    <div className="border-rule bg-surface/60 border-b lg:hidden">
       <div className="mx-auto max-w-5xl px-6">
         <nav aria-label={`${projectTitle} sections`}>
           {/* Scrolls on a phone rather than wrapping to three lines. The
