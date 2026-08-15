@@ -7,6 +7,7 @@ import {
 } from "@porcupine/shared";
 import { useEffect, useState, useTransition } from "react";
 
+import { SourceLinks } from "@/components/source-links";
 import { Button, Select } from "@/components/ui";
 
 import { assignWork, recordDecision } from "./actions";
@@ -22,6 +23,10 @@ export interface ScreenRow {
   venue: string | null;
   year: number | null;
   abstract: string | null;
+  doi: string | null;
+  arxivId: string | null;
+  pmid: string | null;
+  oaPdfUrl: string | null;
 }
 
 export interface Member {
@@ -59,12 +64,28 @@ export function ScreenClient({
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [conflicts, setConflicts] = useState(0);
+  const [deferred, setDeferred] = useState<Record<string, true>>({});
   const [reason, setReason] = useState<ExclusionReason | "">("");
   const [showKeys, setShowKeys] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  const remaining = rows.filter((row) => !done[row.id]);
+  /*
+   * Deferred papers sort to the END; they do not leave.
+   *
+   * Skip means "not now", and a queue that removes what you skipped has
+   * quietly turned that into "never" — you would have to go and find the paper
+   * again through the library to give it the second look you asked for.
+   */
+  const remaining = rows
+    .filter((row) => !done[row.id])
+    .sort((a, b) => Number(!!deferred[a.id]) - Number(!!deferred[b.id]));
   const current = remaining[Math.min(index, remaining.length - 1)];
+
+  /** Jump to a paper picked from the list rather than the one next in order. */
+  function select(id: string) {
+    const at = remaining.findIndex((row) => row.id === id);
+    if (at >= 0) setIndex(at);
+  }
 
   /**
    * Record a decision and move on IMMEDIATELY, without waiting for the server.
@@ -87,6 +108,24 @@ export function ScreenClient({
    * against. `useOptimistic` would add a rollback we would then have to
    * suppress.
    */
+  /**
+   * Defer: record that this paper was LOOKED AT and not decided.
+   *
+   * This button existed before and did `setIndex((i) => i + 1)` — nothing
+   * else. Nothing was written, so a reload brought every skipped paper back in
+   * its original place with no trace that anyone had opened it, and a
+   * colleague sharing the queue could not tell either. It is also the whole
+   * reason the Pipeline's SCREENING bar was always empty: the schema, the
+   * transition table, the queue query and the PRISMA view all handle that
+   * status, and the one control whose meaning IS that status never wrote it.
+   */
+  function skip() {
+    if (!current) return;
+    setDeferred((prev) => ({ ...prev, [current.id]: true }));
+    setIndex(0);
+    decide("SCREENING");
+  }
+
   function decide(toStatus: "INCLUDED" | "EXCLUDED" | "SCREENING") {
     if (!current) return;
     setError(null);
@@ -101,9 +140,12 @@ export function ScreenClient({
     const target = current;
     const chosenReason = toStatus === "EXCLUDED" ? reason || null : null;
 
-    setDone((prev) => ({ ...prev, [target.id]: toStatus }));
+    // A deferral stays in the queue; a verdict leaves it.
+    if (toStatus !== "SCREENING") {
+      setDone((prev) => ({ ...prev, [target.id]: toStatus }));
+      setIndex(0);
+    }
     setReason("");
-    setIndex(0);
     setStatus(null);
 
     // Put it back. The paper returns to the queue and, because the queue is
@@ -226,7 +268,7 @@ export function ScreenClient({
         decide("EXCLUDED");
       } else if (key === "s") {
         event.preventDefault();
-        setIndex((i) => i + 1);
+        skip();
       } else if (key === "?") {
         event.preventDefault();
         setShowKeys((v) => !v);
@@ -274,77 +316,136 @@ export function ScreenClient({
         {conflicts > 0 && ` · ${conflicts} already handled by someone else`}
       </p>
 
-      {/* The surface someone sees three hundred times in an afternoon. No
-          card, no border: the paper IS the page. Title in the display serif,
-          metadata quiet beneath it, abstract at reading size and measure. */}
-      <article className="border-rule border-t pt-6">
-        <h2 className="text-ink text-title">{current.title}</h2>
-        <p className="meta mt-2">
-          {current.authors}
-          {current.venue && ` · ${current.venue}`}
-          {current.year && ` · ${current.year}`}
-        </p>
+      {/* The pile, and the paper.
 
-        {current.abstract ? (
-          <p className="prose-body mt-5">{current.abstract}</p>
-        ) : (
-          <p className="text-muted measure text-ui mt-5 italic">
-            No abstract — decide from the title, or open the paper first.
-          </p>
-        )}
+          The list is the part that was missing. This screen rendered exactly
+          one <article> and a "{n} left" counter, which is the entire model of
+          scope it offered for a task people do three hundred times in an
+          afternoon: you could not see what was coming, could not tell whether
+          the queue was one search or five, and could not pick the paper you
+          were actually ready to judge.
 
-        <p className="meta mt-6 uppercase">{screenStatusLabel(current.screenStatus)}</p>
-      </article>
+          It is `lg` and up only. On a phone the one-at-a-time flow is right —
+          there is no room for a column, and a list that pushes the abstract
+          below the fold makes the common case worse to fix the rare one. */}
+      <div className="lg:grid lg:grid-cols-[16rem_1fr] lg:gap-8">
+        <nav
+          aria-label="Screening queue"
+          className="border-rule sticky top-[var(--app-header-h)] hidden max-h-[calc(100dvh-var(--app-header-h)-2rem)] overflow-y-auto border-r pr-3 lg:block"
+        >
+          <ul className="flex flex-col gap-0.5">
+            {remaining.map((row) => {
+              const isCurrent = row.id === current.id;
+              return (
+                <li key={row.id}>
+                  <button
+                    type="button"
+                    onClick={() => select(row.id)}
+                    aria-current={isCurrent ? "true" : undefined}
+                    className={cx(
+                      "focus-visible:ring-accent w-full rounded-lg px-2 py-2 text-left transition-colors",
+                      "focus-visible:ring-2 focus-visible:outline-none",
+                      isCurrent ? "bg-accent-soft" : "hover:bg-surface",
+                    )}
+                  >
+                    <span
+                      className={cx(
+                        "text-fine block leading-snug text-pretty",
+                        isCurrent ? "text-ink font-medium" : "text-muted",
+                      )}
+                    >
+                      {row.title}
+                    </span>
+                    <span className="text-muted text-fine mt-0.5 block opacity-80">
+                      {row.year ?? "no year"}
+                      {/* Saying which ones you have already put off is the
+                          point of putting them at the end. */}
+                      {deferred[row.id] && " · skipped"}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
 
-      <div className="flex flex-wrap items-end gap-3">
-        {/* Deliberately NOT disabled while a request is in flight. Blocking
+        <div className="flex min-w-0 flex-col gap-4">
+          <article className="border-rule border-t pt-6 lg:border-t-0 lg:pt-0">
+            <h2 className="text-ink text-title">{current.title}</h2>
+            <p className="meta mt-2">
+              {current.authors}
+              {current.venue && ` · ${current.venue}`}
+              {current.year && ` · ${current.year}`}
+            </p>
+
+            {/* The link belongs HERE, next to the decision. This screen used to
+            advise opening the paper first and then offer no way to do it. */}
+            <SourceLinks className="mt-3" title={current.title} work={current} />
+
+            {current.abstract ? (
+              <p className="prose-body mt-5">{current.abstract}</p>
+            ) : (
+              <p className="text-muted measure text-ui mt-5 italic">
+                No abstract on record — decide from the title, or open the paper above.
+              </p>
+            )}
+
+            <p className="meta mt-6 uppercase">
+              {screenStatusLabel(current.screenStatus)}
+            </p>
+          </article>
+
+          <div className="flex flex-wrap items-end gap-3">
+            {/* Deliberately NOT disabled while a request is in flight. Blocking
             the next decision on the previous one's round trip is precisely
             the pause the optimistic path exists to remove, and each request
             targets a different paper so they cannot race each other. */}
-        <Button onClick={() => decide("INCLUDED")}>Include</Button>
+            <Button onClick={() => decide("INCLUDED")}>Include</Button>
 
-        <div className="flex items-end gap-2">
-          <label className="text-muted text-fine flex flex-col gap-1">
-            Exclusion reason
+            <div className="flex items-end gap-2">
+              <label className="text-muted text-fine flex flex-col gap-1">
+                Exclusion reason
+                <Select
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value as ExclusionReason | "")}
+                  className="border-border bg-surface text-ink text-ui min-h-11 rounded-lg border px-2"
+                >
+                  <option value="">{reasonRequired ? "Choose one…" : "None"}</option>
+                  {EXCLUSION_REASONS.map((r) => (
+                    <option key={r.code} value={r.code}>
+                      {r.label}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+              <Button variant="danger" onClick={() => decide("EXCLUDED")}>
+                Exclude
+              </Button>
+            </div>
+
+            <Button variant="ghost" disabled={pending} onClick={skip}>
+              Skip for now
+            </Button>
+          </div>
+
+          <label className="text-muted text-fine flex max-w-xs flex-col gap-1">
+            Assign to
             <Select
-              value={reason}
-              onChange={(e) => setReason(e.target.value as ExclusionReason | "")}
+              value={current.assigneeId ?? ""}
+              onChange={(e) => assign(e.target.value)}
+              disabled={pending}
               className="border-border bg-surface text-ink text-ui min-h-11 rounded-lg border px-2"
             >
-              <option value="">{reasonRequired ? "Choose one…" : "None"}</option>
-              {EXCLUSION_REASONS.map((r) => (
-                <option key={r.code} value={r.code}>
-                  {r.label}
+              <option value="">Nobody</option>
+              {members.map((m) => (
+                <option key={m.userId} value={m.userId}>
+                  {m.userId === currentUserId ? `${m.name} (me)` : m.name}
                 </option>
               ))}
             </Select>
           </label>
-          <Button variant="danger" onClick={() => decide("EXCLUDED")}>
-            Exclude
-          </Button>
         </div>
-
-        <Button variant="ghost" onClick={() => setIndex((i) => i + 1)}>
-          Skip
-        </Button>
       </div>
-
-      <label className="text-muted text-fine flex max-w-xs flex-col gap-1">
-        Assign to
-        <Select
-          value={current.assigneeId ?? ""}
-          onChange={(e) => assign(e.target.value)}
-          disabled={pending}
-          className="border-border bg-surface text-ink text-ui min-h-11 rounded-lg border px-2"
-        >
-          <option value="">Nobody</option>
-          {members.map((m) => (
-            <option key={m.userId} value={m.userId}>
-              {m.userId === currentUserId ? `${m.name} (me)` : m.name}
-            </option>
-          ))}
-        </Select>
-      </label>
 
       <div className="border-rule border-t pt-3">
         <button
@@ -372,7 +473,7 @@ export function ScreenClient({
             <dt>
               <Key>S</Key>
             </dt>
-            <dd>Skip — leaves it undecided and shows the next</dd>
+            <dd>Skip for now — records that you looked, and moves it to the end</dd>
             <dt>
               <Key>1</Key>–<Key>9</Key>
             </dt>
@@ -404,4 +505,8 @@ function Key({ children }: { children: React.ReactNode }) {
       {children}
     </kbd>
   );
+}
+
+function cx(...parts: Array<string | false | null | undefined>) {
+  return parts.filter(Boolean).join(" ");
 }

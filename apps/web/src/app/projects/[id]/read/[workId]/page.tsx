@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { Banner, PageHeader } from "@/components/ui";
+import { SourceLinks } from "@/components/source-links";
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -45,7 +46,7 @@ export default async function ReadPage({
     supabase
       .from("project_works")
       .select(
-        "id, project_id, screen_status, projects(title), works(title, abstract, doi, venue, published_year)",
+        "id, project_id, screen_status, projects(title), works(title, abstract, doi, arxiv_id, pmid, oa_pdf_url, venue, published_year)",
       )
       .eq("id", workId)
       .eq("project_id", id)
@@ -61,6 +62,9 @@ export default async function ReadPage({
         title: string;
         abstract: string | null;
         doi: string | null;
+        arxiv_id: string | null;
+        pmid: string | null;
+        oa_pdf_url: string | null;
         venue: string | null;
         published_year: number | null;
       } | null;
@@ -202,7 +206,18 @@ export default async function ReadPage({
           <>
             {work?.venue}
             {work?.published_year && ` · ${work.published_year}`}
-            {work?.doi && ` · doi:${work.doi}`}
+            {/* The DOI used to be printed here as the bare text "doi:10.1234/x".
+                It is an address; it should behave like one. */}
+            <SourceLinks
+              className="mt-2"
+              title={work?.title ?? "this paper"}
+              work={{
+                doi: work?.doi,
+                arxivId: work?.arxiv_id,
+                pmid: work?.pmid,
+                oaPdfUrl: work?.oa_pdf_url,
+              }}
+            />
           </>
         }
       />

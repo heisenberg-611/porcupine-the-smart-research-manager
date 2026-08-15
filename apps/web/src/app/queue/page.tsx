@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { SourceLinks } from "@/components/source-links";
 import { ButtonLink, EmptyState, PageHeader } from "@/components/ui";
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
@@ -15,7 +16,14 @@ interface QueueRow {
   screen_status: string;
   due_at: string | null;
   projects: { title: string } | null;
-  works: { title: string; published_year: number | null } | null;
+  works: {
+    title: string;
+    published_year: number | null;
+    doi: string | null;
+    arxiv_id: string | null;
+    pmid: string | null;
+    oa_pdf_url: string | null;
+  } | null;
 }
 
 /**
@@ -47,7 +55,7 @@ export default async function QueuePage() {
     supabase
       .from("project_works")
       .select(
-        "id, project_id, screen_status, due_at, projects(title), works(title, published_year)",
+        "id, project_id, screen_status, due_at, projects(title), works(title, published_year, doi, arxiv_id, pmid, oa_pdf_url)",
       )
       .eq("assignee_id", user.id)
       .in("screen_status", OPEN_QUEUE_STATUSES as unknown as string[])
@@ -124,6 +132,16 @@ export default async function QueuePage() {
                     {screenStatusLabel(row.screen_status)}
                     {row.works?.published_year && ` · ${row.works.published_year}`}
                   </p>
+                  <SourceLinks
+                    className="mt-1"
+                    title={row.works?.title ?? "this paper"}
+                    work={{
+                      doi: row.works?.doi,
+                      arxivId: row.works?.arxiv_id,
+                      pmid: row.works?.pmid,
+                      oaPdfUrl: row.works?.oa_pdf_url,
+                    }}
+                  />
                 </div>
 
                 <div className="flex shrink-0 items-center gap-3">

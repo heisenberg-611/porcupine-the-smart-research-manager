@@ -51,6 +51,15 @@ const ALL_SECTIONS: ReadonlyArray<
   ProjectSection & { requires?: keyof ProjectCapabilities }
 > = [
   {
+    // First in the workflow, because it is first in the work: the keywords
+    // here are what search ranks against, so a project that skips this ranks
+    // nothing. It used to have no screen at all — see the actions file.
+    slug: "questions",
+    label: "Research questions",
+    group: "Collect",
+    blurb: "What the review asks. Search is ranked against these.",
+  },
+  {
     slug: "search",
     label: "Find papers",
     group: "Collect",

@@ -1,6 +1,7 @@
 "use client";
 
 import type { ScoredWork } from "@porcupine/discovery";
+import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 
 import { Button, Field, Input, Skeleton } from "@/components/ui";
@@ -164,9 +165,34 @@ export function SearchClient({
       )}
 
       <p id="search-help" className="text-muted text-fine">
-        {hasQuestions
-          ? "Results are ranked against this project's research questions."
-          : "Add research questions to this project and results will be ranked against them."}
+        {hasQuestions ? (
+          <>
+            Results are ranked against this project&rsquo;s{" "}
+            <Link
+              href={`/projects/${projectId}/questions`}
+              className="text-accent underline underline-offset-4"
+            >
+              research questions
+            </Link>
+            .
+          </>
+        ) : (
+          <>
+            {/* This sentence used to end here, as an instruction with no
+                destination — there was no screen for research questions at
+                all, so the ranking scored against an empty set and every
+                result reported matching nothing. */}
+            This project has no research questions, so results are ranked by citation
+            count alone.{" "}
+            <Link
+              href={`/projects/${projectId}/questions`}
+              className="text-accent underline underline-offset-4"
+            >
+              Add some
+            </Link>{" "}
+            and search will rank against them.
+          </>
+        )}
       </p>
 
       {/* aria-live so a screen reader hears the outcome without moving focus,

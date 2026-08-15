@@ -22,6 +22,10 @@ interface Row {
     venue: string | null;
     published_year: number | null;
     abstract: string | null;
+    doi: string | null;
+    arxiv_id: string | null;
+    pmid: string | null;
+    oa_pdf_url: string | null;
   } | null;
 }
 
@@ -58,7 +62,7 @@ export default async function ScreenPage({
     supabase
       .from("project_works")
       .select(
-        "id, screen_status, exclude_reason, assignee_id, due_at, works(title, authors, venue, published_year, abstract)",
+        "id, screen_status, exclude_reason, assignee_id, due_at, works(title, authors, venue, published_year, abstract, doi, arxiv_id, pmid, oa_pdf_url)",
       )
       .eq("project_id", id)
       .in("screen_status", ["IDENTIFIED", "SCREENING"])
@@ -95,6 +99,10 @@ export default async function ScreenPage({
     venue: row.works?.venue ?? null,
     year: row.works?.published_year ?? null,
     abstract: row.works?.abstract ?? null,
+    doi: row.works?.doi ?? null,
+    arxivId: row.works?.arxiv_id ?? null,
+    pmid: row.works?.pmid ?? null,
+    oaPdfUrl: row.works?.oa_pdf_url ?? null,
   }));
 
   const memberData = await must(

@@ -80,39 +80,44 @@ export default async function ProjectPage({
 
   // In parallel: four independent reads, none of which needs another's result.
   // Serially this is four round trips on the first screen of every project.
-  const [memberData, progressData, protocolCount, reconcileCount] = await Promise.all([
-    must(
-      supabase
-        .from("project_members")
-        .select(
-          "id, user_id, access_role, history_access, joined_at, users(display_name, email)",
-        )
-        .eq("project_id", id)
-        .is("removed_at", null)
-        .order("joined_at", { ascending: true }),
-      "project members",
-    ),
-    must(
-      supabase
-        .from("v_project_progress")
-        .select("screen_status, count")
-        .eq("project_id", id),
-      "screening progress",
-    ),
-    supabase
-      .from("protocols")
-      .select("id", { count: "exact", head: true })
-      .eq("project_id", id),
-    // Only asked for when the project has the feature: a THESIS querying a
-    // reconciliation view it can never use is a round trip spent on nothing.
-    caps.dualExtraction
-      ? supabase
-          .from("v_reconciliation_queue")
-          .select("project_work_id", { count: "exact", head: true })
+  const [memberData, progressData, protocolCount, reconcileCount, questionData] =
+    await Promise.all([
+      must(
+        supabase
+          .from("project_members")
+          .select(
+            "id, user_id, access_role, history_access, joined_at, users(display_name, email)",
+          )
           .eq("project_id", id)
-          .eq("reconciled", false)
-      : Promise.resolve({ count: 0, error: null }),
-  ]);
+          .is("removed_at", null)
+          .order("joined_at", { ascending: true }),
+        "project members",
+      ),
+      must(
+        supabase
+          .from("v_project_progress")
+          .select("screen_status, count")
+          .eq("project_id", id),
+        "screening progress",
+      ),
+      supabase
+        .from("protocols")
+        .select("id", { count: "exact", head: true })
+        .eq("project_id", id),
+      // Only asked for when the project has the feature: a THESIS querying a
+      // reconciliation view it can never use is a round trip spent on nothing.
+      caps.dualExtraction
+        ? supabase
+            .from("v_reconciliation_queue")
+            .select("project_work_id", { count: "exact", head: true })
+            .eq("project_id", id)
+            .eq("reconciled", false)
+        : Promise.resolve({ count: 0, error: null }),
+      supabase
+        .from("questions")
+        .select("id", { count: "exact", head: true })
+        .eq("project_id", id),
+    ]);
 
   const members = (memberData ?? []) as unknown as MemberRow[];
   const me = members.find((m) => m.user_id === user.id);
@@ -130,6 +135,7 @@ export default async function ProjectPage({
   const excluded = countOf("EXCLUDED");
   const extracted = countOf("EXTRACTED", "SYNTHESIZED");
   const hasProtocol = (protocolCount.count ?? 0) > 0;
+  const questionCount = questionData.count ?? 0;
   const awaiting = reconcileCount.count ?? 0;
 
   /**
@@ -141,47 +147,56 @@ export default async function ProjectPage({
    * so the first unmet condition wins.
    */
   const next =
-    papers === 0
+    questionCount === 0
       ? {
-          href: sectionHref(id, "search"),
-          // NOT "Find papers", which is what the nav link and the Collect
-          // section card are both already called — three links to one
-          // destination on one page, and Playwright's strict mode was right
-          // to call it ambiguous. Every other next-action here names the
-          // ACTION rather than the screen ("Continue screening", "Build the
-          // protocol"); this one had drifted into naming the screen.
-          label: "Find your first papers",
-          why: "The library is empty.",
+          href: sectionHref(id, "questions"),
+          label: "Say what this review asks",
+          // Before finding papers, because it changes what finding papers
+          // returns: with no questions the ranking has nothing to score
+          // against and every result reports matching nothing.
+          why: "Search is ranked against your research questions, and there are none yet.",
         }
-      : unscreened > 0
+      : papers === 0
         ? {
-            href: sectionHref(id, "screen"),
-            label: "Continue screening",
-            why: `${unscreened} ${unscreened === 1 ? "paper is" : "papers are"} still unscreened.`,
+            href: sectionHref(id, "search"),
+            // NOT "Find papers", which is what the nav link and the Collect
+            // section card are both already called — three links to one
+            // destination on one page, and Playwright's strict mode was right
+            // to call it ambiguous. Every other next-action here names the
+            // ACTION rather than the screen ("Continue screening", "Build the
+            // protocol"); this one had drifted into naming the screen.
+            label: "Find your first papers",
+            why: "The library is empty.",
           }
-        : !hasProtocol
+        : unscreened > 0
           ? {
-              href: sectionHref(id, "protocol"),
-              label: "Build the protocol",
-              why: "Nothing can be extracted until there are questions to ask.",
+              href: sectionHref(id, "screen"),
+              label: "Continue screening",
+              why: `${unscreened} ${unscreened === 1 ? "paper is" : "papers are"} still unscreened.`,
             }
-          : awaiting > 0
+          : !hasProtocol
             ? {
-                href: sectionHref(id, "reconcile"),
-                label: "Reconcile disagreements",
-                why: `${awaiting} ${awaiting === 1 ? "paper has" : "papers have"} two extractions that disagree.`,
+                href: sectionHref(id, "protocol"),
+                label: "Build the protocol",
+                why: "Nothing can be extracted until there are questions to ask.",
               }
-            : extracted < included
+            : awaiting > 0
               ? {
-                  href: `${sectionHref(id, "library")}?status=INCLUDED`,
-                  label: "Extract from included papers",
-                  why: `${included - extracted} of ${included} included ${included - extracted === 1 ? "paper has" : "papers have"} no extraction yet.`,
+                  href: sectionHref(id, "reconcile"),
+                  label: "Reconcile disagreements",
+                  why: `${awaiting} ${awaiting === 1 ? "paper has" : "papers have"} two extractions that disagree.`,
                 }
-              : {
-                  href: sectionHref(id, "evidence"),
-                  label: "Review the evidence",
-                  why: "Everything included has been extracted.",
-                };
+              : extracted < included
+                ? {
+                    href: `${sectionHref(id, "library")}?status=INCLUDED`,
+                    label: "Extract from included papers",
+                    why: `${included - extracted} of ${included} included ${included - extracted === 1 ? "paper has" : "papers have"} no extraction yet.`,
+                  }
+                : {
+                    href: sectionHref(id, "evidence"),
+                    label: "Review the evidence",
+                    why: "Everything included has been extracted.",
+                  };
 
   const byGroup = new Map<SectionGroup, typeof sections>();
   for (const section of sections) {

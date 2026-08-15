@@ -277,7 +277,7 @@ test.describe("screening at speed", () => {
     const hint = page.getByRole("button", { name: /keyboard/i });
     await expect(hint).toBeVisible();
     await hint.click();
-    await expect(page.getByText(/skip — leaves it undecided/i)).toBeVisible();
+    await expect(page.getByText(/records that you looked/i)).toBeVisible();
   });
   test("the whole queue can be driven from the keyboard", async () => {
     await goto(page, `/projects/${projectId}/screen`);

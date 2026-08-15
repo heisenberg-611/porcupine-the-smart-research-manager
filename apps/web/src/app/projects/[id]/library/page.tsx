@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { ButtonLink, EmptyState, PageHeader, TableScroll } from "@/components/ui";
+import { SourceLinks } from "@/components/source-links";
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -31,6 +32,8 @@ interface LibraryRow {
     published_year: number | null;
     doi: string | null;
     cited_by_count: number;
+    arxiv_id: string | null;
+    pmid: string | null;
     oa_pdf_url: string | null;
   } | null;
 }
@@ -71,7 +74,7 @@ export default async function LibraryPage({
   let query = supabase
     .from("project_works")
     .select(
-      "id, screen_status, read_status, added_by, created_at, works(title, authors, venue, published_year, doi, cited_by_count, oa_pdf_url)",
+      "id, screen_status, read_status, added_by, created_at, works(title, authors, venue, published_year, doi, arxiv_id, pmid, cited_by_count, oa_pdf_url)",
     )
     .eq("project_id", id)
     .order("created_at", { ascending: false })
@@ -181,8 +184,17 @@ export default async function LibraryPage({
                       {" · "}
                       {authorLine(row.works?.authors)}
                       {row.works?.venue && ` · ${row.works.venue}`}
-                      {row.works?.oa_pdf_url && " · open access"}
                     </span>
+                    <SourceLinks
+                      className="mt-1"
+                      title={row.works?.title ?? "this paper"}
+                      work={{
+                        doi: row.works?.doi,
+                        arxivId: row.works?.arxiv_id,
+                        pmid: row.works?.pmid,
+                        oaPdfUrl: row.works?.oa_pdf_url,
+                      }}
+                    />
                   </td>
                   <td className="text-muted px-4 py-3 tabular-nums">
                     {row.works?.published_year ?? "—"}

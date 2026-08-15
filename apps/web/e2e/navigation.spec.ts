@@ -220,10 +220,17 @@ test.describe("project navigation", () => {
     await goto(page, `/projects/${reviewId}`);
     await expect(page.getByRole("list", { name: /project totals/i })).toBeVisible();
 
-    // An empty project: the next action must be "find papers", not a generic
-    // welcome. This is the claim that the hub reflects state at all.
-    await expect(page.getByText(/the library is empty/i)).toBeVisible();
-    await expect(page.getByRole("link", { name: /find papers/i }).first()).toBeVisible();
+    // An empty project: the next action must name the actual first step, not
+    // offer a generic welcome. This is the claim that the hub reflects state.
+    //
+    // That first step is now the research questions rather than the papers.
+    // Searching before them ranks against an empty set — the ranking has
+    // nothing to score, and every result reports matching nothing — so
+    // "find papers first" was advice that produced a worse search.
+    await expect(page.getByText(/there are none yet/i)).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /say what this review asks/i }),
+    ).toBeVisible();
 
     // Every stat is a link. A dashboard number you cannot click is a dead end
     // that made you read it first.
