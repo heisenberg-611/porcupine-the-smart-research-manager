@@ -113,7 +113,7 @@ const ALL_SECTIONS: ReadonlyArray<
     // and it should shape what you collect — meeting it after screening is
     // meeting it too late to change anything.
     slug: "protocol",
-    label: "Extraction form",
+    label: "Protocol",
     group: "Collect",
     blurb: "What everyone records about every paper, so papers can be compared.",
   },

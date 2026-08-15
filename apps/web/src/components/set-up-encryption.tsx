@@ -13,6 +13,7 @@ import {
   getMemberKeys,
   provisionProjectKey,
 } from "@/app/projects/[id]/keys/actions";
+import { createChannel } from "@/app/projects/[id]/messages/actions";
 import { Banner, Button } from "@/components/ui";
 import { useCryptoSession } from "@/lib/crypto/session";
 
@@ -88,6 +89,27 @@ export function SetUpEncryption({
       if (!result.ok) {
         setError(result.error);
         return;
+      }
+
+      if (epoch === 1) {
+        try {
+          const { sealMessage } = await import("@porcupine/crypto");
+          const channelId = crypto.randomUUID();
+          const nameCt = await sealMessage("general", projectKey, {
+            channelId,
+            messageId: channelId,
+            epoch: 1,
+          });
+          await createChannel({
+            projectId,
+            channelId,
+            nameCt: await toBase64(nameCt),
+            epoch: 1,
+          });
+        } catch (e) {
+          // If channel creation fails, the key is still validly created.
+          console.error("Failed to auto-create general channel", e);
+        }
       }
 
       onReady();

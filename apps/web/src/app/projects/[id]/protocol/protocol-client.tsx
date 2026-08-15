@@ -65,7 +65,7 @@ export function ProtocolClient({
       <NewProtocol projectId={projectId} />
     ) : (
       <p className="text-muted text-ui">
-        No extraction form yet. An owner or admin sets up the fields recorded for every
+        No protocol yet. An owner or admin sets up the questions recorded for every
         paper.
       </p>
     );
@@ -101,9 +101,9 @@ function NewProtocol({ projectId }: { projectId: string }) {
   return (
     <form onSubmit={submit} className="space-y-5">
       <Field
-        label="Form name"
+        label="Protocol name"
         id="name"
-        hint="What this set of fields is called — a reader of your methods section will see it."
+        hint="What this set of questions is called — a reader of your methods section will see it."
       >
         <Input
           id="name"
@@ -138,8 +138,8 @@ function NewProtocol({ projectId }: { projectId: string }) {
               </span>
               <span className="text-muted text-fine mt-1 block">
                 {t.fields.length === 0
-                  ? "No fields — you add them"
-                  : `${t.fields.length} fields`}
+                  ? "No questions — you add them"
+                  : `${t.fields.length} questions`}
               </span>
             </span>
           </label>
@@ -214,7 +214,7 @@ function ProtocolEditor({
             <span className="text-muted font-normal">v{protocol.version}</span>
           </p>
           <p className="text-muted text-fine">
-            {protocol.fields.length} {protocol.fields.length === 1 ? "field" : "fields"}
+            {protocol.fields.length} {protocol.fields.length === 1 ? "question" : "questions"}
             {protocol.extractionCount > 0 &&
               ` · ${protocol.extractionCount} ${protocol.extractionCount === 1 ? "extraction" : "extractions"} recorded`}
           </p>
@@ -239,7 +239,7 @@ function ProtocolEditor({
       {locked && canEdit && (
         <p className="border-border text-muted text-ui rounded-lg border border-dashed p-3 text-pretty">
           {/* Said before they try, not after it fails. */}
-          This protocol has answers recorded against it. Fields that have been answered
+          This protocol has answers recorded against it. Questions that have been answered
           can no longer be renamed or removed — a new version copies the questions and
           leaves the existing rows answering the ones they were actually asked.
         </p>
@@ -343,7 +343,7 @@ function ProtocolEditor({
 
       {protocol.fields.length === 0 && (
         <p className="text-muted text-ui">
-          No fields yet. Add the first question this review asks of every paper.
+          No questions yet. Add the first question this review asks of every paper.
         </p>
       )}
 
@@ -355,7 +355,7 @@ function ProtocolEditor({
             onDone={() => setAdding(false)}
           />
         ) : (
-          <Button onClick={() => setAdding(true)}>Add a field</Button>
+          <Button onClick={() => setAdding(true)}>Add a question</Button>
         ))}
 
       <div aria-live="polite">
@@ -375,7 +375,7 @@ function ProtocolEditor({
           <ul className="text-muted text-fine mt-2 space-y-1">
             {olderVersions.map((p) => (
               <li key={p.id}>
-                v{p.version} — {p.fields.length} fields, {p.extractionCount} extractions.
+                v{p.version} — {p.fields.length} questions, {p.extractionCount} extractions.
                 Kept so those rows still answer the questions they were asked.
               </li>
             ))}

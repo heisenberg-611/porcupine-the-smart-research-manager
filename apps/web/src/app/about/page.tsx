@@ -120,7 +120,7 @@ const SCREENS: ReadonlyArray<{ term: string; detail: string }> = [
       "BibTeX or RIS pasted from a reference manager, for the papers you already have.",
   },
   {
-    term: "Extraction form",
+    term: "Protocol",
     detail:
       "The fields recorded for every paper. Start from a template — PICO for clinical trials, among others — or build your own. Once a field has answers it cannot be renamed away underneath them; a new version copies the fields forward instead.",
   },
@@ -171,9 +171,9 @@ const GLOSSARY: ReadonlyArray<{ term: string; detail: string }> = [
       "Deciding, paper by paper, whether each one belongs in the review, and recording why the rejected ones were rejected.",
   },
   {
-    term: "Extraction form",
+    term: "Protocol",
     detail:
-      "The list of things you record about every paper — participants, design, outcome, whatever the review needs. Also called the protocol. Agreeing it before you start is what makes the papers comparable.",
+      "The questions recorded for every paper, ensuring the final data is comparable. Agreeing it before you start is what makes the papers comparable.",
   },
   {
     term: "PRISMA",

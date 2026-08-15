@@ -67,13 +67,29 @@ export function EnrollForm({ next }: { next: string }) {
           you, and not by us.
         </Banner>
 
-        <Card>
-          <p className="text-muted text-fine font-medium tracking-widest uppercase">
-            Recovery passphrase
-          </p>
-          <p className="text-ink text-heading mt-3 font-mono break-all select-all">
-            {stage.passphrase}
-          </p>
+        <Card className="flex flex-col gap-4">
+          <div>
+            <p className="text-muted text-fine font-medium tracking-widest uppercase">
+              Recovery passphrase
+            </p>
+            <p className="text-ink text-heading mt-3 font-mono break-all select-all">
+              {stage.passphrase}
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              const blob = new Blob([stage.passphrase], { type: "text/plain" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = "porcupine-recovery-passphrase.txt";
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+          >
+            Download as text file
+          </Button>
         </Card>
 
         <label className="text-ink text-ui flex items-start gap-3">
