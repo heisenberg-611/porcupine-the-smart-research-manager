@@ -99,7 +99,7 @@ test.describe("unlocking, and a project key", () => {
     await page.getByRole("button", { name: /email me a code/i }).click();
     await page.getByLabel(/six-digit code/i).fill(await fetchOtp(email));
     await page.getByRole("button", { name: /^sign in$/i }).click();
-    await page.waitForURL(/\/(enroll|projects)/);
+    await page.waitForURL(/\/(enroll|dashboard|projects)/);
 
     // Enrolment shows the passphrase exactly once. Capturing it here is the
     // only way this spec can unlock later — which is the product working as
@@ -112,7 +112,7 @@ test.describe("unlocking, and a project key", () => {
 
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: /continue/i }).click();
-    await page.waitForURL(/\/projects/, { timeout: 60_000 });
+    await page.waitForURL(/\/(dashboard|projects)/, { timeout: 60_000 });
 
     // Project creation has a page of its own now.
     await goto(page, "/projects/new");

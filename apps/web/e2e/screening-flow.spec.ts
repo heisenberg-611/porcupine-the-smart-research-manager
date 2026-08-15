@@ -68,14 +68,14 @@ async function signInAndEnroll(browser: Browser, email: string): Promise<Page> {
   await page.getByRole("button", { name: /email me a code/i }).click();
   await page.getByLabel(/six-digit code/i).fill(await fetchOtp(email));
   await page.getByRole("button", { name: /^sign in$/i }).click();
-  await page.waitForURL(/\/(enroll|projects)/);
+  await page.waitForURL(/\/(enroll|dashboard|projects)/);
 
   if (page.url().includes("/enroll")) {
     await page.getByRole("button", { name: /generate my keys/i }).click();
     await expect(page.locator("p.font-mono")).toBeVisible({ timeout: 60_000 });
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: /continue/i }).click();
-    await page.waitForURL(/\/projects/);
+    await page.waitForURL(/\/(dashboard|projects)/);
   }
 
   return page;

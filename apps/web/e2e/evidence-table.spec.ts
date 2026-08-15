@@ -114,7 +114,7 @@ test.describe("the evidence table at scale", () => {
 
     await page.getByLabel(/six-digit code/i).fill(code!);
     await page.getByRole("button", { name: /^sign in$/i }).click();
-    await page.waitForURL(/\/(enroll|projects)/);
+    await page.waitForURL(/\/(enroll|dashboard|projects)/);
 
     /*
      * Enrol only if this account actually needs it.
@@ -143,7 +143,7 @@ test.describe("the evidence table at scale", () => {
       await page.getByRole("button", { name: /continue/i }).click();
     }
 
-    await page.waitForURL(/\/projects/, { timeout: 60_000 });
+    await page.waitForURL(/\/(dashboard|projects)/, { timeout: 60_000 });
 
     await goto(page, "/projects");
     const link = page.getByRole("link", { name: SEED_TITLE });

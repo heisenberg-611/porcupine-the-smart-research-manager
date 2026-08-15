@@ -65,8 +65,7 @@ export function ProtocolClient({
       <NewProtocol projectId={projectId} />
     ) : (
       <p className="text-muted text-ui">
-        No protocol yet. An owner or admin sets up the questions recorded for every
-        paper.
+        No protocol yet. An owner or admin sets up the questions recorded for every paper.
       </p>
     );
   }
@@ -214,7 +213,8 @@ function ProtocolEditor({
             <span className="text-muted font-normal">v{protocol.version}</span>
           </p>
           <p className="text-muted text-fine">
-            {protocol.fields.length} {protocol.fields.length === 1 ? "question" : "questions"}
+            {protocol.fields.length}{" "}
+            {protocol.fields.length === 1 ? "question" : "questions"}
             {protocol.extractionCount > 0 &&
               ` · ${protocol.extractionCount} ${protocol.extractionCount === 1 ? "extraction" : "extractions"} recorded`}
           </p>
@@ -375,8 +375,9 @@ function ProtocolEditor({
           <ul className="text-muted text-fine mt-2 space-y-1">
             {olderVersions.map((p) => (
               <li key={p.id}>
-                v{p.version} — {p.fields.length} questions, {p.extractionCount} extractions.
-                Kept so those rows still answer the questions they were asked.
+                v{p.version} — {p.fields.length} questions, {p.extractionCount}{" "}
+                extractions. Kept so those rows still answer the questions they were
+                asked.
               </li>
             ))}
           </ul>

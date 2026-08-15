@@ -71,7 +71,7 @@ async function signUp(
   await page.getByRole("button", { name: /email me a code/i }).click();
   await page.getByLabel(/six-digit code/i).fill(await fetchOtp(email));
   await page.getByRole("button", { name: /^sign in$/i }).click();
-  await page.waitForURL(/\/(enroll|projects)/);
+  await page.waitForURL(/\/(enroll|dashboard|projects)/);
 
   await page.getByRole("button", { name: /generate my keys/i }).click();
   const shown = page.locator("p.font-mono");
@@ -80,7 +80,7 @@ async function signUp(
 
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: /continue/i }).click();
-  await page.waitForURL(/\/projects/, { timeout: 60_000 });
+  await page.waitForURL(/\/(dashboard|projects)/, { timeout: 60_000 });
 
   return { page, passphrase };
 }

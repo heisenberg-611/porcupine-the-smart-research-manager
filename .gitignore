@@ -46,3 +46,16 @@ fixtures/
 # red for reasons unrelated to any change. They live here so they stay on disk
 # and out of the toolchain's way.
 debug-scratch/
+
+# The TeX distribution for the LaTeX studio: a 3.5 MB wasm module, a 13 MB
+# bundle, and ~8 MB of package tarballs. Not committed, deliberately.
+#
+# Git stores every version of a binary forever, so committing 24 MB of
+# generated artefacts would put 24 MB into every future clone — and the next
+# engine release would add another 24 MB rather than replacing it. These are
+# build outputs of a separate toolchain, not source.
+#
+# They need to be present at apps/web/public/latex for /spike to work. Fetch
+# them from the release that produced them, or serve them from object storage
+# and point the worker's URLs there.
+apps/web/public/latex/

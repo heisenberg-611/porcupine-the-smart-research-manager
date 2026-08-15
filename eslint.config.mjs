@@ -14,6 +14,10 @@ export default tseslint.config(
       "supabase/**",
       // Throwaway debugging probes; see .gitignore.
       "debug-scratch/**",
+      // Build output, not source. The LaTeX compile worker is bundled and
+      // minified into public/ by its own esbuild step, and linting minified
+      // code produces a hundred complaints about variable names esbuild chose.
+      "apps/web/public/**",
     ],
   },
 

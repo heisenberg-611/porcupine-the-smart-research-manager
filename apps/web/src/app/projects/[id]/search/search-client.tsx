@@ -70,7 +70,7 @@ export function SearchClient({
     if (!isLoaded) return;
     sessionStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ terms, fromYear, toYear, results, searched })
+      JSON.stringify({ terms, fromYear, toYear, results, searched }),
     );
   }, [isLoaded, STORAGE_KEY, terms, fromYear, toYear, results, searched]);
 
@@ -108,14 +108,14 @@ export function SearchClient({
 
   return (
     <section className="flex flex-col gap-6">
-      <div className="relative rounded-[--radius-card] bg-gradient-to-br from-ui/5 to-surface p-6 shadow-sm ring-1 ring-border border-t border-white/5">
-        <form onSubmit={onSubmit} className="flex flex-col gap-4 relative z-10">
+      <div className="from-ui/5 to-surface ring-border relative rounded-[--radius-card] border-t border-white/5 bg-gradient-to-br p-6 shadow-sm ring-1">
+        <form onSubmit={onSubmit} className="relative z-10 flex flex-col gap-4">
           <Field
             label="Search terms"
             id="terms"
             hint="Searches OpenAlex, Crossref, arXiv, Europe PMC and Semantic Scholar at once."
           >
-            <div className="flex gap-2 mt-1">
+            <div className="mt-1 flex gap-2">
               <Input
                 id="terms"
                 name="terms"
@@ -125,15 +125,20 @@ export function SearchClient({
                 required
                 autoComplete="off"
                 placeholder="e.g. spaced repetition medical education"
-                className="border-border bg-raised text-ink text-ui min-h-12 w-full flex-1 rounded-xl border px-4 shadow-sm transition-all focus:border-accent focus:ring-accent"
+                className="border-border bg-raised text-ink text-ui focus:border-accent focus:ring-accent min-h-12 w-full flex-1 rounded-xl border px-4 shadow-sm transition-all"
               />
-              <Button type="submit" variant="primary" disabled={pending} className="rounded-xl px-6 font-medium shadow-sm hover:shadow-md transition-all">
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={pending}
+                className="rounded-xl px-6 font-medium shadow-sm transition-all hover:shadow-md"
+              >
                 {pending ? "Searching…" : "Search"}
               </Button>
             </div>
           </Field>
 
-          <div className="flex flex-wrap items-end gap-4 mt-2">
+          <div className="mt-2 flex flex-wrap items-end gap-4">
             <Field label="From year" id="fromYear">
               <Input
                 id="fromYear"
@@ -144,7 +149,7 @@ export function SearchClient({
                 placeholder="Any"
                 value={fromYear}
                 onChange={(e) => setFromYear(e.target.value)}
-                className="border-border bg-raised text-ink text-ui min-h-11 w-28 rounded-xl border px-3 shadow-sm transition-all focus:border-accent"
+                className="border-border bg-raised text-ink text-ui focus:border-accent min-h-11 w-28 rounded-xl border px-3 shadow-sm transition-all"
               />
             </Field>
             <Field label="To year" id="toYear">
@@ -157,7 +162,7 @@ export function SearchClient({
                 placeholder="Any"
                 value={toYear}
                 onChange={(e) => setToYear(e.target.value)}
-                className="border-border bg-raised text-ink text-ui min-h-11 w-28 rounded-xl border px-3 shadow-sm transition-all focus:border-accent"
+                className="border-border bg-raised text-ink text-ui focus:border-accent min-h-11 w-28 rounded-xl border px-3 shadow-sm transition-all"
               />
             </Field>
           </div>
@@ -394,20 +399,20 @@ function ResultCard({
         // An added paper stays in the list rather than vanishing — you are
         // reading a ranking, and having rows disappear underneath you loses
         // your place. It just stops looking like something to act on.
-        added 
-          ? "border-rule bg-surface/40 opacity-70" 
-          : "border-border bg-raised hover:-translate-y-0.5 hover:shadow-md hover:border-accent/40",
+        added
+          ? "border-rule bg-surface/40 opacity-70"
+          : "border-border bg-raised hover:border-accent/40 hover:-translate-y-0.5 hover:shadow-md",
       )}
     >
       <div className="flex items-start justify-between gap-5">
         <div className="min-w-0">
-          <h3 className="text-ink leading-snug font-semibold text-pretty text-lg">
+          <h3 className="text-ink text-lg leading-snug font-semibold text-pretty">
             {link ? (
               <a
                 href={link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hover:text-accent underline-offset-4 hover:underline transition-colors"
+                className="hover:text-accent underline-offset-4 transition-colors hover:underline"
               >
                 {work.title}
               </a>
@@ -430,7 +435,10 @@ function ResultCard({
           // "Add" alone repeats forty times down the page and tells a screen
           // reader nothing about which one it is on.
           aria-label={added ? `${work.title} is in your library` : `Add ${work.title}`}
-          className={cx("shrink-0 rounded-full font-medium transition-all", added ? "" : "shadow-sm hover:shadow-md")}
+          className={cx(
+            "shrink-0 rounded-full font-medium transition-all",
+            added ? "" : "shadow-sm hover:shadow-md",
+          )}
         >
           {added ? "In library" : pending ? "Adding…" : "Add to library"}
         </Button>
@@ -453,7 +461,7 @@ function ResultCard({
             type="button"
             onClick={() => setExpanded((v) => !v)}
             aria-expanded={expanded}
-            className="text-accent text-sm font-medium focus-visible:ring-accent mt-2 rounded transition-colors hover:text-accent-heavy focus-visible:ring-2 focus-visible:outline-none"
+            className="text-accent focus-visible:ring-accent hover:text-accent-heavy mt-2 rounded text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none"
           >
             {expanded ? "Show less" : "Show full abstract"}
           </button>
@@ -493,11 +501,11 @@ function Chip({
   return (
     <span
       className={cx(
-        "text-xs inline-flex max-w-full items-center truncate rounded-full px-2.5 py-1 font-medium transition-colors",
+        "inline-flex max-w-full items-center truncate rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
         mono && "font-mono tracking-tight",
         tone === "accent"
-          ? "bg-accent/10 text-accent ring-1 ring-inset ring-accent/20"
-          : "bg-surface text-ink ring-1 ring-inset ring-border",
+          ? "bg-accent/10 text-accent ring-accent/20 ring-1 ring-inset"
+          : "bg-surface text-ink ring-border ring-1 ring-inset",
       )}
     >
       {children}

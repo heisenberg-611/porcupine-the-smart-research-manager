@@ -126,14 +126,14 @@ test.describe("Phase 0 exit criterion", () => {
     await expect(cont).toBeEnabled();
     await cont.click();
 
-    await expect(page).toHaveURL(/\/projects/);
+    await expect(page).toHaveURL(/\/dashboard/);
   });
 
   test("enrollment does not run twice", async () => {
     // Keys already exist, so /enroll must redirect rather than offer to
     // overwrite them — regenerating would strand every existing ciphertext.
     await goto(page, "/enroll");
-    await expect(page).toHaveURL(/\/projects/);
+    await expect(page).toHaveURL(/\/dashboard/);
   });
 
   test("creates a project and becomes its owner", async () => {
@@ -352,8 +352,8 @@ test.describe("Phase 0 exit criterion", () => {
     // Wait for the confirmation rather than racing the server action.
     await expect(page.getByRole("main").getByText(/^assigned to /i)).toBeVisible();
 
-    await goto(page, "/queue");
-    await expect(page.getByRole("heading", { name: /my queue/i })).toBeVisible();
+    await goto(page, "/assigned");
+    await expect(page.getByRole("heading", { name: /assigned to me/i })).toBeVisible();
     await expect(page.getByRole("main").getByText(title)).toBeVisible();
   });
 
@@ -460,7 +460,7 @@ test.describe("Phase 0 exit criterion", () => {
     // The defect this shell fixes: thirteen pages shipped with no navigation,
     // so landing on /queue left nowhere to go. Asserted from a deep page, not
     // from /projects, because that was exactly the trap.
-    await goto(page, "/queue");
+    await goto(page, "/assigned");
 
     const nav = page.getByRole("navigation", { name: /main/i });
     await expect(nav).toBeVisible();
@@ -468,8 +468,8 @@ test.describe("Phase 0 exit criterion", () => {
     await nav.getByRole("link", { name: /^projects$/i }).click();
     await expect(page).toHaveURL(/\/projects$/);
 
-    await nav.getByRole("link", { name: /my queue/i }).click();
-    await expect(page).toHaveURL(/\/queue$/);
+    await nav.getByRole("link", { name: /assigned to me/i }).click();
+    await expect(page).toHaveURL(/\/assigned$/);
 
     // Signed-in identity is always reachable, on any viewport. The address is
     // shown beside the button on desktop and carried in the button's
@@ -483,11 +483,11 @@ test.describe("Phase 0 exit criterion", () => {
   test("builds a protocol from a template and protects answered fields", async () => {
     await goto(page, "/projects");
     await page.getByRole("link", { name: /transformer efficiency/i }).click();
-    await page.getByRole("link", { name: /^extraction form$/i }).click();
+    await page.getByRole("link", { name: /^protocol$/i }).click();
 
-    await expect(page.getByRole("heading", { name: /^extraction form$/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^protocol$/i })).toBeVisible();
 
-    await page.getByLabel(/form name/i).fill("Data extraction");
+    await page.getByLabel(/protocol name/i).fill("Data extraction");
     await page.getByRole("radio", { name: /machine learning benchmarks/i }).check();
     await page.getByRole("button", { name: /create protocol/i }).click();
 
