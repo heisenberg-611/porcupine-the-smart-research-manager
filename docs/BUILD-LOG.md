@@ -1812,3 +1812,27 @@ project titles too, since both runs listed projects by name.
 ### Open
 
 - Live delivery for messages is still polled/refreshed, deferred on cost rather than assumed.
+
+---
+
+## 2026-08-16 · Phase 4 — Comprehension (In Progress)
+
+**Status:** Week 1 and Week 2 were found to be already implemented. We are now beginning the implementation of Weeks 3 through 6 as defined in `11-phase-4-comprehension-build-plan.md`.
+
+### Discovered state
+- **Week 1 (Research questions):** Complete. Questions have their own section under "Collect" and `actions.ts` provides writers.
+- **Week 2 (The paper is always one click away):** Complete. `SourceLinks` component is used across screening, library, and other surfaces.
+
+### Next Steps
+- Execute Week 3: Screening split view.
+- Execute Week 4: Protocol rename to "Extraction form", and PRISMA plain language header.
+- Execute Week 5: Messages absorbing encryption setup.
+- Execute Week 6: Landing page redesign explaining the workflow.
+
+### Completed Execution
+- **Week 3:** Replaced the single-paper screening view with a CSS grid-based split view, introduced sort (newest, oldest, unscreened) and filter by assignee, and optimized the Skip action to correctly record the `SCREENING` state and move items to the end of the queue.
+- **Week 4:** Updated Protocol copy to "Extraction form" and "fields". Appended a Next Steps link from Questions to Extraction form. Added a plain-language explanation to PRISMA, as well as a "Copy the numbers" capability.
+- **Week 5:** Re-styled encryption components (`PassphraseForm` and `SetUpEncryption`) to render fully inline within the `/messages` route. Set up automatic creation of the `#general` channel upon first key initialization. Added a button to download the recovery passphrase during enrol.
+- **Week 6:** Inserted clear, upfront vocabulary definitions for the core domain terms directly onto the landing page. Consolidated the "About" content inside `apps/web/src/app/about/page.tsx` for deeper reading without an account.
+
+Phase 4 is complete.

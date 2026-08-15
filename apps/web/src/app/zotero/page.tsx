@@ -36,7 +36,7 @@ export default async function ZoteroPage() {
         <h2 className="text-ink text-heading font-medium">Which tool does what</h2>
         <p className="text-muted measure text-ui mt-2 text-pretty">
           Keep your review in Porcupine: the searching, the screening decisions, the
-          extraction form, the PRISMA counts. Keep your bibliography in Zotero: the
+          protocol, the PRISMA counts. Keep your bibliography in Zotero: the
           citations you insert while writing, in whatever style the journal wants. Trying
           to do either job in the other tool is how people end up maintaining two
           libraries that disagree.

@@ -175,17 +175,29 @@ export function QuestionsClient({
       )}
 
       {questions.length > 0 && (
-        <p className="text-muted text-fine">
-          {totalKeywords} {totalKeywords === 1 ? "keyword" : "keywords"} across{" "}
-          {questions.length} {questions.length === 1 ? "question" : "questions"}.{" "}
-          <Link
-            href={`/projects/${projectId}/search`}
-            className="text-accent underline underline-offset-4"
-          >
-            Search with them
-          </Link>
-          .
-        </p>
+        <div className="flex flex-col gap-2">
+          <p className="text-muted text-fine">
+            {totalKeywords} {totalKeywords === 1 ? "keyword" : "keywords"} across{" "}
+            {questions.length} {questions.length === 1 ? "question" : "questions"}.{" "}
+            <Link
+              href={`/projects/${projectId}/search`}
+              className="text-accent hover:text-ink underline underline-offset-4 transition-colors"
+            >
+              Search with them
+            </Link>
+            .
+          </p>
+          <p className="text-muted text-fine">
+            Finished with your questions?{" "}
+            <Link
+              href={`/projects/${projectId}/protocol`}
+              className="text-accent hover:text-ink underline underline-offset-4 transition-colors"
+            >
+              Build your protocol
+            </Link>
+            {" "}based on what you want to record.
+          </p>
+        </div>
       )}
 
       {canEdit && (

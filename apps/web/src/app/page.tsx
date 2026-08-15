@@ -46,6 +46,27 @@ export default async function Home() {
           </div>
         </header>
 
+        <section aria-label="Definitions" className="mb-16">
+          <dl className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
+            <div>
+              <dt className="text-ink font-medium">Systematic review</dt>
+              <dd className="text-muted text-ui mt-1 text-pretty">A literature review that finds, evaluates, and synthesizes all available evidence on a specific research question using a repeatable methodology.</dd>
+            </div>
+            <div>
+              <dt className="text-ink font-medium">Protocol</dt>
+              <dd className="text-muted text-ui mt-1 text-pretty">The predefined set of questions or fields that you will record about every included paper, ensuring that the final data is comparable.</dd>
+            </div>
+            <div>
+              <dt className="text-ink font-medium">Screening</dt>
+              <dd className="text-muted text-ui mt-1 text-pretty">The process of reviewing papers against your criteria to determine if they belong in the final review.</dd>
+            </div>
+            <div>
+              <dt className="text-ink font-medium">PRISMA</dt>
+              <dd className="text-muted text-ui mt-1 text-pretty">An evidence-based minimum set of items for reporting in systematic reviews, typically visualised as a flow diagram.</dd>
+            </div>
+          </dl>
+        </section>
+
         <section aria-label="Workflow steps" className="mb-10">
           <ol className="grid gap-x-8 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
             {STEPS.map(({ term, detail }, index) => (

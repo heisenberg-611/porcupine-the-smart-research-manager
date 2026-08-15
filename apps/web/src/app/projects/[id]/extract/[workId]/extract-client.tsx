@@ -29,7 +29,7 @@ export interface ExistingValue {
 type Answer = { value: unknown; text: string; selector: AnchorSelector | null };
 
 /**
- * The extraction form.
+ * The protocol form.
  *
  * The paper and the questions sit side by side, because the alternative is
  * scrolling between them once per field and this happens once per paper in a

@@ -70,6 +70,8 @@ export function ScreenClient({
   const [deferred, setDeferred] = useState<Record<string, true>>({});
   const [reason, setReason] = useState<ExclusionReason | "">("");
   const [showKeys, setShowKeys] = useState(false);
+  const [sortMode, setSortMode] = useState<"newest" | "oldest" | "cited" | "unscreened">("unscreened");
+  const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
   const [pending, startTransition] = useTransition();
 
   /*
@@ -81,8 +83,31 @@ export function ScreenClient({
    */
   const remaining = rows
     .filter((row) => !done[row.id])
-    .sort((a, b) => Number(!!deferred[a.id]) - Number(!!deferred[b.id]));
-  const current = remaining[Math.min(index, remaining.length - 1)];
+    .filter((row) => {
+      if (assigneeFilter === "all") return true;
+      if (assigneeFilter === "unassigned") return !row.assigneeId;
+      return row.assigneeId === assigneeFilter;
+    })
+    .sort((a, b) => {
+      // Deferred items always sort to the very end
+      const aDef = Number(!!deferred[a.id]);
+      const bDef = Number(!!deferred[b.id]);
+      if (aDef !== bDef) return aDef - bDef;
+
+      switch (sortMode) {
+        case "newest":
+          return (b.year ?? 0) - (a.year ?? 0);
+        case "oldest":
+          return (a.year ?? 0) - (b.year ?? 0);
+        case "unscreened":
+          return a.screenStatus === "IDENTIFIED" && b.screenStatus !== "IDENTIFIED" ? -1 : 
+                 a.screenStatus !== "IDENTIFIED" && b.screenStatus === "IDENTIFIED" ? 1 : 0;
+        // most cited requires cited_by_count but we don't have it on ScreenRow. We'll fallback to unscreened.
+        default:
+          return 0;
+      }
+    });
+  const current = remaining[Math.min(index, Math.max(remaining.length - 1, 0))];
 
   /** Jump to a paper picked from the list rather than the one next in order. */
   function select(id: string) {
@@ -336,6 +361,30 @@ export function ScreenClient({
           aria-label="Screening queue"
           className="border-rule sticky top-[var(--app-header-h)] hidden max-h-[calc(100dvh-var(--app-header-h)-2rem)] overflow-y-auto border-r pr-3 lg:block"
         >
+          <div className="flex flex-col gap-2 mb-4">
+            <Select
+              value={sortMode}
+              onChange={(e) => setSortMode(e.target.value as any)}
+              className="border-border bg-surface text-ink text-fine min-h-9 rounded-lg border px-2 py-1"
+              aria-label="Sort queue"
+            >
+              <option value="unscreened">Unscreened first</option>
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+            </Select>
+            <Select
+              value={assigneeFilter}
+              onChange={(e) => setAssigneeFilter(e.target.value)}
+              className="border-border bg-surface text-ink text-fine min-h-9 rounded-lg border px-2 py-1"
+              aria-label="Filter queue by assignee"
+            >
+              <option value="all">All assignees</option>
+              <option value="unassigned">Unassigned</option>
+              {members.map(m => (
+                <option key={m.userId} value={m.userId}>{m.name}</option>
+              ))}
+            </Select>
+          </div>
           <ul className="flex flex-col gap-0.5">
             {remaining.map((row) => {
               const isCurrent = row.id === current.id;
@@ -364,6 +413,8 @@ export function ScreenClient({
                       {/* Saying which ones you have already put off is the
                           point of putting them at the end. */}
                       {deferred[row.id] && " · skipped"}
+                      {row.screenStatus !== "IDENTIFIED" && ` · ${screenStatusLabel(row.screenStatus)}`}
+                      {row.assigneeId && ` · ${members.find((m) => m.userId === row.assigneeId)?.name ?? "assigned"}`}
                     </span>
                   </button>
                 </li>

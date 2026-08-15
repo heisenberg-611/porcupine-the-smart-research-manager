@@ -8,7 +8,7 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 import { ProtocolClient, type Protocol } from "./protocol-client";
 
-export const metadata: Metadata = { title: "Extraction form" };
+export const metadata: Metadata = { title: "Protocol" };
 
 interface ProtocolRow {
   id: string;
@@ -126,7 +126,7 @@ export default async function ProtocolPage({
       <PageHeader
         backHref={`/projects/${id}`}
         backLabel={project.title}
-        title="Extraction form"
+        title="Protocol"
         description={
           <>
             {/* What it IS, in the words someone would use to ask for it —
