@@ -1063,3 +1063,89 @@ it first and waits out the timeout against an empty string.
 - Weeks 3 and 5 untouched; week 4 is down to the extraction form, the split
   reader, and the queue.
 - The 562 KB evidence page is still growing rather than shrinking.
+
+---
+
+## 2026-08-15 · Phase 2c week 3 — the evidence table, and a bug I could not explain
+
+### Shipped
+
+Column selection. `?cols=a,b,c` on the evidence URL picks which protocol fields
+are columns, and a chooser writes it. In the URL rather than per-person storage
+for the same reason sort and filter are: a table narrowed to the five fields
+that matter today is exactly the thing someone sends to a supervisor, and
+per-browser state would make that link mean something different at each end.
+
+`visibleFields()` is shared by the page and the export route, so "export what I
+am looking at" now includes the columns. It did not: the Export CSV link
+carried the filter and the sort and not `cols`, so narrowing to two fields and
+clicking Export handed back twenty. My own test missed it because it built the
+export URL by hand instead of reading the button's href — it asserted the
+route's behaviour and called it the feature's. It now clicks the real link.
+
+The `title` attribute is gone from every cell. It duplicated the full text of
+all 1,150 cells in the HTML, and a tooltip is not reachable by keyboard or
+announced, so it was never an answer for everyone.
+
+### The bug
+
+An existing mobile test — a quoted evidence cell opening the reader at its
+passage — started failing. The link was reported by Playwright as visible,
+enabled, stable, and not clickable, with the filter form named as intercepting
+the pointer.
+
+Five hypotheses, each tested and each wrong:
+
+1. **The extra trailing detail column** made rows wider. Removed it; still red.
+2. **The first column's width**, once a button sat beside the title. Moved the
+   control into the existing "12/20" cell, which adds no width. Still red.
+3. **Radix.** Replaced the dialog with a bare `<button>` of identical
+   geometry. Still red.
+4. **`useSearchParams()` in a client component with no `<Suspense>` above it**,
+   which widens the page's client boundary. Passed the query down from the
+   server instead. Still red.
+5. **Position** — the chooser folded into the controls row. Moved it to its own
+   row. Still red.
+
+What did work: not rendering the chooser below the `sm` breakpoint. The mobile
+suite went green immediately and stayed green.
+
+So the established fact is narrow and real — *the interaction only happens on
+the narrow layout* — and the mechanism is still unknown. The column chooser is
+desktop-only and the row-detail panel is reverted, both with that written where
+the next person will find it. Choosing among twenty columns is a
+desktop-shaped problem anyway, which makes this a tolerable place to stop; the
+detail panel is not, and it is owed.
+
+**A methodological note worth more than the fix.** Three of those five runs
+were wasted because I bisected with `--project=mobile` alone while the failure
+needed the full suite. A green single-project run told me "removing X fixes
+it", and it was not true. When a failure appears under one command, reproduce
+it under that command.
+
+### Problems
+
+**A sticky header that could not work.** `TableScroll` sets `overflow-x: auto`,
+which makes the div a scroll container on both axes — so `position: sticky;
+top: 4.5rem` pins the header 4.5 rem below the *container's* top, permanently
+over the first two rows. Reverted. Doing it properly means giving the table its
+own vertical scroll, which changes how the whole page scrolls.
+
+**Four stray debug files in the working tree**, not mine — `test-pg.ts`,
+`auth/debug-search/route.ts`, `auth/debug-ip/route.ts`, and an incomplete
+`Promise.all` → `Promise.allSettled` edit in `packages/discovery/src/search.ts`
+whose consumer was never updated. Two of them broke `next build` outright and
+the rest fail `pnpm verify`. They have been moved to the session scratchpad
+rather than deleted; the `search.ts` edit is left exactly as found.
+
+A `/auth/debug-search` route that calls five external APIs with no auth check
+is worth removing rather than formatting.
+
+### Open
+
+- The narrow-layout interaction, unexplained. It blocks the row-detail panel
+  and keeps the chooser desktop-only.
+- Sticky headers, which need the table to own its vertical scroll.
+- Saved views and column reordering: both need somewhere per-person to live,
+  and this phase does not touch the database.
+- The payload was not re-measured, because the measurement needs a clean tree.

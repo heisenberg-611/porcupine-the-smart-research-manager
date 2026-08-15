@@ -152,7 +152,17 @@
  * touching it.
  */
 html {
-  scroll-padding-top: 4.5rem;
+  /*
+   * The sticky app header's height, as one number.
+   *
+   * Two things need it and used to hard-code it separately: the scroll
+   * padding below, so an anchor target does not land under the header, and
+   * the evidence table's sticky column headers, which would otherwise slide
+   * beneath it at exactly the moment they are needed — row 40 of 50, where
+   * nobody remembers what column 14 was.
+   */
+  --app-header-h: 4.5rem;
+  scroll-padding-top: var(--app-header-h);
 }
 
 /*

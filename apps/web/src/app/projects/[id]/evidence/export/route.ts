@@ -6,6 +6,7 @@ import {
   exportValue,
   fetchEvidenceRows,
   parseEvidenceQuery,
+  visibleFields,
   type EvidenceRow,
 } from "@/lib/evidence";
 import { must } from "@/lib/supabase/query";
@@ -14,9 +15,10 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 /**
  * CSV and XLSX export (4.4).
  *
- * The export honours the filter, sort and grouping currently on the URL, so
- * "export what I am looking at" does that rather than dumping the table. It
- * ignores paging: exporting page 2 of 6 is never what anyone means.
+ * The export honours the filter, sort, grouping and COLUMN SELECTION currently
+ * on the URL, so "export what I am looking at" does that rather than dumping
+ * the table. It ignores paging: exporting page 2 of 6 is never what anyone
+ * means.
  *
  * No authorisation logic here beyond requiring a session. Every row comes back
  * through evidence_rows(), which is SECURITY INVOKER over RLS-protected
@@ -58,11 +60,16 @@ export async function GET(
   if (!protocol)
     return new Response("This project has no active protocol", { status: 404 });
 
-  const fields = [
+  const allFields = [
     ...((protocol as unknown as { protocol_fields: FieldRow[] }).protocol_fields ?? []),
   ].sort((a, b) => a.order - b.order);
 
   const query = parseEvidenceQuery(Object.fromEntries(url.searchParams));
+
+  // The columns too, not just the rows. Someone who narrows the table to five
+  // fields and clicks Export means five fields; handing them twenty is the
+  // export quietly disagreeing with the screen it came from.
+  const fields = visibleFields(allFields, query);
   const rows = await fetchEvidenceRows(id, protocol.id, query, EXPORT_LIMIT);
 
   /*

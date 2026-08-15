@@ -18,6 +18,7 @@
     "@porcupine/db": "workspace:*",
     "@porcupine/discovery": "workspace:*",
     "@porcupine/shared": "workspace:*",
+    "@radix-ui/react-popover": "^1.1.23",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",
     "next": "16.3.0",
