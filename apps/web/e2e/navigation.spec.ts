@@ -141,7 +141,11 @@ test.describe("project navigation", () => {
     expect(hrefs.length, "the hub should offer some sections").toBeGreaterThan(4);
 
     for (const href of hrefs) {
-      await page.goto(href, { waitUntil: "networkidle" });
+      // `load`, not `networkidle`. networkidle waits for a 500 ms gap in
+      // network activity, which never arrives reliably on a slower machine
+      // and hung this test for the full 30 s three times in CI while passing
+      // locally every time.
+      await page.goto(href, { waitUntil: "load" });
       await expect(
         page.locator("body"),
         `${href} answered with a capability refusal, so it should not have been linked`,
