@@ -303,6 +303,12 @@ model Project {
   /// Do not build against this.
   assistEnabled Boolean @default(false) @map("assist_enabled")
 
+  /// Where members go for a paper the DOI will not open — a library link
+  /// resolver, a proxy, an ILL form. No default: a wrong resolver fails
+  /// silently and looks like the paper is unavailable.
+  accessHelpUrl   String? @map("access_help_url")
+  accessHelpLabel String? @map("access_help_label")
+
   currentKeyEpoch Int       @default(0) @map("current_key_epoch")
   archivedAt      DateTime? @map("archived_at") @db.Timestamptz(3)
   deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(3)

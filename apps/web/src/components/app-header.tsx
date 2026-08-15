@@ -48,15 +48,28 @@ export async function AppHeader() {
           all. A header that does not fit is not a cosmetic problem.
         */}
         <Link
-          href="/projects"
+          href="/dashboard"
           className="text-ink text-heading mr-4 hidden font-serif sm:inline"
           aria-label="Porcupine home"
         >
           Porcupine
         </Link>
 
-        <NavLink href="/projects">Projects</NavLink>
-        <NavLink href="/queue">My queue</NavLink>
+        {/*
+          Only the dashboard below `sm`, and that is a width calculation
+          rather than a taste. Four links plus the theme control plus Sign out
+          do not fit on a 390px header, and a header that wraps to two rows
+          covers what the page scrolls to — a link in the evidence table
+          became unreachable that way. The dashboard links to both of the
+          others, so nothing is lost but a tap.
+        */}
+        <NavLink href="/dashboard">Dashboard</NavLink>
+        <NavLink href="/projects" className="hidden sm:inline-flex">
+          Projects
+        </NavLink>
+        <NavLink href="/queue" className="hidden sm:inline-flex">
+          My queue
+        </NavLink>
 
         <div className="flex-1" />
 
@@ -98,11 +111,19 @@ export async function AppHeader() {
  * a header that is otherwise entirely static. The project context is already
  * stated by every page's own heading.
  */
-function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+function NavLink({
+  href,
+  children,
+  className = "",
+}: {
+  href: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
     <Link
       href={href}
-      className="text-muted hover:text-ink hover:bg-surface focus-visible:ring-accent text-ui inline-flex min-h-11 items-center rounded-lg px-3 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+      className={`text-muted hover:text-ink hover:bg-surface focus-visible:ring-accent text-ui inline-flex min-h-11 items-center rounded-lg px-3 transition-colors focus-visible:ring-2 focus-visible:outline-none ${className}`}
     >
       {children}
     </Link>

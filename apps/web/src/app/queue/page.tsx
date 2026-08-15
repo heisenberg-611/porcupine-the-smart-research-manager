@@ -83,6 +83,43 @@ export default async function QueuePage() {
     return { href: read, label: "Read" };
   };
 
+  /**
+   * Everything you can do with this paper, spelled out.
+   *
+   * The row used to be a title and one link, and that link was often "Read" —
+   * which lands on a page holding an abstract and a highlighter. For a paper
+   * whose next real step is extraction, that reads as a dead end: the reader
+   * "does nothing" because reading was not what was being asked for.
+   *
+   * So the actions are named by the WORK rather than by the screen, and the
+   * one the status is actually waiting on comes first.
+   */
+  const actions = (row: QueueRow) => {
+    const base = `/projects/${row.project_id}`;
+    switch (row.screen_status) {
+      case "IDENTIFIED":
+      case "SCREENING":
+        return [
+          { href: `${base}/screen`, label: "Screen it", primary: true },
+          { href: `${base}/read/${row.id}`, label: "Read the abstract" },
+        ];
+      case "INCLUDED":
+      case "READING":
+        return [
+          { href: `${base}/extract/${row.id}`, label: "Extract from it", primary: true },
+          { href: `${base}/read/${row.id}`, label: "Read and annotate" },
+        ];
+      case "EXTRACTED":
+      case "SYNTHESIZED":
+        return [
+          { href: `${base}/evidence`, label: "See it in the evidence", primary: true },
+          { href: `${base}/read/${row.id}`, label: "Read and annotate" },
+        ];
+      default:
+        return [{ href: `${base}/read/${row.id}`, label: "Open it", primary: true }];
+    }
+  };
+
   return (
     <main id="main" className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-12">
       <PageHeader
@@ -142,6 +179,23 @@ export default async function QueuePage() {
                       oaPdfUrl: row.works?.oa_pdf_url,
                     }}
                   />
+
+                  {/* Named by the work, not by the screen. */}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {actions(row).map((action) => (
+                      <Link
+                        key={action.href + action.label}
+                        href={action.href}
+                        className={
+                          action.primary
+                            ? "bg-accent text-accent-ink text-fine focus-visible:ring-accent inline-flex min-h-9 items-center rounded-lg px-3 focus-visible:ring-2 focus-visible:outline-none"
+                            : "border-border text-muted hover:text-ink text-fine focus-visible:ring-accent inline-flex min-h-9 items-center rounded-lg border px-3 focus-visible:ring-2 focus-visible:outline-none"
+                        }
+                      >
+                        {action.label}
+                      </Link>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="flex shrink-0 items-center gap-3">

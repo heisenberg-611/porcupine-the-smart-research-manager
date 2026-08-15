@@ -142,6 +142,12 @@ test.describe("Phase 0 exit criterion", () => {
     // hydration, so an unscoped `getByText` can match the page twice.
     await expect(page.getByRole("main").getByText(/no projects yet/i)).toBeVisible();
 
+    // The form has a page of its own now — it used to sit under the list, so
+    // an empty account's call to action pointed DOWN the page at a form the
+    // reader had already scrolled past.
+    await page.getByRole("link", { name: /start your first project/i }).click();
+    await expect(page).toHaveURL(/\/projects\/new/);
+
     await page.getByLabel("Title").fill("Transformer efficiency in low-resource NLP");
     await page
       .getByRole("group", { name: /kind/i })
@@ -617,7 +623,9 @@ test.describe("Phase 0 exit criterion", () => {
     await expect(page.getByRole("heading", { name: /^evidence$/i })).toBeVisible();
 
     // The answers from the previous test, in a row of their own.
-    const row = page.getByRole("row", { name: /attention is all you need/i });
+    const row = page
+      .locator("[data-evidence-item]:visible")
+      .filter({ hasText: /attention is all you need/i });
     await expect(row).toContainText("WMT 2014");
     await expect(row).toContainText("BLEU");
 
@@ -637,6 +645,12 @@ test.describe("Phase 0 exit criterion", () => {
   });
 
   test("sorting is a link, so a sorted table can be sent to a supervisor", async () => {
+    // Sorting lives in the column headers, and there are no columns below
+    // `md`: a twenty-column table on a phone is a horizontal scroll through a
+    // keyhole, so that viewport gets a card per paper instead. The feature is
+    // not missing there — the surface it belongs to is.
+    test.skip(test.info().project.name === "mobile", "the table is wide-screen only");
+
     await goto(page, "/projects");
     await page.getByRole("link", { name: /transformer efficiency/i }).click();
     await page.getByRole("link", { name: /^evidence$/i }).click();
@@ -666,7 +680,9 @@ test.describe("Phase 0 exit criterion", () => {
 
     // 4.3. The headline-metric answer was quoted from the abstract, so its
     // cell is a link rather than plain text.
-    const row = page.getByRole("row", { name: /attention is all you need/i });
+    const row = page
+      .locator("[data-evidence-item]:visible")
+      .filter({ hasText: /attention is all you need/i });
     await row.getByRole("link", { name: /open the passage this came from/i }).click();
 
     await expect(page).toHaveURL(/\/read\/.*anchor=/);

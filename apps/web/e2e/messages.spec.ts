@@ -138,6 +138,7 @@ test.describe("two people, one encrypted conversation", () => {
     bobPhrase = b.passphrase;
 
     // Alice makes the project and invites Bob.
+    await goto(alice, "/projects/new");
     await alice.getByLabel("Title").fill(`Encrypted talk ${testInfo.project.name}`);
     await alice
       .getByRole("group", { name: /kind/i })

@@ -14,6 +14,7 @@ import {
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
+import { AccessForm } from "./access-form";
 import { InviteMemberForm } from "./invite-member-form";
 
 export const metadata: Metadata = { title: "Overview" };
@@ -332,6 +333,27 @@ export default async function ProjectPage({
           ))}
         </ul>
       </section>
+
+      {canInvite && (
+        <section className="border-border border-t pt-8">
+          <h2 className="text-ink text-heading mb-1 font-medium">
+            When a paper will not open
+          </h2>
+          <p className="text-muted text-ui mb-4 text-pretty">
+            {/* The problem is universal and the answer is local, which is why
+                this is a per-project setting rather than something shipped
+                with a default. */}
+            Paywalls are part of this work. Point members at your library&rsquo;s link
+            resolver, proxy, or interlibrary-loan form and every paper in this project
+            will offer it — next to the free open-access copy, when one exists.
+          </p>
+          <AccessForm
+            projectId={project.id}
+            url={project.access_help_url}
+            label={project.access_help_label}
+          />
+        </section>
+      )}
 
       {canInvite && (
         <section className="border-border border-t pt-8">

@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { Banner, PageHeader } from "@/components/ui";
+import { AccessHelp } from "@/components/access-route";
+import { getProject } from "@/lib/project";
 import { SourceLinks } from "@/components/source-links";
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
@@ -41,6 +43,9 @@ export default async function ReadPage({
   const { id, workId } = await params;
   const { anchor: focusAnchorId } = await searchParams;
   const supabase = await createClient();
+
+  // Cached by the project layout above, so this is free.
+  const shell = await getProject(id);
 
   const projectWork = await must(
     supabase
@@ -217,6 +222,16 @@ export default async function ReadPage({
                 pmid: work?.pmid,
                 oaPdfUrl: work?.oa_pdf_url,
               }}
+            />
+            <AccessHelp
+              className="mt-2"
+              route={{
+                url: shell?.access_help_url ?? null,
+                label: shell?.access_help_label ?? null,
+              }}
+              doi={work?.doi}
+              title={work?.title ?? "this paper"}
+              oaPdfUrl={work?.oa_pdf_url}
             />
           </>
         }

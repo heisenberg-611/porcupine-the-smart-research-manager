@@ -220,7 +220,22 @@ html {
    * nobody remembers what column 14 was.
    */
   --app-header-h: 4.5rem;
-  scroll-padding-top: var(--app-header-h);
+  /*
+   * The project section strip is sticky beneath the header on narrow screens,
+   * so what the page scrolls to has to clear BOTH. Getting this wrong is not
+   * cosmetic: a target landing under sticky chrome cannot be clicked, which
+   * is how a link in the evidence table became unreachable on a phone.
+   */
+  --project-nav-h: 4.25rem;
+  scroll-padding-top: calc(var(--app-header-h) + var(--project-nav-h));
+}
+
+/* No strip at `lg` and up — the sidebar takes its place, and it does not sit
+   above the content. */
+@media (min-width: 64rem) {
+  html {
+    --project-nav-h: 0rem;
+  }
 }
 
 /*

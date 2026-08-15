@@ -3,10 +3,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { Card, EmptyState, PageHeader } from "@/components/ui";
+import { ButtonLink, Card, EmptyState, PageHeader } from "@/components/ui";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
-
-import { NewProjectForm } from "./new-project-form";
 
 export const metadata: Metadata = { title: "Projects" };
 
@@ -38,7 +36,14 @@ export default async function ProjectsPage() {
     <main id="main" className="mx-auto flex max-w-3xl flex-col gap-8 px-6 py-12">
       {/* Sign out lives in the app shell now. Two of them meant two places to
           keep consistent, and the e2e could not tell which one it had clicked. */}
-      <PageHeader title="Projects" />
+      <PageHeader
+        title="Projects"
+        actions={
+          <ButtonLink href="/projects/new" variant="primary">
+            New project
+          </ButtonLink>
+        }
+      />
 
       {error && (
         <p role="alert" className="text-danger text-ui">
@@ -49,14 +54,16 @@ export default async function ProjectsPage() {
       {projects.length === 0 ? (
         <EmptyState
           title="No projects yet"
-          description="A project is a thesis, a systematic review, or a lab paper. It is the unit of membership, permissions and encryption — and its kind decides which screens it has, so the form below is worth reading before you fill it in."
+          description="A project is a thesis, a systematic review, or a lab paper. It is the unit of membership, permissions and encryption, and its kind decides which screens it has."
           // The first screen a new account lands on. It had no action at all,
           // which is the one place EmptyState's own comment says never to
           // leave empty.
+          // Was an in-page anchor to a form below the list. The form has a
+          // page of its own now, so this points at it.
           action={
-            <a href="#title" className="text-accent text-ui underline underline-offset-4">
+            <ButtonLink href="/projects/new" variant="primary">
               Start your first project
-            </a>
+            </ButtonLink>
           }
         />
       ) : (
@@ -84,11 +91,6 @@ export default async function ProjectsPage() {
           })}
         </ul>
       )}
-
-      <section className="border-border border-t pt-8">
-        <h2 className="text-ink text-heading mb-4 font-medium">New project</h2>
-        <NewProjectForm />
-      </section>
     </main>
   );
 }

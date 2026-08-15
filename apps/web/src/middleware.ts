@@ -63,7 +63,7 @@ export async function middleware(request: NextRequest) {
 
   if (user && pathname === "/sign-in") {
     const url = request.nextUrl.clone();
-    url.pathname = "/projects";
+    url.pathname = "/dashboard";
     url.search = "";
     return NextResponse.redirect(url);
   }

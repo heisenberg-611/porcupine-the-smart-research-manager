@@ -148,7 +148,7 @@ test.describe("Phase 2b — dual extraction", () => {
   });
 
   test("a review project is set up with three readers", async () => {
-    await goto(alice, "/projects");
+    await goto(alice, "/projects/new");
     await alice.getByLabel("Title").fill("Statin adherence review");
     await alice
       .getByRole("group", { name: /kind/i })
@@ -271,7 +271,10 @@ test.describe("Phase 2b — dual extraction", () => {
 
     // Three rows now: Alice's, Bob's, and the reconciliation.
     await expect(
-      carol.getByRole("row", { name: /attention is all you need/i }).first(),
+      carol
+        .locator("[data-evidence-item]:visible")
+        .filter({ hasText: /attention is all you need/i })
+        .first(),
     ).toBeVisible();
   });
 });

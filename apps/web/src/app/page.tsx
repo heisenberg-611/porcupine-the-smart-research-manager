@@ -32,20 +32,23 @@ export const metadata: Metadata = {
  */
 export default async function Home() {
   const user = await getCurrentUser();
-  if (user) redirect("/projects");
+  if (user) redirect("/dashboard");
 
   return (
     <main id="main" className="mx-auto max-w-3xl px-6 py-20">
-      <h1 className="text-ink text-display text-balance">
+      {/* The product's name, which the last rewrite dropped entirely — the
+          page opened on a claim with nothing to attach it to, so a visitor
+          could read the whole thing and not learn what it was called. */}
+      <p className="text-ink text-heading font-serif">Porcupine</p>
+
+      <h1 className="text-ink text-display mt-2 text-balance">
         Every paper you read, in one defensible pile.
       </h1>
 
       <p className="text-ink-soft measure text-body mt-5 text-pretty">
-        Porcupine runs a literature review from the first search to the finished evidence
-        table. It is built for the two people who do this work: a team running a{" "}
-        <strong className="text-ink">systematic review</strong> that has to be
-        reproducible, and a student running a thesis search on the same machinery without
-        the paperwork.
+        A literature review, from the first search to the finished evidence table. For
+        teams running a systematic review that has to be reproducible, and for students
+        running a thesis search on the same machinery.
       </p>
 
       <div className="mt-8 flex flex-wrap gap-3">
@@ -55,55 +58,32 @@ export default async function Home() {
         <ButtonLink href="/about">How it works</ButtonLink>
       </div>
 
-      {/* The whole workflow, in order. Six steps, not three: the previous
-          version stopped at "Read", which is the point where the work starts
-          producing something. */}
-      <ol className="border-rule mt-16 grid gap-8 border-t pt-8 sm:grid-cols-2">
+      {/* The whole workflow, in order, at a glance. Six steps, not three: the
+          first version of this page stopped at "Read", which is the point
+          where the work starts producing something.
+
+          One line each, deliberately. This page's job is to let someone decide
+          in fifteen seconds whether to keep reading; the detail is at /about,
+          where a reader has already said yes. */}
+      <ol className="border-rule mt-14 grid gap-x-8 gap-y-6 border-t pt-8 sm:grid-cols-3">
         {STEPS.map(({ term, detail }, index) => (
           <li key={term}>
             <p className="text-muted text-fine font-mono">
               {String(index + 1).padStart(2, "0")}
             </p>
-            <h2 className="text-ink text-heading mt-1">{term}</h2>
-            <p className="text-muted text-ui mt-2 text-pretty">{detail}</p>
+            <h2 className="text-ink text-heading mt-0.5">{term}</h2>
+            <p className="text-muted text-fine mt-1 text-pretty">{detail}</p>
           </li>
         ))}
       </ol>
 
-      {/* The words the app uses everywhere, defined once, here — rather than
-          left for the reader to meet cold on a screen called "PRISMA". */}
-      <section className="border-rule mt-16 border-t pt-8">
-        <h2 className="text-ink text-title">The four words this uses</h2>
-        <dl className="mt-6 flex flex-col gap-5">
-          {GLOSSARY.map(({ term, detail }) => (
-            <div key={term}>
-              <dt className="text-ink text-ui font-medium">{term}</dt>
-              <dd className="text-muted measure text-ui mt-1 text-pretty">{detail}</dd>
-            </div>
-          ))}
-        </dl>
-      </section>
-
-      <section className="border-rule mt-16 border-t pt-8">
-        <h2 className="text-ink text-title">What happens to your work</h2>
-        <p className="text-muted measure text-ui mt-4 text-pretty">
-          Messages and extracted notes are encrypted in your browser before they are sent.
-          We cannot read them — which also means we cannot recover them for you, so the
-          recovery passphrase you are shown at sign-up is the only copy and nobody here
-          can reset it. That trade is stated up front rather than discovered.
-        </p>
-        <p className="text-muted measure text-ui mt-4 text-pretty">
-          Every screening decision records who made it and when, and can be revised.
-          Collaborators and supervisors are not billed per seat — a review with six people
-          on it costs what a review with one does.
-        </p>
-      </section>
-
-      <p className="text-muted text-fine mt-16">
+      <p className="text-muted measure text-fine mt-12 text-pretty">
+        Your notes and messages are encrypted in your browser, so we cannot read them —
+        and cannot recover them for you either.{" "}
         <Link href="/about" className="text-accent underline underline-offset-4">
-          The longer version
-        </Link>{" "}
-        — what each screen does, and what this deliberately does not do.
+          What that means, and what this does not do
+        </Link>
+        .
       </p>
     </main>
   );
@@ -112,55 +92,26 @@ export default async function Home() {
 const STEPS: ReadonlyArray<{ term: string; detail: string }> = [
   {
     term: "Ask",
-    detail:
-      "Write the questions the review is answering, and the words a paper would use if it answered them. Everything after this is ranked against them.",
+    detail: "Write the questions. Everything after is ranked against them.",
   },
   {
     term: "Find",
-    detail:
-      "Search OpenAlex, Crossref, arXiv, Europe PMC and Semantic Scholar at once. Records describing the same paper are merged before you see them, and every result says why it surfaced.",
+    detail: "Five databases at once, duplicates merged before you see them.",
   },
   {
     term: "Screen",
-    detail:
-      "Include or exclude, with a reason from a fixed list. Keyboard-driven, because this is the part you do three hundred times.",
+    detail: "Include or exclude, with a reason. Keyboard-driven.",
   },
   {
     term: "Read",
-    detail:
-      "Highlight and annotate. Quotes stay anchored to the passage they came from, and say so when the text moves underneath them.",
+    detail: "Highlight and annotate. Quotes stay anchored to the passage.",
   },
   {
     term: "Extract",
-    detail:
-      "Record the same fields for every paper, so twenty papers become a table you can compare instead of twenty things to remember. Two people can extract independently and reconcile where they disagree.",
+    detail: "The same fields from every paper, so they can be compared.",
   },
   {
     term: "Report",
-    detail:
-      "The evidence table and the PRISMA diagram come out of the decisions you already recorded — no retyping, and no number that disagrees with the data behind it.",
-  },
-];
-
-const GLOSSARY: ReadonlyArray<{ term: string; detail: string }> = [
-  {
-    term: "Systematic review",
-    detail:
-      "A literature review done to a written method, so that someone else following the same steps would find the same papers. The alternative — reading whatever turns up — is fine for a seminar and not publishable.",
-  },
-  {
-    term: "Screening",
-    detail:
-      "Deciding, paper by paper, whether each one belongs in the review, and recording why the rejected ones were rejected.",
-  },
-  {
-    term: "Extraction form",
-    detail:
-      "The list of things you record about every paper — participants, design, outcome, whatever the review needs. Also called the protocol. Agreeing it before you start is what makes the papers comparable.",
-  },
-  {
-    term: "PRISMA",
-    detail:
-      "The flow diagram journals ask for: how many papers you found, how many you excluded, why, and how many survived. Porcupine draws it from your recorded decisions rather than asking you to count.",
+    detail: "Evidence table and PRISMA diagram, from decisions you already made.",
   },
 ];

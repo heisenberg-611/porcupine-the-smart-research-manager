@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { PageHeader } from "@/components/ui";
+import { getProject } from "@/lib/project";
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -51,6 +52,7 @@ export default async function ScreenPage({
   const { id } = await params;
   const supabase = await createClient();
 
+  const shell = await getProject(id);
   const project = await must(
     supabase.from("projects").select("id, title, kind").eq("id", id).maybeSingle(),
     "the project",
@@ -140,6 +142,11 @@ export default async function ScreenPage({
       />
 
       <ScreenClient
+        // Cached by the layout above, so this costs nothing.
+        accessRoute={{
+          url: shell?.access_help_url ?? null,
+          label: shell?.access_help_label ?? null,
+        }}
         projectId={id}
         rows={rows}
         members={members}

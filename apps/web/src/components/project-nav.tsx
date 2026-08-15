@@ -41,7 +41,11 @@ export function ProjectNav({
   const active = activeSection(pathname ?? "", projectId);
 
   return (
-    <div className="border-rule bg-surface/60 border-b lg:hidden">
+    // Sticky directly under the app header, and opaque rather than tinted:
+    // a translucent bar over scrolling text reads as a rendering fault. The
+    // wide-screen sidebar has been sticky since it was built; this is the
+    // narrow-screen half catching up.
+    <div className="border-rule bg-canvas sticky top-[var(--app-header-h)] z-30 border-b lg:hidden">
       <div className="mx-auto max-w-5xl px-6">
         <nav aria-label={`${projectTitle} sections`}>
           {/* Scrolls on a phone rather than wrapping to three lines. The

@@ -119,7 +119,7 @@ test.describe("screening at speed", () => {
 
     // A THESIS, so an exclusion reason is optional and `e` alone is a
     // complete decision. The reason-required path has its own test below.
-    await goto(page, "/projects");
+    await goto(page, "/projects/new");
     await page.getByLabel("Title").fill("Screening throughput");
     await page
       .getByRole("group", { name: /kind/i })

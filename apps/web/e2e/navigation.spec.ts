@@ -103,7 +103,7 @@ const KIND_LABEL: Record<string, RegExp> = {
 };
 
 async function createProject(page: Page, title: string, kind: string): Promise<string> {
-  await goto(page, "/projects");
+  await goto(page, "/projects/new");
   await page.getByLabel("Title").fill(title);
   await page
     .getByRole("group", { name: /kind/i })

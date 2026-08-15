@@ -1,0 +1,160 @@
+# Working on Porcupine
+
+Instructions for any AI assistant working in this repository — Gemini, Claude,
+or anything else. Written so a second assistant produces work the first one
+would recognise.
+
+Read `AGENTS.md` / `CLAUDE.md` in `apps/web` too. **Next.js here is version
+16.3 and differs from most training data** — check `node_modules/next/dist/docs/`
+before writing App Router code rather than assuming.
+
+---
+
+## The stack, briefly
+
+pnpm 11 workspace. Next 16.3 App Router + React 19.2. TypeScript 5.9 in strict
+mode with `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess` — both
+bite, and both are deliberate. Prisma 7 for writes, supabase-js for reads (the
+JWT travels with the request so PostgREST evaluates RLS against it). Postgres
+17 via Supabase. Tailwind 4. Zod 4. Vitest + Playwright + pgTAP.
+
+## Rules that are not negotiable
+
+**RLS is the security boundary, not the application.** Every table has
+`FORCE ROW LEVEL SECURITY`. The app connects as `porcupine_app`, which does not
+have BYPASSRLS. Views are `security_invoker`. Never add a `WHERE user_id = ...`
+in place of a policy — if a query needs one to be safe, the policy is wrong.
+
+**Every pgTAP `count(*) = 0` needs a mutation check.** Pair it with the same
+query as `postgres`, which must return rows. Without that, a test asserting
+"the attacker sees nothing" passes just as happily against an empty table.
+Scope those checks to the fixture's own project id — counting the whole table
+made them fail the moment the app wrote real data.
+
+**A rule is not done until it has been seen to fail.** Break it on purpose,
+watch the test go red, put it back. Tests written against working code prove
+only that the code runs.
+
+**Absent and forbidden are the same answer.** RLS returns nothing for a project
+you are not a member of, so pages return 404 rather than 403. Distinguishing
+them confirms the project exists.
+
+**Say what is true.** If a number is estimated, say so. If a feature is not
+built, write that on the screen rather than shipping a control that does
+nothing. Several rounds of work in this repo have been spent finding
+capabilities that were documented, typed, and never wired to anything —
+`structureUpgradePath`, `workInputSchema`, the Master Key, member removal, the
+`questions` table. When you add a field or a flag, add the thing that writes it
+in the same change.
+
+## Style
+
+Match the surrounding code — it has a voice and consistency matters more than
+your preference. In particular:
+
+- **Comments explain WHY, and name what was tried and rejected.** This codebase
+  is full of comments recording a wrong turn so the next person does not take
+  it again. That is the house style; keep it. Do not write comments that
+  restate the code.
+- Prose in comments and UI copy: plain, direct, no marketing. Contractions are
+  fine. Em dashes are used heavily.
+- UI copy names the WORK, not the screen. "Continue screening", not "Go to
+  screening page".
+- Accessibility is a launch requirement, not polish — university procurement
+  disqualifies inaccessible tools. Every interactive element gets a 44px touch
+  target and a real accessible name. axe runs on two viewports in CI.
+
+## Before you push
+
+```bash
+pnpm verify            # lint, typecheck, unit, pgTAP, RLS suite
+pnpm verify --e2e      # adds build + Playwright; needed for any UI change
+```
+
+**Run the full suite ONCE when the work is done, not after every edit.** Use
+`pnpm exec tsc --noEmit` and a single spec file while iterating; a full
+Playwright run is minutes and burning them one at a time is the main way time
+disappears here.
+
+Useful narrower commands:
+
+```bash
+cd apps/web && pnpm exec tsc --noEmit -p tsconfig.json
+cd apps/web && E2E_PORT=3100 pnpm exec playwright test e2e/one.spec.ts --project=chromium
+cd packages/db && node scripts/pgtap.mjs
+```
+
+`pnpm db:generate` is NOT part of `pnpm verify`. Run it after any schema
+change or the Prisma client is silently stale.
+
+## Playwright traps this repo has already hit
+
+- `count()` and `isVisible()` do **not** auto-wait. Use `expect(locator)` or
+  `waitFor({ state: "visible" })`.
+- `getByText` matches hidden nodes, including React's `<div hidden id="S:0">`
+  streaming slot. Navigate with the `goto` helper in `e2e/ready.ts`, which
+  waits for that slot to be reclaimed. Prefer role queries, which skip it.
+- `getByRole("alert")` also matches Next's empty route announcer.
+- Do not share an account across Playwright projects — scope emails with
+  `testInfo.project.name`.
+- Enrolment runs Argon2id and is slow. Hooks that enrol need
+  `test.setTimeout(180_000)`.
+
+## Git
+
+**Branch and push. Do not open a pull request** unless asked, or unless the
+change genuinely needs review. The user works alone on this and a PR is
+ceremony.
+
+```bash
+git checkout -b some-descriptive-branch
+# ... work, verify ...
+git push -u origin some-descriptive-branch
+```
+
+Merge to `main` only when asked. Use `--no-ff` for a phase boundary so the
+shape of the work stays visible in the history.
+
+**Commit messages carry the reasoning.** Subject line in the imperative, then
+prose explaining what was wrong and why this is the fix — not a list of files.
+If a change corrects an earlier mistake, say what the mistake was. Look at
+`git log` before writing one; the standard is high and consistent.
+
+End every commit message with:
+
+```
+Co-Authored-By: <your model name> <noreply@anthropic.com>
+```
+
+Commit incrementally — the user is often away and expects to find progress
+rather than one enormous commit.
+
+## Working with this user
+
+- They will ask for several things at once. Do all of them, or say plainly
+  which you did not and why. Do not silently narrow scope.
+- They prefer decisions made for them: "you take the best decision for the best
+  optimisation of the app". Recommend, then act — do not present a menu.
+- Report failures honestly, with the output. Never claim a test passed that you
+  did not run.
+- If something they ask for is a bad idea, say so in a sentence or two and then
+  build the rest. If they repeat the request, it is their call — except where
+  the objection was legal or ethical rather than technical.
+
+## Where things are
+
+```
+apps/web/src/app          routes (App Router)
+apps/web/src/components   shared UI + primitives in ui.tsx
+apps/web/src/lib          client helpers, crypto session, project sections
+apps/web/e2e              Playwright specs; ready.ts has the goto helper
+packages/db               Prisma schema, seed, pgTAP suite in test/
+packages/crypto           libsodium wrappers: identity, project keys, messages
+packages/shared           screening vocabulary, capabilities, protocol templates
+packages/discovery        the five bibliographic providers + SSRF guards
+supabase/migrations       SQL, applied in filename order
+docs/                     numbered build plans; BUILD-LOG.md records decisions
+```
+
+`apps/web/src/lib/project-sections.ts` is the single source of truth for which
+screens a project kind has. Add a section there, not in the nav components.

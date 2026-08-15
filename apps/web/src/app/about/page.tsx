@@ -43,6 +43,22 @@ export default function AboutPage() {
         offering it and then refusing.
       </p>
 
+      {/* The vocabulary, before the screens that use it. It was on the
+          landing page, which needed to be short enough to read in fifteen
+          seconds; a reader who has clicked through to here has already said
+          yes and can afford four definitions. */}
+      <section className="border-rule mt-12 border-t pt-8">
+        <h2 className="text-ink text-title">The four words this uses</h2>
+        <dl className="mt-6 flex flex-col gap-5">
+          {GLOSSARY.map(({ term, detail }) => (
+            <div key={term}>
+              <dt className="text-ink text-ui font-medium">{term}</dt>
+              <dd className="text-muted measure text-ui mt-1 text-pretty">{detail}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
       <section className="border-rule mt-12 border-t pt-8">
         <h2 className="text-ink text-title">The screens</h2>
         <dl className="mt-6 flex flex-col gap-6">
@@ -149,4 +165,27 @@ const LIMITS: readonly string[] = [
   "It does not write your review. The evidence table and the diagram are outputs you take somewhere else.",
   "Messages do not arrive live yet. The page refreshes when you return to it or ask it to.",
   "It is not a reference manager. It will take your BibTeX; it will not replace Zotero for citing as you write.",
+];
+
+const GLOSSARY: ReadonlyArray<{ term: string; detail: string }> = [
+  {
+    term: "Systematic review",
+    detail:
+      "A literature review done to a written method, so that someone else following the same steps would find the same papers. The alternative — reading whatever turns up — is fine for a seminar and not publishable.",
+  },
+  {
+    term: "Screening",
+    detail:
+      "Deciding, paper by paper, whether each one belongs in the review, and recording why the rejected ones were rejected.",
+  },
+  {
+    term: "Extraction form",
+    detail:
+      "The list of things you record about every paper — participants, design, outcome, whatever the review needs. Also called the protocol. Agreeing it before you start is what makes the papers comparable.",
+  },
+  {
+    term: "PRISMA",
+    detail:
+      "The flow diagram journals ask for: how many papers you found, how many you excluded, why, and how many survived. Porcupine draws it from your recorded decisions rather than asking you to count.",
+  },
 ];

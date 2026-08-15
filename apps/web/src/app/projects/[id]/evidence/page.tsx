@@ -228,12 +228,22 @@ export default async function EvidencePage({
               clicked because the title column was permanently over it. On a
               phone, scrolling the title away is better than losing a
               column. */}
-          <TableScroll label="Evidence table">
-            <table className="text-ui w-full text-left">
-              <caption className="sr-only">
-                Extractions, one row per paper, one column per protocol field
-              </caption>
-              {/* NOT sticky, and that is a correction rather than an omission.
+          {/* The full table, from `md` up.
+
+              Below that it is replaced entirely, not merely scrolled. A
+              twenty-column table on a 390px screen is a horizontal scroll
+              through a keyhole — you cannot compare rows, which is the only
+              reason a table exists, and you cannot read a row either. It has
+              also been the source of three separate rounds of unclickable
+              cells on mobile, each one a different guess at the mechanism.
+              Cards have no off-screen axis for a target to hide on. */}
+          <div className="hidden md:block">
+            <TableScroll label="Evidence table">
+              <table className="text-ui w-full text-left">
+                <caption className="sr-only">
+                  Extractions, one row per paper, one column per protocol field
+                </caption>
+                {/* NOT sticky, and that is a correction rather than an omission.
                   A sticky header offset by the app header's height was tried
                   here and is wrong inside this container: `TableScroll` sets
                   `overflow-x: auto`, which makes the div a scroll container on
@@ -247,52 +257,62 @@ export default async function EvidencePage({
                   something to stick within. That changes how the whole page
                   scrolls and is too large a change to smuggle in beside a
                   column chooser. Recorded as open in the BUILD-LOG. */}
-              <thead className="border-border text-muted text-fine border-b uppercase">
-                <tr>
-                  <SortableHeader
-                    label="Paper"
-                    sortKey="title"
-                    query={query}
-                    projectId={id}
-                    sticky
-                  />
-                  <SortableHeader
-                    label="Year"
-                    sortKey="year"
-                    query={query}
-                    projectId={id}
-                  />
-                  <SortableHeader
-                    label="Done"
-                    sortKey="answered"
-                    query={query}
-                    projectId={id}
-                  />
-                  {fields.map((f) => (
+                <thead className="border-border text-muted text-fine border-b uppercase">
+                  <tr>
                     <SortableHeader
-                      key={f.id}
-                      label={f.label}
-                      sortKey={`field:${f.key}`}
+                      label="Paper"
+                      sortKey="title"
+                      query={query}
+                      projectId={id}
+                      sticky
+                    />
+                    <SortableHeader
+                      label="Year"
+                      sortKey="year"
                       query={query}
                       projectId={id}
                     />
+                    <SortableHeader
+                      label="Done"
+                      sortKey="answered"
+                      query={query}
+                      projectId={id}
+                    />
+                    {fields.map((f) => (
+                      <SortableHeader
+                        key={f.id}
+                        label={f.label}
+                        sortKey={`field:${f.key}`}
+                        query={query}
+                        projectId={id}
+                      />
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-border divide-y">
+                  {rows.map((row, index) => (
+                    <Row
+                      key={row.extraction_id}
+                      row={row}
+                      previous={rows[index - 1]}
+                      fields={fields}
+                      projectId={id}
+                      grouped={!!query.groupKey}
+                    />
                   ))}
-                </tr>
-              </thead>
-              <tbody className="divide-border divide-y">
-                {rows.map((row, index) => (
-                  <Row
-                    key={row.extraction_id}
-                    row={row}
-                    previous={rows[index - 1]}
-                    fields={fields}
-                    projectId={id}
-                    grouped={!!query.groupKey}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </TableScroll>
+                </tbody>
+              </table>
+            </TableScroll>
+          </div>
+
+          {/* Every field of every paper, vertically, on small screens. */}
+          <ul className="flex flex-col gap-3 md:hidden">
+            {rows.map((row) => (
+              <li key={row.extraction_id}>
+                <PaperCard row={row} fields={fields} projectId={id} />
+              </li>
+            ))}
+          </ul>
 
           <div className="flex flex-wrap items-center justify-between gap-4">
             <p className="text-muted text-ui">
@@ -385,7 +405,7 @@ function Row({
           </th>
         </tr>
       )}
-      <tr>
+      <tr data-evidence-item>
         <td className="bg-canvas px-4 py-3 sm:sticky sm:left-0">
           <Link
             href={`/projects/${projectId}/read/${row.project_work_id}`}
@@ -418,6 +438,82 @@ function Row({
         ))}
       </tr>
     </>
+  );
+}
+
+/**
+ * One paper, with every field it has an answer for.
+ *
+ * The same information the table row carries, laid out so it can be read
+ * rather than scrolled past. Unanswered fields are listed too — a card that
+ * silently omits them would launder missing data as absence of finding, which
+ * is the same rule the table's dash exists for.
+ */
+function PaperCard({
+  row,
+  fields,
+  projectId,
+}: {
+  row: EvidenceRow;
+  fields: FieldRow[];
+  projectId: string;
+}) {
+  return (
+    <article
+      data-evidence-item
+      aria-label={row.work_title}
+      className="border-rule rounded-[--radius-card] border p-4"
+    >
+      <Link
+        href={`/projects/${projectId}/read/${row.project_work_id}`}
+        className="text-ink font-medium underline-offset-2 hover:underline"
+      >
+        {row.work_title}
+      </Link>
+      <p className="meta mt-1">
+        {row.published_year ?? "no year"} ·{" "}
+        {/* Its own element so the count reads as one token — "3/7 answered"
+            as a single text node makes the ratio unmatchable on its own, and
+            it is the thing that says how incomplete the row is. */}
+        <span className="tabular-nums">
+          {row.answered}/{row.field_total}
+        </span>{" "}
+        answered
+      </p>
+
+      <dl className="mt-3 flex flex-col gap-2">
+        {fields.map((field) => {
+          const cell = row.cells?.[field.key];
+          return (
+            <div key={field.id}>
+              <dt className="text-muted text-fine">{field.label}</dt>
+              <dd className="text-ui mt-0.5">
+                {!cell || !cell.answered ? (
+                  // Full `text-muted`, not a faded one. The table's dash can
+                  // be `text-muted/60` because it is aria-hidden decoration
+                  // with a screen-reader label beside it; this is real text a
+                  // person reads, and at 70% it failed AA contrast.
+                  <span className="text-muted italic">Not answered</span>
+                ) : cell.anchorId ? (
+                  <Link
+                    href={`/projects/${projectId}/read/${row.project_work_id}?anchor=${cell.anchorId}`}
+                    className="text-ink underline decoration-dotted underline-offset-4"
+                  >
+                    {cell.text}
+                    <span className="sr-only"> — open the passage this came from</span>
+                  </Link>
+                ) : (
+                  // No truncation here: the whole point of this layout is
+                  // that the value is readable, and vertical space is the one
+                  // thing a phone has.
+                  <span className="text-ink-soft">{cell.text}</span>
+                )}
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+    </article>
   );
 }
 

@@ -114,6 +114,8 @@ test.describe("unlocking, and a project key", () => {
     await page.getByRole("button", { name: /continue/i }).click();
     await page.waitForURL(/\/projects/, { timeout: 60_000 });
 
+    // Project creation has a page of its own now.
+    await goto(page, "/projects/new");
     await page.getByLabel("Title").fill(`Encrypted project ${testInfo.project.name}`);
     await page
       .getByRole("group", { name: /kind/i })

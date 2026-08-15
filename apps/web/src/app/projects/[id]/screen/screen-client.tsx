@@ -7,6 +7,7 @@ import {
 } from "@porcupine/shared";
 import { useEffect, useState, useTransition } from "react";
 
+import { AccessHelp, type AccessRoute } from "@/components/access-route";
 import { SourceLinks } from "@/components/source-links";
 import { Button, Select } from "@/components/ui";
 
@@ -48,12 +49,14 @@ export interface Member {
  */
 export function ScreenClient({
   projectId,
+  accessRoute,
   rows,
   members,
   reasonRequired,
   currentUserId,
 }: {
   projectId: string;
+  accessRoute: AccessRoute;
   rows: ScreenRow[];
   members: Member[];
   reasonRequired: boolean;
@@ -381,6 +384,16 @@ export function ScreenClient({
             {/* The link belongs HERE, next to the decision. This screen used to
             advise opening the paper first and then offer no way to do it. */}
             <SourceLinks className="mt-3" title={current.title} work={current} />
+            {/* Paywalls are the everyday reality here, and the moment someone
+                needs a way past one is the moment they are deciding about
+                the paper. */}
+            <AccessHelp
+              className="mt-2"
+              route={accessRoute}
+              doi={current.doi}
+              title={current.title}
+              oaPdfUrl={current.oaPdfUrl}
+            />
 
             {current.abstract ? (
               <p className="prose-body mt-5">{current.abstract}</p>

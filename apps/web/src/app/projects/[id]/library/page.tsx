@@ -3,7 +3,10 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { ButtonLink, EmptyState, PageHeader, TableScroll } from "@/components/ui";
+import { AccessHelp } from "@/components/access-route";
+import { Cite } from "@/components/cite";
 import { SourceLinks } from "@/components/source-links";
+import { getProject } from "@/lib/project";
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -38,6 +41,15 @@ interface LibraryRow {
   } | null;
 }
 
+/** The stored `authors` JSON, as the shape a citation needs. */
+function parseAuthors(authors: unknown): { name: string }[] {
+  if (!Array.isArray(authors)) return [];
+  return authors
+    .map((a) => (typeof a === "object" && a && "name" in a ? String(a.name) : null))
+    .filter((n): n is string => !!n)
+    .map((name) => ({ name }));
+}
+
 function authorLine(authors: unknown): string {
   if (!Array.isArray(authors)) return "";
   const names = authors
@@ -63,6 +75,7 @@ export default async function LibraryPage({
   const { status } = await searchParams;
   const supabase = await createClient();
 
+  const shell = await getProject(id);
   const project = await must(
     supabase.from("projects").select("id, title").eq("id", id).maybeSingle(),
     "the project",
@@ -194,6 +207,27 @@ export default async function LibraryPage({
                         pmid: row.works?.pmid,
                         oaPdfUrl: row.works?.oa_pdf_url,
                       }}
+                    />
+                    <Cite
+                      className="mt-1"
+                      work={{
+                        title: row.works?.title ?? "Untitled",
+                        authors: parseAuthors(row.works?.authors),
+                        venue: row.works?.venue,
+                        publishedYear: row.works?.published_year,
+                        doi: row.works?.doi,
+                        arxivId: row.works?.arxiv_id,
+                      }}
+                    />
+                    <AccessHelp
+                      className="mt-1"
+                      route={{
+                        url: shell?.access_help_url ?? null,
+                        label: shell?.access_help_label ?? null,
+                      }}
+                      doi={row.works?.doi}
+                      title={row.works?.title ?? "this paper"}
+                      oaPdfUrl={row.works?.oa_pdf_url}
                     />
                   </td>
                   <td className="text-muted px-4 py-3 tabular-nums">

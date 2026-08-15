@@ -101,7 +101,7 @@ test.describe("the extraction form's spine", () => {
     await createConfirmedUser(email);
     page = await signInAndEnroll(browser, email);
 
-    await goto(page, "/projects");
+    await goto(page, "/projects/new");
     await page.getByLabel("Title").fill("Extraction spine");
     await page
       .getByRole("group", { name: /kind/i })
@@ -261,7 +261,7 @@ test.describe("choosing a project kind", () => {
     const page = await signInAndEnroll(browser, email);
 
     try {
-      await goto(page, "/projects");
+      await goto(page, "/projects/new");
 
       // Scoped to <main>, and that is not incidental. React streams content
       // into a `<div hidden>` before an inline script relocates it, so for a
