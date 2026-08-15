@@ -77,15 +77,19 @@ export function CompilerPanel({
     }
 
     /*
-     * Anything the preflight scan found is fatal too, whether or not TeX got
-     * far enough to complain about it.
+     * The preflight scan counts only when TeX could not finish.
      *
-     * That is the point of scanning: TeX aborts at the first missing file, so
-     * without this the reader is told about `logreq` and only discovers
-     * `biblatex`'s next dependency after fetching it, one compile at a time.
+     * Its whole purpose is to save round trips when the engine aborts at the
+     * first missing file. If a PDF came out, then every package the document
+     * actually needed was found, and whatever the scan turned up is a guess
+     * the compile has already disproved — a conditional branch, a
+     * documentation driver, something behind an `\ifdefined`. Reporting those
+     * anyway put thirty names in a red box on every successful compile.
      */
-    for (const name of outcome?.preflight ?? []) {
-      if (!fatal.includes(name)) fatal.push(name);
+    if (outcome?.status === "failed") {
+      for (const name of outcome.preflight) {
+        if (!fatal.includes(name)) fatal.push(name);
+      }
     }
 
     /*

@@ -239,15 +239,27 @@ async function compile(request: WorkerRequest): Promise<void> {
   for (const [name, contents] of Object.entries(files)) active.addFile(name, contents);
 
   /*
-   * Look before typesetting.
+   * Look before typesetting — at the DOCUMENT only.
    *
-   * The document and the user's own packages are scanned for what they ask
-   * for, so the whole missing set is reported at once rather than one per
-   * compile — TeX stops at the first file it cannot find, and it stops by
-   * asking a question no browser can answer.
+   * TeX stops at the first file it cannot find, and it stops by asking a
+   * question no browser can answer, so scanning the source first saves a
+   * round trip per missing package.
+   *
+   * It used to scan the uploaded packages too, on the reasoning that a
+   * package's own dependencies should surface as soon as it is present. That
+   * was wrong, and loudly: a CTAN archive carries documentation drivers and
+   * conditional branches, so scanning `hyperref`'s internals reported `html`,
+   * `insdljs`, `eforms` and `fp` as missing when nothing loads them, `amsmath`
+   * contributed `amsldoc` and `amsdtx`, and `\RequirePackage{#1}` inside a
+   * macro definition produced a missing package called `#1`. Thirty-odd names,
+   * on every compile, none of them actionable.
+   *
+   * The document's own `\usepackage` list is unambiguous. Anything deeper is
+   * reported accurately by `result.missingFiles` below, which is what TeX
+   * actually asked for rather than what a regular expression guessed.
    */
   const preflight = missingPackages(
-    [...Object.entries(files), ...userFiles],
+    Object.entries(files),
     new Set([...present, ...Object.keys(files)]),
   );
 

@@ -12,8 +12,8 @@
  * reader nothing, while a round trip costs them a minute. What it buys is the
  * WHOLE list in one go.
  *
- * It scans uploaded `.sty` and `.cls` files too, so a package's own
- * dependencies surface as soon as that package is present.
+ * It scans the DOCUMENT, and nothing else. Scanning inside uploaded packages
+ * was tried and reverted — see the note in the worker.
  */
 
 /** `\usepackage[opts]{a,b}`, `\RequirePackage{...}`, and the class. */
@@ -38,9 +38,12 @@ function names(source: string, pattern: RegExp, suffix: (name: string) => string
   for (const match of source.matchAll(pattern)) {
     for (const raw of (match[1] ?? "").split(",")) {
       const name = raw.trim();
-      // Skip anything with a macro in it — `\usepackage{\somename}` cannot be
-      // resolved without expanding TeX, and guessing would report nonsense.
-      if (name && !name.includes("\\")) found.push(suffix(name));
+      // A package name is letters, digits, dashes and dots. Anything else is
+      // TeX being TeX — `\RequirePackage{#1}` inside a macro definition, or a
+      // name built by expansion — and cannot be resolved without running the
+      // engine. Reporting a guess as a missing package is worse than silence:
+      // "#1" sent someone looking for a package called #1 on CTAN.
+      if (name && /^[A-Za-z0-9][\w.-]*$/.test(name)) found.push(suffix(name));
     }
   }
   return found;

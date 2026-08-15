@@ -2,4 +2,4 @@
 //
 // The compiled worker's content hash, used to bust its URL. Committed
 // rather than gitignored so a typecheck without a prior build still works.
-export const WORKER_VERSION = "833025ab976e";
+export const WORKER_VERSION = "24d663663c9b";

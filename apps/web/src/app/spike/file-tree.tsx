@@ -48,6 +48,20 @@ export function FileTree({
 
   const names = [...files.keys()].sort((a, b) => a.localeCompare(b));
 
+  const onDownload = (name: string) => {
+    const contents = files.get(name);
+    if (!contents) return;
+    const blob = new Blob([contents as any]);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   function create(event: React.FormEvent) {
     event.preventDefault();
     const name = draft.trim();
@@ -61,8 +75,8 @@ export function FileTree({
 
   return (
     <div className="border-rule bg-surface/60 flex w-52 shrink-0 flex-col border-r">
-      <div className="border-rule flex items-center justify-between gap-1 border-b px-2 py-1.5">
-        <span className="text-muted text-fine font-medium">Files</span>
+      <div className="border-rule flex h-11 shrink-0 items-center justify-between gap-1 border-b px-4">
+        <span className="text-ink text-sm font-medium">Files</span>
         <span className="flex items-center gap-2">
           {/* Words, not glyphs. `+` and `↑` are guessable and this panel has
               room for the answer; a symbol whose meaning has to be hovered for
@@ -70,7 +84,7 @@ export function FileTree({
           <button
             type="button"
             onClick={() => setAdding((v) => !v)}
-            className="text-muted hover:text-ink focus-visible:ring-accent text-fine rounded px-1 py-0.5 focus-visible:ring-2 focus-visible:outline-none"
+            className="text-muted hover:text-ink hover:bg-accent/5 focus-visible:ring-accent text-xs font-medium rounded px-2 py-1 transition-colors border border-transparent hover:border-rule shadow-sm focus-visible:ring-2 focus-visible:outline-none"
           >
             New
           </button>
@@ -78,7 +92,7 @@ export function FileTree({
             type="button"
             onClick={() => upload.current?.click()}
             title="Add figures, data, or .tex files from your machine"
-            className="text-muted hover:text-ink focus-visible:ring-accent text-fine rounded px-1 py-0.5 focus-visible:ring-2 focus-visible:outline-none"
+            className="text-muted hover:text-ink hover:bg-accent/5 focus-visible:ring-accent text-xs font-medium rounded px-2 py-1 transition-colors border border-transparent hover:border-rule shadow-sm focus-visible:ring-2 focus-visible:outline-none"
           >
             Upload
           </button>
@@ -147,7 +161,7 @@ export function FileTree({
           }
 
           return (
-            <li key={name} className="flex items-center gap-0.5 pr-1">
+            <li key={name} className="flex items-center gap-0.5 pr-2">
               <button
                 type="button"
                 onClick={() => editable && onOpen(name)}
@@ -155,10 +169,10 @@ export function FileTree({
                 aria-current={current ? "true" : undefined}
                 title={editable ? name : `${name} — binary, carried but not editable`}
                 className={cx(
-                  "text-fine focus-visible:ring-accent min-w-0 flex-1 truncate px-2 py-1.5 text-left font-mono",
+                  "text-[13px] focus-visible:ring-accent min-w-0 flex-1 truncate px-3 py-1.5 text-left font-mono transition-colors",
                   "focus-visible:ring-2 focus-visible:outline-none",
-                  current ? "bg-accent-soft text-ink" : "text-muted",
-                  editable ? "hover:text-ink hover:bg-surface" : "cursor-default italic",
+                  current ? "bg-accent/10 text-ink font-medium" : "text-ink-soft",
+                  editable ? "hover:text-ink hover:bg-surface/50" : "cursor-default italic opacity-70",
                 )}
               >
                 {isRoot && (
@@ -182,6 +196,13 @@ export function FileTree({
                 this asked where the delete button was. Quiet until pointed at
                 is as far as this should go.
               */}
+              <IconButton
+                label={`Download ${name}`}
+                onClick={() => onDownload(name)}
+                hover="hover:text-accent"
+              >
+                ↓
+              </IconButton>
               {!isRoot && editable && name.endsWith(".tex") && (
                 <IconButton
                   label={`Make ${name} the root document`}

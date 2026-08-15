@@ -396,33 +396,22 @@ export function SpikeClient() {
 
   return (
     <div className="text-ink flex h-full flex-col overflow-hidden">
-      <header className="border-rule bg-canvas flex h-14 shrink-0 flex-wrap items-center justify-between gap-3 border-b px-6 shadow-sm relative z-20">
-        <h1 className="text-ink text-sm font-semibold tracking-wide">Porcupine LaTeX Studio</h1>
+      <header className="border-rule bg-canvas flex h-14 shrink-0 items-center justify-between gap-4 border-b px-6 relative z-20">
+        <h1 className="text-ink text-[15px] font-semibold tracking-tight">Porcupine LaTeX Studio</h1>
 
-        <div className="flex items-center gap-4">
-          {/* Announced, not merely displayed: a compile can take fifteen
-              seconds on a cold start and the only feedback used to be a
-              disabled button. */}
-          <span aria-live="polite" className="text-muted text-xs font-mono font-medium bg-surface px-2 py-1 rounded border border-rule">
+        <div className="flex items-center gap-3">
+          <span aria-live="polite" className="text-ink-soft text-sm font-mono font-medium px-3 py-1.5 bg-surface border border-rule rounded-md shadow-sm">
             {busy ? (step ?? "Working") : outcome ? describe(outcome.status) : "Ready"}
           </span>
           <Button
             variant="ghost"
-            className="hover:bg-accent/5 text-ink-soft transition-colors text-sm px-3 border border-transparent hover:border-rule shadow-sm"
             onClick={() => setShowPackages((v) => !v)}
             aria-expanded={showPackages}
           >
             Packages
           </Button>
-          {/* A way out that is not a page reload.
-              A wasm module that has trapped cannot be recovered from inside,
-              and one that has merely gone slow gives no signal at all. Both
-              are fixed by throwing the worker away — and the alternative
-              people reach for, reloading, loses the compile and the scroll
-              position for no extra benefit. */}
           <Button
             variant="ghost"
-            className="hover:bg-accent/5 text-ink-soft transition-colors text-sm px-3 border border-transparent hover:border-rule shadow-sm"
             onClick={restart}
             title="Throw away the TeX engine and start a fresh one"
           >
@@ -432,7 +421,6 @@ export function SpikeClient() {
             onClick={() => compile(asRecord(), entry, packagesToken)}
             disabled={busy}
             variant="primary"
-            className="shadow-sm transition-all active:scale-95 ml-2"
           >
             {busy ? "Compiling…" : "Compile PDF"}
           </Button>
