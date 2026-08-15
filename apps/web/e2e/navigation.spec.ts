@@ -308,3 +308,80 @@ test.describe("theme", () => {
     await expect(html()).not.toHaveAttribute("data-theme", /.*/);
   });
 });
+
+/**
+ * Phase 4 — the feature that was read everywhere and written nowhere.
+ *
+ * `questions` supplied the search ranking's keywords from Phase 1 and had no
+ * form, no action and no route. The ranking scored against an empty set, the
+ * "why did this surface" chip was always blank, and the search page told
+ * people to add questions and gave them nowhere to go. These assert the loop
+ * is closed: written here, read there.
+ */
+test.describe("research questions", () => {
+  test.describe.configure({ mode: "serial" });
+
+  let page: Page;
+  let projectId = "";
+  const email = uniqueEmail("questions");
+
+  test.beforeAll(async ({ browser }) => {
+    await createConfirmedUser(email);
+    page = await signInAndEnroll(browser, email);
+    projectId = await createProject(page, "Questions review", "SYSTEMATIC_REVIEW");
+  });
+
+  test.afterAll(async () => {
+    await page.context().close();
+  });
+
+  test("a project with no questions says what that costs, and links to the fix", async () => {
+    await goto(page, `/projects/${projectId}/search`);
+
+    const main = page.getByRole("main");
+    await expect(main.getByText(/ranked by citation count alone/i)).toBeVisible();
+
+    // The sentence used to end here, with no destination.
+    await main.getByRole("link", { name: /add some/i }).click();
+    await expect(
+      page.getByRole("heading", { name: /research questions/i }),
+    ).toBeVisible();
+  });
+
+  test("a question can be written, and its keywords come back", async () => {
+    await goto(page, `/projects/${projectId}/questions`);
+
+    await page
+      .getByLabel(/^question$/i)
+      .fill("Does spaced repetition improve retention?");
+    await page.getByLabel(/keywords/i).fill("spaced repetition, retention, Retention");
+    await page.getByRole("button", { name: /add question/i }).click();
+
+    const main = page.getByRole("main");
+    await expect(
+      main.getByText(/does spaced repetition improve retention/i),
+    ).toBeVisible();
+
+    // Case-folded duplicates are dropped: "retention" and "Retention" are one
+    // keyword to the ranking, and showing both would let someone believe they
+    // had covered more ground than they had.
+    await expect(main.getByText("retention", { exact: true })).toHaveCount(1);
+  });
+
+  test("and search now offers them as terms", async () => {
+    await goto(page, `/projects/${projectId}/search`);
+
+    const main = page.getByRole("main");
+    await expect(main.getByText(/from your questions/i)).toBeVisible();
+    await main.getByRole("button", { name: /spaced repetition/i }).click();
+    await expect(page.getByLabel(/search terms/i)).toHaveValue(/spaced repetition/i);
+  });
+
+  test("a question can be removed", async () => {
+    await goto(page, `/projects/${projectId}/questions`);
+    await page.getByRole("button", { name: /remove question 1/i }).click();
+    await expect(
+      page.getByRole("main").getByText(/no research questions yet/i),
+    ).toBeVisible();
+  });
+});

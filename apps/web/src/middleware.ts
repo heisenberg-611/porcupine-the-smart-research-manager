@@ -11,7 +11,10 @@ import { NextResponse, type NextRequest } from "next/server";
  * This is a convenience gate, not the security boundary — RLS is. A bug here
  * shows someone an empty page; it does not show them another user's data.
  */
-const PUBLIC_PATHS = ["/", "/sign-in", "/auth"];
+// `/about` is public deliberately: it is the page that explains the product to
+// someone deciding whether to sign up. Behind auth it would only ever be read
+// by people who no longer need it.
+const PUBLIC_PATHS = ["/", "/about", "/sign-in", "/auth"];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.some(

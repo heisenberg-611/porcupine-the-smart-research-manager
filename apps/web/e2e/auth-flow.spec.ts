@@ -555,6 +555,32 @@ test.describe("Phase 0 exit criterion", () => {
     await page.getByRole("button", { name: /quote from the paper/i }).click();
     await expect(page.getByText(/select the sentence in the text/i)).toBeVisible();
 
+    /*
+     * Wait for the passage to actually be there before selecting inside it.
+     *
+     * `page.evaluate` does not retry, so this read raced the render: on a
+     * loaded machine `firstChild` was still null, the function returned null,
+     * and the test failed on `expect(quote).toBeTruthy()`. It failed on the
+     * mobile project and merely went flaky on chromium in the same CI run,
+     * which is the signature of a race rather than a broken assertion.
+     *
+     * The range below needs at least 70 characters of text node, so that is
+     * what is waited for — not merely the element's presence.
+     */
+    const source = page.locator('[data-testid="extract-source"]');
+    await expect(source).toBeVisible();
+    await expect
+      .poll(
+        () =>
+          source.evaluate((el) =>
+            el.firstChild?.nodeType === Node.TEXT_NODE
+              ? (el.firstChild.textContent?.length ?? 0)
+              : 0,
+          ),
+        { timeout: 10_000 },
+      )
+      .toBeGreaterThan(70);
+
     const quote = await page.evaluate(() => {
       const el = document.querySelector('[data-testid="extract-source"]');
       if (!el?.firstChild) return null;

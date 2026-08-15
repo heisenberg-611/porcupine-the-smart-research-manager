@@ -143,6 +143,60 @@ test.describe("screening at speed", () => {
     await page.context().close();
   });
 
+  /*
+   * Phase 4 — the button that did nothing, and the pile you could not see.
+   *
+   * Skip was `setIndex((i) => i + 1)` and wrote nothing, so a reload brought
+   * every skipped paper back in place with no trace anyone had looked at it —
+   * and it is the reason the Pipeline's SCREENING bar was permanently empty.
+   *
+   * These live inside this describe rather than in one of their own so they
+   * reuse the signed-in page. A second describe meant a second Argon2id
+   * enrolment, which on its own overran the hook timeout.
+   */
+  test("every paper on the screening queue links to itself", async () => {
+    await goto(page, `/projects/${projectId}/screen`);
+
+    // This screen used to advise "open the paper first" when a record had no
+    // abstract, while offering no way to open anything.
+    const article = page.locator("article");
+    // `count()` does not auto-wait, and this route streams behind a Suspense
+    // boundary — counting straight after a navigation counts an empty page.
+    await expect(article).toBeVisible();
+
+    const links = await article.getByRole("link").count();
+    const noLink = await article.getByText(/no link on record/i).count();
+    expect(links + noLink).toBeGreaterThan(0);
+  });
+
+  test("skipping records that you looked, and survives a reload", async () => {
+    await goto(page, `/projects/${projectId}/screen`);
+    const first = await page.locator("article h2").innerText();
+
+    await page.getByRole("button", { name: /skip for now/i }).click();
+
+    // Still in the queue — deferring is not dismissing — but no longer first.
+    await expect(page.locator("article h2")).not.toHaveText(first);
+
+    // The part that was missing entirely: it is written down.
+    //
+    // Polled with a fresh navigation each time, because the decision is
+    // recorded optimistically — the queue advances before the write lands, by
+    // design — and the progress page is server-rendered, so re-checking the
+    // same DOM would re-check the same stale number forever.
+    await expect
+      .poll(
+        async () => {
+          await goto(page, `/projects/${projectId}/progress`);
+          return page
+            .getByRole("meter", { name: /screening/i })
+            .getAttribute("aria-valuenow");
+        },
+        { timeout: 15_000 },
+      )
+      .toBe("1");
+  });
+
   test("a decision advances the queue without waiting for the server", async () => {
     await goto(page, `/projects/${projectId}/screen`);
     await expect(page.getByRole("main").getByText(/3 left/i)).toBeVisible();
