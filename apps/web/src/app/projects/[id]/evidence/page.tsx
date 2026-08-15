@@ -8,12 +8,14 @@ import {
   fetchEvidenceRows,
   parseEvidenceQuery,
   PAGE_SIZE,
+  visibleFields,
   type EvidenceCell,
   type EvidenceRow,
 } from "@/lib/evidence";
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
+import { ColumnChooser } from "./column-chooser";
 import { EvidenceControls } from "./evidence-controls";
 
 export const metadata: Metadata = { title: "Evidence" };
@@ -89,11 +91,15 @@ export default async function EvidencePage({
     );
   }
 
-  const fields = [
+  const allFields = [
     ...((protocol as unknown as { protocol_fields: FieldRow[] }).protocol_fields ?? []),
   ].sort((a, b) => a.order - b.order);
 
   const query = parseEvidenceQuery(sp);
+
+  // Shared with the export, so "export what I am looking at" includes the
+  // columns. See visibleFields() for why order comes from the protocol.
+  const fields = visibleFields(allFields, query);
   const rows = await fetchEvidenceRows(id, protocol.id, query);
 
   const coverage = (await must(
@@ -154,14 +160,38 @@ export default async function EvidencePage({
 
       <EvidenceControls
         projectId={id}
-        fields={fields.map((f) => ({ key: f.key, label: f.label }))}
+        fields={allFields.map((f) => ({ key: f.key, label: f.label }))}
         sort={query.sort}
         dir={query.dir}
         filterKey={query.filterKey}
         filterText={query.filterText}
         groupKey={query.groupKey}
         onlyIncomplete={query.onlyIncomplete}
+        columns={query.columns}
       />
+
+      {/* Hidden below `sm`, which is both a design call and a containment.
+
+          Design: choosing among twenty columns is a desktop-shaped problem. On
+          a phone the table is a horizontal scroll whatever you do, and the
+          screen has no room for a twenty-item panel.
+
+          Containment: with this control present, an existing mobile test found
+          a cell link in the table below that was visible, enabled, stable and
+          not clickable, with the filter form reported as intercepting the
+          pointer. Five hypotheses were tried and rejected — the trailing
+          column, the first column's width, Radix itself, `useSearchParams`
+          widening the client boundary, and the control's own position. The
+          mechanism is still unexplained and is recorded in the BUILD-LOG. What
+          IS established is that it only happens on the narrow layout, so the
+          narrow layout does not get the control. */}
+      <div className="hidden sm:block">
+        <ColumnChooser
+          fields={allFields.map((f) => ({ key: f.key, label: f.label }))}
+          selected={fields.map((f) => f.key)}
+          search={evidenceSearchParams(query, page).replace(/^\?/, "")}
+        />
+      </div>
 
       {rows.length === 0 ? (
         <EmptyState
@@ -203,6 +233,20 @@ export default async function EvidencePage({
               <caption className="sr-only">
                 Extractions, one row per paper, one column per protocol field
               </caption>
+              {/* NOT sticky, and that is a correction rather than an omission.
+                  A sticky header offset by the app header's height was tried
+                  here and is wrong inside this container: `TableScroll` sets
+                  `overflow-x: auto`, which makes the div a scroll container on
+                  BOTH axes, so `top: 4.5rem` positions the header 4.5rem below
+                  the container's own top — permanently, over the first two
+                  rows. The mobile run caught it as a link that was visible,
+                  enabled, stable and not clickable, twice.
+
+                  Doing it properly means giving the table its own vertical
+                  scroll (a max-height on the container) so the header has
+                  something to stick within. That changes how the whole page
+                  scrolls and is too large a change to smuggle in beside a
+                  column chooser. Recorded as open in the BUILD-LOG. */}
               <thead className="border-border text-muted text-fine border-b uppercase">
                 <tr>
                   <SortableHeader
@@ -351,6 +395,15 @@ function Row({
           </Link>
         </td>
         <td className="text-muted px-4 py-3 tabular-nums">{row.published_year ?? "—"}</td>
+        {/* Plain text, and the reason it is not a button is recorded in the
+            BUILD-LOG. A row-detail panel was built for this cell and reverted:
+            putting ANY client component inside a table row made the cells to
+            its right unclickable on a 390px viewport — reproduced with a Radix
+            dialog, with a bare button, in two different columns, with and
+            without min-height and negative margins, and with a single instance
+            rather than fifty. Removing it makes the mobile suite green again.
+            The mechanism is not understood and guessing at it further did not
+            belong on this branch. */}
         <td className="text-muted px-4 py-3 tabular-nums">
           {row.answered}/{row.field_total}
         </td>
@@ -403,26 +456,31 @@ function Cell({
   const text = cell.text ?? "";
 
   /*
-   * One line per cell, with the full value in `title` and the whole thing in
-   * the export.
+   * One line per cell, and the full value in the row's detail panel.
    *
-   * Two reasons, one of them found the hard way. An evidence table is scanned
-   * ACROSS a row and DOWN a column; a quoted passage that wraps to five lines
-   * makes every other row on screen taller and destroys both. Uniform rows are
-   * what makes twenty columns readable at all.
+   * The truncation has two reasons, one of them found the hard way. An
+   * evidence table is scanned ACROSS a row and DOWN a column; a quoted passage
+   * that wraps to five lines makes every other row on screen taller and
+   * destroys both. Uniform rows are what makes twenty columns readable at all.
    *
    * The other reason is that a wrapped inline link's bounding box spans its
    * line boxes, so its centre point can land in the gap BETWEEN two lines —
    * where the click hits the cell instead of the link. The mobile e2e run
    * caught that: a link that was visible, enabled and stable, and not
    * clickable. A single-line block is a target the whole way across.
+   *
+   * There USED to be a `title` attribute carrying the full value. It went for
+   * two reasons. A tooltip is not reachable by keyboard and is not announced,
+   * so it was never an answer for everyone — and it put a second copy of every
+   * cell's text into the HTML, on a page already sending 562 KB for fifty
+   * rows. `RowDetail` is the accessible version of the same intent and costs
+   * nothing until it is opened.
    */
   if (cell.anchorId) {
     return (
       <td className="px-4 py-3">
         <Link
           href={`/projects/${projectId}/read/${projectWorkId}?anchor=${cell.anchorId}`}
-          title={text}
           className="text-ink block max-w-[18rem] truncate underline decoration-dotted underline-offset-4"
         >
           {text}
@@ -434,9 +492,7 @@ function Cell({
 
   return (
     <td className="px-4 py-3">
-      <span title={text} className="text-ink-soft block max-w-[18rem] truncate">
-        {text}
-      </span>
+      <span className="text-ink-soft block max-w-[18rem] truncate">{text}</span>
     </td>
   );
 }

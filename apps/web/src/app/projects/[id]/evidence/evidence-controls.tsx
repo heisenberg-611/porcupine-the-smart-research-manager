@@ -31,6 +31,7 @@ export function EvidenceControls({
   filterText,
   groupKey,
   onlyIncomplete,
+  columns,
 }: {
   projectId: string;
   fields: Array<{ key: string; label: string }>;
@@ -40,6 +41,7 @@ export function EvidenceControls({
   filterText: string | null;
   groupKey: string | null;
   onlyIncomplete: boolean;
+  columns: string[] | null;
 }) {
   // The current sort rides along as hidden inputs, or filtering would silently
   // throw away the column someone had just sorted by.
@@ -50,6 +52,11 @@ export function EvidenceControls({
   if (filterText) exportParams.set("q", filterText);
   if (groupKey) exportParams.set("group", groupKey);
   if (onlyIncomplete) exportParams.set("incomplete", "1");
+  // The column selection too. Without this, narrowing the table to five fields
+  // and clicking Export CSV silently hands back all twenty — the export
+  // disagreeing with the screen it came from, which is the exact failure
+  // sharing the read path was meant to prevent.
+  if (columns) exportParams.set("cols", columns.join(","));
 
   const exportHref = (format: string) => {
     const params = new URLSearchParams(exportParams);
@@ -112,7 +119,8 @@ export function EvidenceControls({
 
       {/* Ordinary links, because the response is a file download: an anchor
           gets the browser's own save handling for free. They carry the current
-          filter and sort, so "export" means "export what I am looking at". */}
+          filter, sort and columns, so "export" means "export what I am looking
+          at". */}
       <div className="flex flex-wrap gap-2">
         <ButtonLink href={exportHref("csv")}>Export CSV</ButtonLink>
         <ButtonLink href={exportHref("xlsx")}>Export Excel</ButtonLink>

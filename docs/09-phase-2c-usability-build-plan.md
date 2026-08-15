@@ -259,26 +259,34 @@ highlight is small, obvious when it goes, and trivially remade.
 
 *Goal: the screen the whole pipeline exists to produce becomes usable at 300 × 20.*
 
-**3.1 Column management** — pin, hide, reorder, resize. Persisted per person per
-project. Twenty columns is not a rendering problem, it is a "which five do I
-care about today" problem.
+**3.1 Column management** — ✅ *hide and show, via `?cols=`; desktop only.*
+Pinning, reordering and resizing are not built. The choice lives in the URL
+rather than per person, so a narrowed table is a link you can send; the cost is
+that it does not survive to the next visit, which needs a table this phase does
+not touch.
 
-**3.2 Sticky header and sticky first column,** properly, at every breakpoint.
-The current sticky first column already caused one unclickable-cell bug on
-mobile; do it once, in `TableScroll`, with a test.
+**3.2 ~~Sticky header~~ — attempted and reverted.** A sticky `thead` does not
+work inside `TableScroll`: `overflow-x: auto` makes the div a scroll container
+on *both* axes, so `top: 4.5rem` pins the header 4.5 rem below the container's
+own top, permanently over the first two rows. Doing it properly means giving
+the table its own vertical scroll, which changes how the whole page scrolls and
+is too large to smuggle in beside a column chooser.
 
-**3.3 A row detail panel.** One paper's twenty answers as a readable column,
-opened from the row, without losing table position. This is where the
-horizontal scroll stops being the only way to read a row.
+**3.3 ~~A row detail panel~~ — built, then reverted.** Any client component
+placed inside a table row made the cells to its right unclickable on a 390 px
+viewport. Reproduced with a Radix dialog, with a bare button, in two different
+columns, with and without min-height and negative margins, and with one
+instance rather than fifty. See the BUILD-LOG; it is the same unexplained
+narrow-layout interaction that keeps the column chooser desktop-only.
 
 **3.4 Saved views.** A filter + sort + column set with a name. Reviews are
 returned to across months; reconstructing a view by hand each time is the tax
 this screen currently charges.
 
-**3.5 Payload.** 510 KB per page of HTML. Reduce it — narrower server payload,
-fewer wrapper elements per cell — and re-run `pnpm --filter @porcupine/web
-measure` to show the before and after. The budget is not at risk; mobile data
-is.
+**3.5 Payload** — ✅ partly. The `title` attribute on every cell is gone: it
+duplicated the full text of all 1,150 cells in the HTML, and a tooltip was
+never reachable by keyboard anyway. Hiding columns is the larger lever and is
+now user-controlled.
 
 ---
 
