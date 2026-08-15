@@ -32,8 +32,17 @@ export type CompiledMessage = {
   /** Transferred, not copied — a PDF is megabytes. */
   pdf: ArrayBuffer | null;
   diagnostics: Diagnostic[];
-  /** Packages the document wanted that no installed pack provides. */
+  /**
+   * Files no installed pack provides, after every round of installing.
+   *
+   * NOT the same as "things that broke the document". TeX probes for optional
+   * files constantly — `lstmisc0.sty` and friends — and carries on without
+   * them, so this list is raw material for the UI rather than a list of
+   * errors. The compiler panel decides which of these TeX actually complained
+   * about by cross-referencing the diagnostics.
+   */
   unsupported: string[];
+  /** The raw `<jobname>.log`. The thing a LaTeX user actually reads. */
   log: string | null;
   passesRun: number;
   message: string | null;

@@ -128,22 +128,36 @@ async function compile(request: WorkerRequest): Promise<void> {
   post({ kind: "progress", id, step: "Typesetting" });
   let result = active.compile({ entry, synctex: true });
 
-  // One retry after installing packages. Auxiliary files are retained, so the
-  // second run picks up where the first stopped rather than starting cold.
-  let unsupported: string[] = [];
-  if (result.missingFiles.length > 0) {
-    // Only when something was actually installed. The first version retried
-    // whenever anything at all was missing, which meant a document needing no
-    // packs still paid for a second full typesetting pass — TeX asks for
-    // plenty of files it copes fine without.
+  /*
+   * Install and retry until nothing new gets installed.
+   *
+   * A single retry is not enough, and a real document proves it: a package
+   * only asks for its own dependencies once IT has loaded, so round one
+   * discovers `tikz.sty`, round two discovers the tikz libraries that
+   * `\usetikzlibrary` wants, and so on. Bounded at four rounds because each
+   * one is a full typesetting pass and a document that has not converged by
+   * then is missing something no pack provides.
+   *
+   * Retrying only when something was actually INSTALLED is what stops this
+   * looping forever on files nothing supplies — and stops an ordinary document
+   * paying for a second pass it does not need, since TeX asks for plenty of
+   * files it copes fine without.
+   */
+  const unresolved = new Set<string>();
+  for (let round = 0; round < 4 && result.missingFiles.length > 0; round++) {
     const outcome = await installFor(result.missingFiles, id);
-    unsupported = outcome.unsupported;
+    for (const name of outcome.unsupported) unresolved.add(name);
 
-    if (outcome.installedCount > 0) {
-      post({ kind: "progress", id, step: "Typesetting again with the new packages" });
-      result = active.compile({ entry, synctex: true });
-    }
+    if (outcome.installedCount === 0) break;
+
+    post({ kind: "progress", id, step: "Typesetting again with the new packages" });
+    result = active.compile({ entry, synctex: true });
   }
+
+  // Anything still missing on the final pass, whether or not a pack was ever
+  // tried for it.
+  for (const name of result.missingFiles) unresolved.add(name);
+  const unsupported = [...unresolved];
 
   // `errors` is NOT fatal — TeX recovers from most errors and still typesets,
   // so a document that reports errors usually has a perfectly good PDF. Only

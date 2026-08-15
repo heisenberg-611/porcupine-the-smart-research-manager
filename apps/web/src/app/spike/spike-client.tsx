@@ -4,10 +4,13 @@ import { StreamLanguage } from "@codemirror/language";
 import { stex } from "@codemirror/legacy-modes/mode/stex";
 import { githubDark, githubLight } from "@uiw/codemirror-theme-github";
 import CodeMirror from "@uiw/react-codemirror";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { EditorView } from "@codemirror/view";
 
 import { Button } from "@/components/ui";
 import { useCompiler } from "@/lib/latex/use-compiler";
+
+import { CompilerPanel } from "./compiler-panel";
 
 const ENTRY = "main.tex";
 const DRAFT_KEY = "porcupine.latex.spike";
@@ -40,6 +43,30 @@ export function SpikeClient() {
   const [source, setSource] = useState(DEFAULT_TEX);
   const [dark, setDark] = useState(false);
   const [restored, setRestored] = useState(false);
+  const editor = useRef<EditorView | null>(null);
+
+  /**
+   * Jump to the line a diagnostic points at.
+   *
+   * The whole value of a parsed problem list is that it takes you to the
+   * cause; a line number you have to go and find by hand is a line number in a
+   * log file, which is what the Log tab is already for.
+   */
+  const goToLine = useCallback((line: number) => {
+    const view = editor.current;
+    if (!view) return;
+
+    // TeX counts from 1, CodeMirror's doc.line does too — but clamp, because
+    // the log can name a line past the end of the file after an edit.
+    const target = Math.min(Math.max(line, 1), view.state.doc.lines);
+    const info = view.state.doc.line(target);
+
+    view.dispatch({
+      selection: { anchor: info.from },
+      scrollIntoView: true,
+    });
+    view.focus();
+  }, []);
 
   // The draft survives a reload. Losing an hour's LaTeX to a refresh is the
   // kind of thing that makes people stop trusting a tool, and this is four
@@ -91,8 +118,6 @@ export function SpikeClient() {
     };
   }, []);
 
-  const diagnostics = outcome?.diagnostics ?? [];
-
   return (
     <div className="text-ink flex h-full flex-col overflow-hidden">
       <header className="border-rule bg-surface flex shrink-0 flex-wrap items-center justify-between gap-3 border-b px-4 py-2">
@@ -130,6 +155,9 @@ export function SpikeClient() {
               theme={dark ? githubDark : githubLight}
               extensions={[StreamLanguage.define(stex)]}
               onChange={setSource}
+              onCreateEditor={(view) => {
+                editor.current = view;
+              }}
               className="h-full"
               basicSetup={{ lineNumbers: true, foldGutter: true }}
             />
@@ -161,38 +189,7 @@ export function SpikeClient() {
         </section>
       </div>
 
-      {(error || diagnostics.length > 0 || outcome?.unsupported.length) && (
-        <section
-          aria-label="Compiler output"
-          className="border-rule bg-surface flex h-48 shrink-0 flex-col border-t"
-        >
-          <h2 className="border-rule text-ink text-fine shrink-0 border-b px-4 py-1.5 font-medium">
-            Compiler output
-          </h2>
-          <div className="text-fine min-h-0 flex-1 overflow-auto px-4 py-2 font-mono">
-            {error && <p className="text-danger">{error}</p>}
-
-            {/* Named packages, not "compilation failed". The engine reports
-                what it could not find; saying so is the difference between a
-                fixable problem and a dead end. */}
-            {outcome?.unsupported.map((name) => (
-              <p key={name} className="text-danger">
-                No installed package provides {name}.
-              </p>
-            ))}
-
-            {diagnostics.map((d, i) => (
-              <p
-                key={`${d.message}-${i}`}
-                className={d.severity === "error" ? "text-danger" : "text-muted"}
-              >
-                {d.severity}
-                {d.line ? ` (line ${d.line})` : ""}: {d.message}
-              </p>
-            ))}
-          </div>
-        </section>
-      )}
+      <CompilerPanel outcome={outcome} error={error} onGoToLine={goToLine} />
     </div>
   );
 }

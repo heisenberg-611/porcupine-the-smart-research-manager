@@ -2,13 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import type { Diagnostic } from "glyphtex-engine";
+
 import type { WorkerRequest, WorkerResponse } from "./protocol";
 
 export interface CompileOutcome {
   status: string;
   pdfUrl: string | null;
-  diagnostics: { severity: string; message: string; line?: number | null }[];
+  diagnostics: Diagnostic[];
   unsupported: string[];
+  /** The raw TeX log. The compiler panel shows it verbatim. */
+  log: string | null;
   passesRun: number;
   message: string | null;
 }
@@ -83,8 +87,9 @@ export function useCompiler() {
       setOutcome({
         status: data.status,
         pdfUrl: objectUrl.current,
-        diagnostics: data.diagnostics as CompileOutcome["diagnostics"],
+        diagnostics: data.diagnostics,
         unsupported: data.unsupported,
+        log: data.log,
         passesRun: data.passesRun,
         message: data.message,
       });
