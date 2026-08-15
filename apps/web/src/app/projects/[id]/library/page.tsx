@@ -179,11 +179,11 @@ export default async function LibraryPage({
             </thead>
             <tbody className="divide-border divide-y">
               {rows.map((row) => (
-                <tr key={row.id}>
-                  <td className="px-4 py-3">
+                <tr key={row.id} className="hover:bg-surface/50 transition-colors group">
+                  <td className="px-4 py-4">
                     <Link
                       href={`/projects/${id}/read/${row.id}`}
-                      className="text-ink font-medium underline-offset-2 hover:underline"
+                      className="text-ink font-semibold text-lg underline-offset-2 hover:text-accent hover:underline transition-colors"
                     >
                       {row.works?.title ?? "Untitled"}
                     </Link>

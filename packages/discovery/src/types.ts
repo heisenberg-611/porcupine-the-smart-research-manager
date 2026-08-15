@@ -121,6 +121,7 @@ export interface ProviderFailure {
 
 export interface FederatedResult {
   works: WorkInput[];
+  counts: { provider: string; count: number }[];
   /**
    * Providers that failed. Non-empty is a DEGRADED result, not an error:
    * five providers means five chances to be down, and four sets of results

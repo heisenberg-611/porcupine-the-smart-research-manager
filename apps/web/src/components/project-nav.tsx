@@ -62,10 +62,10 @@ export function ProjectNav({
                   href={sectionHref(projectId, "")}
                   aria-current={active === "" ? "page" : undefined}
                   className={cx(
-                    "text-ui inline-flex min-h-11 items-center rounded-lg px-3 font-medium",
+                    "text-ui inline-flex min-h-11 items-center rounded-xl px-4 font-medium",
                     "focus-visible:ring-accent transition-colors focus-visible:ring-2 focus-visible:outline-none",
                     active === ""
-                      ? "text-ink bg-raised"
+                      ? "text-ink bg-accent/10"
                       : "text-muted hover:text-ink hover:bg-raised/70",
                   )}
                 >
@@ -85,10 +85,10 @@ export function ProjectNav({
                     href={sectionHref(projectId, section.slug)}
                     aria-current={active === section.slug ? "page" : undefined}
                     className={cx(
-                      "text-ui inline-flex min-h-11 items-center rounded-lg px-3",
+                      "text-ui inline-flex min-h-11 items-center rounded-xl px-4",
                       "focus-visible:ring-accent transition-colors focus-visible:ring-2 focus-visible:outline-none",
                       active === section.slug
-                        ? "text-ink bg-raised font-medium"
+                        ? "text-ink bg-accent/10 font-medium"
                         : "text-muted hover:text-ink hover:bg-raised/70",
                     )}
                   >

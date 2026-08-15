@@ -76,6 +76,45 @@ export async function createChannel(
   }
 }
 
+const DeleteChannelInput = z.object({
+  projectId: z.uuid(),
+  channelId: z.uuid(),
+});
+
+export async function deleteChannel(
+  input: z.input<typeof DeleteChannelInput>,
+): Promise<ActionResult<{ deleted: true }>> {
+  const parsed = DeleteChannelInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid request." };
+
+  const claims = await getUserClaims();
+  if (!claims) return { ok: false, error: "Not signed in." };
+
+  const { projectId, channelId } = parsed.data;
+
+  try {
+    await withUserContext(claims, async (tx) => {
+      const me = await tx.projectMember.findUnique({
+        where: { projectId_userId: { projectId, userId: claims.sub } },
+        select: { accessRole: true },
+      });
+      if (!me || (me.accessRole !== "OWNER" && me.accessRole !== "ADMIN")) {
+        throw new Error("NOT_AUTHORIZED");
+      }
+
+      await tx.channel.delete({
+        where: { id: channelId, projectId },
+      });
+    });
+    return { ok: true, data: { deleted: true } };
+  } catch (err) {
+    if (err instanceof Error && err.message === "NOT_AUTHORIZED") {
+      return { ok: false, error: "You do not have permission to delete channels." };
+    }
+    return { ok: false, error: "Could not delete the channel." };
+  }
+}
+
 export async function listChannels(
   projectId: string,
 ): Promise<ActionResult<ChannelRow[]>> {

@@ -63,27 +63,29 @@ export function ImportClient({ projectId }: { projectId: string }) {
   }
 
   return (
-    <section className="space-y-6">
-      <form onSubmit={onPreview} className="space-y-4">
-        <Field
-          label="Paste references"
-          id="source"
-          hint="BibTeX, RIS, or a list of DOIs and arXiv ids. The format is detected automatically."
-        >
-          <Textarea
+    <section className="space-y-6 mt-6">
+      <div className="relative rounded-xl bg-gradient-to-br from-ui/5 to-surface p-6 shadow-sm ring-1 ring-border border-t border-white/5">
+        <form onSubmit={onPreview} className="space-y-4 relative z-10">
+          <Field
+            label="Paste references"
             id="source"
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-            required
-            rows={10}
-            className="border-border bg-surface text-ink text-ui w-full rounded-lg border p-3 font-mono"
-          />
-        </Field>
+            hint="BibTeX, RIS, or a list of DOIs and arXiv ids. The format is detected automatically."
+          >
+            <Textarea
+              id="source"
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+              required
+              rows={10}
+              className="border-border bg-surface text-ink text-ui w-full rounded-xl border p-4 font-mono shadow-sm"
+            />
+          </Field>
 
-        <Button type="submit" disabled={pending || !source.trim()}>
-          {pending ? "Reading…" : "Preview"}
-        </Button>
-      </form>
+          <Button type="submit" disabled={pending || !source.trim()}>
+            {pending ? "Reading…" : "Preview"}
+          </Button>
+        </form>
+      </div>
 
       <div aria-live="polite" className="space-y-4">
         {error && (

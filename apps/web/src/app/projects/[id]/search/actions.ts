@@ -25,6 +25,7 @@ const SearchInput = z.object({
 
 export interface SearchResults {
   ranked: ScoredWork[];
+  counts: { provider: string; count: number }[];
   failures: Array<{ provider: string; message: string }>;
   /** Identifiers already in this project, so the UI can mark them. */
   alreadyAdded: string[];
@@ -96,7 +97,7 @@ export async function searchWorks(
     ),
   ];
 
-  const { works, failures } = await federatedSearch(
+  const { works, counts, failures } = await federatedSearch(
     {
       terms,
       ...(fromYear !== undefined ? { fromYear } : {}),
@@ -117,7 +118,7 @@ export async function searchWorks(
 
   return {
     ok: true,
-    data: { ranked: rankWorks(works, keywords), failures, alreadyAdded, keywords },
+    data: { ranked: rankWorks(works, keywords), counts, failures, alreadyAdded, keywords },
   };
 }
 

@@ -57,9 +57,9 @@ export function ProjectSidebar({
           href={sectionHref(projectId, "")}
           aria-current={active === "" ? "page" : undefined}
           className={cx(
-            "block rounded-lg px-3 py-2 transition-colors",
+            "block rounded-xl px-3 py-2 transition-colors",
             "focus-visible:ring-accent focus-visible:ring-2 focus-visible:outline-none",
-            active === "" ? "bg-accent-soft" : "hover:bg-surface",
+            active === "" ? "bg-accent/10" : "hover:bg-surface",
           )}
         >
           <span className="text-muted text-fine block">Project</span>
@@ -87,10 +87,10 @@ export function ProjectSidebar({
                           href={sectionHref(projectId, section.slug)}
                           aria-current={current ? "page" : undefined}
                           className={cx(
-                            "text-ui flex min-h-10 items-center rounded-lg px-3 transition-colors",
+                            "text-ui flex min-h-10 items-center rounded-xl px-3 transition-colors",
                             "focus-visible:ring-accent focus-visible:ring-2 focus-visible:outline-none",
                             current
-                              ? "bg-accent-soft text-ink font-medium"
+                              ? "bg-accent/10 text-ink font-medium"
                               : "text-muted hover:text-ink hover:bg-surface",
                           )}
                         >

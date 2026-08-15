@@ -27,17 +27,17 @@ export function Button({
   return (
     <button
       className={cx(
-        "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4",
-        "text-ui font-medium transition-colors",
+        "inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5",
+        "text-ui font-medium transition-all duration-200",
         "focus-visible:ring-accent focus-visible:ring-2 focus-visible:ring-offset-2",
         "focus-visible:ring-offset-canvas focus-visible:outline-none",
-        "disabled:cursor-not-allowed disabled:opacity-40",
-        variant === "primary" && "bg-accent text-accent-ink hover:brightness-110",
+        "disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none",
+        variant === "primary" && "bg-accent text-accent-ink hover:brightness-110 shadow-sm hover:shadow-md hover:-translate-y-0.5",
         // Ghost is a text button with a hover ground, not an outlined box.
         // Sixteen pages of outlined ghost buttons was most of why every screen
         // read as a form.
         variant === "ghost" && "text-ink hover:bg-surface",
-        variant === "danger" && "text-danger hover:bg-danger-soft",
+        variant === "danger" && "text-danger hover:bg-danger-soft hover:-translate-y-0.5",
         className,
       )}
       {...props}
@@ -87,11 +87,11 @@ export function Input({ className, ...props }: ComponentProps<"input">) {
   return (
     <input
       className={cx(
-        "border-border bg-raised text-ink text-ui w-full rounded-lg border px-3",
-        "min-h-11 transition-colors",
+        "border-border bg-raised text-ink text-ui w-full rounded-xl border px-4 shadow-sm",
+        "min-h-12 transition-all duration-200",
         "placeholder:text-muted/70",
         "focus:border-accent focus-visible:ring-accent focus-visible:ring-2",
-        "focus-visible:outline-none",
+        "focus-visible:outline-none hover:border-accent/40",
         className,
       )}
       {...props}
@@ -103,11 +103,11 @@ export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
   return (
     <textarea
       className={cx(
-        "border-border bg-raised text-ink text-ui w-full rounded-lg border px-3",
-        "py-2 transition-colors",
+        "border-border bg-raised text-ink text-ui w-full rounded-xl border px-4 shadow-sm",
+        "py-3 transition-all duration-200",
         "placeholder:text-muted/70",
         "focus:border-accent focus-visible:ring-accent focus-visible:ring-2",
-        "focus-visible:outline-none",
+        "focus-visible:outline-none hover:border-accent/40",
         className,
       )}
       {...props}
@@ -119,11 +119,11 @@ export function Select({ className, ...props }: ComponentProps<"select">) {
   return (
     <select
       className={cx(
-        "border-border bg-raised text-ink text-ui w-full rounded-lg border px-3",
-        "min-h-11 transition-colors",
+        "border-border bg-raised text-ink text-ui w-full rounded-xl border px-4 shadow-sm",
+        "min-h-12 transition-all duration-200",
         "placeholder:text-muted/70",
         "focus:border-accent focus-visible:ring-accent focus-visible:ring-2",
-        "focus-visible:outline-none",
+        "focus-visible:outline-none hover:border-accent/40",
         className,
       )}
       {...props}

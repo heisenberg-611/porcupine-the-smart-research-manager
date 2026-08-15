@@ -153,7 +153,7 @@ export function QuestionsClient({
                         {question.keywords.map((keyword) => (
                           <li
                             key={keyword}
-                            className="bg-accent-soft text-accent text-fine rounded-full px-2 py-0.5"
+                            className="bg-accent/10 text-accent text-xs rounded-full px-2.5 py-1 font-medium ring-1 ring-inset ring-accent/20 transition-colors"
                           >
                             {keyword}
                           </li>
@@ -189,13 +189,14 @@ export function QuestionsClient({
       )}
 
       {canEdit && (
-        <form
-          onSubmit={onAdd}
-          className="border-border flex flex-col gap-4 border-t pt-6"
-        >
-          <h2 className="text-ink text-heading font-medium">Add a question</h2>
+        <div className="relative rounded-xl bg-gradient-to-br from-ui/5 to-surface p-6 shadow-sm ring-1 ring-border border-t border-white/5 mt-6">
+          <form
+            onSubmit={onAdd}
+            className="flex flex-col gap-4 relative z-10"
+          >
+            <h2 className="text-ink text-heading font-medium">Add a question</h2>
 
-          <Field
+            <Field
             label="Question"
             id="question-text"
             hint="One question. If it has an “and” in it, it is probably two."
@@ -223,10 +224,11 @@ export function QuestionsClient({
             />
           </Field>
 
-          <Button type="submit" variant="primary" disabled={pending || !text.trim()}>
-            {pending ? "Adding…" : "Add question"}
-          </Button>
-        </form>
+            <Button type="submit" variant="primary" disabled={pending || !text.trim()}>
+              {pending ? "Adding…" : "Add question"}
+            </Button>
+          </form>
+        </div>
       )}
     </div>
   );

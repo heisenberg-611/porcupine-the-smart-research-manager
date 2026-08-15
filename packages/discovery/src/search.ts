@@ -116,7 +116,7 @@ export async function federatedSearch(
               provider: id,
               message: `rate limited — would have waited ${wait.toFixed(1)}s`,
             });
-            return [];
+            return { id, valid: [] };
           }
           await new Promise((resolve) => setTimeout(resolve, waitMs));
         }
@@ -153,18 +153,24 @@ export async function federatedSearch(
           });
         }
 
-        return valid;
+        return { id, valid };
       } catch (error) {
         failures.push({
           provider: id,
           message: error instanceof Error ? error.message : String(error),
         });
-        return [];
+        return { id, valid: [] };
       }
     }),
   );
 
-  return { works: dedupe(settled.flat()), failures };
+  const counts = settled
+    .filter((res) => res.valid.length > 0)
+    .map((res) => ({ provider: registry[res.id as ProviderId]?.label ?? res.id, count: res.valid.length }));
+
+  const allWorks = settled.flatMap((res) => res.valid);
+
+  return { works: dedupe(allWorks), counts, failures };
 }
 
 async function withTimeout<T>(

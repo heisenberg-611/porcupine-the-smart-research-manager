@@ -2,7 +2,7 @@
 
 import type { ScoredWork } from "@porcupine/discovery";
 import Link from "next/link";
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Button, Field, Input, Skeleton } from "@/components/ui";
 
@@ -43,8 +43,36 @@ export function SearchClient({
   const [results, setResults] = useState<SearchResults | null>(null);
   const [searched, setSearched] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
   const [pending, startTransition] = useTransition();
   const input = useRef<HTMLInputElement>(null);
+
+  const STORAGE_KEY = `porcupine-search-${projectId}`;
+
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setTerms(parsed.terms ?? "");
+        setFromYear(parsed.fromYear ?? "");
+        setToYear(parsed.toYear ?? "");
+        setResults(parsed.results ?? null);
+        setSearched(parsed.searched ?? null);
+      }
+    } catch {
+      // Ignore parse errors from stale/corrupt session storage
+    }
+    setIsLoaded(true);
+  }, [STORAGE_KEY]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    sessionStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ terms, fromYear, toYear, results, searched })
+    );
+  }, [isLoaded, STORAGE_KEY, terms, fromYear, toYear, results, searched]);
 
   function run(query: string) {
     setError(null);
@@ -80,70 +108,61 @@ export function SearchClient({
 
   return (
     <section className="flex flex-col gap-6">
-      <form onSubmit={onSubmit} className="flex flex-col gap-3">
-        {/* The query and its button on one line, which is what a search bar
-            is. They were stacked before, with the button below a pair of year
-            fields — so the primary action sat third in the reading order,
-            under two inputs almost nobody fills in. */}
-        <Field
-          label="Search terms"
-          id="terms"
-          hint="Searches OpenAlex, Crossref, arXiv, Europe PMC and Semantic Scholar at once."
-        >
-          <div className="flex gap-2">
-            {/* `required` only, deliberately no `minLength`. Native constraint
-                bubbles are not reliably announced by screen readers and vanish
-                on the next interaction, so length validation happens
-                server-side and reports through the aria-live region below —
-                the same path every other error takes. */}
-            <Input
-              id="terms"
-              name="terms"
-              ref={input}
-              value={terms}
-              onChange={(e) => setTerms(e.target.value)}
-              required
-              autoComplete="off"
-              placeholder="e.g. spaced repetition medical education"
-              className="border-border bg-raised text-ink text-ui min-h-11 w-full flex-1 rounded-lg border px-3"
-            />
-            <Button type="submit" variant="primary" disabled={pending}>
-              {pending ? "Searching…" : "Search"}
-            </Button>
-          </div>
-        </Field>
+      <div className="relative rounded-[--radius-card] bg-gradient-to-br from-ui/5 to-surface p-6 shadow-sm ring-1 ring-border border-t border-white/5">
+        <form onSubmit={onSubmit} className="flex flex-col gap-4 relative z-10">
+          <Field
+            label="Search terms"
+            id="terms"
+            hint="Searches OpenAlex, Crossref, arXiv, Europe PMC and Semantic Scholar at once."
+          >
+            <div className="flex gap-2 mt-1">
+              <Input
+                id="terms"
+                name="terms"
+                ref={input}
+                value={terms}
+                onChange={(e) => setTerms(e.target.value)}
+                required
+                autoComplete="off"
+                placeholder="e.g. spaced repetition medical education"
+                className="border-border bg-raised text-ink text-ui min-h-12 w-full flex-1 rounded-xl border px-4 shadow-sm transition-all focus:border-accent focus:ring-accent"
+              />
+              <Button type="submit" variant="primary" disabled={pending} className="rounded-xl px-6 font-medium shadow-sm hover:shadow-md transition-all">
+                {pending ? "Searching…" : "Search"}
+              </Button>
+            </div>
+          </Field>
 
-        {/* Years are a refinement, so they sit below the query in a quieter
-            row rather than between it and the button. */}
-        <div className="flex flex-wrap items-end gap-4">
-          <Field label="From year" id="fromYear">
-            <Input
-              id="fromYear"
-              type="number"
-              inputMode="numeric"
-              min={1400}
-              max={2200}
-              placeholder="Any"
-              value={fromYear}
-              onChange={(e) => setFromYear(e.target.value)}
-              className="border-border bg-raised text-ink text-ui min-h-11 w-28 rounded-lg border px-3"
-            />
-          </Field>
-          <Field label="To year" id="toYear">
-            <Input
-              id="toYear"
-              type="number"
-              inputMode="numeric"
-              min={1400}
-              max={2200}
-              placeholder="Any"
-              value={toYear}
-              onChange={(e) => setToYear(e.target.value)}
-              className="border-border bg-raised text-ink text-ui min-h-11 w-28 rounded-lg border px-3"
-            />
-          </Field>
-        </div>
-      </form>
+          <div className="flex flex-wrap items-end gap-4 mt-2">
+            <Field label="From year" id="fromYear">
+              <Input
+                id="fromYear"
+                type="number"
+                inputMode="numeric"
+                min={1400}
+                max={2200}
+                placeholder="Any"
+                value={fromYear}
+                onChange={(e) => setFromYear(e.target.value)}
+                className="border-border bg-raised text-ink text-ui min-h-11 w-28 rounded-xl border px-3 shadow-sm transition-all focus:border-accent"
+              />
+            </Field>
+            <Field label="To year" id="toYear">
+              <Input
+                id="toYear"
+                type="number"
+                inputMode="numeric"
+                min={1400}
+                max={2200}
+                placeholder="Any"
+                value={toYear}
+                onChange={(e) => setToYear(e.target.value)}
+                className="border-border bg-raised text-ink text-ui min-h-11 w-28 rounded-xl border px-3 shadow-sm transition-all focus:border-accent"
+              />
+            </Field>
+          </div>
+        </form>
+      </div>
 
       {/* Terms lifted straight from the project's own research questions.
           Staring at an empty search box is the hardest moment on this page,
@@ -236,11 +255,23 @@ export function SearchClient({
               </div>
             ) : (
               <>
-                <p className="text-muted text-ui">
-                  {results.ranked.length}{" "}
-                  {results.ranked.length === 1 ? "result" : "results"} after merging
-                  duplicates across sources.
-                </p>
+                <div className="flex flex-col gap-2">
+                  <p className="text-muted text-ui">
+                    {results.ranked.length}{" "}
+                    {results.ranked.length === 1 ? "result" : "results"} after merging
+                    duplicates across sources.
+                  </p>
+                  {results.counts && results.counts.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-muted text-fine">Found:</span>
+                      {results.counts.map((c) => (
+                        <Chip key={c.provider} tone="muted">
+                          {c.provider}: {c.count}
+                        </Chip>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 <ul className="flex flex-col gap-3">
                   {results.ranked.map((scored) => (
@@ -359,22 +390,24 @@ function ResultCard({
   return (
     <li
       className={cx(
-        "rounded-[--radius-card] border p-4 transition-colors",
+        "rounded-xl border p-5 transition-all duration-300",
         // An added paper stays in the list rather than vanishing — you are
         // reading a ranking, and having rows disappear underneath you loses
         // your place. It just stops looking like something to act on.
-        added ? "border-rule bg-surface/40" : "border-border bg-raised",
+        added 
+          ? "border-rule bg-surface/40 opacity-70" 
+          : "border-border bg-raised hover:-translate-y-0.5 hover:shadow-md hover:border-accent/40",
       )}
     >
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-5">
         <div className="min-w-0">
-          <h3 className="text-ink leading-snug font-medium text-pretty">
+          <h3 className="text-ink leading-snug font-semibold text-pretty text-lg">
             {link ? (
               <a
                 href={link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hover:text-accent underline-offset-4 hover:underline"
+                className="hover:text-accent underline-offset-4 hover:underline transition-colors"
               >
                 {work.title}
               </a>
@@ -382,7 +415,7 @@ function ResultCard({
               work.title
             )}
           </h3>
-          <p className="meta mt-1">
+          <p className="meta mt-1.5 text-sm">
             {authors}
             {more}
             {work.venue && ` · ${work.venue}`}
@@ -397,8 +430,9 @@ function ResultCard({
           // "Add" alone repeats forty times down the page and tells a screen
           // reader nothing about which one it is on.
           aria-label={added ? `${work.title} is in your library` : `Add ${work.title}`}
+          className={cx("shrink-0 rounded-full font-medium transition-all", added ? "" : "shadow-sm hover:shadow-md")}
         >
-          {added ? "In library" : pending ? "Adding…" : "Add"}
+          {added ? "In library" : pending ? "Adding…" : "Add to library"}
         </Button>
       </div>
 
@@ -419,14 +453,14 @@ function ResultCard({
             type="button"
             onClick={() => setExpanded((v) => !v)}
             aria-expanded={expanded}
-            className="text-accent text-fine focus-visible:ring-accent mt-1 rounded underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+            className="text-accent text-sm font-medium focus-visible:ring-accent mt-2 rounded transition-colors hover:text-accent-heavy focus-visible:ring-2 focus-visible:outline-none"
           >
-            {expanded ? "Show less" : "Show more"}
+            {expanded ? "Show less" : "Show full abstract"}
           </button>
         </>
       )}
 
-      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         {/* The "why is this here?" affordance. Without it the ranking is a
             black box, and a black box cannot go in a methods section. */}
         {matched.length > 0 && <Chip tone="accent">Matched: {matched.join(", ")}</Chip>}
@@ -459,11 +493,11 @@ function Chip({
   return (
     <span
       className={cx(
-        "text-fine inline-flex max-w-full items-center truncate rounded-full px-2 py-0.5",
-        mono && "font-mono",
+        "text-xs inline-flex max-w-full items-center truncate rounded-full px-2.5 py-1 font-medium transition-colors",
+        mono && "font-mono tracking-tight",
         tone === "accent"
-          ? "bg-accent-soft text-accent"
-          : "border-rule text-muted border",
+          ? "bg-accent/10 text-accent ring-1 ring-inset ring-accent/20"
+          : "bg-surface text-ink ring-1 ring-inset ring-border",
       )}
     >
       {children}

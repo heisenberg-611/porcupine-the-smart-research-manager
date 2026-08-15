@@ -11,8 +11,10 @@ import { Banner, Button, Card, Field, Input } from "@/components/ui";
 import { useCryptoSession } from "@/lib/crypto/session";
 import { useProjectKeys } from "@/lib/crypto/use-project-keys";
 
+import { getMemberKeys } from "../keys/actions";
 import {
   createChannel,
+  deleteChannel,
   listChannels,
   listMessages,
   sendMessage,
@@ -54,8 +56,20 @@ export function MessagesClient({ projectId }: { projectId: string }) {
   const [newChannel, setNewChannel] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const currentKey = keys.byEpoch.get(keys.currentEpoch);
+
+  useEffect(() => {
+    void (async () => {
+      const members = await getMemberKeys(projectId);
+      if (members.ok) {
+        const me = members.data.find((m) => m.isMe);
+        setIsAdmin(me?.accessRole === "OWNER" || me?.accessRole === "ADMIN");
+      }
+    })();
+  }, [projectId]);
 
   const loadChannels = useCallback(async () => {
     if (keys.byEpoch.size === 0) return;
@@ -128,8 +142,9 @@ export function MessagesClient({ projectId }: { projectId: string }) {
   }, [loadChannels]);
 
   useEffect(() => {
+    setConfirmDelete(false);
     void loadMessages();
-  }, [loadMessages]);
+  }, [loadMessages, selected]);
 
   /*
    * Refetch when the tab comes back to the front.
@@ -160,6 +175,14 @@ export function MessagesClient({ projectId }: { projectId: string }) {
   async function createNamed(rawName: string) {
     const name = rawName.trim();
     if (!currentKey || name === "") return;
+    
+    // The server only sees ciphertext, so it cannot enforce uniqueness. We must 
+    // do it here on the decrypted names.
+    if (channels.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
+      setError(`A channel named "${name}" already exists.`);
+      return;
+    }
+
     setPending(true);
     setError(null);
 
@@ -191,6 +214,27 @@ export function MessagesClient({ projectId }: { projectId: string }) {
       setError("Could not create the channel.");
     } finally {
       setPending(false);
+    }
+  }
+
+  async function removeChannel() {
+    if (!selected) return;
+    setPending(true);
+    setError(null);
+
+    try {
+      const result = await deleteChannel({ projectId, channelId: selected });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setSelected(null);
+      await loadChannels();
+    } catch {
+      setError("Could not delete the channel.");
+    } finally {
+      setPending(false);
+      setConfirmDelete(false);
     }
   }
 
@@ -289,19 +333,21 @@ export function MessagesClient({ projectId }: { projectId: string }) {
         </Banner>
       )}
 
-      <form onSubmit={addChannel} className="flex flex-wrap items-end gap-2">
-        <Field label="New channel" id="channel-name">
-          <Input
-            id="channel-name"
-            value={newChannel}
-            onChange={(e) => setNewChannel(e.target.value)}
-            placeholder="screening-questions"
-          />
-        </Field>
-        <Button type="submit" disabled={pending || newChannel.trim() === ""}>
-          Create
-        </Button>
-      </form>
+      <div className="relative rounded-xl bg-gradient-to-br from-ui/5 to-surface p-4 shadow-sm ring-1 ring-border border-t border-white/5">
+        <form onSubmit={addChannel} className="flex flex-wrap items-end gap-2 relative z-10">
+          <Field label="New channel" id="channel-name">
+            <Input
+              id="channel-name"
+              value={newChannel}
+              onChange={(e) => setNewChannel(e.target.value)}
+              placeholder="screening-questions"
+            />
+          </Field>
+          <Button type="submit" disabled={pending || newChannel.trim() === ""}>
+            Create
+          </Button>
+        </form>
+      </div>
 
       {channels.length === 0 && (
         // The end of setup should be a place to type, not another empty form
@@ -340,7 +386,26 @@ export function MessagesClient({ projectId }: { projectId: string }) {
 
       {selected && (
         <>
-          <ul className="border-border divide-border divide-y rounded-lg border">
+          <ul className="divide-border divide-y rounded-xl bg-surface/50 shadow-sm ring-1 ring-border">
+            {isAdmin && (
+              <li className="flex justify-end p-2 bg-ui/5 rounded-t-xl">
+                {confirmDelete ? (
+                  <span className="flex items-center gap-2">
+                    <span className="text-danger-heavy text-sm">Are you sure? This will delete all messages permanently.</span>
+                    <Button variant="danger" disabled={pending} onClick={removeChannel}>
+                      Yes, delete channel
+                    </Button>
+                    <Button variant="ghost" disabled={pending} onClick={() => setConfirmDelete(false)}>
+                      Cancel
+                    </Button>
+                  </span>
+                ) : (
+                  <Button variant="ghost" disabled={pending} onClick={() => setConfirmDelete(true)} className="text-danger">
+                    Delete channel
+                  </Button>
+                )}
+              </li>
+            )}
             {messages.length === 0 && (
               <li className="text-muted text-ui p-4">Nothing said here yet.</li>
             )}

@@ -298,8 +298,9 @@ export function KeysClient({ projectId }: { projectId: string }) {
     );
   }
 
-  const receivable = members?.filter((m) => m.identityPubKey !== "").length ?? 0;
-  const total = members?.length ?? 0;
+  const activeMembers = members?.filter((m) => !m.isRemoved) ?? [];
+  const receivable = activeMembers.filter((m) => m.identityPubKey !== "").length;
+  const total = activeMembers.length;
 
   return (
     <div className="flex flex-col gap-4">
@@ -323,6 +324,11 @@ export function KeysClient({ projectId }: { projectId: string }) {
             ? "This project has no content key yet."
             : `Current epoch: ${epoch}.`}
         </p>
+        {epoch > 0 && (
+          <p className="text-muted text-fine mt-1">
+            Rotating the key generates a new cryptographic epoch and seals it only to current members. This ensures that anyone who was removed or compromised loses access to all new messages going forward.
+          </p>
+        )}
         <p className="text-muted text-fine">
           {receivable} of {total} {total === 1 ? "member" : "members"} can be given a key.
           {receivable < total &&
@@ -343,7 +349,7 @@ export function KeysClient({ projectId }: { projectId: string }) {
         <h2 id="holders" className="text-ink text-heading mb-2 font-medium">
           Who holds a key
         </h2>
-        <ul className="border-border divide-border divide-y rounded-lg border">
+        <ul className="divide-border divide-y rounded-xl bg-surface/50 shadow-sm ring-1 ring-border">
           {(members ?? [])
             .filter((m) => !m.isRemoved)
             .map((member) => {
@@ -372,24 +378,28 @@ export function KeysClient({ projectId }: { projectId: string }) {
               {!member.isMe &&
                 canRemove &&
                 (confirming === member.userId ? (
-                  <span className="flex flex-wrap gap-2">
-                    <Button
-                      variant="danger"
-                      disabled={pending}
-                      onClick={() =>
-                        void removeAndRotate(member.userId, member.displayName)
-                      }
-                    >
-                      Remove and rotate
-                    </Button>
-                    <Button variant="ghost" onClick={() => setConfirming(null)}>
-                      Cancel
-                    </Button>
-                  </span>
+                  <div className="flex flex-col items-end gap-2">
+                    <p className="text-muted text-fine max-w-xs text-right">
+                      This will permanently remove {member.displayName} from the project and immediately rotate the project key. They will lose access to the project and all future messages, but will keep access to past messages they already have keys for.
+                    </p>
+                    <span className="flex flex-wrap gap-2">
+                      <Button
+                        variant="danger"
+                        disabled={pending}
+                        onClick={() =>
+                          void removeAndRotate(member.userId, member.displayName)
+                        }
+                      >
+                        Yes, remove and rotate
+                      </Button>
+                      <Button variant="ghost" onClick={() => setConfirming(null)}>
+                        Cancel
+                      </Button>
+                    </span>
+                  </div>
                 ) : (
                   <Button
                     variant="ghost"
-                    className="border-border border"
                     disabled={pending}
                     onClick={() => setConfirming(member.userId)}
                   >
