@@ -60,12 +60,21 @@ importers:
 
   apps/web:
     dependencies:
+      '@codemirror/autocomplete':
+        specifier: ^6.20.3
+        version: 6.20.3
+      '@codemirror/commands':
+        specifier: ^6.10.4
+        version: 6.10.4
       '@codemirror/language':
         specifier: ^6.12.4
         version: 6.12.4
       '@codemirror/legacy-modes':
         specifier: ^6.5.3
         version: 6.5.3
+      '@codemirror/search':
+        specifier: ^6.7.1
+        version: 6.7.1
       '@codemirror/state':
         specifier: ^6.7.1
         version: 6.7.1

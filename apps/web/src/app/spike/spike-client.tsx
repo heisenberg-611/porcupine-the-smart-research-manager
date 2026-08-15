@@ -1,13 +1,16 @@
 "use client";
 
+import { autocompletion } from "@codemirror/autocomplete";
 import { StreamLanguage } from "@codemirror/language";
 import { stex } from "@codemirror/legacy-modes/mode/stex";
 import { githubDark, githubLight } from "@uiw/codemirror-theme-github";
 import CodeMirror from "@uiw/react-codemirror";
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { EditorView } from "@codemirror/view";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { EditorView, keymap } from "@codemirror/view";
+import type { KeyBinding } from "@codemirror/view";
 
 import { Button } from "@/components/ui";
+import { closeEnvironmentOnBrace, latexCompletions } from "@/lib/latex/editor-support";
 import { useCompiler } from "@/lib/latex/use-compiler";
 
 import { CompilerPanel } from "./compiler-panel";
@@ -15,6 +18,25 @@ import { PackageManager } from "./package-manager";
 
 const ENTRY = "main.tex";
 const DRAFT_KEY = "porcupine.latex.spike";
+
+/**
+ * Compile from the keyboard.
+ *
+ * Overleaf uses Ctrl/Cmd-Enter and so does everything else that compiles
+ * something; reaching for the mouse after every edit is what makes a
+ * compile-preview loop feel slow even when the compile is fast.
+ */
+const COMPILE_KEY: KeyBinding = {
+  key: "Mod-Enter",
+  run: () => {
+    compileFromKeyboard();
+    return true;
+  },
+  preventDefault: true,
+};
+
+/** Set by the component; the keymap is created once, outside React. */
+let compileFromKeyboard: () => void = () => {};
 
 const DEFAULT_TEX = `\\documentclass{article}
 \\begin{document}
@@ -47,6 +69,32 @@ export function SpikeClient() {
   const editor = useRef<EditorView | null>(null);
   const [packagesToken, setPackagesToken] = useState("0:0");
   const [showPackages, setShowPackages] = useState(false);
+  const [wrap, setWrap] = useState(true);
+
+  /*
+   * Built once, not per render.
+   *
+   * CodeMirror reconfigures itself whenever this array changes identity, and a
+   * reconfigure on every keystroke throws away the completion state — the
+   * popup opens and closes again before it can be read.
+   */
+  const extensions = useMemo(
+    () => [
+      StreamLanguage.define(stex),
+      autocompletion({
+        override: [latexCompletions],
+        // LaTeX is typed continuously, so a popup that steals the keyboard on
+        // its own is worse than one asked for. It opens on `\`, on a word,
+        // and on Ctrl-Space.
+        activateOnTyping: true,
+        closeOnBlur: true,
+      }),
+      closeEnvironmentOnBrace,
+      keymap.of([COMPILE_KEY]),
+      ...(wrap ? [EditorView.lineWrapping] : []),
+    ],
+    [wrap],
+  );
 
   /**
    * Jump to the line a diagnostic points at.
@@ -83,6 +131,8 @@ export function SpikeClient() {
     }
     setRestored(true);
   }, []);
+
+  compileFromKeyboard = () => compile({ [ENTRY]: source }, ENTRY, packagesToken);
 
   useEffect(() => {
     if (!restored) return;
@@ -163,21 +213,60 @@ export function SpikeClient() {
           aria-label="LaTeX source"
           className="border-rule flex min-h-0 flex-1 flex-col border-b lg:border-r lg:border-b-0"
         >
-          <p className="border-rule bg-surface text-muted text-fine shrink-0 border-b px-4 py-1.5 font-mono">
-            {ENTRY}
-          </p>
-          <div className="min-h-0 flex-1 overflow-hidden">
+          <div className="border-rule bg-surface flex shrink-0 items-center justify-between gap-3 border-b px-4 py-1.5">
+            <span className="text-muted text-fine font-mono">{ENTRY}</span>
+            <span className="text-muted text-fine flex items-center gap-3">
+              {/* LaTeX paragraphs are often one very long line, so wrapping is
+                  on by default — but anyone editing a table wants the columns
+                  to stay put. */}
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  checked={wrap}
+                  onChange={(e) => setWrap(e.target.checked)}
+                  className="accent-accent"
+                />
+                Wrap
+              </label>
+              <span aria-hidden>⌘↵ compile · ⌃Space complete</span>
+            </span>
+          </div>
+          {/*
+            `relative` + `absolute inset-0`, and it is the whole reason the
+            editor scrolls.
+
+            CodeMirror's `height="100%"` sets `height: 100%` on `.cm-editor`,
+            and a percentage resolves only against a parent with a DEFINITE
+            height. A flex child sized by `flex-1` has none, so it fell back to
+            `auto`: the editor grew to fit the document — measured at 1681px
+            for 92 lines — and `.cm-scroller` never had anything to scroll, so
+            a long file simply ran off the bottom of the page.
+          */}
+          <div className="relative min-h-0 flex-1">
             <CodeMirror
+              // `absolute inset-0` goes on the COMPONENT, which is where the
+              // class lands on the wrapper div react-codemirror renders. An
+              // extra div around it does not help: `.cm-editor`'s `height:100%`
+              // resolves against that wrapper, and a wrapper with no height of
+              // its own leaves the percentage as `auto`.
+              className="absolute inset-0"
               value={source}
               height="100%"
               theme={dark ? githubDark : githubLight}
-              extensions={[StreamLanguage.define(stex)]}
+              extensions={extensions}
               onChange={setSource}
               onCreateEditor={(view) => {
                 editor.current = view;
               }}
-              className="h-full"
-              basicSetup={{ lineNumbers: true, foldGutter: true }}
+              basicSetup={{
+                lineNumbers: true,
+                foldGutter: true,
+                bracketMatching: true,
+                closeBrackets: true,
+                highlightActiveLine: true,
+                highlightSelectionMatches: true,
+                autocompletion: false,
+              }}
             />
           </div>
         </section>
