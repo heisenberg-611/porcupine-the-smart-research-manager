@@ -1471,3 +1471,78 @@ whole week was about.
   outside enrolment yet. Week 2 needs the unlock flow and will own it.
 - `project_keys`, `devices` and `file_objects` are still read by nothing. Weeks
   2–4 take the first two; the third is the R2 pipeline and stays blocked.
+
+---
+
+## 2026-08-15 · Phase 3 week 2 — project keys, and the first rows a table ever held
+
+### Shipped
+
+`packages/crypto/src/project-key.ts`: create a 32-byte project key, seal it to
+a member with `crypto_box_seal`, sign the result, and refuse to open one whose
+signature does not verify.
+
+`packages/db/test/13_project_keys.sql`: 15 assertions against a table that had
+never contained a row.
+
+### Why a signature, when the box is already sealed
+
+`crypto_box_seal` is **anonymous**. Anyone holding a member's public key can
+produce a sealed box that member can open — including the server, which holds
+every public key by definition. Without a signature the server hands Bob a
+project key of its own choosing, Bob encrypts his next message under it, and
+the server reads everything after. The seal gives confidentiality in transit
+and says nothing about origin.
+
+So the signature is not belt-and-braces, it is the control. And it covers the
+ciphertext **plus its context** — project, recipient, epoch — because signing
+the bytes alone leaves a valid wrap that can be REPLAYED: moved to a different
+epoch row to undo a rotation, or to a different member's row. Both are columns
+the server writes.
+
+Verified before the box is opened, not after. Both orders are correct; one of
+them runs a decrypt on attacker-supplied bytes for no reason and makes it far
+too easy for someone later to turn the check into a branch that gets skipped.
+
+### The table that had never been tested
+
+`project_keys` has been in the schema since Phase 0 with RLS enabled, forced,
+and two policies — read by nothing, written by nothing. A policy that has never
+been evaluated against a row is a policy nobody has tested, however carefully
+it was written.
+
+The interesting half turned out to be what the policies **do not** say. There
+is no UPDATE policy and no DELETE policy, so with FORCE RLS both are refused
+outright and the table is append-only: a rotation adds an epoch, it never edits
+one. Nothing in the schema says "append-only" in words. It is asserted now,
+because an edited wrap is a key substitution that leaves no trace.
+
+### Verification
+
+Sabotage, three ways, each caught precisely what it should:
+
+- **skip the signature check** → 5 assertions red, including every replay case
+- **sign only the ciphertext, drop the context** → 3 red, and the forgery test
+  still passes. That discrimination is the point: it shows the context binding
+  is load-bearing on its own rather than incidental to having a signature
+- **widen the SELECT policy** from "my wrap" to "any wrap in my projects" → the
+  one assertion that should notice, notices
+
+23 crypto tests, 15 pgTAP assertions, `pnpm verify --e2e` green.
+
+### An honest limitation
+
+Any member can seal a *different* key to another member and sign it with their
+own key — the recipient's check confirms the wrap came from a project member,
+not that it came from the right one. That is inherent to a shared group key:
+a malicious member could leak the key anyway. What the signature buys is
+**attribution** — `wrapped_by` names who did it, and it cannot be forged. Worth
+stating plainly rather than implying the signature prevents more than it does.
+
+### Open
+
+- Nothing in the app calls any of this yet. The server actions that generate a
+  key on project creation, provision it to a new member and rotate on removal
+  are the next thing, and they need an unlock flow — `rewrapIdentity` from week
+  1 is still uncalled for the same reason.
+- `devices` remains unread; week 4.
