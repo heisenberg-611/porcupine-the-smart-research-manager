@@ -148,7 +148,10 @@ test.describe("Phase 2b — dual extraction", () => {
   test("a review project is set up with three readers", async () => {
     await alice.goto("/projects");
     await alice.getByLabel("Title").fill("Statin adherence review");
-    await alice.getByLabel("Kind").selectOption("SYSTEMATIC_REVIEW");
+    await alice
+      .getByRole("group", { name: /kind/i })
+      .getByRole("radio", { name: /systematic review/i })
+      .check();
     await alice.getByRole("button", { name: /create project/i }).click();
 
     await expect(alice).toHaveURL(/\/projects\/[0-9a-f-]{36}/);

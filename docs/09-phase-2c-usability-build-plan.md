@@ -324,20 +324,36 @@ at all.
 
 *Goal: the first ten minutes stop being the hardest ten minutes.*
 
-**5.1 The project-kind choice, explained where it is made.** It is the single
-most consequential decision in the product, it is irreversible, and it is
-currently a dropdown. It becomes a choice with its consequences visible.
+**5.1 The project-kind choice, explained where it is made.** ✅ Radios rather
+than a dropdown, each with who it is for, and the consequences of the current
+choice listed in place — derived from `capabilities()`, so the list cannot
+drift from the behaviour. And the irreversibility is now stated where the
+choice is made.
 
-**5.2 Empty states that teach.** `EmptyState` already exists and is used
-eighteen times; the copy should carry the workflow, since an empty project is
-where most people decide whether this is worth learning.
+*This one was worse than the plan thought.* The form's hint read "You can add
+structure later", which was never true: the `structureUpgradePath` capability
+behind that sentence was declared, given a value for every kind, and read by
+nothing at all. No action updates `kind`; no screen offers to. The one decision
+in the product that cannot be undone was being sold as reversible. The flag is
+removed rather than implemented.
 
-**5.3 A first-run path.** After creating a project: find papers → screen →
-protocol → extract, as a visible sequence that marks itself done, dismissible
-and never modal.
+**5.2 Empty states that teach.** ✅ in the one place it was actually missing.
+`EmptyState` is used across nine screens and carries an action on all of them
+except the first one a new account sees — `/projects`, which had no action at
+all, on the screen where someone decides whether this is worth learning. The
+queue's empty state landed in week 4 for the same reason.
 
-**5.4 A root `README.md`.** There is none. `docs/USING-PORCUPINE.md` exists and
-nothing points at it from where someone lands.
+**5.3 ~~A first-run path~~ — not built, and not needed as specified.** Week 1
+gave the project overview a "Next" that reads the project's actual state and
+names one action: "The library is empty → Find your first papers", then
+"24 papers are still unscreened → Continue screening", and so on through
+protocol, reconciliation and evidence. That is the same sequence, driven by
+what is true rather than by a checklist that can disagree with the project. A
+second, dismissible copy of it would be a thing to keep in step.
+
+**5.4 A root `README.md`.** ✅ How to run it, the Mailpit gotcha, `pnpm db:seed`,
+the one idea that explains the rest (`kind`), how to run the gate the way CI
+does, the layout, and pointers to where the reasoning lives.
 
 ---
 

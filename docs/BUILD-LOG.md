@@ -1225,3 +1225,91 @@ applied.
   blocks the row-detail panel.
 - Four stray debug files remain in the working tree and are not mine; they
   break `next build` and `pnpm verify` until finished or removed.
+
+---
+
+## 2026-08-15 · Phase 2c week 5 — arrival, and a capability that lied
+
+### Shipped
+
+**The project-kind choice, at the point of decision.** Four radios rather than
+a dropdown, each with a line about who it is for, and the consequences of the
+current selection listed underneath — protocol required or optional, exclusion
+reasons required or not, dual extraction and κ or neither. The list is derived
+from `capabilities()` rather than written out, so it cannot drift from what the
+app then does.
+
+**A root `README.md`**, which did not exist. How to run it, the Mailpit gotcha
+that catches everyone, `pnpm db:seed`, the one idea that explains the rest, how
+to run the gate the way CI runs it, and where the reasoning lives.
+
+**An action on the `/projects` empty state** — the first screen a new account
+sees, and the only `EmptyState` in the app with nothing to do next.
+
+### The thing worth writing down
+
+The new-project form's hint said **"You can add structure later."** It was
+never true.
+
+`structureUpgradePath` was declared in `capabilities.ts`, given a value for
+every project kind, and read by nothing: no screen, no server action, no test.
+Nothing updates `kind` — there is no code path that could. Meanwhile the
+project overview said the opposite ("A project's kind is fixed when it is
+created") and so did `USING-PORCUPINE.md`. Three places, two of them right.
+
+So the single most consequential and least reversible decision in the product
+was being presented with a reassurance that it was reversible, by a flag whose
+only effect in the world was that sentence.
+
+The flag is removed rather than implemented. A capability that describes
+behaviour the app does not have is worse than an absent one: it reads as a
+promise to whoever writes the copy next, and it will be believed. It can come
+back with the feature that earns it.
+
+Worth noting how it was found — not by a test, and not by reading
+capabilities.ts. By writing week 5's task list from the code instead of from
+the plan, which is the habit weeks 2, 3 and 4 each argued for after the fact.
+
+### Deviations
+
+**5.3, the first-run path, is not built and should not be.** Week 1 gave the
+project overview a "Next" that reads the project's real state and names one
+action — empty library, then unscreened papers, then no protocol, then
+disagreements to reconcile, then evidence. That is the same sequence, driven by
+what is true rather than by a checklist that can disagree with the project. A
+second, dismissible copy of it would be one more thing to keep in step.
+
+That is the fourth plan item across this phase that turned out to be already
+done or not worth doing. The pattern held to the end.
+
+### Problems
+
+**Changing a `<select>` to radios broke five specs at once.** Every e2e file
+creates a project, and every one of them did it with
+`getByLabel("Kind").selectOption(...)`. Cheap to fix and a fair signal: five
+tests reaching for the same control through the same accessor is the kind of
+duplication that is fine until the control changes.
+
+**The root README failed `format:check`.** `docs/**` is prettier-ignored
+because prettier fights hand-aligned tables, and the README is the same kind of
+document — but adding a second ignore to dodge a check is how ignore lists
+grow. Prettier's own formatting of the tables is fine, so it is formatted
+rather than exempted.
+
+### Phase 2c is done
+
+Weeks 1–5 shipped. What the phase set out to fix — where am I, what do I do
+next, did that work — is fixed, and each week's entry above records what it
+cost.
+
+What it did NOT do, carried forward:
+
+- The narrow-layout interaction from week 3, still unexplained, still blocking
+  the row-detail panel and keeping the column chooser desktop-only.
+- Sticky table headers, which need the table to own its vertical scroll.
+- Saved views and column reordering, which need somewhere per-person to live.
+- 562 KB per evidence page, untested on mobile data.
+- **Four people and one afternoon.** Every acceptance criterion in the plan was
+  written to be checkable, and none of them answers whether this is usable by a
+  review team. That is still the only test that does, and it is still not
+  scheduled.

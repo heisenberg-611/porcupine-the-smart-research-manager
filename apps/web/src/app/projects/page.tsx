@@ -49,7 +49,15 @@ export default async function ProjectsPage() {
       {projects.length === 0 ? (
         <EmptyState
           title="No projects yet"
-          description="A project is a thesis, a systematic review, or a lab paper. It's the unit of membership, permissions, and encryption — start one below."
+          description="A project is a thesis, a systematic review, or a lab paper. It is the unit of membership, permissions and encryption — and its kind decides which screens it has, so the form below is worth reading before you fill it in."
+          // The first screen a new account lands on. It had no action at all,
+          // which is the one place EmptyState's own comment says never to
+          // leave empty.
+          action={
+            <a href="#title" className="text-accent text-ui underline underline-offset-4">
+              Start your first project
+            </a>
+          }
         />
       ) : (
         <ul className="flex flex-col gap-3">

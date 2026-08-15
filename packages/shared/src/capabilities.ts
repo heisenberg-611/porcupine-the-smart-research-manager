@@ -10,6 +10,17 @@
  * The THESIS path ships first. The review path is a strict superset of it.
  *
  * See docs/05-resolution-plan.md R-06.
+ *
+ * There was a `structureUpgradePath` flag here, "offer the add-structure
+ * upgrade path toward a review-shaped project". It was declared, given a value
+ * for every kind, and read by NOTHING — no screen, no action, no test. Its
+ * only effect was through a person: the new-project form told people "You can
+ * add structure later", which was never true, about the one decision in this
+ * product that cannot be undone. Nothing updates `kind`; nothing offers to.
+ *
+ * Removed rather than implemented. A capability that lies about what the app
+ * does is worse than an absent one, and the upgrade path can be added back
+ * with the feature that earns it.
  */
 
 export const PROJECT_KINDS = [
@@ -38,8 +49,6 @@ export interface ProjectCapabilities {
    * every repository because it looks like the default option.
    */
   githubLinking: boolean;
-  /** Offer the "add structure" upgrade path toward a review-shaped project. */
-  structureUpgradePath: boolean;
 }
 
 const THESIS_DEFAULTS: ProjectCapabilities = {
@@ -49,7 +58,6 @@ const THESIS_DEFAULTS: ProjectCapabilities = {
   prismaDiagram: false,
   exclusionReasonRequired: false,
   githubLinking: false,
-  structureUpgradePath: true,
 };
 
 const REVIEW_DEFAULTS: ProjectCapabilities = {
@@ -59,7 +67,6 @@ const REVIEW_DEFAULTS: ProjectCapabilities = {
   prismaDiagram: true,
   exclusionReasonRequired: true,
   githubLinking: true,
-  structureUpgradePath: false,
 };
 
 const BY_KIND: Record<ProjectKind, ProjectCapabilities> = {
