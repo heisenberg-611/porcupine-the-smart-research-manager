@@ -409,7 +409,7 @@ test.describe("Phase 0 exit criterion", () => {
     const papers = page.locator("dt", { hasText: /^Papers$/ }).locator("+ dd");
     await expect(papers).toHaveText("2");
 
-    const screened = page.locator("dt", { hasText: /^Screened$/ }).locator("+ dd");
+    const screened = page.locator("dt", { hasText: /^Decided/ }).locator("+ dd");
     await expect(screened).toHaveText("1");
 
     // The pipeline meters announce their values rather than being decorative.

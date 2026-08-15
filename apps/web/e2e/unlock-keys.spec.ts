@@ -124,7 +124,7 @@ test.describe("unlocking, and a project key", () => {
       .getByRole("link", { name: `Encrypted project ${testInfo.project.name}` })
       .click();
     await page.waitForURL(/\/projects\/[0-9a-f-]+$/);
-    await expect(page.getByRole("heading", { name: "Workspace" })).toBeVisible();
+    await expect(page.getByRole("list", { name: /project totals/i })).toBeVisible();
     projectId = page.url().split("/").pop()!;
   });
 

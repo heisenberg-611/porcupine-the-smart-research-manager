@@ -128,7 +128,7 @@ test.describe("screening at speed", () => {
     await page.getByRole("button", { name: /create project/i }).click();
     await page.getByRole("link", { name: "Screening throughput" }).click();
     await page.waitForURL(/\/projects\/[0-9a-f-]+$/);
-    await expect(page.getByRole("heading", { name: "Workspace" })).toBeVisible();
+    await expect(page.getByRole("list", { name: /project totals/i })).toBeVisible();
     projectId = page.url().split("/").pop()!;
 
     await goto(page, `/projects/${projectId}/import`);

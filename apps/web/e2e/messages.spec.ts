@@ -148,7 +148,7 @@ test.describe("two people, one encrypted conversation", () => {
       .getByRole("link", { name: `Encrypted talk ${testInfo.project.name}` })
       .click();
     await alice.waitForURL(/\/projects\/[0-9a-f-]+$/);
-    await expect(alice.getByRole("heading", { name: "Workspace" })).toBeVisible();
+    await expect(alice.getByRole("list", { name: /project totals/i })).toBeVisible();
     projectId = alice.url().split("/").pop()!;
 
     await alice.getByLabel("Email").fill(bobEmail);

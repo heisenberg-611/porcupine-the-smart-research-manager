@@ -117,7 +117,7 @@ async function createProject(page: Page, title: string, kind: string): Promise<s
   // at that instant is the loading skeleton — which is a `main` with no links
   // in it. Reading the hub before this line found zero sections and blamed
   // the hub. Wait for the content the skeleton stands in for.
-  await expect(page.getByRole("heading", { name: "Workspace" })).toBeVisible();
+  await expect(page.getByRole("list", { name: /project totals/i })).toBeVisible();
   return page.url().split("/").pop()!;
 }
 
@@ -141,9 +141,12 @@ test.describe("project navigation", () => {
   test("a THESIS never links to something it cannot do", async () => {
     thesisId = await createProject(page, "Nav thesis", "THESIS");
 
-    // Collect every in-project link the hub offers, then follow each one.
+    // Collect every in-project link on the page, then follow each one.
+    // Deliberately NOT scoped to `main`: the sections now live in a sidebar
+    // and a narrow-screen strip, both outside `main`, so scoping there would
+    // have quietly stopped checking the navigation this test is named for.
     const hrefs = await page
-      .locator(`main a[href^="/projects/${thesisId}"]`)
+      .locator(`a[href^="/projects/${thesisId}"]`)
       .evaluateAll((links) =>
         Array.from(
           new Set(links.map((a) => (a as HTMLAnchorElement).getAttribute("href")!)),
@@ -184,7 +187,7 @@ test.describe("project navigation", () => {
     // And the thesis genuinely lacks it — otherwise the assertion above
     // proves only that links exist somewhere.
     await goto(page, `/projects/${thesisId}`);
-    await expect(page.getByRole("heading", { name: "Workspace" })).toBeVisible();
+    await expect(page.getByRole("list", { name: /project totals/i })).toBeVisible();
     const thesisNav = page.getByRole("navigation", { name: /sections/i });
     await expect(thesisNav.getByRole("link", { name: "Reconcile" })).toHaveCount(0);
 
@@ -215,7 +218,7 @@ test.describe("project navigation", () => {
 
   test("the overview counts what is there and links where it counts", async () => {
     await goto(page, `/projects/${reviewId}`);
-    await expect(page.getByRole("heading", { name: "Workspace" })).toBeVisible();
+    await expect(page.getByRole("list", { name: /project totals/i })).toBeVisible();
 
     // An empty project: the next action must be "find papers", not a generic
     // welcome. This is the claim that the hub reflects state at all.
@@ -230,12 +233,71 @@ test.describe("project navigation", () => {
 
   test("the new navigation has no accessibility violations", async () => {
     await goto(page, `/projects/${reviewId}`);
-    await expect(page.getByRole("heading", { name: "Workspace" })).toBeVisible();
+    await expect(page.getByRole("list", { name: /project totals/i })).toBeVisible();
 
     const results = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
       .analyze();
 
     expect(results.violations).toEqual([]);
+  });
+});
+
+/**
+ * The theme control.
+ *
+ * Three states, and the one worth testing is the third: "system" is the
+ * ABSENCE of an override, so choosing it has to REMOVE what the other two
+ * wrote. A toggle that only ever sets a value leaves someone permanently
+ * pinned to whichever they tried first, which is the bug this locks shut.
+ */
+test.describe("theme", () => {
+  test.describe.configure({ mode: "serial" });
+
+  let page: Page;
+  const email = uniqueEmail("theme");
+
+  test.beforeAll(async ({ browser }) => {
+    await createConfirmedUser(email);
+    page = await signInAndEnroll(browser, email);
+  });
+
+  test.afterAll(async () => {
+    await page.context().close();
+  });
+
+  const html = () => page.locator("html");
+
+  test("starts on the system setting, with no override written", async () => {
+    await goto(page, "/projects");
+
+    await expect(html()).not.toHaveAttribute("data-theme", /.*/);
+    await expect(page.getByRole("button", { name: /system theme/i })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  test("choosing dark applies it and survives a reload", async () => {
+    await page.getByRole("button", { name: /dark theme/i }).click();
+    await expect(html()).toHaveAttribute("data-theme", "dark");
+
+    // The point of persisting it. A choice that a reload forgets is not a
+    // setting, and the inline script in <head> is what makes this pass
+    // without a flash of the other theme first.
+    await goto(page, "/queue");
+    await expect(html()).toHaveAttribute("data-theme", "dark");
+    await expect(page.getByRole("button", { name: /dark theme/i })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  test("choosing system removes the override rather than storing one", async () => {
+    await page.getByRole("button", { name: /system theme/i }).click();
+    await expect(html()).not.toHaveAttribute("data-theme", /.*/);
+
+    await goto(page, "/projects");
+    await expect(html()).not.toHaveAttribute("data-theme", /.*/);
   });
 });
