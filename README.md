@@ -128,5 +128,5 @@ numbered plan document, the plan is stale.
 | `docs/02-security-and-e2ee.md`     | Threat model, encryption tiers, SSRF                        |
 | `docs/04-conflicts-and-hazards.md` | The hard problems                                           |
 | `docs/05-resolution-plan.md`       | The numbered risks (R-02, R-06 …) cited throughout the code |
-| `docs/06`–`09`                     | Phase build plans, including the current usability phase    |
+| `docs/06`–`10`                     | Phase build plans, including the current phase              |
 | `docs/adr/`                        | Architecture decisions                                      |
