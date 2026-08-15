@@ -37,6 +37,26 @@ export async function storeIdentityKeys(
 
   const { identityPubKey, signingPubKey, wrappedBundle, kdfSalt } = parsed.data;
 
+  /*
+   * The version comes from the BLOB, not from the client and not from a
+   * constant here.
+   *
+   * This was `keyBundleVer: 1`, hard-coded, which was true for exactly as long
+   * as there was one format. `createIdentity` now produces v2 — a master key
+   * sealed under the KEK, identity keys sealed under the master key — and a
+   * column that says 1 about a v2 blob is worse than no column: the migration
+   * path reads it to decide what to re-wrap.
+   *
+   * Taking it from the first byte means the two cannot disagree. Trusting a
+   * separate client-supplied field would just move the same problem.
+   */
+  const bundleBytes = Buffer.from(wrappedBundle, "base64");
+  const keyBundleVer = bundleBytes[0];
+
+  if (keyBundleVer !== 1 && keyBundleVer !== 2) {
+    return { ok: false, error: "Unrecognised key bundle format." };
+  }
+
   try {
     await withUserContext(claims, async (tx) => {
       // Enrollment is once-only. Overwriting an existing bundle would strand
@@ -54,9 +74,9 @@ export async function storeIdentityKeys(
         data: {
           identityPubKey: Buffer.from(identityPubKey, "base64"),
           signingPubKey: Buffer.from(signingPubKey, "base64"),
-          wrappedBundle: Buffer.from(wrappedBundle, "base64"),
+          wrappedBundle: bundleBytes,
           kdfSalt: Buffer.from(kdfSalt, "base64"),
-          keyBundleVer: 1,
+          keyBundleVer,
         },
       });
     });

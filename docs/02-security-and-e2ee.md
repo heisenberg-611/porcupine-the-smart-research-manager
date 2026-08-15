@@ -44,11 +44,10 @@ Never market this as "fully end-to-end encrypted." The tier table is defensible 
 ## 3. Key hierarchy
 
 ```
-Password ──Argon2id(m=64MiB, t=3, p=1, User.kdfSalt)──► Key Encryption Key
+Recovery passphrase ──Argon2id(INTERACTIVE, User.kdfSalt)──► Key Encryption Key
                                                               │
                                                               ▼
                                         User Master Key (32 B random)  ◄── also wrapped by:
-                                                │                          • recovery code (BIP39, 24 words)
                                                 │                          • each Device (WebAuthn PRF)
                                                 │                          • org escrow key, if opted in
                                                 ▼
@@ -58,6 +57,30 @@ Password ──Argon2id(m=64MiB, t=3, p=1, User.kdfSalt)──► Key Encryption
                           ProjectKey[epoch] — 32 B random, per project per epoch
                             sealed to each member via crypto_box_seal(pk_member)
 ```
+
+**There is no password.** Authentication is email OTP and OAuth, so there is
+nothing the user knows to derive a KEK from. The root secret is instead a
+**recovery passphrase the system generates and shows exactly once** — 30
+Crockford-base32 characters, ~128 bits. It is both the account-recovery
+mechanism and the only thing standing between the server and the private keys.
+
+Two consequences, stated rather than implied:
+
+- **Lose the passphrase, lose the encrypted content.** That is what end-to-end
+  encryption means. The UI says so where the passphrase is shown, not in a help
+  article.
+- **The Master Key is what makes any of the other wraps possible.** Until Phase
+  3 the identity private halves were sealed *directly* under the KEK, which
+  meant exactly one way in — a device could not be registered and escrow could
+  not be added without the passphrase. Wrapping one 32-byte key instead of the
+  whole private bundle is the entire reason that layer exists.
+
+**Bundle versions.** v1 sealed the identity halves under the KEK directly; v2
+introduces the Master Key. `users.key_bundle_ver` records which, derived from
+the blob's own first byte so the two cannot disagree, and v1 still opens and
+re-wraps to v2 on first unlock without changing any keypair. A public key that
+changed during a migration would be indistinguishable from an attack to anyone
+who had compared a safety number.
 
 **Primitives (libsodium):** `crypto_aead_xchacha20poly1305_ietf` for content, `crypto_box_seal` for key wrapping, `crypto_sign_detached` for wrap authenticity, `crypto_pwhash` (Argon2id) for the KEK. No hand-rolled crypto, no AES-CBC, no `Math.random`.
 
@@ -69,9 +92,9 @@ Password ──Argon2id(m=64MiB, t=3, p=1, User.kdfSalt)──► Key Encryption
 
 ## 4. Key lifecycle
 
-**Signup (Phase 0).** Client generates the Master Key, identity + signing keypairs, and a 24-word recovery code. Uploads public keys and the wrapped private bundle. Recovery code display is mandatory and blocking — the user must confirm they've stored it.
+**Signup (Phase 0).** Client generates the Master Key, identity + signing keypairs, and a recovery passphrase. Uploads public keys and the wrapped private bundle. Passphrase display is mandatory and blocking — the user must confirm they've stored it.
 
-**New device.** Password → Argon2id → KEK → Master Key → identity keys → fetch and unwrap `ProjectKey` rows. Register the device with its own wrap so later logins can use WebAuthn PRF instead of the password.
+**New device.** Recovery passphrase → Argon2id → KEK → Master Key → identity keys → fetch and unwrap `ProjectKey` rows. Register the device with its own wrap of the **Master Key**, so later logins use WebAuthn PRF and never need the passphrase again.
 
 **Adding a member.** An `admin`/`owner` fetches the invitee's `identityPubKey`, seals the current-epoch `ProjectKey` to it, signs the wrap, inserts a `ProjectKey` row. **This requires an online member holding the key.** Invitations are therefore two-phase: `invited` → `provisioned`. The UI must say "waiting for a member to grant access" rather than pretending the invite completed.
 
@@ -83,7 +106,7 @@ Password ──Argon2id(m=64MiB, t=3, p=1, User.kdfSalt)──► Key Encryption
 
 > **Rotation is not retroactive.** Anything they already downloaded is compromised permanently. The removal dialog must say this — don't let a user believe otherwise.
 
-**Recovery.** The recovery code is the only backstop for a forgotten password. Optionally an org enables **escrow**: the Master Key additionally wrapped to an escrow key held by two org admins under split control. Escrow is off by default, opt-in per organization, and **disclosed to the user at signup** — silent escrow would make the E2EE claim dishonest.
+**Recovery.** The recovery passphrase is the only backstop, and there is no password behind it. Optionally an org enables **escrow**: the Master Key additionally wrapped to an escrow key held by two org admins under split control. Escrow is off by default, opt-in per organization, and **disclosed to the user at signup** — silent escrow would make the E2EE claim dishonest.
 
 **Loading multi-epoch content.** A document or LaTeX file may span epochs. The client must hold a _set_ of keys, not one. Decrypt each update at its own `keyEpoch`.
 

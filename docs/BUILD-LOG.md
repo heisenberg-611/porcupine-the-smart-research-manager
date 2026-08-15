@@ -1392,3 +1392,82 @@ sweep for promises ("later", "soon", "coming", "automatically") returned two
 hits, both inside comments explaining removed promises, and one true claim
 (search results are ranked against research questions, which `search/actions.ts`
 does implement).
+
+---
+
+## 2026-08-15 · Phase 3 week 1 — the key hierarchy, reconciled
+
+### What was wrong
+
+`docs/02-security-and-e2ee.md` §3 specified a Master Key: 32 random bytes,
+sealed under the Argon2id KEK, with the identity private halves sealed under
+*it*, and the Master Key additionally wrapped by each device and by an org
+escrow key.
+
+`packages/crypto/src/identity.ts` sealed the identity private halves **directly
+under the KEK**. No Master Key existed.
+
+That is not untidiness. The Master Key exists to be the one thing many keys
+wrap; sealing the private bundle directly under a single KEK means there is
+exactly one way in, and **no second unwrap path can be added without the
+recovery passphrase**. Registering a device would need the passphrase every
+time. Org escrow could not be added to an existing account at all. The schema
+had believed the document for months: `devices.wrapped_master_key` was a column
+with nothing to put in it.
+
+The document was stale a second way too — it said "Password → Argon2id → KEK",
+and there is no password. Auth is email OTP; `identity.ts` had said so in its
+own header since Phase 0 and derived the KEK from the generated recovery
+passphrase instead. Two documents, one codebase, three different stories.
+
+### What shipped
+
+A v2 bundle format: `version ‖ [u16 len ‖ sealed]×2`, holding the Master Key
+sealed under the KEK and the identity bundle sealed under the Master Key.
+`wrapMasterKey` / `unwrapMasterKey` are exported for week 2, because the point
+of the layer is that a device wrap is a row rather than a rewrite.
+
+**v1 still opens.** It has no Master Key stored, so one is minted on unwrap and
+returned with `needsRewrap`; `rewrapIdentity` produces v2 and the keypairs are
+untouched. That last part matters more than it looks: a public key that changed
+during a migration would be indistinguishable from an attack to anyone who had
+compared a safety number.
+
+`users.key_bundle_ver` was hard-coded to `1` in the enrolment action — true for
+exactly as long as there was one format. It now comes from the blob's own first
+byte, so the column cannot disagree with the bytes it describes. Taking it from
+a separate client field would have moved the same problem rather than solved it.
+
+### Verification
+
+15 crypto tests, and the migration path is built from a **hand-constructed v1
+bundle** rather than a fixture — if v1 stops opening, the failure is silent
+until someone with an old account signs in.
+
+Sabotage-verified twice:
+
+- removing the v1 branch turns both migration assertions red
+- removing the length check in `decodeV2` turns the truncation assertion red —
+  without it a short blob yields a subarray and an AEAD failure that blames the
+  passphrase, which is the most misleading error this code could produce
+
+### Problems
+
+**Nothing surprising, and that is worth recording honestly.** The change was
+mechanical once the audit had found it; the expensive part was the audit, done
+before any code, and it is the only reason this was a day rather than a
+discovery three weeks into building messaging on the wrong foundation.
+
+One thing did need care: `decodePrivateBundle` returned `UnwrappedIdentity`,
+which now carries `masterKey` and `needsRewrap` — fields that frame has no way
+to know. It returns a `Pick<>` now. A type that claimed to produce a master key
+from bytes that do not contain one would have been the same class of lie this
+whole week was about.
+
+### Open
+
+- The v1 → v2 re-wrap is implemented and **not yet wired into a sign-in path**:
+  nothing calls `rewrapIdentity` in the app, because nothing unlocks a bundle
+  outside enrolment yet. Week 2 needs the unlock flow and will own it.
+- `project_keys`, `devices` and `file_objects` are still read by nothing. Weeks
+  2–4 take the first two; the third is the R2 pipeline and stays blocked.
