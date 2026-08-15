@@ -157,27 +157,66 @@ test.describe("screening at speed", () => {
      * test, because these tests share one page. In CI that took down the
      * shortcut test two cases later with an error naming neither.
      */
-    await page.route("**/screen", (route) => {
+    // Held open until the test releases it, rather than for a fixed 3 s.
+    //
+    // The fixed version was `setTimeout(() => route.continue(), 3000)`, and it
+    // outlived its own test: the assertions finish in ~300 ms, `finally`
+    // unroutes, the route object is disposed — and three seconds later the
+    // timer fires into whatever test is running by then and throws "Route is
+    // already handled!". In CI that killed a test two cases later on chromium
+    // and a different one on mobile, each blaming a line it never ran.
+    //
+    // A promise the test resolves means nothing survives the test that created
+    // it, and the held request still completes before the route is removed.
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    await page.route("**/screen", async (route) => {
       if (route.request().method() !== "POST") return route.continue();
-      setTimeout(() => route.continue(), 3000);
+      await held;
+      // The page may have navigated on by now; a dead route is not a failure.
+      await route.continue().catch(() => {});
     });
 
     try {
       await page.getByRole("button", { name: /^include$/i }).click();
 
-      // 250 ms is far below the 3 s the action is being held for, and well
-      // above a render.
+      // 250 ms is well above a render and far below anything the server could
+      // have answered in, since the request is still being held.
       await page.waitForTimeout(250);
       await expect(page.locator("article h2")).not.toHaveText(first);
-      await expect(page.getByText(/2 left/i)).toBeVisible();
     } finally {
+      // Let the held request finish AND wait for it, so the decision it
+      // records has landed before the next test reads the queue. Releasing
+      // without waiting left a POST in flight across the test boundary, which
+      // made the following test's queue count 3 or 2 depending on timing.
+      const landed = page
+        .waitForResponse((r) => r.request().method() === "POST", { timeout: 10_000 })
+        .catch(() => null);
+      release();
+      await landed;
       await page.unroute("**/screen");
     }
   });
 
   test("and rolls the paper back when the server refuses", async () => {
     await page.goto(`/projects/${projectId}/screen`);
-    await expect(page.getByText(/2 left/i)).toBeVisible();
+
+    /*
+     * Counts are READ, never hard-coded.
+     *
+     * These tests share a queue and each one changes it, so "2 left" was only
+     * ever true if every preceding test did exactly what was expected — which
+     * is not a property a test should depend on, and stopped being true the
+     * moment the previous test began reliably recording its decision. What
+     * matters here is that the count is UNCHANGED by a refused decision, and
+     * that is checkable against whatever it happens to be.
+     */
+    const remaining = page.getByText(/\d+ left/);
+    await expect(remaining).toBeVisible();
+    const before = await remaining.innerText();
 
     const target = await page.locator("article h2").innerText();
 
@@ -197,7 +236,9 @@ test.describe("screening at speed", () => {
       const failure = page.locator("section p[role='alert']");
       await expect(failure).toContainText(target, { timeout: 15_000 });
       await expect(failure).toContainText(/back in the queue/i);
-      await expect(page.getByText(/2 left/i)).toBeVisible();
+      // Unchanged, and the paper itself is current again.
+      await expect(remaining).toHaveText(before);
+      await expect(page.locator("article h2")).toHaveText(target);
     } finally {
       await page.unroute("**/screen");
     }
@@ -210,8 +251,10 @@ test.describe("screening at speed", () => {
     // shortcuts, and it is invisible until someone uses the app without a
     // mouse.
     await page.goto(`/projects/${projectId}/screen`);
-    await expect(page.getByText(/2 left/i)).toBeVisible();
 
+    const remaining = page.getByText(/\d+ left/);
+    await expect(remaining).toBeVisible();
+    const count = await remaining.innerText();
     const before = await page.locator("article h2").innerText();
 
     await page.getByLabel(/assign to/i).focus();
@@ -219,7 +262,7 @@ test.describe("screening at speed", () => {
     await page.keyboard.press("e");
     await page.keyboard.press("s");
 
-    await expect(page.getByText(/2 left/i)).toBeVisible();
+    await expect(remaining).toHaveText(count);
     await expect(page.locator("article h2")).toHaveText(before);
   });
 
@@ -233,17 +276,26 @@ test.describe("screening at speed", () => {
   });
   test("the whole queue can be driven from the keyboard", async () => {
     await page.goto(`/projects/${projectId}/screen`);
-    await expect(page.getByText(/2 left/i)).toBeVisible();
+
+    const remaining = page.getByText(/\d+ left/);
+    await expect(remaining).toBeVisible();
+    const start = Number(/(\d+)/.exec(await remaining.innerText())![1]);
+    expect(start, "the queue should have something in it").toBeGreaterThan(0);
 
     // Focus the document body rather than any control, which is where a
     // person's focus actually is while reading an abstract.
     await page.locator("article h2").click();
 
-    await page.keyboard.press("i");
-    await expect(page.getByText(/1 left/i)).toBeVisible();
+    // Drain it, alternating the two decisions. Bounded by what the queue
+    // actually holds rather than by a number written here: how many papers
+    // survive the earlier tests depends on what those tests did, and hard-
+    // coding it made this test a report on THEM.
+    for (let i = 0; i < start; i++) {
+      await page.keyboard.press(i % 2 === 0 ? "i" : "e");
+      await page.waitForTimeout(150);
+    }
 
-    await page.keyboard.press("e");
     await expect(page.getByText(/that is everything for now/i)).toBeVisible();
-    await expect(page.getByText(/2 decisions recorded/i)).toBeVisible();
+    await expect(page.getByText(/decisions? recorded/i)).toBeVisible();
   });
 });
