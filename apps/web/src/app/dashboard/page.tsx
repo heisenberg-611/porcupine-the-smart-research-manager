@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { ButtonLink, Card, EmptyState, PageHeader } from "@/components/ui";
 import { must } from "@/lib/supabase/query";
+import { OPEN_QUEUE_STATUSES } from "@porcupine/shared";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -68,6 +69,7 @@ export default async function DashboardPage() {
         .from("project_works")
         .select("id, project_id, screen_status, due_at")
         .eq("assignee_id", user.id)
+        .in("screen_status", OPEN_QUEUE_STATUSES as unknown as string[])
         .order("due_at", { ascending: true, nullsFirst: false }),
       "your queue",
     ),
@@ -126,11 +128,11 @@ export default async function DashboardPage() {
               Waiting for you
             </h2>
             <ul aria-label="Your totals" className="grid grid-cols-3 gap-3">
-              <Stat label="Assigned to you" value={assigned} href="/queue" />
+              <Stat label="Assigned to you" value={assigned} href="/assigned" />
               <Stat
                 label="Overdue"
                 value={overdue}
-                href="/queue"
+                href="/assigned"
                 tone={overdue > 0 ? "danger" : "normal"}
               />
               <Stat label="Projects" value={projects.length} href="/projects" />

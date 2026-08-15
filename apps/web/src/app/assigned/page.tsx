@@ -8,7 +8,7 @@ import { ButtonLink, EmptyState, PageHeader } from "@/components/ui";
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
-export const metadata: Metadata = { title: "My queue" };
+export const metadata: Metadata = { title: "Assigned to me" };
 
 interface QueueRow {
   id: string;
@@ -45,7 +45,7 @@ interface QueueRow {
  * arrived at a project overview to start navigating from scratch. A queue you
  * cannot act from is a reminder, and people already have those.
  */
-export default async function QueuePage() {
+export default async function AssignedPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/sign-in");
 
@@ -58,7 +58,6 @@ export default async function QueuePage() {
         "id, project_id, screen_status, due_at, projects(title), works(title, published_year, doi, arxiv_id, pmid, oa_pdf_url)",
       )
       .eq("assignee_id", user.id)
-      .in("screen_status", OPEN_QUEUE_STATUSES as unknown as string[])
       .order("due_at", { ascending: true, nullsFirst: false })
       .limit(200),
     "your queue",
@@ -66,7 +65,11 @@ export default async function QueuePage() {
 
   const rows = (data ?? []) as unknown as QueueRow[];
   const now = Date.now();
-  const overdue = rows.filter((r) => r.due_at && new Date(r.due_at).getTime() < now);
+  
+  const openRows = rows.filter((r) => OPEN_QUEUE_STATUSES.includes(r.screen_status as any));
+  const closedRows = rows.filter((r) => !OPEN_QUEUE_STATUSES.includes(r.screen_status as any));
+  
+  const overdue = openRows.filter((r) => r.due_at && new Date(r.due_at).getTime() < now);
 
   /**
    * Where a row sends you, by what it is waiting for.
@@ -125,29 +128,30 @@ export default async function QueuePage() {
       <PageHeader
         backHref="/projects"
         backLabel="All projects"
-        title="My queue"
+        title="Assigned to me"
         description={
           <>
-            {rows.length === 0
+            {openRows.length === 0 && closedRows.length === 0
               ? "Nothing assigned to you."
-              : `${rows.length} assigned${overdue.length > 0 ? ` · ${overdue.length} overdue` : ""}`}
+              : `${openRows.length} open ${overdue.length > 0 ? ` · ${overdue.length} overdue` : ""} · ${closedRows.length} closed`}
           </>
         }
       />
 
-      {rows.length === 0 ? (
-        // The one screen someone lands on with nothing to do. It used to say
-        // "Nothing assigned to you." in the header and then render an empty
-        // page — no next action anywhere, on the surface most likely to be
-        // someone's first impression of a shared project.
+      {openRows.length === 0 && closedRows.length === 0 ? (
+        // The one screen someone lands on with nothing to do.
         <EmptyState
           title="Nothing is waiting for you"
           description="Papers assigned to you appear here, across every project you are in, soonest due first. Assignments are made on a project's screening page."
           action={<ButtonLink href="/projects">Go to your projects</ButtonLink>}
         />
       ) : (
-        <ul className="border-border divide-border divide-y rounded-lg border">
-          {rows.map((row) => {
+        <div className="flex flex-col gap-10">
+          {openRows.length > 0 && (
+            <section>
+              <h2 className="text-display mb-4 text-ink">Open</h2>
+              <ul className="border-border divide-border divide-y rounded-lg border">
+                {openRows.map((row) => {
             const isOverdue = row.due_at ? new Date(row.due_at).getTime() < now : false;
             return (
               <li key={row.id} className="flex items-start justify-between gap-4 p-4">
@@ -214,17 +218,54 @@ export default async function QueuePage() {
                       </time>
                     </span>
                   )}
-                  {/* The action, named. "Screen" and "Read" are different jobs
-                      and the queue is the only place that knows which one this
-                      row needs. */}
-                  <ButtonLink href={destination(row).href}>
-                    {destination(row).label}
-                  </ButtonLink>
+
                 </div>
               </li>
             );
           })}
         </ul>
+            </section>
+          )}
+
+          {closedRows.length > 0 && (
+            <section>
+              <h2 className="text-display mb-4 text-ink opacity-70">Closed</h2>
+              <ul className="border-border divide-border opacity-70 divide-y rounded-lg border">
+                {closedRows.map((row) => {
+                  return (
+                    <li key={row.id} className="flex items-start justify-between gap-4 p-4">
+                      <div className="min-w-0">
+                        <Link
+                          href={destination(row).href}
+                          className="text-ink text-ui font-medium underline-offset-2 hover:underline"
+                        >
+                          {row.works?.title ?? "Untitled"}
+                        </Link>
+                        <p className="text-muted text-fine mt-0.5">
+                          <Link
+                            href={`/projects/${row.project_id}`}
+                            className="hover:text-ink underline underline-offset-2"
+                          >
+                            {row.projects?.title ?? "Project"}
+                          </Link>
+                          {" · "}
+                          {screenStatusLabel(row.screen_status)}
+                          {row.works?.published_year && ` · ${row.works.published_year}`}
+                        </p>
+                      </div>
+                      
+                      <div className="flex shrink-0 items-center gap-3">
+                        <ButtonLink href={destination(row).href} variant="ghost">
+                          {destination(row).label}
+                        </ButtonLink>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
+        </div>
       )}
     </main>
   );

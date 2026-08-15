@@ -68,8 +68,8 @@ export async function AppHeader() {
           <NavLink href="/projects" className="hidden sm:inline-flex">
             Projects
           </NavLink>
-          <NavLink href="/queue" className="hidden sm:inline-flex">
-            My queue
+          <NavLink href="/assigned" className="hidden sm:inline-flex">
+            Assigned to me
           </NavLink>
 
           <div className="flex-1" />

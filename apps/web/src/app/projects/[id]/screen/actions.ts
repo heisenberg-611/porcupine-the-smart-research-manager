@@ -245,7 +245,7 @@ export async function assignWork(
     if ("error" in result && result.error) return { ok: false, error: result.error };
 
     revalidatePath(`/projects/${projectId}/screen`);
-    revalidatePath("/queue");
+    revalidatePath("/assigned");
     return { ok: true };
   } catch {
     return { ok: false, error: "Could not update that paper." };

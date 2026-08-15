@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { ButtonLink } from "@/components/ui";
-
 export const metadata: Metadata = {
   title: "How it works",
   description:
