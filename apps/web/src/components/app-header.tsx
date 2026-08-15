@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { ThemeToggle } from "@/components/theme-toggle";
+
 import { getCurrentUser } from "@/lib/supabase/server";
 
 /**
@@ -21,13 +23,33 @@ export async function AppHeader() {
 
   return (
     <header className="border-rule bg-canvas/85 sticky top-0 z-40 border-b backdrop-blur">
+      {/*
+        Wraps, rather than overflowing.
+
+        On a 390px phone the contents do not fit on one line, and without
+        `flex-wrap` the last items simply sat on top of the ones before them —
+        the theme control ended up covering Sign out, which Playwright caught
+        as an element intercepting pointer events. The flexible spacer below
+        takes the slack on the first row, so the wrap lands in a sensible place
+        instead of breaking mid-group.
+      */}
       <nav
         aria-label="Main"
-        className="mx-auto flex max-w-5xl items-center gap-1 px-6 py-2"
+        className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-1 gap-y-1 px-6 py-2"
       >
+        {/*
+          Hidden on a phone, and nothing is lost: "Projects" below points at
+          the same place, so this is a wordmark rather than a destination.
+
+          It buys the ~85px the theme control needs to sit on the SAME ROW.
+          That matters more than it sounds. With everything present the header
+          wrapped to two lines, and a two-line header broke clicks much further
+          down the page — a link in the evidence table could not be reached at
+          all. A header that does not fit is not a cosmetic problem.
+        */}
         <Link
           href="/projects"
-          className="text-ink text-heading mr-4 font-serif"
+          className="text-ink text-heading mr-4 hidden font-serif sm:inline"
           aria-label="Porcupine home"
         >
           Porcupine
@@ -51,6 +73,8 @@ export async function AppHeader() {
         >
           {user.email}
         </span>
+
+        <ThemeToggle />
 
         <form action="/auth/sign-out" method="post">
           <button

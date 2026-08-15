@@ -76,8 +76,27 @@
   --radius-card: 0.625rem;
 }
 
+/*
+ * Dark, in three places rather than one.
+ *
+ * The theme has THREE states, not two: light, dark, and "whatever the machine
+ * says" — which is the default and the one most people never change. So the
+ * dark palette is declared twice, and the difference matters:
+ *
+ *   1. Under `prefers-color-scheme`, but only when the reader has NOT chosen
+ *      light. Without that guard, choosing light on a machine set to dark
+ *      would do nothing, because the media query would keep winning.
+ *   2. Under `[data-theme="dark"]`, so an explicit choice beats a machine set
+ *      to light.
+ *
+ * These are plain custom-property overrides rather than a second `@theme`
+ * block. Tailwind's utilities compile to `var(--color-canvas)`, so redefining
+ * the variable at `:root` re-themes every utility at runtime — which is what a
+ * toggle needs. A second `@theme` would be resolved at build time and could
+ * not be switched without a reload.
+ */
 @media (prefers-color-scheme: dark) {
-  @theme {
+  :root:not([data-theme="light"]) {
     --color-canvas: #121110;
     --color-surface: #1a1917;
     --color-raised: #211f1c;
@@ -94,6 +113,45 @@
     --color-danger: #e88a80;
     --color-danger-soft: #2a1a18;
   }
+}
+
+:root[data-theme="dark"] {
+  --color-canvas: #121110;
+  --color-surface: #1a1917;
+  --color-raised: #211f1c;
+  --color-border: #2f2c27;
+  --color-rule: #3a3630;
+
+  --color-ink: #ece8e0;
+  --color-ink-soft: #c9c4ba;
+  --color-muted: #9b9488;
+
+  --color-accent: #7ac6a9;
+  --color-accent-ink: #0e1a15;
+  --color-accent-soft: #1c2a24;
+  --color-danger: #e88a80;
+  --color-danger-soft: #2a1a18;
+}
+
+/*
+ * Tells the browser which way the page is dressed, so form controls, scroll-
+ * bars and the caret follow. Without it a dark page gets a white scrollbar and
+ * a light-mode date picker, which is the detail that makes a theme feel
+ * painted on rather than chosen.
+ */
+:root {
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
 }
 
 /*

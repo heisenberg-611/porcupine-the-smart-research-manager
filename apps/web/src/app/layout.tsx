@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { AppHeader } from "@/components/app-header";
 import { CryptoSessionProvider } from "@/lib/crypto/session";
+import { THEME_SCRIPT } from "@/lib/theme";
 
 import "./globals.css";
 
@@ -16,15 +17,24 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  // The actual --color-canvas values. These were two near-misses invented
+  // before the palette settled, so the browser chrome was a slightly different
+  // colour from the page it framed.
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fdfdfc" },
-    { media: "(prefers-color-scheme: dark)", color: "#101211" },
+    { media: "(prefers-color-scheme: light)", color: "#fbfaf7" },
+    { media: "(prefers-color-scheme: dark)", color: "#121110" },
   ],
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Before the first paint, so a reader who chose dark never sees a
+            white flash. `suppressHydrationWarning` on <html> above is what
+            lets this write to the element React is about to hydrate. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className="bg-canvas text-ink min-h-dvh antialiased">
         <a
           href="#main"
