@@ -1,5 +1,5 @@
 import { normalizeArxivId, normalizeDoi } from "../normalize";
-import type { WorkInput } from "../types";
+import { parseWorkInput, type WorkInput } from "../types";
 
 /**
  * A BibTeX reader.
@@ -394,8 +394,19 @@ export function importBibtex(source: string): ParseResult<WorkInput> {
 
   for (const entry of entries) {
     const work = bibtexToWorkInput(entry);
-    if (work) works.push(work);
-    else problems.push(`@${entry.type}{${entry.key}} has no title; skipped.`);
+    if (!work) {
+      problems.push(`@${entry.type}{${entry.key}} has no title; skipped.`);
+      continue;
+    }
+
+    // Checked against the schema, not just built by a function that returns
+    // the right TYPE. `WorkInput` is erased at compile time, so a converter
+    // bug — a year parsed out of a page range, an author field that is a
+    // string rather than an array — reaches upsert_work() unexamined and
+    // becomes a permanent corpus entry. One bad entry costs that entry.
+    const checked = parseWorkInput(work);
+    if (checked) works.push(checked);
+    else problems.push(`@${entry.type}{${entry.key}} could not be read; skipped.`);
   }
 
   return { entries: works, problems };

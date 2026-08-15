@@ -47,6 +47,15 @@ export interface ProjectCapabilities {
    * GitHub linking is offered at all. Off for THESIS by default (R-17): a
    * biology student landing in an org-permissions screen will grant access to
    * every repository because it looks like the default option.
+   *
+   * DECLARED AND UNREAD, as of 2026-08-15. No screen consults this, because
+   * GitHub linking is not built. It is left here rather than removed because,
+   * unlike the `structureUpgradePath` flag that used to sit below it, nothing
+   * tells a user anything on its strength — it is inert rather than untrue.
+   *
+   * Kept honest deliberately: the moment a screen reads this flag, delete this
+   * paragraph. The moment someone writes UI copy that ASSUMES it, the flag has
+   * become a promise and should be treated like the last one.
    */
   githubLinking: boolean;
 }

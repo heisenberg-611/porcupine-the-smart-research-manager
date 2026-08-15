@@ -1,5 +1,5 @@
 import { normalizeArxivId, normalizeDoi } from "../normalize";
-import type { WorkInput } from "../types";
+import { parseWorkInput, type WorkInput } from "../types";
 
 import type { ParseResult } from "./bibtex";
 
@@ -159,12 +159,18 @@ export function importRis(source: string): ParseResult<WorkInput> {
   const works: WorkInput[] = [];
 
   for (const record of entries) {
+    const kind = first(record.fields, "TY") ?? "record";
     const work = risToWorkInput(record);
-    if (work) works.push(work);
-    else
-      problems.push(
-        `A ${first(record.fields, "TY") ?? "record"} entry has no title; skipped.`,
-      );
+    if (!work) {
+      problems.push(`A ${kind} entry has no title; skipped.`);
+      continue;
+    }
+
+    // See the same guard in bibtex.ts: the type is a compile-time claim, and
+    // this is the only thing that checks it against reality.
+    const checked = parseWorkInput(work);
+    if (checked) works.push(checked);
+    else problems.push(`A ${kind} entry could not be read; skipped.`);
   }
 
   return { entries: works, problems };

@@ -4,6 +4,7 @@ import { crossref } from "./providers/crossref";
 import { europepmc } from "./providers/europepmc";
 import { openalex } from "./providers/openalex";
 import { semanticscholar } from "./providers/semanticscholar";
+import { parseWorkInput } from "./types";
 import type {
   FederatedResult,
   Provider,
@@ -11,6 +12,7 @@ import type {
   ProviderId,
   RateLimiter,
   SearchQuery,
+  WorkInput,
 } from "./types";
 
 export const PROVIDERS: Record<ProviderId, Provider> = {
@@ -119,7 +121,39 @@ export async function federatedSearch(
           await new Promise((resolve) => setTimeout(resolve, waitMs));
         }
 
-        return await withTimeout(provider.search(query), perProviderTimeoutMs, id);
+        const found = await withTimeout(provider.search(query), perProviderTimeoutMs, id);
+
+        /*
+         * Check what came back, rather than trusting the adapter's return
+         * type.
+         *
+         * `WorkInput` is erased at compile time, so until now the only thing
+         * standing between five external APIs and `upsert_work()` was a cast.
+         * A provider that changes a field, or answers 200 with an error
+         * document, writes rows with no title or a publication year of 20024 —
+         * and those survive as corpus entries that a person finds much later.
+         *
+         * Dropped records are REPORTED, not silently discarded, using the same
+         * partial-failure channel a rate limit or a timeout uses. A provider
+         * whose payload has drifted should look like a provider having
+         * problems, because that is what it is.
+         */
+        const valid: WorkInput[] = [];
+        let rejected = 0;
+        for (const work of found) {
+          const checked = parseWorkInput(work);
+          if (checked) valid.push(checked);
+          else rejected++;
+        }
+
+        if (rejected > 0) {
+          failures.push({
+            provider: id,
+            message: `${rejected} of ${found.length} records did not match the expected shape and were skipped`,
+          });
+        }
+
+        return valid;
       } catch (error) {
         failures.push({
           provider: id,

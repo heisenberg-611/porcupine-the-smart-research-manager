@@ -1313,3 +1313,82 @@ What it did NOT do, carried forward:
   written to be checkable, and none of them answers whether this is usable by a
   review team. That is still the only test that does, and it is still not
   scheduled.
+
+---
+
+## 2026-08-15 · An audit before Phase 3
+
+Five weeks of Phase 2c each found the plan describing work that already
+existed, or a flag describing behaviour the app did not have. Before starting
+a phase about cryptography — where a control that does not do what it says is
+considerably worse — the codebase got swept for the same class of thing.
+
+### Method, and how badly the first attempt worked
+
+For every exported name, count references outside its declaring file; anything
+with zero is a candidate. That produced **39 hits, of which 38 were false**.
+The method flags:
+
+- types re-exported through a barrel for consumers (`WorkInput`, `ParseResult`)
+- constants used only inside their own file (`PROVIDERS` at search.ts:93,
+  `TICKET_TTL_SECONDS` at relay-ticket.ts:86, `normalizeWithMap` at
+  anchor.ts:180)
+- converters called by the function immediately below them
+  (`bibtexToWorkInput`, `risToWorkInput`)
+
+Worth recording because the first run of it, with the wrong grep flags, printed
+`capabilities` and `cohensKappa` as unused — two of the most-used functions in
+the repository. A sweep that produces mostly noise is a sweep that will be
+skimmed, and the one real finding would have gone with it.
+
+### The one real finding
+
+**`workInputSchema` validated nothing.** It is a full Zod schema for the shape
+every provider normalises into — `title` non-empty, `publishedYear` bounded to
+1400–2200, `authors` an array of objects — and its only use was
+`z.infer<typeof workInputSchema>` to derive the `WorkInput` type.
+
+`WorkInput` is erased at compile time. So five external APIs and any pasted
+BibTeX or RIS reached `upsert_work()` with nothing between them and the
+database except a cast.
+
+Not a security hole: `upsert_work()` takes jsonb through a bound parameter, so
+injection was never available. What was available is corruption. A provider
+that changes a field name, or answers 200 with an error document, writes rows
+with no title or a publication year of 20024 — and those persist as corpus
+entries, found much later by a person wondering why their evidence table has a
+paper from the year twenty thousand.
+
+`parseWorkInput()` now checks at both boundaries, and reports rather than
+discards: an import problem names the entry that was skipped, a search failure
+says "3 of 40 records did not match the expected shape". A provider whose
+payload has drifted should look like a provider having problems, because that
+is what it is.
+
+Sabotage-verified — replacing the body with `return value as WorkInput` turns
+three of the five new assertions red.
+
+### Also
+
+**`githubLinking` is declared and unread**, like `structureUpgradePath` was.
+Left in place rather than removed, with that written next to it: nothing tells
+a user anything on its strength, so it is inert rather than untrue. The comment
+says what would change that.
+
+**`USING-PORCUPINE.md` had drifted across five weeks of UI work** and nobody
+had noticed, including me — it still said "Every screen below is reachable from
+the project page. There is no wizard", written before the project nav, the
+grouped overview and the next-action existed. It now describes the shell that
+is there, the keyboard shortcuts, the column chooser and why it is desktop-only,
+the extraction form's progress and unsaved-changes state, and `pnpm db:seed`.
+
+### What the sweep did NOT find
+
+Worth stating, since a clean result is only useful if it was capable of being
+dirty. Every item in the guide's "what is not built yet" table is still not
+built — `file_objects`, `github` and `latex` have zero references in the app,
+nothing imports a WebSocket or Yjs, nothing sends outbound email. The UI copy
+sweep for promises ("later", "soon", "coming", "automatically") returned two
+hits, both inside comments explaining removed promises, and one true claim
+(search results are ranked against research questions, which `search/actions.ts`
+does implement).
