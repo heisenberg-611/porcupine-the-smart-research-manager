@@ -93,10 +93,25 @@ async function unlock(page: Page, passphrase: string, next: string) {
 }
 
 test.describe("two people, one encrypted conversation", () => {
-  test.describe.configure({ mode: "serial" });
+  /*
+   * 120 s per test, not the 30 s default.
+   *
+   * Argon2id is deliberately expensive and these tests do several of them —
+   * an unlock is one, and provisioning seals a key per member on top. With two
+   * Playwright projects running at once on one machine that overruns 30 s
+   * intermittently, which showed up as a different test failing on each run
+   * and looked far more mysterious than it was.
+   *
+   * Raising the limit rather than making the crypto cheaper: the slowness is
+   * the security property.
+   */
+  test.describe.configure({ mode: "serial", timeout: 120_000 });
 
-  const aliceEmail = uniqueEmail("m-alice");
-  const bobEmail = uniqueEmail("m-bob");
+  // Per Playwright project: the file is imported once and run for both
+  // browsers, so a module-level address is shared between them. See the same
+  // note in unlock-keys.spec.ts.
+  let aliceEmail = "";
+  let bobEmail = "";
   const SECRET = "The screening disagreement is about outcome, not population";
 
   let alice: Page;
@@ -105,8 +120,10 @@ test.describe("two people, one encrypted conversation", () => {
   let bobPhrase = "";
   let projectId = "";
 
-  test.beforeAll(async ({ browser }) => {
+  test.beforeAll(async ({ browser }, testInfo) => {
     test.setTimeout(300_000);
+    aliceEmail = uniqueEmail(`m-alice-${testInfo.project.name}`);
+    bobEmail = uniqueEmail(`m-bob-${testInfo.project.name}`);
     await createConfirmedUser(aliceEmail);
     await createConfirmedUser(bobEmail);
 
@@ -119,13 +136,15 @@ test.describe("two people, one encrypted conversation", () => {
     bobPhrase = b.passphrase;
 
     // Alice makes the project and invites Bob.
-    await alice.getByLabel("Title").fill("Encrypted talk");
+    await alice.getByLabel("Title").fill(`Encrypted talk ${testInfo.project.name}`);
     await alice
       .getByRole("group", { name: /kind/i })
       .getByRole("radio", { name: /thesis or dissertation/i })
       .check();
     await alice.getByRole("button", { name: /create project/i }).click();
-    await alice.getByRole("link", { name: "Encrypted talk" }).click();
+    await alice
+      .getByRole("link", { name: `Encrypted talk ${testInfo.project.name}` })
+      .click();
     await alice.waitForURL(/\/projects\/[0-9a-f-]+$/);
     await expect(alice.getByRole("heading", { name: "Workspace" })).toBeVisible();
     projectId = alice.url().split("/").pop()!;
@@ -263,5 +282,70 @@ test.describe("two people, one encrypted conversation", () => {
       { encoding: "utf8" },
     );
     expect(channelDump).not.toContain("screening");
+  });
+
+  test("removing Bob rotates the key, and he cannot read what comes next", async () => {
+    /*
+     * The property the whole epoch design exists for, and the one that was
+     * missing until now: rotation was implemented and tested, and NOTHING
+     * called it when a member left. A removal that does not rotate leaves the
+     * departed member holding a key that opens everything written afterwards.
+     */
+    const beforeRemoval = "Bob can still see this one";
+    const afterRemoval = "Bob must not see this one";
+
+    // Alice says something Bob is still entitled to.
+    await alice.getByLabel(/^message$/i).fill(beforeRemoval);
+    await alice.getByRole("button", { name: /^send$/i }).click();
+    await expect(alice.getByText(beforeRemoval)).toBeVisible({ timeout: 60_000 });
+
+    // Remove and rotate, in one action.
+    await alice
+      .getByRole("navigation", { name: /sections/i })
+      .getByRole("link", { name: "Encryption" })
+      .click();
+    await expect(alice.getByRole("heading", { name: "Who holds a key" })).toBeVisible();
+
+    await alice
+      .getByRole("button", { name: /^remove$/i })
+      .first()
+      .click();
+    await alice.getByRole("button", { name: /remove and rotate/i }).click();
+    await expect(alice.getByText(/was removed and the key rotated/i)).toBeVisible({
+      timeout: 120_000,
+    });
+    await expect(alice.getByText(/current epoch: 2/i)).toBeVisible();
+
+    // Alice writes under the new epoch.
+    await alice
+      .getByRole("navigation", { name: /sections/i })
+      .getByRole("link", { name: "Messages" })
+      .click();
+    await alice.getByLabel(/^message$/i).fill(afterRemoval);
+    await alice.getByRole("button", { name: /^send$/i }).click();
+    await expect(alice.getByText(afterRemoval)).toBeVisible({ timeout: 60_000 });
+
+    // Bob is no longer a member: RLS stops him at the project, before any
+    // question of keys arises. Both halves matter, so both are checked — the
+    // rotation is what protects him from reading it if he still had access.
+    await bob.reload();
+    await expect(bob.getByText(afterRemoval)).toHaveCount(0);
+
+    // And the new epoch was sealed to ONE member, not two. If it had been
+    // sealed to Bob as well, the removal would have undone itself.
+    const wrapsAtEpochTwo = execFileSync(
+      "psql",
+      [
+        "--no-psqlrc",
+        "-At",
+        process.env.DIRECT_URL ??
+          "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
+        "-c",
+        `select count(*) from project_keys where project_id = '${projectId}' and epoch = 2`,
+      ],
+      { encoding: "utf8" },
+    ).trim();
+
+    expect(Number(wrapsAtEpochTwo)).toBe(1);
   });
 });

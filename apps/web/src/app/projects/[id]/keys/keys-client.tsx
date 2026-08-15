@@ -18,6 +18,7 @@ import {
   getKeyState,
   getMemberKeys,
   provisionProjectKey,
+  removeMember,
   type MemberKey,
 } from "./actions";
 
@@ -39,8 +40,9 @@ export function KeysClient({ projectId }: { projectId: string }) {
 
   const [members, setMembers] = useState<MemberKey[] | null>(null);
   const [epoch, setEpoch] = useState<number>(0);
-  const [nextEpoch, setNextEpoch] = useState<number>(1);
   const [status, setStatus] = useState<string | null>(null);
+  const [rotationNeeded, setRotationNeeded] = useState(false);
+  const [confirming, setConfirming] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -58,7 +60,7 @@ export function KeysClient({ projectId }: { projectId: string }) {
 
     if (state.ok) {
       setEpoch(state.data.currentEpoch);
-      setNextEpoch(state.data.nextEpoch);
+      setRotationNeeded(state.data.rotationNeeded);
     }
   }, [projectId]);
 
@@ -74,15 +76,35 @@ export function KeysClient({ projectId }: { projectId: string }) {
    * rotation case cannot be the one nobody exercised.
    */
   async function provision() {
-    if (!identity || !members) return;
     setPending(true);
     setError(null);
     setStatus(null);
+    // `rotate` sets the status it wants shown. An earlier version cleared it
+    // again right here on success, which wiped the only confirmation the user
+    // — and the test — had that anything happened.
+    await rotate();
+    setPending(false);
+  }
+
+  /** Mint the next epoch and seal it to everyone who can hold one. */
+  async function rotate(): Promise<boolean> {
+    if (!identity) return false;
+
+    // Read the roster fresh rather than trusting component state: after a
+    // removal the stale list still contains the person who just left, and
+    // sealing the new key to them would undo the removal entirely.
+    const current = await getMemberKeys(projectId);
+    const state = await getKeyState(projectId);
+    if (!current.ok || !state.ok) {
+      setError(current.ok ? "Could not read the key state." : current.error);
+      return false;
+    }
 
     try {
-      const receivable = members.filter((m) => m.identityPubKey !== "");
+      const receivable = current.data.filter((m) => m.identityPubKey !== "");
       // Told by the server, not computed here — the number goes inside every
       // signature, so the two must agree exactly.
+      const epochToWrite = state.data.nextEpoch;
       const projectKey = await createProjectKey();
 
       const wraps = await Promise.all(
@@ -91,7 +113,7 @@ export function KeysClient({ projectId }: { projectId: string }) {
             projectKey,
             await fromBase64(member.identityPubKey),
             identity.signingPrivKey,
-            { projectId, userId: member.userId, epoch: nextEpoch },
+            { projectId, userId: member.userId, epoch: epochToWrite },
           );
           return {
             userId: member.userId,
@@ -101,10 +123,14 @@ export function KeysClient({ projectId }: { projectId: string }) {
         }),
       );
 
-      const result = await provisionProjectKey({ projectId, epoch: nextEpoch, wraps });
+      const result = await provisionProjectKey({
+        projectId,
+        epoch: epochToWrite,
+        wraps,
+      });
       if (!result.ok) {
         setError(result.error);
-        return;
+        return false;
       }
 
       setStatus(
@@ -113,8 +139,48 @@ export function KeysClient({ projectId }: { projectId: string }) {
         }.`,
       );
       await load();
+      return true;
     } catch {
       setError("Could not create the project key.");
+      return false;
+    }
+  }
+
+  /**
+   * Remove a member, then immediately rotate.
+   *
+   * One button, because they are one operation. A removal that does not rotate
+   * leaves the departed member holding a key that opens everything written
+   * afterwards, which is the opposite of what anyone means by removing them.
+   *
+   * The order is not interchangeable. Removing first means the new epoch is
+   * sealed only to who remains; rotating first would hand the new key to the
+   * person being removed, since they are still a member at that moment.
+   *
+   * If the rotation half fails, the removal stands and `rotationNeeded` starts
+   * reporting it. That is the honest failure: the member IS gone, and the key
+   * they still hold is a fact the screen now states.
+   */
+  async function removeAndRotate(userId: string, name: string) {
+    setPending(true);
+    setError(null);
+    setStatus(null);
+    setConfirming(null);
+
+    try {
+      const removed = await removeMember({ projectId, userId });
+      if (!removed.ok) {
+        setError(removed.error);
+        return;
+      }
+
+      await load();
+      const rotated = await rotate();
+      setStatus(
+        rotated
+          ? `${name} was removed and the key rotated. They cannot read anything written from now on.`
+          : `${name} was removed, but the key was NOT rotated — they can still read new messages until it is.`,
+      );
     } finally {
       setPending(false);
     }
@@ -202,6 +268,17 @@ export function KeysClient({ projectId }: { projectId: string }) {
       {error && <Banner tone="danger">{error}</Banner>}
       {status && <Banner>{status}</Banner>}
 
+      {rotationNeeded && (
+        // The window, named. Rotation happens in a browser — the server holds
+        // no key and cannot do it — so between a removal and the next unlocked
+        // admin there is a period where a former member can still read new
+        // content. Saying so is the only honest option.
+        <Banner tone="danger">
+          Someone was removed from this project after the current key was made, so they
+          can still read anything written since. Rotate to stop that.
+        </Banner>
+      )}
+
       <Card className="flex flex-col gap-2">
         <p className="text-ink text-ui">
           {epoch === 0
@@ -223,6 +300,64 @@ export function KeysClient({ projectId }: { projectId: string }) {
           Open and verify my key
         </Button>
       </div>
+
+      <section aria-labelledby="holders">
+        <h2 id="holders" className="text-ink text-heading mb-2 font-medium">
+          Who holds a key
+        </h2>
+        <ul className="border-border divide-border divide-y rounded-lg border">
+          {(members ?? []).map((member) => (
+            <li
+              key={member.userId}
+              className="flex flex-wrap items-center justify-between gap-3 p-3"
+            >
+              <span className="text-ink text-ui">
+                {member.displayName}
+                {member.isMe && <span className="text-muted"> — you</span>}
+                {member.identityPubKey === "" && (
+                  <span className="text-muted text-fine block">
+                    Has not set up keys yet, so cannot be given one.
+                  </span>
+                )}
+              </span>
+
+              {!member.isMe &&
+                (confirming === member.userId ? (
+                  <span className="flex flex-wrap gap-2">
+                    <Button
+                      variant="danger"
+                      disabled={pending}
+                      onClick={() =>
+                        void removeAndRotate(member.userId, member.displayName)
+                      }
+                    >
+                      Remove and rotate
+                    </Button>
+                    <Button variant="ghost" onClick={() => setConfirming(null)}>
+                      Cancel
+                    </Button>
+                  </span>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    className="border-border border"
+                    disabled={pending}
+                    onClick={() => setConfirming(member.userId)}
+                  >
+                    Remove
+                  </Button>
+                ))}
+            </li>
+          ))}
+        </ul>
+        <p className="text-muted text-fine mt-2">
+          {/* Two steps, said as one thing, because they are one thing. */}
+          Removing someone rotates the key in the same action: they lose access to
+          anything written afterwards, and keep what they could already read. Rotation
+          cannot reach backwards — the messages they have seen are on their machine, and
+          no key change recalls them.
+        </p>
+      </section>
 
       <p className="text-muted text-fine">
         Rotating adds an epoch; it never edits one. Content written under an older epoch

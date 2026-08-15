@@ -180,6 +180,21 @@ export interface KeyState {
   /** What the next provisioning must write. Always current + 1. */
   nextEpoch: number;
   myWraps: MyWrap[];
+  /**
+   * True when someone was removed from this project AFTER the newest key was
+   * provisioned — so the current epoch is one a former member still holds.
+   *
+   * Computed rather than stored, because a stored flag is a thing that can be
+   * wrong. The comparison is against the newest `project_keys` row's timestamp,
+   * which is the moment the current key came into existence.
+   *
+   * This is a WINDOW, and naming it is the point. Rotation happens in a
+   * browser — the server cannot do it, it holds no key — so between a removal
+   * and the next unlocked admin there is a period where new content is still
+   * readable by the person who left. Pretending otherwise would be the kind of
+   * claim this codebase keeps deleting.
+   */
+  rotationNeeded: boolean;
 }
 
 /**
@@ -211,10 +226,26 @@ export async function getKeyState(projectId: string): Promise<ActionResult<KeySt
         select: { epoch: true, wrappedKey: true, signature: true, wrappedBy: true },
       });
 
+      const newestKeyAt =
+        rows.length > 0
+          ? await tx.projectKey.findFirst({
+              where: { projectId },
+              orderBy: { createdAt: "desc" },
+              select: { createdAt: true },
+            })
+          : null;
+
+      const removedSince = newestKeyAt
+        ? await tx.projectMember.count({
+            where: { projectId, removedAt: { gt: newestKeyAt.createdAt } },
+          })
+        : 0;
+
       const currentEpoch = project.currentKeyEpoch;
       return {
         currentEpoch,
         nextEpoch: currentEpoch + 1,
+        rotationNeeded: removedSince > 0,
         myWraps: rows.map((row) => ({
           epoch: row.epoch,
           wrappedKey: Buffer.from(row.wrappedKey).toString("base64"),
@@ -238,4 +269,76 @@ export interface MyWrap {
   wrappedKey: string;
   signature: string;
   wrappedBy: string;
+}
+
+const RemoveInput = z.object({ projectId: z.uuid(), userId: z.uuid() });
+
+/**
+ * Remove a member.
+ *
+ * Deliberately lives beside the key actions rather than with the rest of
+ * project management, because removal and rotation are ONE operation: a
+ * removal that does not rotate leaves the departed member holding a key that
+ * opens everything written afterwards, which is the opposite of what anyone
+ * means by removing them.
+ *
+ * The server does the removal and cannot do the rotation — it holds no key —
+ * so the caller is expected to rotate immediately after. `getKeyState`
+ * reports `rotationNeeded` so a project left in the gap is visible rather than
+ * quietly insecure.
+ *
+ * Order matters and is not interchangeable: remove FIRST, then rotate. Rotating
+ * first would seal the new epoch to the member being removed, since they are
+ * still a member at that moment.
+ */
+export async function removeMember(
+  input: z.input<typeof RemoveInput>,
+): Promise<ActionResult<{ removed: string }>> {
+  const parsed = RemoveInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid request." };
+
+  const claims = await getUserClaims();
+  if (!claims) return { ok: false, error: "Not signed in." };
+
+  const { projectId, userId } = parsed.data;
+  if (userId === claims.sub) {
+    return { ok: false, error: "You cannot remove yourself." };
+  }
+
+  try {
+    await withUserContext(claims, async (tx) => {
+      const target = await tx.projectMember.findFirst({
+        where: { projectId, userId, removedAt: null },
+        select: { id: true, accessRole: true },
+      });
+      if (!target) throw new Error("NOT_A_MEMBER");
+
+      if (target.accessRole === "OWNER") {
+        const owners = await tx.projectMember.count({
+          where: { projectId, accessRole: "OWNER", removedAt: null },
+        });
+        // A project with no owner is a project nobody can administer, and
+        // there is no route back from it.
+        if (owners <= 1) throw new Error("LAST_OWNER");
+      }
+
+      // RLS refuses this for anyone who is not OWNER or ADMIN — the
+      // project_members_update_admin policy — so there is no second
+      // permission rule here to keep in step with the first.
+      await tx.projectMember.update({
+        where: { id: target.id },
+        data: { removedAt: new Date() },
+      });
+    });
+
+    return { ok: true, data: { removed: userId } };
+  } catch (err) {
+    if (err instanceof Error && err.message === "NOT_A_MEMBER") {
+      return { ok: false, error: "That person is not a member of this project." };
+    }
+    if (err instanceof Error && err.message === "LAST_OWNER") {
+      return { ok: false, error: "A project must keep at least one owner." };
+    }
+    return { ok: false, error: "Could not remove that member." };
+  }
 }

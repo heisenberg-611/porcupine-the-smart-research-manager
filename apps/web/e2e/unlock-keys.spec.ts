@@ -56,15 +56,37 @@ async function createConfirmedUser(email: string) {
 }
 
 test.describe("unlocking, and a project key", () => {
-  test.describe.configure({ mode: "serial" });
+  /*
+   * 120 s per test, not the 30 s default.
+   *
+   * Argon2id is deliberately expensive and these tests do several of them —
+   * an unlock is one, and provisioning seals a key per member on top. With two
+   * Playwright projects running at once on one machine that overruns 30 s
+   * intermittently, which showed up as a different test failing on each run
+   * and looked far more mysterious than it was.
+   *
+   * Raising the limit rather than making the crypto cheaper: the slowness is
+   * the security property.
+   */
+  test.describe.configure({ mode: "serial", timeout: 120_000 });
 
-  const email = uniqueEmail("keys");
+  /**
+   * Per Playwright project, not per file.
+   *
+   * A module-level unique email is shared by chromium and mobile — the file is
+   * imported once and run twice — so with two workers both browsers sign in as
+   * the same account and create projects with the same title. The keys screen
+   * then reports the OTHER run's epoch. Same trap the navigation and screening
+   * specs hit; fixed the same way.
+   */
+  let email = "";
   let page: Page;
   let passphrase = "";
   let projectId = "";
 
-  test.beforeAll(async ({ browser }: { browser: Browser }) => {
+  test.beforeAll(async ({ browser }: { browser: Browser }, testInfo) => {
     test.setTimeout(240_000);
+    email = uniqueEmail(`keys-${testInfo.project.name}`);
     await createConfirmedUser(email);
 
     const context = await browser.newContext();
@@ -90,13 +112,15 @@ test.describe("unlocking, and a project key", () => {
     await page.getByRole("button", { name: /continue/i }).click();
     await page.waitForURL(/\/projects/, { timeout: 60_000 });
 
-    await page.getByLabel("Title").fill("Encrypted project");
+    await page.getByLabel("Title").fill(`Encrypted project ${testInfo.project.name}`);
     await page
       .getByRole("group", { name: /kind/i })
       .getByRole("radio", { name: /thesis or dissertation/i })
       .check();
     await page.getByRole("button", { name: /create project/i }).click();
-    await page.getByRole("link", { name: "Encrypted project" }).click();
+    await page
+      .getByRole("link", { name: `Encrypted project ${testInfo.project.name}` })
+      .click();
     await page.waitForURL(/\/projects\/[0-9a-f-]+$/);
     await expect(page.getByRole("heading", { name: "Workspace" })).toBeVisible();
     projectId = page.url().split("/").pop()!;

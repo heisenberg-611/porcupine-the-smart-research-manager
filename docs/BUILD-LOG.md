@@ -1713,3 +1713,71 @@ of it was interesting, all of it would have been drift.
 - Member removal does not yet rotate the epoch. The rotation path exists and is
   tested; nothing calls it when a member leaves.
 - `devices` is still unread — week 4, and it is what removes the re-unlock.
+
+---
+
+## 2026-08-15 · Phase 3 — removal, and the rotation that was never triggered
+
+### The gap was bigger than "removal does not rotate"
+
+The plan said rotation on removal was owed. The audit found something worse:
+**there was no removal at all.** `project_members.removed_at` had been in the
+schema since Phase 0 and nothing in the application ever set it. So the
+security story — "removing a member rotates the key" — described a feature that
+did not exist, which is the fourth instance of that shape this session.
+
+### Removal and rotation are one operation
+
+Not two buttons and not two screens. A removal that does not rotate leaves the
+departed member holding a key that opens everything written afterwards, which
+is the opposite of what anyone means by removing them. The screen offers
+"Remove and rotate" and does both.
+
+**The order is not interchangeable, and it is asserted.** Remove first, then
+rotate: rotating first would seal the new epoch to the member being removed,
+because they are still a member at that moment. Reversing the two lines in the
+client turns the test red — the new epoch comes back sealed to two people
+instead of one.
+
+### The window, named rather than hidden
+
+Rotation happens in a browser. The server holds no key and cannot do it. So
+between a removal and the next unlocked admin there is a period in which new
+content is still readable by the person who left, and if the rotation half
+fails the removal still stands.
+
+`getKeyState` reports `rotationNeeded` — computed, not stored, by comparing
+`removed_at` against the newest `project_keys` row — and the screen says so in
+as many words. A stored flag is a thing that can be wrong; a claim of
+"immediately revoked" would simply be untrue.
+
+Also said on the screen, because it is the question people actually have:
+rotation cannot reach backwards. What they have already read is on their
+machine and no key change recalls it.
+
+### Problems
+
+**A bug I introduced while refactoring, found by the tests.** Extracting
+`rotate()` out of `provision()` left `if (ok) setStatus(null)` behind — which
+cleared the success message `rotate` had just set. The only confirmation the
+user got that anything happened was wiped a tick after appearing. It surfaced
+as an intermittent "element not found", which is exactly how a race presents,
+and it was not a race at all.
+
+**Flakiness that was really a timeout.** These specs unlock and provision, so
+they run Argon2id several times; with two Playwright projects on one machine
+that overruns the 30 s default intermittently, and a different test failed each
+run. The fix is 120 s per test rather than cheaper crypto — the slowness is the
+security property.
+
+**Two more specs sharing one account across Playwright projects.** The same
+trap as navigation and screening: a module-level unique email is computed once
+and used by both browsers. Now derived from `testInfo.project.name`, and the
+project titles too, since both runs listed projects by name.
+
+### Open
+
+- `devices` is still unread. It is what removes the re-unlock, and it is the
+  last of the three tables that existed with nothing reading them.
+- Safety numbers are computed by `keyFingerprint` and displayed nowhere.
+- Live delivery, still costed rather than assumed.
