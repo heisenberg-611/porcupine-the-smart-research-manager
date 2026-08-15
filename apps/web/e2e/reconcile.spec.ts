@@ -70,7 +70,7 @@ async function signInAndEnroll(browser: Browser, email: string): Promise<Page> {
   // Wait for the redirect to settle BEFORE branching. Reading page.url()
   // straight after the click caught it still on /sign-in, so the enrolment
   // branch was skipped and the assertion below then failed on /enroll.
-  await page.waitForURL(/\/(enroll|projects)/);
+  await page.waitForURL(/\/(enroll|dashboard|projects)/);
 
   // A new account lands in enrollment; Argon2id is deliberately slow.
   if (page.url().includes("/enroll")) {
@@ -78,9 +78,9 @@ async function signInAndEnroll(browser: Browser, email: string): Promise<Page> {
     await expect(page.locator("p.font-mono")).toBeVisible({ timeout: 30_000 });
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: /continue/i }).click();
-    await page.waitForURL(/\/projects/);
+    await page.waitForURL(/\/(dashboard|projects)/);
   }
-  await expect(page).toHaveURL(/\/projects/);
+  await expect(page).toHaveURL(/\/dashboard/);
   return page;
 }
 
@@ -188,8 +188,8 @@ test.describe("Phase 2b — dual extraction", () => {
 
     await goto(alice, "/projects");
     await alice.getByRole("link", { name: PROJECT }).click();
-    await alice.getByRole("link", { name: /^extraction form$/i }).click();
-    await alice.getByLabel(/form name/i).fill("Data extraction");
+    await alice.getByRole("link", { name: /^protocol$/i }).click();
+    await alice.getByLabel(/protocol name/i).fill("Data extraction");
     await alice.getByRole("radio", { name: /machine learning benchmarks/i }).check();
     await alice.getByRole("button", { name: /create protocol/i }).click();
     await expect(alice.getByText(/10 fields/)).toBeVisible();

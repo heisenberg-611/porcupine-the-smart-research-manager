@@ -90,7 +90,7 @@ export function Input({ className, ...props }: ComponentProps<"input">) {
         "border-border bg-raised text-ink text-ui w-full rounded-xl border px-4 shadow-sm",
         "min-h-12 transition-all duration-200",
         "placeholder:text-muted/70",
-        "focus:border-accent focus-visible:ring-accent focus-visible:ring-2",
+        "focus:border-accent focus:ring-0",
         "focus-visible:outline-none hover:border-accent/40",
         className,
       )}
@@ -106,7 +106,7 @@ export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
         "border-border bg-raised text-ink text-ui w-full rounded-xl border px-4 shadow-sm",
         "py-3 transition-all duration-200",
         "placeholder:text-muted/70",
-        "focus:border-accent focus-visible:ring-accent focus-visible:ring-2",
+        "focus:border-accent focus:ring-0",
         "focus-visible:outline-none hover:border-accent/40",
         className,
       )}
@@ -122,7 +122,7 @@ export function Select({ className, ...props }: ComponentProps<"select">) {
         "border-border bg-raised text-ink text-ui w-full rounded-xl border px-4 shadow-sm",
         "min-h-12 transition-all duration-200",
         "placeholder:text-muted/70",
-        "focus:border-accent focus-visible:ring-accent focus-visible:ring-2",
+        "focus:border-accent focus:ring-0",
         "focus-visible:outline-none hover:border-accent/40",
         className,
       )}
@@ -146,7 +146,7 @@ export function Checkbox({ className, ...props }: ComponentProps<"input">) {
       type="checkbox"
       className={cx(
         "border-border text-accent accent-accent size-4 rounded",
-        "focus-visible:ring-accent focus-visible:ring-2 focus-visible:outline-none",
+        "focus-visible:border-accent focus:ring-0 focus:outline-none",
         className,
       )}
       {...props}
@@ -167,7 +167,7 @@ export function Radio({ className, ...props }: ComponentProps<"input">) {
       type="radio"
       className={cx(
         "border-border accent-accent size-4",
-        "focus-visible:ring-accent focus-visible:ring-2 focus-visible:outline-none",
+        "focus-visible:border-accent focus:ring-0 focus:outline-none",
         className,
       )}
       {...props}

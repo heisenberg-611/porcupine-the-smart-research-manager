@@ -361,30 +361,6 @@ export function ScreenClient({
           aria-label="Screening queue"
           className="border-rule sticky top-[var(--app-header-h)] hidden max-h-[calc(100dvh-var(--app-header-h)-2rem)] overflow-y-auto border-r pr-3 lg:block"
         >
-          <div className="flex flex-col gap-2 mb-4">
-            <Select
-              value={sortMode}
-              onChange={(e) => setSortMode(e.target.value as any)}
-              className="border-border bg-surface text-ink text-fine min-h-9 rounded-lg border px-2 py-1"
-              aria-label="Sort queue"
-            >
-              <option value="unscreened">Unscreened first</option>
-              <option value="newest">Newest first</option>
-              <option value="oldest">Oldest first</option>
-            </Select>
-            <Select
-              value={assigneeFilter}
-              onChange={(e) => setAssigneeFilter(e.target.value)}
-              className="border-border bg-surface text-ink text-fine min-h-9 rounded-lg border px-2 py-1"
-              aria-label="Filter queue by assignee"
-            >
-              <option value="all">All assignees</option>
-              <option value="unassigned">Unassigned</option>
-              {members.map(m => (
-                <option key={m.userId} value={m.userId}>{m.name}</option>
-              ))}
-            </Select>
-          </div>
           <ul className="flex flex-col gap-0.5">
             {remaining.map((row) => {
               const isCurrent = row.id === current.id;
@@ -466,48 +442,14 @@ export function ScreenClient({
             targets a different paper so they cannot race each other. */}
             <Button onClick={() => decide("INCLUDED")}>Include</Button>
 
-            <div className="flex items-end gap-2">
-              <label className="text-muted text-fine flex flex-col gap-1">
-                Exclusion reason
-                <Select
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value as ExclusionReason | "")}
-                  className="border-border bg-surface text-ink text-ui min-h-11 rounded-lg border px-2"
-                >
-                  <option value="">{reasonRequired ? "Choose one…" : "None"}</option>
-                  {EXCLUSION_REASONS.map((r) => (
-                    <option key={r.code} value={r.code}>
-                      {r.label}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-              <Button variant="danger" onClick={() => decide("EXCLUDED")}>
-                Exclude
-              </Button>
-            </div>
+            <Button variant="danger" onClick={() => decide("EXCLUDED")}>
+              Exclude
+            </Button>
 
             <Button variant="ghost" disabled={pending} onClick={skip}>
               Skip for now
             </Button>
           </div>
-
-          <label className="text-muted text-fine flex max-w-xs flex-col gap-1">
-            Assign to
-            <Select
-              value={current.assigneeId ?? ""}
-              onChange={(e) => assign(e.target.value)}
-              disabled={pending}
-              className="border-border bg-surface text-ink text-ui min-h-11 rounded-lg border px-2"
-            >
-              <option value="">Nobody</option>
-              {members.map((m) => (
-                <option key={m.userId} value={m.userId}>
-                  {m.userId === currentUserId ? `${m.name} (me)` : m.name}
-                </option>
-              ))}
-            </Select>
-          </label>
         </div>
       </div>
 

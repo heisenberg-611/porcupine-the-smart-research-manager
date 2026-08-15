@@ -153,7 +153,7 @@ export function QuestionsClient({
                         {question.keywords.map((keyword) => (
                           <li
                             key={keyword}
-                            className="bg-accent/10 text-accent text-xs rounded-full px-2.5 py-1 font-medium ring-1 ring-inset ring-accent/20 transition-colors"
+                            className="bg-accent/10 text-accent ring-accent/20 rounded-full px-2.5 py-1 text-xs font-medium ring-1 transition-colors ring-inset"
                           >
                             {keyword}
                           </li>
@@ -194,47 +194,44 @@ export function QuestionsClient({
               className="text-accent hover:text-ink underline underline-offset-4 transition-colors"
             >
               Build your protocol
-            </Link>
-            {" "}based on what you want to record.
+            </Link>{" "}
+            based on what you want to record.
           </p>
         </div>
       )}
 
       {canEdit && (
-        <div className="relative rounded-xl bg-gradient-to-br from-ui/5 to-surface p-6 shadow-sm ring-1 ring-border border-t border-white/5 mt-6">
-          <form
-            onSubmit={onAdd}
-            className="flex flex-col gap-4 relative z-10"
-          >
+        <div className="from-ui/5 to-surface ring-border relative mt-6 rounded-xl border-t border-white/5 bg-gradient-to-br p-6 shadow-sm ring-1">
+          <form onSubmit={onAdd} className="relative z-10 flex flex-col gap-4">
             <h2 className="text-ink text-heading font-medium">Add a question</h2>
 
             <Field
-            label="Question"
-            id="question-text"
-            hint="One question. If it has an “and” in it, it is probably two."
-          >
-            <Textarea
+              label="Question"
               id="question-text"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              required
-              rows={2}
-              placeholder="Does spaced repetition improve retention in medical education?"
-            />
-          </Field>
+              hint="One question. If it has an “and” in it, it is probably two."
+            >
+              <Textarea
+                id="question-text"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                required
+                rows={2}
+                placeholder="Does spaced repetition improve retention in medical education?"
+              />
+            </Field>
 
-          <Field
-            label="Keywords"
-            id="question-keywords"
-            hint="Comma-separated. The words a paper would use if it answered this — these are what search ranks against."
-          >
-            <Input
+            <Field
+              label="Keywords"
               id="question-keywords"
-              value={keywords}
-              onChange={(e) => setKeywords(e.target.value)}
-              placeholder="spaced repetition, retention, medical education"
-            />
-          </Field>
+              hint="Comma-separated. The words a paper would use if it answered this — these are what search ranks against."
+            >
+              <Input
+                id="question-keywords"
+                value={keywords}
+                onChange={(e) => setKeywords(e.target.value)}
+                placeholder="spaced repetition, retention, medical education"
+              />
+            </Field>
 
             <Button type="submit" variant="primary" disabled={pending || !text.trim()}>
               {pending ? "Adding…" : "Add question"}

@@ -11,3 +11,6 @@ docs/**
 
 # Throwaway debugging probes; see .gitignore.
 debug-scratch
+
+# Build output: the bundled LaTeX worker and the TeX distribution.
+apps/web/public/

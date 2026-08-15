@@ -61,7 +61,7 @@ async function signInAndEnroll(browser: Browser, email: string): Promise<Page> {
   await page.getByRole("button", { name: /email me a code/i }).click();
   await page.getByLabel(/six-digit code/i).fill(await fetchOtp(email));
   await page.getByRole("button", { name: /^sign in$/i }).click();
-  await page.waitForURL(/\/(enroll|projects)/);
+  await page.waitForURL(/\/(enroll|dashboard|projects)/);
 
   const generate = page.getByRole("button", { name: /generate my keys/i });
   const needsKeys = await generate
@@ -75,7 +75,7 @@ async function signInAndEnroll(browser: Browser, email: string): Promise<Page> {
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: /continue/i }).click();
   }
-  await page.waitForURL(/\/projects/, { timeout: 60_000 });
+  await page.waitForURL(/\/(dashboard|projects)/, { timeout: 60_000 });
   return page;
 }
 
@@ -122,7 +122,7 @@ test.describe("the extraction form's spine", () => {
     // A protocol with one required field and one optional one — the smallest
     // fixture that can tell "required and empty" from "empty".
     await goto(page, `/projects/${projectId}/protocol`);
-    await page.getByLabel(/form name/i).fill("Spine");
+    await page.getByLabel(/protocol name/i).fill("Spine");
     // "Start from nothing", so the protocol has exactly the two fields added
     // below. The default template is PICO and would bring ten more, which
     // would make "0 of 2 answered" meaningless.
@@ -235,7 +235,7 @@ test.describe("the queue can be acted on", () => {
   });
 
   test("an empty queue says what would put something in it", async () => {
-    await goto(page, "/queue");
+    await goto(page, "/assigned");
     // The one screen someone lands on with nothing to do. It used to render a
     // header and then nothing at all — no next action, on the surface most
     // likely to be a new collaborator's first impression.

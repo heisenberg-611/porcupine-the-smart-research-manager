@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { Button } from "@/components/ui";
+import { Button, Input } from "@/components/ui";
 import { extractUpload } from "@/lib/latex/extract";
 import {
   listPackages,
@@ -121,7 +121,7 @@ export function PackageManager({ onChange }: { onChange: (token: string) => void
         <Button onClick={() => input.current?.click()} disabled={busy}>
           {busy ? "Reading…" : "Add packages"}
         </Button>
-        <input
+        <Input
           ref={input}
           type="file"
           multiple

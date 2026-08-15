@@ -175,8 +175,8 @@ export function MessagesClient({ projectId }: { projectId: string }) {
   async function createNamed(rawName: string) {
     const name = rawName.trim();
     if (!currentKey || name === "") return;
-    
-    // The server only sees ciphertext, so it cannot enforce uniqueness. We must 
+
+    // The server only sees ciphertext, so it cannot enforce uniqueness. We must
     // do it here on the decrypted names.
     if (channels.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
       setError(`A channel named "${name}" already exists.`);
@@ -333,8 +333,11 @@ export function MessagesClient({ projectId }: { projectId: string }) {
         </Banner>
       )}
 
-      <div className="relative rounded-xl bg-gradient-to-br from-ui/5 to-surface p-4 shadow-sm ring-1 ring-border border-t border-white/5">
-        <form onSubmit={addChannel} className="flex flex-wrap items-end gap-2 relative z-10">
+      <div className="from-ui/5 to-surface ring-border relative rounded-xl border-t border-white/5 bg-gradient-to-br p-4 shadow-sm ring-1">
+        <form
+          onSubmit={addChannel}
+          className="relative z-10 flex flex-wrap items-end gap-2"
+        >
           <Field label="New channel" id="channel-name">
             <Input
               id="channel-name"
@@ -386,21 +389,32 @@ export function MessagesClient({ projectId }: { projectId: string }) {
 
       {selected && (
         <>
-          <ul className="divide-border divide-y rounded-xl bg-surface/50 shadow-sm ring-1 ring-border">
+          <ul className="divide-border bg-surface/50 ring-border divide-y rounded-xl shadow-sm ring-1">
             {isAdmin && (
-              <li className="flex justify-end p-2 bg-ui/5 rounded-t-xl">
+              <li className="bg-ui/5 flex justify-end rounded-t-xl p-2">
                 {confirmDelete ? (
                   <span className="flex items-center gap-2">
-                    <span className="text-danger-heavy text-sm">Are you sure? This will delete all messages permanently.</span>
+                    <span className="text-danger-heavy text-sm">
+                      Are you sure? This will delete all messages permanently.
+                    </span>
                     <Button variant="danger" disabled={pending} onClick={removeChannel}>
                       Yes, delete channel
                     </Button>
-                    <Button variant="ghost" disabled={pending} onClick={() => setConfirmDelete(false)}>
+                    <Button
+                      variant="ghost"
+                      disabled={pending}
+                      onClick={() => setConfirmDelete(false)}
+                    >
                       Cancel
                     </Button>
                   </span>
                 ) : (
-                  <Button variant="ghost" disabled={pending} onClick={() => setConfirmDelete(true)} className="text-danger">
+                  <Button
+                    variant="ghost"
+                    disabled={pending}
+                    onClick={() => setConfirmDelete(true)}
+                    className="text-danger"
+                  >
                     Delete channel
                   </Button>
                 )}

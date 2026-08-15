@@ -533,7 +533,7 @@ export function SpikeClient() {
                     value={fontSize}
                     onChange={(e) => changeFont(Number(e.target.value))}
                     aria-label="Editor text size in pixels"
-                    className="border-border bg-raised text-ink w-12 rounded border px-1 py-0.5 text-right"
+                    className="border-border bg-surface text-ink focus:border-accent h-7 w-12 rounded border px-1 text-center font-mono text-sm shadow-sm transition-colors focus:ring-0 focus:outline-none"
                   />
                 </label>
 

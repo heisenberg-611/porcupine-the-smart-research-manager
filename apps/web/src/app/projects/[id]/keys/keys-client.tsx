@@ -326,7 +326,9 @@ export function KeysClient({ projectId }: { projectId: string }) {
         </p>
         {epoch > 0 && (
           <p className="text-muted text-fine mt-1">
-            Rotating the key generates a new cryptographic epoch and seals it only to current members. This ensures that anyone who was removed or compromised loses access to all new messages going forward.
+            Rotating the key generates a new cryptographic epoch and seals it only to
+            current members. This ensures that anyone who was removed or compromised loses
+            access to all new messages going forward.
           </p>
         )}
         <p className="text-muted text-fine">
@@ -349,66 +351,70 @@ export function KeysClient({ projectId }: { projectId: string }) {
         <h2 id="holders" className="text-ink text-heading mb-2 font-medium">
           Who holds a key
         </h2>
-        <ul className="divide-border divide-y rounded-xl bg-surface/50 shadow-sm ring-1 ring-border">
+        <ul className="divide-border bg-surface/50 ring-border divide-y rounded-xl shadow-sm ring-1">
           {(members ?? [])
             .filter((m) => !m.isRemoved)
             .map((member) => {
               const me = (members ?? []).find((m) => m.isMe);
-            const canRemove = me && (me.accessRole === "OWNER" || me.accessRole === "ADMIN");
+              const canRemove =
+                me && (me.accessRole === "OWNER" || me.accessRole === "ADMIN");
 
-            return (
-              <li
-                key={member.userId}
-                className="flex flex-wrap items-center justify-between gap-3 p-3"
-              >
-              <span className="text-ink text-ui">
-                {member.displayName}
-                {member.isMe && <span className="text-muted"> — you</span>}
-                {member.identityPubKey === "" ? (
-                  <span className="text-muted text-fine block">
-                    Has not set up keys yet, so cannot be given one.
+              return (
+                <li
+                  key={member.userId}
+                  className="flex flex-wrap items-center justify-between gap-3 p-3"
+                >
+                  <span className="text-ink text-ui">
+                    {member.displayName}
+                    {member.isMe && <span className="text-muted"> — you</span>}
+                    {member.identityPubKey === "" ? (
+                      <span className="text-muted text-fine block">
+                        Has not set up keys yet, so cannot be given one.
+                      </span>
+                    ) : (
+                      <span className="text-muted text-fine block font-mono">
+                        {fingerprints[member.userId] ?? "…"}
+                      </span>
+                    )}
                   </span>
-                ) : (
-                  <span className="text-muted text-fine block font-mono">
-                    {fingerprints[member.userId] ?? "…"}
-                  </span>
-                )}
-              </span>
 
-              {!member.isMe &&
-                canRemove &&
-                (confirming === member.userId ? (
-                  <div className="flex flex-col items-end gap-2">
-                    <p className="text-muted text-fine max-w-xs text-right">
-                      This will permanently remove {member.displayName} from the project and immediately rotate the project key. They will lose access to the project and all future messages, but will keep access to past messages they already have keys for.
-                    </p>
-                    <span className="flex flex-wrap gap-2">
+                  {!member.isMe &&
+                    canRemove &&
+                    (confirming === member.userId ? (
+                      <div className="flex flex-col items-end gap-2">
+                        <p className="text-muted text-fine max-w-xs text-right">
+                          This will permanently remove {member.displayName} from the
+                          project and immediately rotate the project key. They will lose
+                          access to the project and all future messages, but will keep
+                          access to past messages they already have keys for.
+                        </p>
+                        <span className="flex flex-wrap gap-2">
+                          <Button
+                            variant="danger"
+                            disabled={pending}
+                            onClick={() =>
+                              void removeAndRotate(member.userId, member.displayName)
+                            }
+                          >
+                            Yes, remove and rotate
+                          </Button>
+                          <Button variant="ghost" onClick={() => setConfirming(null)}>
+                            Cancel
+                          </Button>
+                        </span>
+                      </div>
+                    ) : (
                       <Button
-                        variant="danger"
+                        variant="ghost"
                         disabled={pending}
-                        onClick={() =>
-                          void removeAndRotate(member.userId, member.displayName)
-                        }
+                        onClick={() => setConfirming(member.userId)}
                       >
-                        Yes, remove and rotate
+                        Remove
                       </Button>
-                      <Button variant="ghost" onClick={() => setConfirming(null)}>
-                        Cancel
-                      </Button>
-                    </span>
-                  </div>
-                ) : (
-                  <Button
-                    variant="ghost"
-                    disabled={pending}
-                    onClick={() => setConfirming(member.userId)}
-                  >
-                    Remove
-                  </Button>
-                ))}
-            </li>
-          );
-        })}
+                    ))}
+                </li>
+              );
+            })}
         </ul>
         <p className="text-muted text-fine mt-2">
           {/* What the number under each name is FOR. A safety number nobody is

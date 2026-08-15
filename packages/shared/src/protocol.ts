@@ -255,7 +255,8 @@ export const PROTOCOL_TEMPLATES: ProtocolTemplate[] = [
   {
     id: "literature-review",
     name: "Literature review / Thesis",
-    description: "Research question, methodology, findings, and relevance — for scoping a topic.",
+    description:
+      "Research question, methodology, findings, and relevance — for scoping a topic.",
     fields: [
       {
         label: "Research objective",

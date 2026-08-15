@@ -118,7 +118,13 @@ export async function searchWorks(
 
   return {
     ok: true,
-    data: { ranked: rankWorks(works, keywords), counts, failures, alreadyAdded, keywords },
+    data: {
+      ranked: rankWorks(works, keywords),
+      counts,
+      failures,
+      alreadyAdded,
+      keywords,
+    },
   };
 }
 

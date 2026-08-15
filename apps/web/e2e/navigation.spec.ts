@@ -81,14 +81,14 @@ async function signInAndEnroll(browser: Browser, email: string): Promise<Page> {
   await page.getByRole("button", { name: /email me a code/i }).click();
   await page.getByLabel(/six-digit code/i).fill(await fetchOtp(email));
   await page.getByRole("button", { name: /^sign in$/i }).click();
-  await page.waitForURL(/\/(enroll|projects)/);
+  await page.waitForURL(/\/(enroll|dashboard|projects)/);
 
   if (page.url().includes("/enroll")) {
     await page.getByRole("button", { name: /generate my keys/i }).click();
     await expect(page.locator("p.font-mono")).toBeVisible({ timeout: 60_000 });
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: /continue/i }).click();
-    await page.waitForURL(/\/projects/);
+    await page.waitForURL(/\/(dashboard|projects)/);
   }
 
   return page;
@@ -292,7 +292,7 @@ test.describe("theme", () => {
     // The point of persisting it. A choice that a reload forgets is not a
     // setting, and the inline script in <head> is what makes this pass
     // without a flash of the other theme first.
-    await goto(page, "/queue");
+    await goto(page, "/assigned");
     await expect(html()).toHaveAttribute("data-theme", "dark");
     await expect(page.getByRole("button", { name: /dark theme/i })).toHaveAttribute(
       "aria-pressed",

@@ -166,7 +166,10 @@ export async function federatedSearch(
 
   const counts = settled
     .filter((res) => res.valid.length > 0)
-    .map((res) => ({ provider: registry[res.id as ProviderId]?.label ?? res.id, count: res.valid.length }));
+    .map((res) => ({
+      provider: registry[res.id as ProviderId]?.label ?? res.id,
+      count: res.valid.length,
+    }));
 
   const allWorks = settled.flatMap((res) => res.valid);
 

@@ -63,9 +63,9 @@ export function ImportClient({ projectId }: { projectId: string }) {
   }
 
   return (
-    <section className="space-y-6 mt-6">
-      <div className="relative rounded-xl bg-gradient-to-br from-ui/5 to-surface p-6 shadow-sm ring-1 ring-border border-t border-white/5">
-        <form onSubmit={onPreview} className="space-y-4 relative z-10">
+    <section className="mt-6 space-y-6">
+      <div className="from-ui/5 to-surface ring-border relative rounded-xl border-t border-white/5 bg-gradient-to-br p-6 shadow-sm ring-1">
+        <form onSubmit={onPreview} className="relative z-10 space-y-4">
           <Field
             label="Paste references"
             id="source"

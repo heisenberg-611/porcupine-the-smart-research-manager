@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 
+import { Input } from "@/components/ui";
 import { isEditable, isText, type ProjectFiles } from "@/lib/latex/project-store";
 
 /**
@@ -51,7 +52,10 @@ export function FileTree({
   const onDownload = (name: string) => {
     const contents = files.get(name);
     if (!contents) return;
-    const blob = new Blob([contents as any]);
+    // A string and a byte array are both valid BlobParts, but not the same
+    // one — `as any` here papered over the difference and would have shipped
+    // a text file's bytes as UTF-16 if the branch were ever wrong.
+    const blob = new Blob([typeof contents === "string" ? contents : contents.slice()]);
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -84,7 +88,7 @@ export function FileTree({
           <button
             type="button"
             onClick={() => setAdding((v) => !v)}
-            className="text-muted hover:text-ink hover:bg-accent/5 focus-visible:ring-accent text-xs font-medium rounded px-2 py-1 transition-colors border border-transparent hover:border-rule shadow-sm focus-visible:ring-2 focus-visible:outline-none"
+            className="text-muted hover:text-ink hover:bg-accent/5 focus-visible:ring-accent hover:border-rule rounded border border-transparent px-2 py-1 text-xs font-medium shadow-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
           >
             New
           </button>
@@ -92,11 +96,11 @@ export function FileTree({
             type="button"
             onClick={() => upload.current?.click()}
             title="Add figures, data, or .tex files from your machine"
-            className="text-muted hover:text-ink hover:bg-accent/5 focus-visible:ring-accent text-xs font-medium rounded px-2 py-1 transition-colors border border-transparent hover:border-rule shadow-sm focus-visible:ring-2 focus-visible:outline-none"
+            className="text-muted hover:text-ink hover:bg-accent/5 focus-visible:ring-accent hover:border-rule rounded border border-transparent px-2 py-1 text-xs font-medium shadow-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
           >
             Upload
           </button>
-          <input
+          <Input
             ref={upload}
             type="file"
             multiple
@@ -112,14 +116,14 @@ export function FileTree({
 
       {adding && (
         <form onSubmit={create} className="border-rule border-b p-2">
-          <input
+          <Input
             autoFocus
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onBlur={() => !draft && setAdding(false)}
             placeholder="chapters/intro.tex"
             aria-label="New file name"
-            className="border-border bg-raised text-ink text-fine w-full rounded border px-2 py-1 font-mono"
+            className="text-fine min-h-9 rounded-lg px-2 py-1 font-mono"
           />
         </form>
       )}
@@ -146,14 +150,14 @@ export function FileTree({
                       the whole page, cannot be styled or cancelled with Escape
                       in the usual way, and is suppressed outright in some
                       browsers — a rename that silently does nothing. */}
-                  <input
+                  <Input
                     autoFocus
                     value={rename}
                     onChange={(e) => setRename(e.target.value)}
                     onKeyDown={(e) => e.key === "Escape" && setEditingName(null)}
                     onBlur={() => setEditingName(null)}
                     aria-label={`Rename ${name}`}
-                    className="border-accent bg-raised text-ink text-fine w-full rounded border px-2 py-1 font-mono"
+                    className="border-accent text-fine min-h-9 rounded-lg px-2 py-1 font-mono"
                   />
                 </form>
               </li>
@@ -169,10 +173,12 @@ export function FileTree({
                 aria-current={current ? "true" : undefined}
                 title={editable ? name : `${name} — binary, carried but not editable`}
                 className={cx(
-                  "text-[13px] focus-visible:ring-accent min-w-0 flex-1 truncate px-3 py-1.5 text-left font-mono transition-colors",
+                  "focus-visible:ring-accent min-w-0 flex-1 truncate px-3 py-1.5 text-left font-mono text-[13px] transition-colors",
                   "focus-visible:ring-2 focus-visible:outline-none",
                   current ? "bg-accent/10 text-ink font-medium" : "text-ink-soft",
-                  editable ? "hover:text-ink hover:bg-surface/50" : "cursor-default italic opacity-70",
+                  editable
+                    ? "hover:text-ink hover:bg-surface/50"
+                    : "cursor-default italic opacity-70",
                 )}
               >
                 {isRoot && (

@@ -42,17 +42,22 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // `/spike/:path*` as well as `/spike`: the header set applies to the
-        // exact source only, so a nested route would silently lose cross-origin
-        // isolation and the failure would look like a wasm bug.
-        source: "/spike/:path*",
+        // `/studio/:path*` as well as `/studio`: a header block applies to its
+        // exact source only, so a nested route would silently lose
+        // cross-origin isolation and the failure would look like a wasm bug.
+        //
+        // The route is `/studio`, not `/latex`, because `/latex/*` is where
+        // the TeX distribution is served from — a page and a 13 MB tarball
+        // sharing a path prefix is a coin-flip nobody should have to think
+        // about.
+        source: "/studio/:path*",
         headers: [
           { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
           { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
         ],
       },
       {
-        source: "/spike",
+        source: "/studio",
         headers: [
           { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
           { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
