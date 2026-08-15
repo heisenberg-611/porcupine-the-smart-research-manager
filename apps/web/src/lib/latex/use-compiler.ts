@@ -11,6 +11,8 @@ export interface CompileOutcome {
   pdfUrl: string | null;
   diagnostics: Diagnostic[];
   unsupported: string[];
+  /** Missing packages found by scanning the source, before TeX ran. */
+  preflight: string[];
   /** The raw TeX log. The compiler panel shows it verbatim. */
   log: string | null;
   passesRun: number;
@@ -89,6 +91,7 @@ export function useCompiler() {
         pdfUrl: objectUrl.current,
         diagnostics: data.diagnostics,
         unsupported: data.unsupported,
+        preflight: data.preflight,
         log: data.log,
         passesRun: data.passesRun,
         message: data.message,

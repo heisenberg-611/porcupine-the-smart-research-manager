@@ -51,6 +51,14 @@ export type CompiledMessage = {
    * about by cross-referencing the diagnostics.
    */
   unsupported: string[];
+  /**
+   * Packages the SOURCE asks for that are not in the filesystem, found by
+   * scanning before TeX ran.
+   *
+   * TeX stops at the first file it cannot find, so without this a chain of
+   * dependencies is discovered one compile at a time. This is the whole list.
+   */
+  preflight: string[];
   /** The raw `<jobname>.log`. The thing a LaTeX user actually reads. */
   log: string | null;
   passesRun: number;

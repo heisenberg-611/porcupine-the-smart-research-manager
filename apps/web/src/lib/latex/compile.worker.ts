@@ -11,6 +11,7 @@ import {
 } from "glyphtex-engine";
 
 import { loadAll } from "./package-store";
+import { missingPackages } from "./preflight";
 import { untar } from "./untar";
 import type { CompiledMessage, WorkerRequest, WorkerResponse } from "./protocol";
 
@@ -73,6 +74,10 @@ const installed: InstalledPack[] = [];
  */
 const packFiles = new Map<string, Uint8Array>();
 let packagesToken: string | null = null;
+/** The user's own uploads, kept for the preflight scan and for rebuilds. */
+let userFiles = new Map<string, Uint8Array>();
+/** Every name currently in the engine's filesystem. */
+let present = new Set<string>();
 
 const scope = self as unknown as DedicatedWorkerGlobalScope;
 
@@ -211,8 +216,14 @@ async function rebuildFilesystem(token: string, id: number): Promise<void> {
   if (bundle) active.addFiles(bundle);
   if (packFiles.size > 0) active.addFiles(packFiles);
 
-  const mine = await loadAll();
-  if (mine.size > 0) active.addFiles(mine);
+  userFiles = await loadAll();
+  if (userFiles.size > 0) active.addFiles(userFiles);
+
+  present = new Set<string>([
+    ...(bundle?.keys() ?? []),
+    ...packFiles.keys(),
+    ...userFiles.keys(),
+  ]);
 
   packagesToken = token;
 }
@@ -226,6 +237,19 @@ async function compile(request: WorkerRequest): Promise<void> {
   }
 
   for (const [name, contents] of Object.entries(files)) active.addFile(name, contents);
+
+  /*
+   * Look before typesetting.
+   *
+   * The document and the user's own packages are scanned for what they ask
+   * for, so the whole missing set is reported at once rather than one per
+   * compile — TeX stops at the first file it cannot find, and it stops by
+   * asking a question no browser can answer.
+   */
+  const preflight = missingPackages(
+    [...Object.entries(files), ...userFiles],
+    new Set([...present, ...Object.keys(files)]),
+  );
 
   post({ kind: "progress", id, step: "Typesetting" });
   let result = active.compile({ entry, synctex: true });
@@ -274,6 +298,7 @@ async function compile(request: WorkerRequest): Promise<void> {
     pdf: bytes,
     diagnostics: result.diagnostics,
     unsupported,
+    preflight,
     log: active.log() ?? null,
     passesRun: result.passesRun,
     message: result.message,

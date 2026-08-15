@@ -66,6 +66,18 @@ export function CompilerPanel({
     }
 
     /*
+     * Anything the preflight scan found is fatal too, whether or not TeX got
+     * far enough to complain about it.
+     *
+     * That is the point of scanning: TeX aborts at the first missing file, so
+     * without this the reader is told about `logreq` and only discovers
+     * `biblatex`'s next dependency after fetching it, one compile at a time.
+     */
+    for (const name of outcome?.preflight ?? []) {
+      if (!fatal.includes(name)) fatal.push(name);
+    }
+
+    /*
      * Collapse the probing.
      *
      * TeX hunts. When it cannot find `biblatex.sty` it tries `.sty.tex`,
@@ -196,24 +208,51 @@ function ProblemList({
 
       {message && (
         <li className="text-danger">
-          <strong>Failed:</strong> {message}
+          <strong>Failed:</strong> {explain(message)}
         </li>
       )}
 
       {fatal.length > 0 && (
         <li className="border-danger/40 bg-danger-soft/40 rounded border p-2">
           <p className="text-danger font-medium">
-            {/* Named as PACKAGES, not filenames. "biblatex.sty" is what the
-                engine reports; "the biblatex package" is what the person is
-                looking for in their preamble. */}
-            Not in this TeX distribution: {fatal.map(packageName).join(", ")}
+            {/* Named as PACKAGES, not filenames — "biblatex.sty" is what the
+                engine reports, "the biblatex package" is what the reader has
+                in their preamble — and linked, because the next thing anyone
+                does is go and look for it. */}
+            Not in this TeX distribution:{" "}
+            {fatal.map((file, i) => {
+              const pkg = packageName(file);
+              const asker = requiredBy(file, diagnostics);
+              return (
+                <span key={file}>
+                  {i > 0 && ", "}
+                  <a
+                    href={`https://ctan.org/pkg/${encodeURIComponent(pkg)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-4"
+                  >
+                    {pkg}
+                  </a>
+                  {/* Which package asked. A dependency you have never heard of
+                      is baffling on its own; "required by biblatex" makes it
+                      obviously the next link in a chain rather than a mystery. */}
+                  {asker && <span className="text-muted"> (required by {asker})</span>}
+                </span>
+              );
+            })}
           </p>
           <p className="text-muted mt-1">
-            The document cannot be typeset without {fatal.length === 1 ? "it" : "them"}.
-            Add {fatal.length === 1 ? "it" : "them"} under{" "}
-            <strong className="text-ink">Packages</strong> — download the package from
-            CTAN and drop the archive in, and it stays in this browser — or remove the{" "}
-            <code className="font-mono">\usepackage</code> line.
+            Download {fatal.length === 1 ? "it" : "them"} from CTAN and drop the archive
+            into <strong className="text-ink">Packages</strong>, or remove the{" "}
+            <code className="font-mono">\usepackage</code> line.{" "}
+            {/* Said once, plainly, because otherwise this looks like an endless
+                game: LaTeX packages depend on other packages, TeX stops at the
+                first one it cannot find, and you learn about the next only
+                after supplying this one. */}
+            LaTeX packages depend on other packages, and TeX reports only the first one
+            missing — so expect another round or two. Several archives can be dropped in
+            at once.
           </p>
         </li>
       )}
@@ -308,6 +347,40 @@ function packageName(file: string): string {
   const tikz = /^tikzlibrary(.+)\.code\.tex$/.exec(file);
   if (tikz) return `tikz library ${tikz[1]}`;
   return file.replace(/\.(sty|cls|def|code\.tex|tex)$/, "");
+}
+
+/**
+ * Turn the engine's failure message into something true and useful.
+ *
+ * "terminal input forbidden" is accurate and unhelpful: it means TeX stopped
+ * to ASK A QUESTION and there was nobody to answer. In practice that question
+ * is almost always "I cannot find this file, what should I use instead?" —
+ * which is a missing package, already named above, and not a mysterious
+ * engine fault.
+ */
+function explain(message: string): string {
+  if (/terminal input forbidden/i.test(message)) {
+    return (
+      "TeX stopped to ask a question and there is no terminal to answer it — " +
+      "which almost always means a file it could not find. See the missing " +
+      "packages above."
+    );
+  }
+  return message;
+}
+
+/** Which file was being read when TeX could not find this one. */
+function requiredBy(
+  missing: string,
+  diagnostics: CompileOutcome["diagnostics"],
+): string | null {
+  const source = diagnostics.find(
+    (d) => d.severity === "error" && d.message.includes(missing) && d.file,
+  );
+  if (!source?.file) return null;
+
+  const asker = packageName(source.file);
+  return asker === packageName(missing) ? null : asker;
 }
 
 function rank(severity: string): number {
