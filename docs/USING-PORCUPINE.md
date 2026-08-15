@@ -325,5 +325,6 @@ up). `pnpm verify --e2e` adds a browser run.
 | `docs/06-phase-0-build-plan.md` | Phase 0 (Foundations) build plan and exit criteria |
 | `docs/07-phase-1-build-plan.md` | Phase 1 (Discovery, corpus & reading) build plan and exit criteria |
 | `docs/08-phase-2-build-plan.md` | The extraction pipeline, week by week |
-| `docs/09-phase-2c-usability-build-plan.md` | What is wrong with the interface, and the plan to fix it |
+| `docs/09-phase-2c-usability-build-plan.md` | What was wrong with the interface, and how it was fixed |
+| `docs/10-phase-3-build-plan.md` | Encryption and messaging — including why the key hierarchy had to be fixed first |
 | `docs/adr/` | Architecture Decision Records (ADRs) |
