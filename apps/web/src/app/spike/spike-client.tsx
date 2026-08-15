@@ -11,7 +11,11 @@ import { EditorView, keymap } from "@codemirror/view";
 import type { KeyBinding } from "@codemirror/view";
 
 import { Button } from "@/components/ui";
-import { closeEnvironmentOnBrace, latexCompletions } from "@/lib/latex/editor-support";
+import { collectLabels, collectOutline, countWords, lint } from "@/lib/latex/analyse";
+import {
+  closeEnvironmentOnBrace,
+  makeLatexCompletions,
+} from "@/lib/latex/editor-support";
 import { useCompiler } from "@/lib/latex/use-compiler";
 
 import {
@@ -45,6 +49,10 @@ const COMPILE_KEY: KeyBinding = {
 };
 
 const SPLIT_KEY = "porcupine.latex.split";
+const FONT_KEY = "porcupine.latex.fontsize";
+/** Below 10px nothing is legible; above 24 the editor holds three words. */
+const MIN_FONT = 10;
+const MAX_FONT = 24;
 /** Neither pane is useful below a fifth of the width. */
 const MIN_SPLIT = 20;
 const MAX_SPLIT = 80;
@@ -86,13 +94,31 @@ export function SpikeClient() {
   const [wrap, setWrap] = useState(true);
   /** Editor width as a percentage of the split. Dragged, and remembered. */
   const [split, setSplit] = useState(50);
+  /** Editor type size in px. Asked for, and the reason is eyesight. */
+  const [fontSize, setFontSize] = useState(14);
   const [dragging, setDragging] = useState(false);
   const panes = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    const size = Number(localStorage.getItem(FONT_KEY));
+    if (Number.isFinite(size) && size >= MIN_FONT && size <= MAX_FONT) {
+      setFontSize(size);
+    }
+
     const saved = Number(localStorage.getItem(SPLIT_KEY));
     if (Number.isFinite(saved) && saved >= MIN_SPLIT && saved <= MAX_SPLIT) {
       setSplit(saved);
+    }
+  }, []);
+
+  const changeFont = useCallback((next: number) => {
+    if (!Number.isFinite(next)) return;
+    const clamped = Math.min(MAX_FONT, Math.max(MIN_FONT, Math.round(next)));
+    setFontSize(clamped);
+    try {
+      localStorage.setItem(FONT_KEY, String(clamped));
+    } catch {
+      // The size still applies; it just will not be remembered.
     }
   }, []);
 
@@ -133,7 +159,7 @@ export function SpikeClient() {
     () => [
       StreamLanguage.define(stex),
       autocompletion({
-        override: [latexCompletions],
+        override: [makeLatexCompletions(() => projectRef.current)],
         // LaTeX is typed continuously, so a popup that steals the keyboard on
         // its own is worse than one asked for. It opens on `\`, on a word,
         // and on Ctrl-Space.
@@ -151,8 +177,14 @@ export function SpikeClient() {
        */
       Prec.highest(keymap.of([COMPILE_KEY])),
       ...(wrap ? [EditorView.lineWrapping] : []),
+      EditorView.theme({
+        "&": { fontSize: `${fontSize}px` },
+        // The gutter has to follow, or the line numbers stop lining up with
+        // the lines they number.
+        ".cm-gutters": { fontSize: `${fontSize}px` },
+      }),
     ],
-    [wrap],
+    [wrap, fontSize],
   );
 
   /**
@@ -206,6 +238,32 @@ export function SpikeClient() {
   /** Every file, as the worker wants them. */
   const asRecord = useCallback(() => Object.fromEntries(files), [files]);
 
+  /**
+   * The text files, for everything that reads the document rather than
+   * compiling it — completions, the outline, the word count, the checks.
+   */
+  const textFiles = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const [name, contents] of files) {
+      if (typeof contents === "string") map.set(name, contents);
+    }
+    return map;
+  }, [files]);
+
+  const labels = useMemo(() => collectLabels(textFiles), [textFiles]);
+  const problems = useMemo(() => lint(textFiles), [textFiles]);
+  const paths = useMemo(() => [...files.keys()], [files]);
+
+  /*
+   * Read through a ref, not captured.
+   *
+   * The completion extension is built once — rebuilding it on every keystroke
+   * throws away the open popup — so it cannot close over `labels` directly, or
+   * it would offer whatever existed when the editor was created.
+   */
+  const projectRef = useRef({ labels, paths });
+  projectRef.current = { labels, paths };
+
   compileFromKeyboard = () => compile(asRecord(), entry, packagesToken);
 
   const edit = useCallback(
@@ -219,6 +277,14 @@ export function SpikeClient() {
   /** The open file's text. Binary files are listed but never opened. */
   const openFile = files.get(active);
   const text = typeof openFile === "string" ? openFile : "";
+
+  const outline = useMemo(
+    // Recomputed as you type, which is what makes it an outline rather than a
+    // snapshot of the last compile.
+    () => collectOutline(text, active),
+    [text, active],
+  );
+  const words = useMemo(() => countWords(text), [text]);
 
   const createFile = useCallback(
     (name: string) => {
@@ -373,17 +439,51 @@ export function SpikeClient() {
           style={{ flexBasis: `${split}%` }}
           className="border-rule flex min-h-0 flex-1 border-b lg:flex-none lg:border-r lg:border-b-0"
         >
-          <FileTree
-            files={files}
-            active={active}
-            entry={entry}
-            onOpen={setActive}
-            onCreate={createFile}
-            onUpload={uploadFiles}
-            onRename={rename}
-            onDelete={remove}
-            onSetEntry={chooseEntry}
-          />
+          <div className="flex w-52 shrink-0 flex-col">
+            <FileTree
+              files={files}
+              active={active}
+              entry={entry}
+              onOpen={setActive}
+              onCreate={createFile}
+              onUpload={uploadFiles}
+              onRename={rename}
+              onDelete={remove}
+              onSetEntry={chooseEntry}
+            />
+
+            {/* The outline of the OPEN file, not the project.
+
+              A project-wide outline would need the root's `\input` order to
+              mean anything, and reading it out of the source is guesswork the
+              moment anyone writes a conditional include. What is on screen is
+              what this answers for. */}
+            {outline.length > 0 && (
+              <nav
+                aria-label="Outline"
+                className="border-rule bg-surface/60 flex max-h-64 flex-col border-t border-r"
+              >
+                <p className="border-rule text-muted text-fine border-b px-2 py-1.5 font-medium">
+                  Outline
+                </p>
+                <ul className="min-h-0 flex-1 overflow-auto py-1">
+                  {outline.map((heading, i) => (
+                    <li key={`${heading.line}-${i}`}>
+                      <button
+                        type="button"
+                        onClick={() => goToLine(heading.line)}
+                        title={heading.title}
+                        style={{ paddingLeft: `${0.5 + heading.level * 0.5}rem` }}
+                        className="text-muted hover:text-ink hover:bg-surface focus-visible:ring-accent text-fine w-full truncate py-1 pr-2 text-left focus-visible:ring-2 focus-visible:outline-none"
+                      >
+                        {heading.title}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            )}
+          </div>
 
           <div className="flex min-w-0 flex-1 flex-col">
             <div className="border-rule bg-surface flex shrink-0 items-center justify-between gap-3 border-b px-4 py-1.5">
@@ -409,7 +509,28 @@ export function SpikeClient() {
                   />
                   Wrap
                 </label>
-                <span aria-hidden>⌘↵ compile · ⌃Space complete</span>
+                <span className="tabular-nums" title="Words, excluding markup">
+                  {words} {words === 1 ? "word" : "words"}
+                </span>
+
+                <label className="flex items-center gap-1">
+                  {/* A number field rather than +/- buttons: someone who wants
+                    19px can say so, and the arrows still give one-step
+                    nudging. */}
+                  <span className="sr-only">Editor text size in pixels</span>
+                  A
+                  <input
+                    type="number"
+                    min={MIN_FONT}
+                    max={MAX_FONT}
+                    value={fontSize}
+                    onChange={(e) => changeFont(Number(e.target.value))}
+                    aria-label="Editor text size in pixels"
+                    className="border-border bg-raised text-ink w-12 rounded border px-1 py-0.5 text-right"
+                  />
+                </label>
+
+                <span aria-hidden>⌘↵ compile</span>
               </span>
             </div>
             {/*
@@ -532,6 +653,7 @@ export function SpikeClient() {
       <CompilerPanel
         outcome={outcome}
         error={error}
+        checks={problems}
         entry={entry}
         onGoToLine={goToLine}
       />

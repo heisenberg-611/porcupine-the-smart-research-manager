@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import type { Problem } from "@/lib/latex/analyse";
 import type { CompileOutcome } from "@/lib/latex/use-compiler";
 
 /**
@@ -21,11 +22,21 @@ import type { CompileOutcome } from "@/lib/latex/use-compiler";
 export function CompilerPanel({
   outcome,
   error,
+  checks,
   entry,
   onGoToLine,
 }: {
   outcome: CompileOutcome | null;
   error: string | null;
+  /**
+   * Found by reading the source, not by compiling it.
+   *
+   * These are live: an unclosed `\begin` is reported while it is being typed,
+   * rather than after a compile that fails with a message pointing at the end
+   * of the file. Shown in the same place as everything else the compiler says,
+   * because "what is wrong with my document" is one question.
+   */
+  checks: Problem[];
   /** The root document, so its own auxiliaries can be recognised as noise. */
   entry: string;
   /** Jump the editor to a line. Undefined when the diagnostic has no line. */
@@ -105,7 +116,8 @@ export function CompilerPanel({
 
   const errorCount = diagnostics.filter((d) => d.severity === "error").length;
   const warningCount = diagnostics.filter((d) => d.severity === "warning").length;
-  const problemCount = errorCount + fatal.length + (error ? 1 : 0);
+  const checkErrors = checks.filter((c) => c.severity === "error").length;
+  const problemCount = errorCount + fatal.length + checkErrors + (error ? 1 : 0);
 
   return (
     <section
@@ -159,6 +171,7 @@ export function CompilerPanel({
               error={error}
               fatal={fatal}
               probed={probed}
+              checks={checks}
               diagnostics={diagnostics}
               message={outcome?.message ?? null}
               onGoToLine={onGoToLine}
@@ -183,6 +196,7 @@ function ProblemList({
   error,
   fatal,
   probed,
+  checks,
   diagnostics,
   message,
   onGoToLine,
@@ -190,11 +204,18 @@ function ProblemList({
   error: string | null;
   fatal: string[];
   probed: string[];
+  checks: Problem[];
   diagnostics: CompileOutcome["diagnostics"];
   message: string | null;
   onGoToLine: (line: number) => void;
 }) {
-  if (!error && !message && fatal.length === 0 && diagnostics.length === 0) {
+  if (
+    !error &&
+    !message &&
+    fatal.length === 0 &&
+    checks.length === 0 &&
+    diagnostics.length === 0
+  ) {
     return <p className="text-muted">Nothing to report.</p>;
   }
 
@@ -256,6 +277,29 @@ function ProblemList({
           </p>
         </li>
       )}
+
+      {/* First, because they are found without compiling and are usually the
+          reason the compile is about to fail. */}
+      {checks.map((check, i) => (
+        <li key={`check-${check.file}-${check.line}-${i}`} className="flex gap-2">
+          <span
+            className={cx(
+              "shrink-0 font-mono",
+              check.severity === "error" ? "text-danger" : "text-muted",
+            )}
+          >
+            {check.severity}
+          </span>
+          <button
+            type="button"
+            onClick={() => onGoToLine(check.line)}
+            className="text-accent focus-visible:ring-accent shrink-0 rounded font-mono underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+          >
+            {check.file}:{check.line}
+          </button>
+          <span className="text-ink-soft min-w-0">{check.message}</span>
+        </li>
+      ))}
 
       {diagnostics.map((d, i) => (
         <li key={`${d.message}-${i}`} className="flex gap-2">
@@ -385,4 +429,8 @@ function requiredBy(
 
 function rank(severity: string): number {
   return severity === "error" ? 0 : severity === "warning" ? 1 : 2;
+}
+
+function cx(...parts: Array<string | false | null | undefined>) {
+  return parts.filter(Boolean).join(" ");
 }

@@ -7,6 +7,7 @@ import {
 import { Prec } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 
+import type { Label } from "./analyse";
 import {
   COMMANDS,
   DOCUMENT_CLASSES,
@@ -14,6 +15,19 @@ import {
   PACKAGES,
   TIKZ_LIBRARIES,
 } from "./editor-vocabulary";
+
+/**
+ * What the completions need to know about the project around them.
+ *
+ * Read through a callback rather than captured, because the extension is built
+ * once and the project changes underneath it — a label added in another file
+ * has to be offered without rebuilding the editor.
+ */
+export interface ProjectContext {
+  labels: Label[];
+  /** Every file in the project, for `\input` and `\includegraphics`. */
+  paths: string[];
+}
 
 /**
  * Completions, in the places LaTeX actually needs them.
@@ -27,6 +41,12 @@ import {
 
 /** `\begin{`, `\end{` — environments, and completing one closes it. */
 const ENVIRONMENT_AT = /\\(begin|end)\{([^}]*)$/;
+/** `\ref{`, `\eqref{`, `\autoref{`, `\pageref{` — labels in the project. */
+const REFERENCE_AT = /\\(?:page|eq|auto|c|C)?ref\s*\{([^}]*)$/;
+/** `\input{`, `\include{`, `\includegraphics[opts]{` — files. */
+const PATH_AT =
+  /\\(?:input|include|includegraphics|bibliography|addbibresource)\s*(?:\[[^\]]*\])?\s*\{([^}]*)$/;
+
 /** `\usepackage[opts]{`, `\RequirePackage{` — package names. */
 const PACKAGE_AT = /\\(?:usepackage|RequirePackage)\s*(?:\[[^\]]*\])?\s*\{([^}]*)$/;
 const CLASS_AT = /\\documentclass\s*(?:\[[^\]]*\])?\s*\{([^}]*)$/;
@@ -34,8 +54,71 @@ const TIKZ_AT = /\\usetikzlibrary\{([^}]*)$/;
 /** A control sequence being typed. */
 const COMMAND_AT = /\\([a-zA-Z]*)$/;
 
-export function latexCompletions(context: CompletionContext): CompletionResult | null {
+export function makeLatexCompletions(project: () => ProjectContext) {
+  return (context: CompletionContext): CompletionResult | null =>
+    complete(context, project());
+}
+
+function complete(
+  context: CompletionContext,
+  project: ProjectContext,
+): CompletionResult | null {
   const before = context.state.sliceDoc(Math.max(0, context.pos - 200), context.pos);
+
+  /*
+   * References, from the labels that actually exist.
+   *
+   * A `\ref` completed from real labels cannot be misspelt, which removes the
+   * commonest way a document ends up with `??` in the PDF and a warning nobody
+   * read. The section each label sits under is shown beside it, because
+   * `fig:overview` means nothing on its own.
+   */
+  const reference = REFERENCE_AT.exec(before);
+  if (reference) {
+    return {
+      from: context.pos - (reference[1]?.length ?? 0),
+      options: project.labels.map((label) => ({
+        label: label.key,
+        detail: label.context || label.file,
+        type: "variable",
+      })),
+      validFor: /^[\w:.-]*$/,
+    };
+  }
+
+  /*
+   * Paths, from the project tree rather than from memory.
+   *
+   * Filtered by what the command can actually take: `\input` wants a `.tex`,
+   * `\addbibresource` a `.bib`, `\includegraphics` anything else. Offering a
+   * figure to `\input` is offering a mistake.
+   */
+  const path = PATH_AT.exec(before);
+  if (path) {
+    const typed = path[1] ?? "";
+    const isGraphics = /includegraphics/.test(before);
+    const isBib = /bibliography|addbibresource/.test(before);
+
+    const candidates = project.paths.filter((name) =>
+      isBib
+        ? name.endsWith(".bib")
+        : isGraphics
+          ? !/\.(tex|bib)$/i.test(name)
+          : name.endsWith(".tex"),
+    );
+
+    return {
+      from: context.pos - typed.length,
+      options: candidates.map((name) => ({
+        // TeX supplies the `.tex` itself, and leaving it off is the more
+        // common spelling.
+        label: isGraphics || isBib ? name : name.replace(/\.tex$/, ""),
+        detail: name,
+        type: "file",
+      })),
+      validFor: /^[\w/.-]*$/,
+    };
+  }
 
   const environment = ENVIRONMENT_AT.exec(before);
   if (environment) {
