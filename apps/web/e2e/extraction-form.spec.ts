@@ -101,7 +101,10 @@ test.describe("the extraction form's spine", () => {
 
     await page.goto("/projects");
     await page.getByLabel("Title").fill("Extraction spine");
-    await page.getByLabel("Kind").selectOption("THESIS");
+    await page
+      .getByRole("group", { name: /kind/i })
+      .getByRole("radio", { name: /thesis or dissertation/i })
+      .check();
     await page.getByRole("button", { name: /create project/i }).click();
     await page.getByRole("link", { name: "Extraction spine" }).click();
     await page.waitForURL(/\/projects\/[0-9a-f-]+$/);
@@ -236,5 +239,44 @@ test.describe("the queue can be acted on", () => {
     // likely to be a new collaborator's first impression.
     await expect(page.getByText(/nothing is waiting for you/i)).toBeVisible();
     await expect(page.getByRole("link", { name: /go to your projects/i })).toBeVisible();
+  });
+});
+
+test.describe("choosing a project kind", () => {
+  /**
+   * The single most consequential decision in the product, and the only one
+   * that cannot be undone. It used to be a dropdown with a one-line hint that
+   * said "You can add structure later" — which was never true: the capability
+   * flag behind that sentence was read by nothing, no action updates `kind`,
+   * and no screen offers to.
+   */
+  test("shows what each kind gives you, before you choose", async ({ browser }) => {
+    test.setTimeout(180_000);
+    const email = uniqueEmail("kind");
+    await createConfirmedUser(email);
+    const page = await signInAndEnroll(browser, email);
+
+    try {
+      await page.goto("/projects");
+
+      const kinds = page.getByRole("group", { name: /kind/i });
+      await expect(kinds.getByRole("radio", { name: /thesis/i })).toBeChecked();
+
+      // The consequences of the CURRENT choice, in place. Reading them after
+      // creating the project is reading them too late.
+      await expect(page.getByText(/a protocol is optional/i)).toBeVisible();
+      await expect(page.getByText(/no reconciliation step/i)).toBeVisible();
+
+      await kinds.getByRole("radio", { name: /systematic review/i }).check();
+
+      await expect(page.getByText(/a protocol is required/i)).toBeVisible();
+      await expect(page.getByText(/two people extract each paper/i)).toBeVisible();
+      await expect(page.getByText(/cohen/i)).toBeVisible();
+
+      // And the irreversibility, said where the choice is made.
+      await expect(page.getByText(/cannot be changed afterwards/i)).toBeVisible();
+    } finally {
+      await page.context().close();
+    }
   });
 });

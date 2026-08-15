@@ -139,7 +139,10 @@ test.describe("Phase 0 exit criterion", () => {
     await expect(page.getByText(/no projects yet/i)).toBeVisible();
 
     await page.getByLabel("Title").fill("Transformer efficiency in low-resource NLP");
-    await page.getByLabel("Kind").selectOption("THESIS");
+    await page
+      .getByRole("group", { name: /kind/i })
+      .getByRole("radio", { name: /thesis or dissertation/i })
+      .check();
     await page.getByRole("button", { name: /create project/i }).click();
 
     await expect(page).toHaveURL(/\/projects\/[0-9a-f-]{36}/);

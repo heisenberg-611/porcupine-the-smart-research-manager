@@ -119,7 +119,10 @@ test.describe("screening at speed", () => {
     // complete decision. The reason-required path has its own test below.
     await page.goto("/projects");
     await page.getByLabel("Title").fill("Screening throughput");
-    await page.getByLabel("Kind").selectOption("THESIS");
+    await page
+      .getByRole("group", { name: /kind/i })
+      .getByRole("radio", { name: /thesis or dissertation/i })
+      .check();
     await page.getByRole("button", { name: /create project/i }).click();
     await page.getByRole("link", { name: "Screening throughput" }).click();
     await page.waitForURL(/\/projects\/[0-9a-f-]+$/);

@@ -92,10 +92,21 @@ async function signInAndEnroll(browser: Browser, email: string): Promise<Page> {
   return page;
 }
 
+/** The visible label for each kind — the picker is radios, not a select. */
+const KIND_LABEL: Record<string, RegExp> = {
+  THESIS: /thesis or dissertation/i,
+  SYSTEMATIC_REVIEW: /systematic review/i,
+  LAB_PAPER: /lab paper/i,
+  GENERAL: /something else/i,
+};
+
 async function createProject(page: Page, title: string, kind: string): Promise<string> {
   await page.goto("/projects");
   await page.getByLabel("Title").fill(title);
-  await page.getByLabel("Kind").selectOption(kind);
+  await page
+    .getByRole("group", { name: /kind/i })
+    .getByRole("radio", { name: KIND_LABEL[kind]! })
+    .check();
   await page.getByRole("button", { name: /create project/i }).click();
   await expect(page.getByRole("link", { name: title })).toBeVisible();
   await page.getByRole("link", { name: title }).click();
