@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { PageHeader } from "@/components/ui";
+import { ButtonLink, EmptyState, PageHeader } from "@/components/ui";
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -30,6 +30,12 @@ interface QueueRow {
  * No RLS special-casing is needed: the policy already scopes project_works
  * to projects the caller is a member of, so filtering by assignee is purely
  * a narrowing.
+ *
+ * Every row is a link to the thing it is asking for. It used to name the paper
+ * and link only to the PROJECT, which made this a list of instructions with no
+ * way to follow any of them — you read "screen this paper", clicked, and
+ * arrived at a project overview to start navigating from scratch. A queue you
+ * cannot act from is a reminder, and people already have those.
  */
 export default async function QueuePage() {
   const user = await getCurrentUser();
@@ -54,6 +60,21 @@ export default async function QueuePage() {
   const now = Date.now();
   const overdue = rows.filter((r) => r.due_at && new Date(r.due_at).getTime() < now);
 
+  /**
+   * Where a row sends you, by what it is waiting for.
+   *
+   * Unscreened work goes to the screening surface; anything already included
+   * goes to the reader, which is where the next decision gets made. The reader
+   * is a safe destination for every status, so the fallback is not a guess.
+   */
+  const destination = (row: QueueRow) => {
+    const read = `/projects/${row.project_id}/read/${row.id}`;
+    if (row.screen_status === "IDENTIFIED" || row.screen_status === "SCREENING") {
+      return { href: `/projects/${row.project_id}/screen`, label: "Screen" };
+    }
+    return { href: read, label: "Read" };
+  };
+
   return (
     <main id="main" className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-12">
       <PageHeader
@@ -69,16 +90,29 @@ export default async function QueuePage() {
         }
       />
 
-      {rows.length > 0 && (
+      {rows.length === 0 ? (
+        // The one screen someone lands on with nothing to do. It used to say
+        // "Nothing assigned to you." in the header and then render an empty
+        // page — no next action anywhere, on the surface most likely to be
+        // someone's first impression of a shared project.
+        <EmptyState
+          title="Nothing is waiting for you"
+          description="Papers assigned to you appear here, across every project you are in, soonest due first. Assignments are made on a project's screening page."
+          action={<ButtonLink href="/projects">Go to your projects</ButtonLink>}
+        />
+      ) : (
         <ul className="border-border divide-border divide-y rounded-lg border">
           {rows.map((row) => {
             const isOverdue = row.due_at ? new Date(row.due_at).getTime() < now : false;
             return (
               <li key={row.id} className="flex items-start justify-between gap-4 p-4">
                 <div className="min-w-0">
-                  <p className="text-ink text-ui font-medium">
+                  <Link
+                    href={destination(row).href}
+                    className="text-ink text-ui font-medium underline-offset-2 hover:underline"
+                  >
                     {row.works?.title ?? "Untitled"}
-                  </p>
+                  </Link>
                   <p className="text-muted text-fine mt-0.5">
                     <Link
                       href={`/projects/${row.project_id}`}
@@ -92,21 +126,29 @@ export default async function QueuePage() {
                   </p>
                 </div>
 
-                {row.due_at && (
-                  <span
-                    className={`text-fine shrink-0 ${isOverdue ? "text-danger" : "text-muted"}`}
-                  >
-                    {/* Rendered from a timestamptz; the viewer's locale decides
+                <div className="flex shrink-0 items-center gap-3">
+                  {row.due_at && (
+                    <span
+                      className={`text-fine shrink-0 ${isOverdue ? "text-danger" : "text-muted"}`}
+                    >
+                      {/* Rendered from a timestamptz; the viewer's locale decides
                         the format. Never do date maths in local time (B-07). */}
-                    {isOverdue ? "Overdue " : "Due "}
-                    <time dateTime={row.due_at}>
-                      {new Date(row.due_at).toLocaleDateString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </time>
-                  </span>
-                )}
+                      {isOverdue ? "Overdue " : "Due "}
+                      <time dateTime={row.due_at}>
+                        {new Date(row.due_at).toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </time>
+                    </span>
+                  )}
+                  {/* The action, named. "Screen" and "Read" are different jobs
+                      and the queue is the only place that knows which one this
+                      row needs. */}
+                  <ButtonLink href={destination(row).href}>
+                    {destination(row).label}
+                  </ButtonLink>
+                </div>
               </li>
             );
           })}

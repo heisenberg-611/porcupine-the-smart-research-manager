@@ -2,7 +2,7 @@
 
 import { createSelector, type AnchorSelector } from "@porcupine/anchoring";
 import { fieldTypeLabel, needsOptions } from "@porcupine/shared";
-import { useCallback, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
 import { Banner, Button, Checkbox, Input, Select, Textarea } from "@/components/ui";
 
@@ -74,12 +74,50 @@ export function ExtractClient({
   const [capturing, setCapturing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [missing, setMissing] = useState<ExtractField[]>([]);
+  const [dirty, setDirty] = useState(false);
   const [pending, startTransition] = useTransition();
   const textRef = useRef<HTMLDivElement>(null);
 
   const frozen = status !== "DRAFT";
 
+  /**
+   * What counts as answered.
+   *
+   * Deliberately the same rule the evidence table draws a dash for, so
+   * "12 of 20" here and "12/20" there can never disagree. An empty string is
+   * a hole: someone typing into a box and deleting it has not answered.
+   */
+  const isAnswered = (fieldId: string) => {
+    const answer = answers[fieldId];
+    if (!answer) return false;
+    const { value } = answer;
+    if (value === null || value === undefined) return false;
+    if (typeof value === "string") return value.trim().length > 0;
+    if (Array.isArray(value)) return value.length > 0;
+    return true;
+  };
+
+  const answered = fields.filter((f) => isAnswered(f.id)).length;
+
+  /**
+   * Warn before leaving with unsaved answers.
+   *
+   * This form does not autosave, which is a defensible choice — a half-typed
+   * number should not become a recorded answer — but it means a closed tab
+   * loses everything typed since the last save. Twenty fields against a paper
+   * is twenty minutes of reading, and nothing on screen said the work was
+   * only in the browser.
+   */
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
   const setAnswer = useCallback((fieldId: string, next: Partial<Answer>) => {
+    setDirty(true);
     setAnswers((prev) => ({
       ...prev,
       [fieldId]: {
@@ -144,14 +182,35 @@ export function ExtractClient({
         }),
       });
 
-      if (response.ok) setNotice(`Saved ${response.data.saved} of ${fields.length}.`);
-      else setError(response.error);
+      if (response.ok) {
+        setNotice(`Saved ${response.data.saved} of ${fields.length}.`);
+        setDirty(false);
+      } else setError(response.error);
     });
   }
 
   function submit() {
     setError(null);
     setNotice(null);
+
+    /*
+     * Work out which required fields are empty, and SHOW them — but do not
+     * refuse here.
+     *
+     * The first version returned early when anything was missing, which felt
+     * obviously right and quietly broke something important: `submitExtraction`
+     * is where that rule actually lives, it is enforced in the server action
+     * rather than by a trigger, and the only thing proving it was the e2e
+     * assertion that a submission with a hole comes back refused. A client
+     * check that short-circuits the request makes the server rule untested
+     * and, eventually, untrue.
+     *
+     * So the server stays the gate and stays the message. What this adds is
+     * the part the server cannot give: EVERY missing field at once, each one a
+     * link to itself, rather than one name at a time on a twenty-field form.
+     */
+    setMissing(fields.filter((f) => f.required && !isAnswered(f.id)));
+
     startTransition(async () => {
       const saved = await saveDraft({
         projectId,
@@ -182,8 +241,10 @@ export function ExtractClient({
       }
 
       const response = await submitExtraction({ projectId, projectWorkId, extractionId });
-      if (response.ok) setNotice("Submitted. It is frozen until you reopen it.");
-      else setError(response.error);
+      if (response.ok) {
+        setNotice("Submitted. It is frozen until you reopen it.");
+        setDirty(false);
+      } else setError(response.error);
     });
   }
 
@@ -225,7 +286,34 @@ export function ExtractClient({
       </section>
 
       <section className="space-y-6">
-        <h2 className="text-ink text-heading">The questions</h2>
+        <div className="border-rule bg-canvas sticky top-16 z-10 flex flex-wrap items-baseline justify-between gap-x-4 border-b pt-2 pb-2">
+          <h2 className="text-ink text-heading">The questions</h2>
+          {/* How far through this paper you are. Twenty fields is long enough
+              that "am I nearly done" is a real question, and the answer was
+              only available by scrolling and counting. */}
+          <p className="text-muted text-fine tabular-nums" aria-live="polite">
+            {answered} of {fields.length} answered
+            {dirty && <span className="text-accent"> · unsaved changes</span>}
+          </p>
+        </div>
+
+        {missing.length > 0 && (
+          <Banner tone="danger">
+            <p className="font-medium">These required fields are still empty:</p>
+            <ul className="mt-1 list-disc pl-5">
+              {missing.map((field) => (
+                <li key={field.id}>
+                  {/* A link to the field, not just its name. On a twenty-field
+                      form, naming a field the reader then has to hunt for is
+                      most of the work left undone. */}
+                  <a href={`#field-${field.id}`} className="underline underline-offset-2">
+                    {field.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </Banner>
+        )}
 
         {frozen && (
           <Banner>
@@ -240,7 +328,15 @@ export function ExtractClient({
             const quoted = field.requiresAnchor || field.type === "QUOTE";
 
             return (
-              <div key={field.id} className="border-rule border-b pb-5 last:border-b-0">
+              <div
+                key={field.id}
+                id={`field-${field.id}`}
+                className={`border-rule scroll-mt-32 border-b pb-5 last:border-b-0 ${
+                  missing.some((m) => m.id === field.id)
+                    ? "border-danger -ml-3 border-l-2 pl-3"
+                    : ""
+                }`}
+              >
                 <label
                   htmlFor={`f-${field.id}`}
                   className="text-ink text-ui block font-medium"
