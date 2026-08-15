@@ -39,6 +39,8 @@ export interface MemberKey {
    * server has already answered.
    */
   isMe: boolean;
+  accessRole: string;
+  isRemoved: boolean;
 }
 
 /**
@@ -61,9 +63,11 @@ export async function getMemberKeys(
   try {
     const members = await withUserContext(claims, async (tx) => {
       const rows = await tx.projectMember.findMany({
-        where: { projectId, removedAt: null },
+        where: { projectId },
         select: {
           userId: true,
+          accessRole: true,
+          removedAt: true,
           user: {
             select: { displayName: true, identityPubKey: true, signingPubKey: true },
           },
@@ -73,6 +77,8 @@ export async function getMemberKeys(
       return rows.map((row) => ({
         userId: row.userId,
         isMe: row.userId === claims.sub,
+        accessRole: row.accessRole,
+        isRemoved: row.removedAt !== null,
         displayName: row.user?.displayName ?? "Unknown",
         identityPubKey: row.user?.identityPubKey
           ? Buffer.from(row.user.identityPubKey).toString("base64")
@@ -221,7 +227,7 @@ export async function getKeyState(projectId: string): Promise<ActionResult<KeySt
       if (!project) throw new Error("NO_PROJECT");
 
       const rows = await tx.projectKey.findMany({
-        where: { projectId },
+        where: { projectId, userId: claims.sub },
         orderBy: { epoch: "desc" },
         select: { epoch: true, wrappedKey: true, signature: true, wrappedBy: true },
       });
@@ -229,7 +235,7 @@ export async function getKeyState(projectId: string): Promise<ActionResult<KeySt
       const newestKeyAt =
         rows.length > 0
           ? await tx.projectKey.findFirst({
-              where: { projectId },
+              where: { projectId, userId: claims.sub },
               orderBy: { createdAt: "desc" },
               select: { createdAt: true },
             })
@@ -307,6 +313,14 @@ export async function removeMember(
 
   try {
     await withUserContext(claims, async (tx) => {
+      const me = await tx.projectMember.findUnique({
+        where: { projectId_userId: { projectId, userId: claims.sub } },
+        select: { accessRole: true },
+      });
+      if (!me || (me.accessRole !== "OWNER" && me.accessRole !== "ADMIN")) {
+        throw new Error("UNAUTHORIZED");
+      }
+
       const target = await tx.projectMember.findFirst({
         where: { projectId, userId, removedAt: null },
         select: { id: true, accessRole: true },
@@ -338,6 +352,9 @@ export async function removeMember(
     }
     if (err instanceof Error && err.message === "LAST_OWNER") {
       return { ok: false, error: "A project must keep at least one owner." };
+    }
+    if (err instanceof Error && err.message === "UNAUTHORIZED") {
+      return { ok: false, error: "Only admins and owners can remove members." };
     }
     return { ok: false, error: "Could not remove that member." };
   }

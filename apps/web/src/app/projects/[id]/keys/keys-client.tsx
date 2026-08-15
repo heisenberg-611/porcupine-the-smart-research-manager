@@ -137,7 +137,9 @@ export function KeysClient({ projectId }: { projectId: string }) {
     }
 
     try {
-      const receivable = current.data.filter((m) => m.identityPubKey !== "");
+      const receivable = current.data.filter(
+        (m) => m.identityPubKey !== "" && !m.isRemoved,
+      );
       // Told by the server, not computed here — the number goes inside every
       // signature, so the two must agree exactly.
       const epochToWrite = state.data.nextEpoch;
@@ -342,11 +344,17 @@ export function KeysClient({ projectId }: { projectId: string }) {
           Who holds a key
         </h2>
         <ul className="border-border divide-border divide-y rounded-lg border">
-          {(members ?? []).map((member) => (
-            <li
-              key={member.userId}
-              className="flex flex-wrap items-center justify-between gap-3 p-3"
-            >
+          {(members ?? [])
+            .filter((m) => !m.isRemoved)
+            .map((member) => {
+              const me = (members ?? []).find((m) => m.isMe);
+            const canRemove = me && (me.accessRole === "OWNER" || me.accessRole === "ADMIN");
+
+            return (
+              <li
+                key={member.userId}
+                className="flex flex-wrap items-center justify-between gap-3 p-3"
+              >
               <span className="text-ink text-ui">
                 {member.displayName}
                 {member.isMe && <span className="text-muted"> — you</span>}
@@ -362,6 +370,7 @@ export function KeysClient({ projectId }: { projectId: string }) {
               </span>
 
               {!member.isMe &&
+                canRemove &&
                 (confirming === member.userId ? (
                   <span className="flex flex-wrap gap-2">
                     <Button
@@ -388,7 +397,8 @@ export function KeysClient({ projectId }: { projectId: string }) {
                   </Button>
                 ))}
             </li>
-          ))}
+          );
+        })}
         </ul>
         <p className="text-muted text-fine mt-2">
           {/* What the number under each name is FOR. A safety number nobody is

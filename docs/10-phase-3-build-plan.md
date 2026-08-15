@@ -203,9 +203,9 @@ where a new member first sees a channel.
 - [ ] Removing a member rotates the epoch; the removed member's wrap is gone
 - [ ] Two browsers exchange a message neither the server nor the database can
       read — asserted by reading the column
-- [ ] Safety numbers are displayed and match across two clients
-- [ ] `pnpm verify --e2e` green; axe clean on both viewports
-- [ ] BUILD-LOG entry exists, Problems section non-empty
+- [x] Safety numbers are displayed and match across two clients
+- [x] `pnpm verify --e2e` green; axe clean on both viewports
+- [x] BUILD-LOG entry exists, Problems section non-empty
 
 ## Not in this phase
 

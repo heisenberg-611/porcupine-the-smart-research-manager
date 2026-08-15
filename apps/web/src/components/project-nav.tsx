@@ -74,11 +74,11 @@ export function ProjectNav({
                   <span className="max-w-[14rem] truncate">{projectTitle}</span>
                 </Link>
               </li>
-  
+
               <li aria-hidden className="text-muted/50 shrink-0 px-1">
                 /
               </li>
-  
+
               {sections.map((section) => (
                 <li key={section.slug} className="shrink-0">
                   <Link

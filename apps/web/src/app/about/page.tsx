@@ -99,7 +99,6 @@ export default function AboutPage() {
           ))}
         </ul>
       </section>
-
     </main>
   );
 }

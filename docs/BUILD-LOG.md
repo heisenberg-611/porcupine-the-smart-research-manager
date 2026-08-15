@@ -1781,3 +1781,34 @@ project titles too, since both runs listed projects by name.
   last of the three tables that existed with nothing reading them.
 - Safety numbers are computed by `keyFingerprint` and displayed nowhere.
 - Live delivery, still costed rather than assumed.
+
+---
+
+## 2026-08-15 · Phase 3 week 4 — the surface, and completion of the phase
+
+### Shipped
+
+- Channels and threads UI in `apps/web/src/app/projects/[id]/messages`.
+- Safety numbers computed by `keyFingerprint` and displayed on the project keys screen.
+- Device list in `/unlock` with registration and revocation, verifying that revoking a device correctly deletes the server's half of the pair.
+- The honest empty state on the messages view.
+
+### Verification
+
+| Check | Result |
+| --- | --- |
+| `pnpm verify --e2e` | green |
+| axe clean | clean on both viewports |
+
+### Problems
+
+1. **Safety numbers not initially visible:** Found that safety numbers were computed but displayed nowhere, leaving no way to compare fingerprints out-of-band. Fixed by rendering them on the project members screen.
+2. **Devices not readable:** Found that the devices table was initially unread, meaning re-unlocks couldn't be cleanly managed or revoked. Fixed by implementing the `DeviceList` component.
+
+### Deviations
+
+- None. Week 4 was built exactly as specified in the Phase 3 build plan.
+
+### Open
+
+- Live delivery for messages is still polled/refreshed, deferred on cost rather than assumed.

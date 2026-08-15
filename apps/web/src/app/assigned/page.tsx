@@ -65,10 +65,11 @@ export default async function AssignedPage() {
 
   const rows = (data ?? []) as unknown as QueueRow[];
   const now = Date.now();
-  
-  const openRows = rows.filter((r) => OPEN_QUEUE_STATUSES.includes(r.screen_status as any));
-  const closedRows = rows.filter((r) => !OPEN_QUEUE_STATUSES.includes(r.screen_status as any));
-  
+
+  const openStatuses = OPEN_QUEUE_STATUSES as unknown as string[];
+  const openRows = rows.filter((r) => openStatuses.includes(r.screen_status));
+  const closedRows = rows.filter((r) => !openStatuses.includes(r.screen_status));
+
   const overdue = openRows.filter((r) => r.due_at && new Date(r.due_at).getTime() < now);
 
   /**
@@ -149,91 +150,98 @@ export default async function AssignedPage() {
         <div className="flex flex-col gap-10">
           {openRows.length > 0 && (
             <section>
-              <h2 className="text-display mb-4 text-ink">Open</h2>
+              <h2 className="text-display text-ink mb-4">Open</h2>
               <ul className="border-border divide-border divide-y rounded-lg border">
                 {openRows.map((row) => {
-            const isOverdue = row.due_at ? new Date(row.due_at).getTime() < now : false;
-            return (
-              <li key={row.id} className="flex items-start justify-between gap-4 p-4">
-                <div className="min-w-0">
-                  <Link
-                    href={destination(row).href}
-                    className="text-ink text-ui font-medium underline-offset-2 hover:underline"
-                  >
-                    {row.works?.title ?? "Untitled"}
-                  </Link>
-                  <p className="text-muted text-fine mt-0.5">
-                    <Link
-                      href={`/projects/${row.project_id}`}
-                      className="hover:text-ink underline underline-offset-2"
+                  const isOverdue = row.due_at
+                    ? new Date(row.due_at).getTime() < now
+                    : false;
+                  return (
+                    <li
+                      key={row.id}
+                      className="flex items-start justify-between gap-4 p-4"
                     >
-                      {row.projects?.title ?? "Project"}
-                    </Link>
-                    {" · "}
-                    {screenStatusLabel(row.screen_status)}
-                    {row.works?.published_year && ` · ${row.works.published_year}`}
-                  </p>
-                  <SourceLinks
-                    className="mt-1"
-                    title={row.works?.title ?? "this paper"}
-                    work={{
-                      doi: row.works?.doi,
-                      arxivId: row.works?.arxiv_id,
-                      pmid: row.works?.pmid,
-                      oaPdfUrl: row.works?.oa_pdf_url,
-                    }}
-                  />
+                      <div className="min-w-0">
+                        <Link
+                          href={destination(row).href}
+                          className="text-ink text-ui font-medium underline-offset-2 hover:underline"
+                        >
+                          {row.works?.title ?? "Untitled"}
+                        </Link>
+                        <p className="text-muted text-fine mt-0.5">
+                          <Link
+                            href={`/projects/${row.project_id}`}
+                            className="hover:text-ink underline underline-offset-2"
+                          >
+                            {row.projects?.title ?? "Project"}
+                          </Link>
+                          {" · "}
+                          {screenStatusLabel(row.screen_status)}
+                          {row.works?.published_year && ` · ${row.works.published_year}`}
+                        </p>
+                        <SourceLinks
+                          className="mt-1"
+                          title={row.works?.title ?? "this paper"}
+                          work={{
+                            doi: row.works?.doi,
+                            arxivId: row.works?.arxiv_id,
+                            pmid: row.works?.pmid,
+                            oaPdfUrl: row.works?.oa_pdf_url,
+                          }}
+                        />
 
-                  {/* Named by the work, not by the screen. */}
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {actions(row).map((action) => (
-                      <Link
-                        key={action.href + action.label}
-                        href={action.href}
-                        className={
-                          action.primary
-                            ? "bg-accent text-accent-ink text-fine focus-visible:ring-accent inline-flex min-h-9 items-center rounded-lg px-3 focus-visible:ring-2 focus-visible:outline-none"
-                            : "border-border text-muted hover:text-ink text-fine focus-visible:ring-accent inline-flex min-h-9 items-center rounded-lg border px-3 focus-visible:ring-2 focus-visible:outline-none"
-                        }
-                      >
-                        {action.label}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
+                        {/* Named by the work, not by the screen. */}
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {actions(row).map((action) => (
+                            <Link
+                              key={action.href + action.label}
+                              href={action.href}
+                              className={
+                                action.primary
+                                  ? "bg-accent text-accent-ink text-fine focus-visible:ring-accent inline-flex min-h-9 items-center rounded-lg px-3 focus-visible:ring-2 focus-visible:outline-none"
+                                  : "border-border text-muted hover:text-ink text-fine focus-visible:ring-accent inline-flex min-h-9 items-center rounded-lg border px-3 focus-visible:ring-2 focus-visible:outline-none"
+                              }
+                            >
+                              {action.label}
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
 
-                <div className="flex shrink-0 items-center gap-3">
-                  {row.due_at && (
-                    <span
-                      className={`text-fine shrink-0 ${isOverdue ? "text-danger" : "text-muted"}`}
-                    >
-                      {/* Rendered from a timestamptz; the viewer's locale decides
+                      <div className="flex shrink-0 items-center gap-3">
+                        {row.due_at && (
+                          <span
+                            className={`text-fine shrink-0 ${isOverdue ? "text-danger" : "text-muted"}`}
+                          >
+                            {/* Rendered from a timestamptz; the viewer's locale decides
                         the format. Never do date maths in local time (B-07). */}
-                      {isOverdue ? "Overdue " : "Due "}
-                      <time dateTime={row.due_at}>
-                        {new Date(row.due_at).toLocaleDateString(undefined, {
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </time>
-                    </span>
-                  )}
-
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                            {isOverdue ? "Overdue " : "Due "}
+                            <time dateTime={row.due_at}>
+                              {new Date(row.due_at).toLocaleDateString(undefined, {
+                                month: "short",
+                                day: "numeric",
+                              })}
+                            </time>
+                          </span>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
             </section>
           )}
 
           {closedRows.length > 0 && (
             <section>
-              <h2 className="text-display mb-4 text-ink opacity-70">Closed</h2>
-              <ul className="border-border divide-border opacity-70 divide-y rounded-lg border">
+              <h2 className="text-display text-ink mb-4 opacity-70">Closed</h2>
+              <ul className="border-border divide-border divide-y rounded-lg border opacity-70">
                 {closedRows.map((row) => {
                   return (
-                    <li key={row.id} className="flex items-start justify-between gap-4 p-4">
+                    <li
+                      key={row.id}
+                      className="flex items-start justify-between gap-4 p-4"
+                    >
                       <div className="min-w-0">
                         <Link
                           href={destination(row).href}
@@ -253,7 +261,7 @@ export default async function AssignedPage() {
                           {row.works?.published_year && ` · ${row.works.published_year}`}
                         </p>
                       </div>
-                      
+
                       <div className="flex shrink-0 items-center gap-3">
                         <ButtonLink href={destination(row).href} variant="ghost">
                           {destination(row).label}

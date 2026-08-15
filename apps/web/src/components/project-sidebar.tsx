@@ -67,12 +67,12 @@ export function ProjectSidebar({
             {projectTitle}
           </span>
         </Link>
-  
+
         <div className="mt-6 flex flex-col gap-6">
           {SECTION_GROUPS.map((group) => {
             const inGroup = byGroup.get(group);
             if (!inGroup || inGroup.length === 0) return null;
-  
+
             return (
               <div key={group}>
                 <h2 className="text-muted text-fine mb-1 px-3 font-mono tracking-wider uppercase">
