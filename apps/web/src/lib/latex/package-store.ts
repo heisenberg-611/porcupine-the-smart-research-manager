@@ -156,7 +156,22 @@ export async function putFiles(
  * a package uploaded has no `files` store, and that is not an error.
  */
 export async function loadAll(): Promise<Map<string, Uint8Array>> {
-  const db = await openLatexDbForReading();
+  let db: IDBDatabase;
+  try {
+    db = await openLatexDbForReading();
+  } catch {
+    /*
+     * Never fail a compile over the package store.
+     *
+     * Whatever goes wrong here — storage denied, a version the worker did not
+     * expect, a private window — the right outcome is a document typeset
+     * without the user's own packages, not "Compiler: The requested version
+     * (1) is less than the existing version (2)" where the PDF should be. The
+     * missing packages will be reported by the preflight scan, which is a
+     * sentence someone can act on.
+     */
+    return new Map();
+  }
 
   if (!db.objectStoreNames.contains(FILES)) {
     db.close();

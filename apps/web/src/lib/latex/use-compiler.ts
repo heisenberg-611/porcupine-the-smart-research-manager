@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Diagnostic } from "glyphtex-engine";
 
 import type { WorkerRequest, WorkerResponse } from "./protocol";
+import { WORKER_VERSION } from "./worker-version";
 
 export interface CompileOutcome {
   status: string;
@@ -54,8 +55,16 @@ export function useCompiler() {
      *
      * `scripts/build-latex-worker.mjs` bundles it instead, into the same
      * directory as the TeX assets it loads.
+     *
+     * The `?v=` is its content hash, and it is load-bearing. An early version
+     * of the header rules handed this file `immutable, max-age=31536000` by
+     * mistake; a browser will not revalidate an immutable entry, so anyone who
+     * loaded the studio during that window kept that worker for a year and no
+     * corrected header could reach them. A hash in the URL can.
      */
-    const instance = new Worker("/latex/compile.worker.js", { type: "module" });
+    const instance = new Worker(`/latex/compile.worker.js?v=${WORKER_VERSION}`, {
+      type: "module",
+    });
 
     instance.addEventListener("message", (event: MessageEvent<WorkerResponse>) => {
       const data = event.data;
