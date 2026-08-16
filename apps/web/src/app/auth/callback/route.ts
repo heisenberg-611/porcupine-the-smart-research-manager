@@ -21,13 +21,36 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
   if (error) {
     return NextResponse.redirect(`${origin}/sign-in?error=exchange_failed`);
   }
 
-  return NextResponse.redirect(
+  const response = NextResponse.redirect(
     `${origin}/enroll?next=${encodeURIComponent(destination)}`,
   );
+
+  // @supabase/ssr intentionally drops the provider_token from its own session
+  // cookies to avoid hitting HTTP header size limits. Since we need it to talk
+  // to Google Drive, we explicitly stash it in a separate cookie.
+  if (data.session?.provider_token) {
+    response.cookies.set("google_provider_token", data.session.provider_token, {
+      path: "/",
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 3600, // Google access tokens last 1 hour
+    });
+  }
+  
+  if (data.session?.provider_refresh_token) {
+    response.cookies.set("google_provider_refresh_token", data.session.provider_refresh_token, {
+      path: "/",
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24 * 365, // 1 year
+    });
+  }
+
+  return response;
 }

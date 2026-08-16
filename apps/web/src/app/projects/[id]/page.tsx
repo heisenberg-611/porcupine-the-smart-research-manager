@@ -16,6 +16,7 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 import { AccessForm } from "./access-form";
 import { InviteMemberForm } from "./invite-member-form";
+import { MemberRowActions } from "./member-row-actions";
 
 export const metadata: Metadata = { title: "Overview" };
 
@@ -205,7 +206,7 @@ export default async function ProjectPage({
   }
 
   return (
-    <main id="main" className="mx-auto flex max-w-3xl flex-col gap-10 px-6 py-12">
+    <main id="main" className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 py-12">
       <PageHeader
         backHref="/projects"
         backLabel="All projects"
@@ -324,15 +325,25 @@ export default async function ProjectPage({
                   </p>
                   <p className="text-muted text-fine">{member.users?.email}</p>
                 </div>
-                <p className="text-muted text-fine font-mono tracking-wide uppercase">
-                  {member.access_role}
-                  {member.history_access === "FROM_JOIN" && " · from join"}
-                </p>
+                <div className="flex items-center gap-4">
+                  <p className="text-muted text-fine font-mono tracking-wide uppercase">
+                    {member.access_role}
+                    {member.history_access === "FROM_JOIN" && " · from join"}
+                  </p>
+                  {canInvite && member.user_id !== user.id && (
+                    <MemberRowActions
+                      projectId={id}
+                      userId={member.user_id}
+                      currentRole={member.access_role}
+                    />
+                  )}
+                </div>
               </Card>
             </li>
           ))}
         </ul>
       </section>
+
 
       {canInvite && (
         <section className="border-border border-t pt-8">

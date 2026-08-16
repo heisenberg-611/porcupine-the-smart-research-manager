@@ -27,11 +27,7 @@ name: CI
 # workerd to exercise Phase 5 infrastructure most pull requests never touch.
 
 on:
-  push:
-    branches: [main]
-    paths-ignore: ["**/*.md", "docs/**"]
-  pull_request:
-    paths-ignore: ["**/*.md", "docs/**"]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

@@ -312,6 +312,10 @@ model Project {
   /// The ID of the dedicated Google Drive folder for this project.
   driveFolderId   String? @map("drive_folder_id")
 
+  /// The refresh token of the Admin who provisioned the Google Drive folder.
+  /// Used to grant access to collaborators asynchronously.
+  googleRefreshToken String? @map("google_refresh_token")
+
   currentKeyEpoch Int       @default(0) @map("current_key_epoch")
   archivedAt      DateTime? @map("archived_at") @db.Timestamptz(3)
   deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(3)

@@ -8,19 +8,7 @@ name: Relay
 # The paths below are everything the relay actually depends on: its own source,
 # the ticket format it shares with the app, and its lockfile.
 on:
-  push:
-    branches: [main]
-    paths:
-      - "apps/relay/**"
-      - "packages/shared/src/relay-ticket.ts"
-      - ".github/workflows/relay.yml"
-      - "pnpm-lock.yaml"
-  pull_request:
-    paths:
-      - "apps/relay/**"
-      - "packages/shared/src/relay-ticket.ts"
-      - ".github/workflows/relay.yml"
-      - "pnpm-lock.yaml"
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

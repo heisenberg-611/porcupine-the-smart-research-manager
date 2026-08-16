@@ -116,7 +116,7 @@ export function Input({
     <input
       className={cx(
         "border-border bg-raised text-ink rounded-xl border shadow-sm",
-        "transition-all duration-200",
+        "transition-colors duration-200",
         "placeholder:text-muted/70",
         "hover:border-accent/40",
         "focus:border-accent focus-visible:outline-none",
@@ -133,7 +133,7 @@ export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
     <textarea
       className={cx(
         "border-border bg-raised text-ink text-ui w-full rounded-xl border px-4 shadow-sm",
-        "py-3 transition-all duration-200",
+        "py-3 transition-colors duration-200",
         "placeholder:text-muted/70",
         "hover:border-accent/40",
         "focus:border-accent focus-visible:outline-none",

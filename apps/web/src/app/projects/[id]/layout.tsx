@@ -70,13 +70,15 @@ export default async function ProjectLayout({
         projectTitle={project.title}
         sections={sections}
       />
-      <div className="mx-auto flex w-full max-w-6xl gap-10 px-0 lg:px-6">
+      <div className="flex w-full lg:h-[calc(100dvh-var(--app-header-h))] lg:overflow-hidden">
         <ProjectSidebar
           projectId={project.id}
           projectTitle={project.title}
           sections={sections}
         />
-        <div className="min-w-0 flex-1">{children}</div>
+        <div className="min-w-0 flex-1 lg:overflow-y-auto px-4 sm:px-6 lg:px-12 py-8">
+          {children}
+        </div>
       </div>
     </>
   );

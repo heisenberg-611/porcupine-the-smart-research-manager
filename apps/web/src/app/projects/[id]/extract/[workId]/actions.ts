@@ -63,6 +63,22 @@ export async function startExtraction(
         },
         select: { id: true },
       });
+      
+      if (!existing) {
+        // Auto-assign the paper to the user if it's currently unassigned
+        const work = await tx.projectWork.findUnique({
+          where: { id: projectWorkId },
+          select: { assigneeId: true },
+        });
+        
+        if (work && !work.assigneeId) {
+          await tx.projectWork.update({
+            where: { id: projectWorkId },
+            data: { assigneeId: claims.sub },
+          });
+        }
+      }
+
       if (existing) return existing.id;
 
       const created = await tx.extraction.create({

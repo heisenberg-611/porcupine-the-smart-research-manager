@@ -35,7 +35,7 @@ export default async function EnrollPage({
           cannot open.
         </p>
       </div>
-      <EnrollForm next={destination} />
+      <EnrollForm next="/dashboard" />
     </main>
   );
 }

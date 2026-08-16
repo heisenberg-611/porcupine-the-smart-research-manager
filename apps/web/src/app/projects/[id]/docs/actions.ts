@@ -1,0 +1,133 @@
+"use server";
+
+import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
+import { getUserClaims } from "@/lib/supabase/server";
+import { withUserContext } from "@/server/db";
+import { createGoogleDoc, createGoogleSheet, createGoogleSlide, listFolderFiles, shareGoogleFile } from "@/lib/google";
+import type { ActionResult } from "../../actions";
+
+const CreateFileInput = z.object({
+  projectId: z.string().uuid(),
+  title: z.string().trim().min(1, "Title is required").max(100),
+  type: z.enum(["doc", "sheet", "slide"]),
+});
+
+const ShareFileInput = z.object({
+  fileId: z.string().min(1),
+  email: z.string().email(),
+  role: z.enum(["reader", "commenter", "writer"]),
+});
+
+export async function shareFileAction(
+  input: z.infer<typeof ShareFileInput>
+): Promise<ActionResult> {
+  const claims = await getUserClaims();
+  if (!claims) return { ok: false, error: "Not signed in." };
+
+  const parsed = ShareFileInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: "Invalid input." };
+  }
+  const { fileId, email, role } = parsed.data;
+
+  const cookieStore = await cookies();
+  const providerToken = cookieStore.get("google_provider_token")?.value;
+
+  if (!providerToken) {
+    return { ok: false, error: "Google account not connected." };
+  }
+
+  try {
+    await shareGoogleFile(providerToken, fileId, email, role);
+    return { ok: true };
+  } catch (e: unknown) {
+    console.error("shareFileAction failed:", e);
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to share file." };
+  }
+}
+
+export async function createCollaborationFile(
+  input: z.infer<typeof CreateFileInput>
+): Promise<ActionResult<{ url: string | null }>> {
+  const claims = await getUserClaims();
+  if (!claims) return { ok: false, error: "Not signed in." };
+
+  const parsed = CreateFileInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  }
+  const { projectId, title, type } = parsed.data;
+
+  const cookieStore = await cookies();
+  const providerToken = cookieStore.get("google_provider_token")?.value;
+
+  if (!providerToken) {
+    return { ok: false, error: "Google account not connected. Please connect it first." };
+  }
+
+  try {
+    return await withUserContext(claims, async (tx) => {
+      const me = await tx.projectMember.findUnique({
+        where: { projectId_userId: { projectId, userId: claims.sub } },
+      });
+      if (!me) {
+        return { ok: false, error: "You are not a member of this project." };
+      }
+
+      // Check if user has permission to write (OBSERVER/REVIEWER shouldn't create files)
+      if (me.accessRole === "OBSERVER" || me.accessRole === "REVIEWER") {
+        return { ok: false, error: "You do not have permission to create files." };
+      }
+
+      const project = await tx.project.findUnique({
+        where: { id: projectId },
+        select: { driveFolderId: true },
+      });
+
+      const targetFolderId = project?.driveFolderId || undefined;
+
+      let result;
+      try {
+        if (type === "doc") {
+          result = await createGoogleDoc(providerToken, title, projectId, targetFolderId);
+        } else if (type === "slide") {
+          result = await createGoogleSlide(providerToken, title, projectId, targetFolderId);
+        } else {
+          result = await createGoogleSheet(providerToken, title, projectId, targetFolderId);
+        }
+      } catch (e: unknown) {
+        console.error("Failed to create file", e);
+        return { ok: false, error: "Failed to create file in Google Drive. Ensure your Google account is connected and you have write permissions to the shared folder." };
+      }
+
+      revalidatePath(`/projects/${projectId}/docs`);
+      return { ok: true, data: { url: result.webViewLink ?? null } };
+    });
+  } catch (e: unknown) {
+    console.error("createCollaborationFile failed:", e);
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to create file. Check permissions." };
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function fetchFolderContents(folderId: string): Promise<ActionResult<any[]>> {
+  const claims = await getUserClaims();
+  if (!claims) return { ok: false, error: "Not signed in." };
+
+  const cookieStore = await cookies();
+  const providerToken = cookieStore.get("google_provider_token")?.value;
+
+  if (!providerToken) {
+    return { ok: false, error: "Google account not connected. Please connect it first." };
+  }
+
+  try {
+    const files = await listFolderFiles(providerToken, folderId);
+    return { ok: true, data: files };
+  } catch (e: unknown) {
+    console.error("fetchFolderContents failed:", e);
+    return { ok: false, error: "Failed to fetch folder contents. Check permissions." };
+  }
+}

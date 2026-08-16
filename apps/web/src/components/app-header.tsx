@@ -23,7 +23,7 @@ export async function AppHeader() {
 
   return (
     <>
-      <header className="border-rule bg-canvas/85 fixed inset-x-0 top-0 z-40 border-b backdrop-blur">
+      <header className="border-rule bg-canvas/85 fixed inset-x-0 top-0 z-40 h-[var(--app-header-h)] border-b backdrop-blur">
         {/*
         Wraps, rather than overflowing.
 
@@ -36,73 +36,48 @@ export async function AppHeader() {
       */}
         <nav
           aria-label="Main"
-          className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-1 gap-y-1 px-6 py-2"
+          className="flex h-full w-full flex-wrap items-center px-6"
         >
-          {/*
-          The front page, not the dashboard. A wordmark is the one link people
-          expect to be "the top of the product" rather than "the top of my
-          work" — Dashboard is right there and says which it is. It pointed at
-          /dashboard while / redirected signed-in users to /dashboard, so for
-          anyone signed in it was a link that could not go anywhere.
-
-          Hidden on a phone, and nothing is lost: it buys the ~85px the theme
-          control needs to sit on the SAME ROW. That matters more than it
-          sounds. With everything present the header wrapped to two lines, and
-          a two-line header broke clicks much further down the page — a link in
-          the evidence table could not be reached at all. A header that does
-          not fit is not a cosmetic problem.
-        */}
           <Link
             href="/"
-            className="text-ink text-heading mr-4 hidden font-serif sm:inline"
+            className="text-ink text-heading mr-8 hidden font-serif sm:inline"
             aria-label="Porcupine home"
           >
             Porcupine
           </Link>
 
-          {/*
-          Only the dashboard below `sm`, and that is a width calculation
-          rather than a taste. Four links plus the theme control plus Sign out
-          do not fit on a 390px header, and a header that wraps to two rows
-          covers what the page scrolls to — a link in the evidence table
-          became unreachable that way. The dashboard links to both of the
-          others, so nothing is lost but a tap.
-        */}
-          <NavLink href="/dashboard">Dashboard</NavLink>
-          <NavLink href="/projects" className="hidden sm:inline-flex">
-            Projects
-          </NavLink>
-          <NavLink href="/assigned" className="hidden sm:inline-flex">
-            Assigned to me
-          </NavLink>
+          <div className="flex items-center gap-1">
+            <NavLink href="/dashboard">Dashboard</NavLink>
+            <NavLink href="/projects" className="hidden sm:inline-flex">
+              Projects
+            </NavLink>
+            <NavLink href="/assigned" className="hidden sm:inline-flex">
+              Assigned to me
+            </NavLink>
+          </div>
 
           <div className="flex-1" />
 
-          {/* The address, not a display name: on a shared machine "signed in as
-            who?" is the question, and a first name does not answer it.
-            Hidden below `sm` because a phone header has no room for it — but
-            then a phone user could not tell whose session they were in, so the
-            address moves into the sign-out button's accessible name rather
-            than disappearing. Visually it is redundant on desktop; on mobile
-            and to a screen reader it is the only place the answer exists. */}
-          <span
-            aria-hidden
-            className="text-muted text-fine hidden max-w-[16rem] truncate sm:block"
-          >
-            {user.email}
-          </span>
-
-          <ThemeToggle />
-
-          <form action="/auth/sign-out" method="post">
-            <button
-              type="submit"
-              aria-label={`Sign out ${user.email}`}
-              className="text-muted hover:text-ink hover:bg-surface focus-visible:ring-accent text-ui inline-flex min-h-11 items-center rounded-lg px-3 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+          <div className="flex items-center gap-4">
+            <span
+              aria-hidden
+              className="text-muted text-fine hidden max-w-[16rem] truncate sm:block"
             >
-              Sign out
-            </button>
-          </form>
+              {user.email}
+            </span>
+
+            <ThemeToggle />
+
+            <form action="/auth/sign-out" method="post">
+              <button
+                type="submit"
+                aria-label={`Sign out ${user.email}`}
+                className="text-muted hover:text-ink hover:bg-surface focus-visible:ring-accent text-ui inline-flex h-9 items-center rounded-lg px-3 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+              >
+                Sign out
+              </button>
+            </form>
+          </div>
         </nav>
       </header>
       <div className="h-[var(--app-header-h)] shrink-0" aria-hidden />

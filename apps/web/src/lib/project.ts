@@ -14,6 +14,7 @@ export interface ProjectShell {
   /** Where members go for a paper the DOI will not open. See access-route.tsx. */
   access_help_url: string | null;
   access_help_label: string | null;
+  drive_folder_id: string | null;
 }
 
 /**
@@ -41,7 +42,7 @@ export const getProject = cache(async (id: string): Promise<ProjectShell | null>
     supabase
       .from("projects")
       .select(
-        "id, title, description, kind, ownership_model, access_help_url, access_help_label",
+        "id, title, description, kind, ownership_model, access_help_url, access_help_label, drive_folder_id",
       )
       .eq("id", id)
       .maybeSingle(),

@@ -49,6 +49,7 @@ export function ExtractClient({
   text,
   fields,
   existing,
+  pageHeader,
 }: {
   projectId: string;
   projectWorkId: string;
@@ -57,6 +58,7 @@ export function ExtractClient({
   text: string;
   fields: ExtractField[];
   existing: ExistingValue[];
+  pageHeader: React.ReactNode;
 }) {
   const [answers, setAnswers] = useState<Record<string, Answer>>(() => {
     const initial: Record<string, Answer> = {};
@@ -171,12 +173,12 @@ export function ExtractClient({
             selector:
               answer?.selector && answer.selector.startOff !== undefined
                 ? {
-                    quote: answer.selector.quote,
-                    prefix: answer.selector.prefix ?? null,
-                    suffix: answer.selector.suffix ?? null,
-                    startOff: answer.selector.startOff ?? null,
-                    endOff: answer.selector.endOff ?? null,
-                  }
+                  quote: answer.selector.quote,
+                  prefix: answer.selector.prefix ?? null,
+                  suffix: answer.selector.suffix ?? null,
+                  startOff: answer.selector.startOff ?? null,
+                  endOff: answer.selector.endOff ?? null,
+                }
                 : null,
           };
         }),
@@ -225,12 +227,12 @@ export function ExtractClient({
             selector:
               answer?.selector && answer.selector.startOff !== undefined
                 ? {
-                    quote: answer.selector.quote,
-                    prefix: answer.selector.prefix ?? null,
-                    suffix: answer.selector.suffix ?? null,
-                    startOff: answer.selector.startOff ?? null,
-                    endOff: answer.selector.endOff ?? null,
-                  }
+                  quote: answer.selector.quote,
+                  prefix: answer.selector.prefix ?? null,
+                  suffix: answer.selector.suffix ?? null,
+                  startOff: answer.selector.startOff ?? null,
+                  endOff: answer.selector.endOff ?? null,
+                }
                 : null,
           };
         }),
@@ -249,53 +251,58 @@ export function ExtractClient({
   }
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_1fr]">
-      {/* The paper. Sticky so it stays put while the questions scroll. */}
-      <section className="lg:sticky lg:top-20 lg:self-start">
-        <h2 className="text-ink text-heading">The paper</h2>
-        {text ? (
-          <div
-            ref={textRef}
-            data-testid="extract-source"
-            onMouseUp={capture}
-            onKeyUp={capture}
-            className={`prose-body border-rule mt-3 max-h-[70vh] overflow-y-auto border-t py-4 ${
-              capturing ? "ring-accent bg-accent-soft/40 rounded px-3 ring-2" : ""
-            }`}
-          >
-            {text}
+    <div className="flex flex-col gap-4 lg:h-full">
+      <div className="sticky top-[calc(var(--app-header-h)+var(--project-nav-h))] lg:-top-8 z-30 bg-canvas pt-8 pb-4 -mx-6 px-6">
+        {pageHeader}
+        <div className="grid gap-8 lg:grid-cols-[1fr_1fr] mt-8 border-b border-rule pb-2">
+          <h2 className="text-ink text-heading">The paper</h2>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4">
+            <h2 className="text-ink text-heading">The questions</h2>
+            {/* How far through this paper you are. Twenty fields is long enough
+                that "am I nearly done" is a real question, and the answer was
+                only available by scrolling and counting. */}
+            <p className="text-muted text-fine tabular-nums" aria-live="polite">
+              {answered} of {fields.length} answered
+              {dirty && <span className="text-accent"> · unsaved changes</span>}
+            </p>
           </div>
-        ) : (
-          <p className="text-muted text-ui mt-3">
-            This record has no abstract, so there is no text to quote from yet.
-          </p>
-        )}
-
-        {capturing && (
-          <p role="status" className="text-accent text-ui mt-3">
-            Select the sentence in the text above.{" "}
-            <button
-              type="button"
-              onClick={() => setCapturing(null)}
-              className="underline underline-offset-2"
-            >
-              Cancel
-            </button>
-          </p>
-        )}
-      </section>
-
-      <section className="space-y-6">
-        <div className="border-rule bg-canvas sticky top-16 z-10 flex flex-wrap items-baseline justify-between gap-x-4 border-b pt-2 pb-2">
-          <h2 className="text-ink text-heading">The questions</h2>
-          {/* How far through this paper you are. Twenty fields is long enough
-              that "am I nearly done" is a real question, and the answer was
-              only available by scrolling and counting. */}
-          <p className="text-muted text-fine tabular-nums" aria-live="polite">
-            {answered} of {fields.length} answered
-            {dirty && <span className="text-accent"> · unsaved changes</span>}
-          </p>
         </div>
+      </div>
+
+      <div className="grid gap-8 lg:grid-cols-[1fr_1fr] lg:flex-1 lg:min-h-0">
+        <section className="lg:overflow-y-auto lg:pr-2 lg:pb-8">
+          {text ? (
+            <div
+              ref={textRef}
+              data-testid="extract-source"
+              onMouseUp={capture}
+              onKeyUp={capture}
+              className={`prose-body border-rule py-4 ${capturing ? "ring-accent bg-accent-soft/40 rounded px-3 ring-2" : ""
+                }`}
+            >
+              {text}
+            </div>
+          ) : (
+            <p className="text-muted text-ui mt-3">
+              This record has no abstract, so there is no text to quote from yet.
+            </p>
+          )}
+
+          {capturing && (
+            <p role="status" className="text-accent text-ui mt-3">
+              Select the sentence in the text above.{" "}
+              <button
+                type="button"
+                onClick={() => setCapturing(null)}
+                className="underline underline-offset-2"
+              >
+                Cancel
+              </button>
+            </p>
+          )}
+        </section>
+
+        <section className="space-y-6 lg:overflow-y-auto lg:pr-2 lg:pb-8">
 
         {missing.length > 0 && (
           <Banner tone="danger">
@@ -331,11 +338,10 @@ export function ExtractClient({
               <div
                 key={field.id}
                 id={`field-${field.id}`}
-                className={`border-rule scroll-mt-32 border-b pb-5 last:border-b-0 ${
-                  missing.some((m) => m.id === field.id)
+                className={`border-rule scroll-mt-32 border-b pb-5 last:border-b-0 ${missing.some((m) => m.id === field.id)
                     ? "border-danger -ml-3 border-l-2 pl-3"
                     : ""
-                }`}
+                  }`}
               >
                 <label
                   htmlFor={`f-${field.id}`}
@@ -379,6 +385,22 @@ export function ExtractClient({
                               ? "Quote a different passage"
                               : "Quote from the paper"}
                           </Button>
+                          {!answer?.text && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              onClick={() =>
+                                setAnswer(field.id, {
+                                  value: "Not reported",
+                                  text: "Not reported",
+                                  selector: null,
+                                })
+                              }
+                              disabled={pending}
+                            >
+                              Mark as Not reported
+                            </Button>
+                          )}
                           {answer?.text && (
                             <Button
                               type="button"
@@ -449,6 +471,7 @@ export function ExtractClient({
           )}
         </div>
       </section>
+      </div>
     </div>
   );
 }

@@ -118,6 +118,12 @@ const ALL_SECTIONS: ReadonlyArray<
     blurb: "What everyone records about every paper, so papers can be compared.",
   },
   {
+    slug: "extract",
+    label: "Extract papers",
+    group: "Extract",
+    blurb: "Track and manage paper extractions by member.",
+  },
+  {
     slug: "reconcile",
     label: "Reconcile",
     group: "Extract",
@@ -129,6 +135,12 @@ const ALL_SECTIONS: ReadonlyArray<
     label: "Evidence",
     group: "Synthesise",
     blurb: "Papers as rows, protocol fields as columns. Exports.",
+  },
+  {
+    slug: "docs",
+    label: "Collaboration Docs",
+    group: "Synthesise",
+    blurb: "Shared Google Docs and Sheets for this project.",
   },
   {
     slug: "messages",
