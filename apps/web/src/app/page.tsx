@@ -34,7 +34,7 @@ export default async function Home() {
       <div className="flex-1">
         <header className="border-rule mb-20 border-b pb-12">
           <p className="text-accent text-ui mb-4 font-mono tracking-widest uppercase">
-            The Smart Research Manager
+            Literature Review Software
           </p>
           <h1 className="text-ink font-serif text-5xl leading-tight tracking-tight text-balance sm:text-7xl">
             Porcupine
@@ -48,6 +48,15 @@ export default async function Home() {
             teams running a systematic review that has to be reproducible, and for
             students running a thesis search on the same machinery.
           </p>
+
+          <div className="bg-surface border-rule mt-8 rounded-xl border p-6">
+            <h2 className="text-ink font-medium">Seamless Google Workspace Integration</h2>
+            <p className="text-muted text-ui mt-2 text-pretty">
+              Porcupine's core purpose is to help research teams organize and collaborate on their systematic reviews. 
+              By connecting your Google account, Porcupine automatically provisions shared Google Drive folders for your projects, 
+              creates Google Docs for collaborative paper drafting, and exports completed extraction tables to Google Sheets.
+            </p>
+          </div>
 
           <div className="mt-10 flex flex-wrap items-center gap-4">
             {user ? (
@@ -132,7 +141,7 @@ export default async function Home() {
           </p>
         </div>
         <div className="text-muted text-fine md:text-right">
-          <p className="text-ink font-medium">Porcupine Research Manager</p>
+          <p className="text-ink font-medium">Porcupine</p>
           <p className="mt-2">Designed & Developed by Dhrubojyoti</p>
           <p className="mt-1">&copy; {new Date().getFullYear()} All rights reserved.</p>
           <p className="mt-3 space-x-4">
