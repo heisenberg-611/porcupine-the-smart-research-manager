@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 
 import { ButtonLink } from "@/components/ui";
 import { getCurrentUser } from "@/lib/supabase/server";
+import logo from "./logo.png";
 
 export const metadata: Metadata = {
   title: "Porcupine",
@@ -33,12 +35,20 @@ export default async function Home() {
     >
       <div className="flex-1">
         <header className="border-rule mb-20 border-b pb-12">
-          <p className="text-accent text-ui mb-4 font-mono tracking-widest uppercase">
+          <p className="text-accent text-ui mb-6 font-mono tracking-widest uppercase">
             Literature Review Software
           </p>
-          <h1 className="text-ink font-serif text-5xl leading-tight tracking-tight text-balance sm:text-7xl">
-            Porcupine
-          </h1>
+          <div className="flex items-center gap-6">
+            <Image 
+              src={logo} 
+              alt="Porcupine Logo" 
+              className="w-20 h-20 sm:w-24 sm:h-24 object-contain rounded-2xl shadow-sm drop-shadow-xl" 
+              priority 
+            />
+            <h1 className="text-ink font-serif text-5xl leading-tight tracking-tight text-balance sm:text-7xl">
+              Porcupine
+            </h1>
+          </div>
           <p className="text-ink text-display mt-6 max-w-3xl font-serif leading-tight text-balance">
             Every paper you read, in one defensible pile.
           </p>
