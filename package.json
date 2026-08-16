@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "pnpm --filter @porcupine/web dev",
     "build": "pnpm -r build",
+    "postinstall": "pnpm db:generate",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint .",
     "format": "prettier --write .",
