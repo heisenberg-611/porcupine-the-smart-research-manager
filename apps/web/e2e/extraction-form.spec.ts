@@ -129,22 +129,22 @@ test.describe("the extraction form's spine", () => {
     await page.getByRole("radio", { name: /start from nothing/i }).check();
     await page.getByRole("button", { name: /create protocol/i }).click();
 
-    // "Add a field" reveals the form; "Add field" submits it. Two buttons one
-    // word apart, so both regexes are anchored.
-    const openFieldForm = page.getByRole("button", { name: /^add a field$/i });
+    // "Add a question" reveals the form; "Add question" submits it. Two
+    // buttons one word apart, so both regexes are anchored.
+    const openFieldForm = page.getByRole("button", { name: /^add a question$/i });
     await expect(openFieldForm).toBeVisible({ timeout: 30_000 });
 
     await openFieldForm.click();
     await page.getByLabel(/^label$/i).fill("Sample size");
     await page.getByLabel(/^type$/i).selectOption("NUMBER");
     await page.getByLabel(/required/i).check();
-    await page.getByRole("button", { name: /^add field$/i }).click();
+    await page.getByRole("button", { name: /^add question$/i }).click();
     await expect(page.getByText("Sample size")).toBeVisible();
 
     await openFieldForm.click();
     await page.getByLabel(/^label$/i).fill("Reviewer notes");
     await page.getByLabel(/^type$/i).selectOption("TEXT");
-    await page.getByRole("button", { name: /^add field$/i }).click();
+    await page.getByRole("button", { name: /^add question$/i }).click();
     await expect(page.getByText("Reviewer notes")).toBeVisible();
   });
 

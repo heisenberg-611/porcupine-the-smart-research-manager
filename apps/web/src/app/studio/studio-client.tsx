@@ -10,7 +10,7 @@ import { Prec } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
 import type { KeyBinding } from "@codemirror/view";
 
-import { Button } from "@/components/ui";
+import { Button, Checkbox, Input } from "@/components/ui";
 import { collectLabels, collectOutline, countWords, lint } from "@/lib/latex/analyse";
 import {
   closeEnvironmentOnBrace,
@@ -71,7 +71,9 @@ Edit the source and press Compile.
 \\end{document}`;
 
 /**
- * The LaTeX spike: does client-side TeX actually work, and at what cost.
+ * The LaTeX studio: Tectonic (XeTeX) compiled to WebAssembly, typesetting in
+ * the browser with nothing leaving the machine. It began as a spike asking
+ * whether that was viable at all; it is the writing surface now.
  *
  * Compilation runs in a worker (`lib/latex/`), which is not a refinement — the
  * engine's `compile()` is synchronous and takes seconds, so on the main thread
@@ -82,7 +84,7 @@ Edit the source and press Compile.
  * What this is still not: SyncTeX click-through between source and PDF, and
  * it saves nowhere but this browser.
  */
-export function SpikeClient() {
+export function StudioClient() {
   const { compile, busy, step, outcome, error, restart } = useCompiler();
   const [files, setFiles] = useState<ProjectFiles>(new Map());
   const [entry, setEntryState] = useState(DEFAULT_ENTRY);
@@ -396,11 +398,16 @@ export function SpikeClient() {
 
   return (
     <div className="text-ink flex h-full flex-col overflow-hidden">
-      <header className="border-rule bg-canvas flex h-14 shrink-0 items-center justify-between gap-4 border-b px-6 relative z-20">
-        <h1 className="text-ink text-[15px] font-semibold tracking-tight">Porcupine LaTeX Studio</h1>
+      <header className="border-rule bg-canvas relative z-20 flex h-14 shrink-0 items-center justify-between gap-4 border-b px-6">
+        <h1 className="text-ink text-[15px] font-semibold tracking-tight">
+          Porcupine LaTeX Studio
+        </h1>
 
         <div className="flex items-center gap-3">
-          <span aria-live="polite" className="text-ink-soft text-sm font-mono font-medium px-3 py-1.5 bg-surface border border-rule rounded-md shadow-sm">
+          <span
+            aria-live="polite"
+            className="text-ink-soft bg-surface border-rule rounded-md border px-3 py-1.5 font-mono text-sm font-medium shadow-sm"
+          >
             {busy ? (step ?? "Working") : outcome ? describe(outcome.status) : "Ready"}
           </span>
           <Button
@@ -508,12 +515,7 @@ export function SpikeClient() {
                   on by default — but anyone editing a table wants the columns
                   to stay put. */}
                 <label className="flex items-center gap-1.5">
-                  <input
-                    type="checkbox"
-                    checked={wrap}
-                    onChange={(e) => setWrap(e.target.checked)}
-                    className="accent-accent"
-                  />
+                  <Checkbox checked={wrap} onChange={(e) => setWrap(e.target.checked)} />
                   Wrap
                 </label>
                 <span className="tabular-nums" title="Words, excluding markup">
@@ -526,14 +528,15 @@ export function SpikeClient() {
                     nudging. */}
                   <span className="sr-only">Editor text size in pixels</span>
                   A
-                  <input
+                  <Input
+                    compact
                     type="number"
                     min={MIN_FONT}
                     max={MAX_FONT}
                     value={fontSize}
                     onChange={(e) => changeFont(Number(e.target.value))}
                     aria-label="Editor text size in pixels"
-                    className="border-border bg-surface text-ink focus:border-accent h-7 w-12 rounded border px-1 text-center font-mono text-sm shadow-sm transition-colors focus:ring-0 focus:outline-none"
+                    className="w-12 text-center font-mono"
                   />
                 </label>
 

@@ -118,11 +118,22 @@ export async function AppHeader() {
  * pathname, which would make this a client component and ship JavaScript for
  * a header that is otherwise entirely static. The project context is already
  * stated by every page's own heading.
+ *
+ * The DISPLAY utility comes from `className` and is deliberately absent from
+ * the base list. It used to be `inline-flex` there, with callers appending
+ * `hidden sm:inline-flex` to drop a link on a phone — and that silently did
+ * nothing. Tailwind emits `.hidden{display:none}` BEFORE
+ * `.inline-flex{display:inline-flex}`, so with both on one element and equal
+ * specificity the base won and `hidden` lost. Every link meant to be hidden
+ * below `sm` was in fact showing, the header wrapped to two rows on a phone,
+ * and the fixed header then covered the top of the page — clicks landed on a
+ * nav link instead of what was under it, which is the failure the comments
+ * above describe and the e2e suite hit across six specs.
  */
 function NavLink({
   href,
   children,
-  className = "",
+  className = "inline-flex",
 }: {
   href: string;
   children: React.ReactNode;
@@ -131,7 +142,7 @@ function NavLink({
   return (
     <Link
       href={href}
-      className={`text-muted hover:text-ink hover:bg-surface focus-visible:ring-accent text-ui inline-flex min-h-11 items-center rounded-lg px-3 transition-colors focus-visible:ring-2 focus-visible:outline-none ${className}`}
+      className={`text-muted hover:text-ink hover:bg-surface focus-visible:ring-accent text-ui min-h-11 items-center rounded-lg px-3 transition-colors focus-visible:ring-2 focus-visible:outline-none ${className}`}
     >
       {children}
     </Link>

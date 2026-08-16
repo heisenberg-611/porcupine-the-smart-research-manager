@@ -247,7 +247,7 @@ function ProtocolEditor({
 
       {/* Named for the same reason the import preview is: "the first list on
           the page" stopped being this one when the project nav arrived. */}
-      <ol aria-label="Protocol fields" className="space-y-2">
+      <ol aria-label="Protocol questions" className="space-y-2">
         {protocol.fields.map((field, index) => (
           <li key={field.id} className="border-border rounded-lg border p-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -506,7 +506,7 @@ function AddField({
 
       <div className="flex gap-2">
         <Button type="submit" disabled={pending || !label.trim()}>
-          {pending ? "Adding…" : "Add field"}
+          {pending ? "Adding…" : "Add question"}
         </Button>
         <Button type="button" variant="ghost" onClick={onDone} disabled={pending}>
           Cancel

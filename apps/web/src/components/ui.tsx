@@ -32,7 +32,8 @@ export function Button({
         "focus-visible:ring-accent focus-visible:ring-2 focus-visible:ring-offset-2",
         "focus-visible:ring-offset-canvas focus-visible:outline-none",
         "disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none",
-        variant === "primary" && "bg-accent text-accent-ink hover:brightness-110 shadow-sm hover:shadow-md hover:-translate-y-0.5",
+        variant === "primary" &&
+          "bg-accent text-accent-ink shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:brightness-110",
         // Ghost is a text button with a hover ground, not an outlined box.
         // Sixteen pages of outlined ghost buttons was most of why every screen
         // read as a form.
@@ -83,15 +84,43 @@ export function Field({
   );
 }
 
-export function Input({ className, ...props }: ComponentProps<"input">) {
+/**
+ * Focus, for the three controls that are a bordered box.
+ *
+ * The box already HAS a hairline; the focused state recolours it to accent
+ * instead of drawing a second shape around it. That is why each of these
+ * suppresses the base ring — a ring plus a recoloured border is two green
+ * outlines on one field, which is what this used to look like, and the
+ * `outline-none` meant to prevent it only started working once the base rule
+ * moved into a cascade layer.
+ *
+ * One border, one pixel, one colour change. Small controls that have no
+ * border worth recolouring — Checkbox, Radio — keep the ring instead.
+ *
+ * `compact` is a variant rather than something a caller layers on with
+ * `className`, because `cx` concatenates and does not merge: passing `h-7`
+ * alongside the default `min-h-12` leaves both in the class list and lets
+ * stylesheet order decide which wins. Swapping the size classes here is the
+ * only way an override is actually reliable.
+ *
+ * It is for dense toolbars — the editor's text-size field — where a 48px
+ * full-width field is not a smaller version of the right control, it is the
+ * wrong one. Everything that takes real typing stays at the default size.
+ */
+export function Input({
+  className,
+  compact,
+  ...props
+}: ComponentProps<"input"> & { compact?: boolean }) {
   return (
     <input
       className={cx(
-        "border-border bg-raised text-ink text-ui w-full rounded-xl border px-4 shadow-sm",
-        "min-h-12 transition-all duration-200",
+        "border-border bg-raised text-ink rounded-xl border shadow-sm",
+        "transition-all duration-200",
         "placeholder:text-muted/70",
-        "focus:border-accent focus:ring-0",
-        "focus-visible:outline-none hover:border-accent/40",
+        "hover:border-accent/40",
+        "focus:border-accent focus-visible:outline-none",
+        compact ? "text-fine h-7 rounded-md px-1" : "text-ui min-h-12 w-full px-4",
         className,
       )}
       {...props}
@@ -106,8 +135,8 @@ export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
         "border-border bg-raised text-ink text-ui w-full rounded-xl border px-4 shadow-sm",
         "py-3 transition-all duration-200",
         "placeholder:text-muted/70",
-        "focus:border-accent focus:ring-0",
-        "focus-visible:outline-none hover:border-accent/40",
+        "hover:border-accent/40",
+        "focus:border-accent focus-visible:outline-none",
         className,
       )}
       {...props}
@@ -122,8 +151,8 @@ export function Select({ className, ...props }: ComponentProps<"select">) {
         "border-border bg-raised text-ink text-ui w-full rounded-xl border px-4 shadow-sm",
         "min-h-12 transition-all duration-200",
         "placeholder:text-muted/70",
-        "focus:border-accent focus:ring-0",
-        "focus-visible:outline-none hover:border-accent/40",
+        "hover:border-accent/40",
+        "focus:border-accent focus-visible:outline-none",
         className,
       )}
       {...props}
@@ -145,8 +174,12 @@ export function Checkbox({ className, ...props }: ComponentProps<"input">) {
     <input
       type="checkbox"
       className={cx(
+        // No focus style of its own: a 16px box has no border worth
+        // recolouring, so this keeps the base ring, which reads clearly around
+        // something this small. It used to suppress the ring AND recolour the
+        // border — a focused checkbox that showed almost nothing, once the
+        // suppression started working.
         "border-border text-accent accent-accent size-4 rounded",
-        "focus-visible:border-accent focus:ring-0 focus:outline-none",
         className,
       )}
       {...props}
@@ -166,8 +199,8 @@ export function Radio({ className, ...props }: ComponentProps<"input">) {
     <input
       type="radio"
       className={cx(
+        // Keeps the base ring, for the reason Checkbox does.
         "border-border accent-accent size-4",
-        "focus-visible:border-accent focus:ring-0 focus:outline-none",
         className,
       )}
       {...props}

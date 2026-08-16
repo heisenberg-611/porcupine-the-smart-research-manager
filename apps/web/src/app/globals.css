@@ -189,9 +189,29 @@
   }
 }
 
-:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
+/*
+ * One focus indicator, and a thin one.
+ *
+ * This rule used to sit OUTSIDE any cascade layer. Unlayered styles beat
+ * every layered rule regardless of specificity, and Tailwind's utilities are
+ * layered — so the `focus-visible:outline-none` that the form primitives,
+ * the nav links and most of the buttons already carried was dead code. A
+ * clicked text field or select drew BOTH this ring and its own border turned
+ * accent: two green outlines, the outer one detached by the offset.
+ *
+ * In `@layer base` it is a default rather than an override. Anything that
+ * draws its own focus style now actually replaces it, and everything else —
+ * links, plain buttons, whatever has no border of its own to change — still
+ * gets a ring without having to ask for one.
+ *
+ * 1.5px, not 2: enough to read as deliberate against paper or dark, thin
+ * enough that it is a focus ring rather than a second border.
+ */
+@layer base {
+  :focus-visible {
+    outline: 1.5px solid var(--color-accent);
+    outline-offset: 2px;
+  }
 }
 
 /*
