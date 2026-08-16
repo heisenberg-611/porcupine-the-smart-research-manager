@@ -50,11 +50,30 @@ export function SignInForm() {
     setError(null);
 
     const supabase = createClient();
-    const { error } = await supabase.auth.verifyOtp({
+    let { error } = await supabase.auth.verifyOtp({
       email,
       token: code,
       type: "email",
     });
+
+    // Fallbacks if Supabase generated a specific token type rather than generic email
+    if (error && error.message.includes("expired or is invalid")) {
+      const retry = await supabase.auth.verifyOtp({
+        email,
+        token: code,
+        type: "magiclink",
+      });
+      error = retry.error;
+      
+      if (error && error.message.includes("expired or is invalid")) {
+        const signupRetry = await supabase.auth.verifyOtp({
+          email,
+          token: code,
+          type: "signup",
+        });
+        error = signupRetry.error;
+      }
+    }
 
     setPending(false);
     if (error) {
