@@ -54,6 +54,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:generate
 
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: apps/web/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('apps/web/src/**/*.ts', 'apps/web/src/**/*.tsx', 'packages/**/*.ts') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-
+
       # Pulling Docker images is the single largest cost in this workflow, so
       # only the containers the tests actually use are started: postgres, kong,
       # gotrue, postgrest and mailpit — five instead of twelve.
