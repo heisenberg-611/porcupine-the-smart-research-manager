@@ -125,14 +125,14 @@ export function SignInForm() {
       <Banner>
         Code sent to <strong>{email}</strong>.
       </Banner>
-      <Field label="Six-digit code" id="code">
+      <Field label="Verification code" id="code">
         <Input
           id="code"
           name="code"
           inputMode="numeric"
           autoComplete="one-time-code"
-          pattern="[0-9]{6}"
-          maxLength={6}
+          pattern="[0-9]{6,8}"
+          maxLength={8}
           required
           value={code}
           onChange={(e) => setCode(e.target.value)}

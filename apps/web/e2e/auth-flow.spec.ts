@@ -95,10 +95,10 @@ test.describe("Phase 0 exit criterion", () => {
     await page.getByLabel("Email").fill(email);
     await page.getByRole("button", { name: /email me a code/i }).click();
 
-    await expect(page.getByLabel(/six-digit code/i)).toBeVisible();
+    await expect(page.getByLabel(/verification code/i)).toBeVisible();
 
     const code = await fetchOtp(email);
-    await page.getByLabel(/six-digit code/i).fill(code);
+    await page.getByLabel(/verification code/i).fill(code);
     await page.getByRole("button", { name: /^sign in$/i }).click();
 
     // A new account has no identity keys, so it lands in enrollment.
@@ -633,7 +633,15 @@ test.describe("Phase 0 exit criterion", () => {
 
     // Frozen means frozen: the inputs are disabled until it is reopened.
     await page.reload();
-    await expect(page.getByText(/submitted and frozen/i)).toBeVisible();
+    // By ROLE, not by text. Straight after a reload the server-streamed copy
+    // of this banner is still in the document beside the hydrated one — same
+    // markup, same words — so an unscoped getByText matches twice and fails
+    // strict mode before it ever checks visibility. Only the live one is
+    // exposed to the accessibility tree as a status, which is what makes the
+    // role unambiguous where the text is not. Same trap as the scoped
+    // getByText at the top of this file, and it bites hardest on CI, where
+    // hydration finishes later than it does on a developer's machine.
+    await expect(page.getByRole("status")).toContainText(/submitted and frozen/i);
     await expect(page.getByLabel(/^dataset/i)).toBeDisabled();
 
     // And reopening is a door, not a wall.
