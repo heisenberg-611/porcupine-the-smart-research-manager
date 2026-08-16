@@ -12,6 +12,7 @@ export default tseslint.config(
       "**/generated/**",
       "**/*.config.*",
       "supabase/**",
+      "archive/**",
       // Throwaway debugging probes; see .gitignore.
       "debug-scratch/**",
       // Build output, not source. The LaTeX compile worker is bundled and

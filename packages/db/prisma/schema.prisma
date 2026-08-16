@@ -309,6 +309,9 @@ model Project {
   accessHelpUrl   String? @map("access_help_url")
   accessHelpLabel String? @map("access_help_label")
 
+  /// The ID of the dedicated Google Drive folder for this project.
+  driveFolderId   String? @map("drive_folder_id")
+
   currentKeyEpoch Int       @default(0) @map("current_key_epoch")
   archivedAt      DateTime? @map("archived_at") @db.Timestamptz(3)
   deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(3)

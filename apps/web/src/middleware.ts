@@ -75,14 +75,7 @@ export const config = {
   matcher: [
     /*
      * Everything except static assets and image optimization.
-     *
-     * `/latex/` is excluded too: it holds the TeX distribution the LaTeX
-     * studio compiles against — a wasm module, a 13 MB bundle and package
-     * tarballs. Running the auth middleware on those meant a Supabase session
-     * lookup per asset request, and the compile worker's own script was
-     * answered with a 307 to /sign-in when it had no cookie. There is nothing
-     * private in a TeX distribution; it is the same bytes for everyone.
      */
-    "/((?!_next/static|_next/image|latex/|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|woff2?)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|woff2?)$).*)",
   ],
 };

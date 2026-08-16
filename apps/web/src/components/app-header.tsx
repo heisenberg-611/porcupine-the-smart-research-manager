@@ -75,11 +75,6 @@ export async function AppHeader() {
           <NavLink href="/assigned" className="hidden sm:inline-flex">
             Assigned to me
           </NavLink>
-          {/* Top level, not inside a project: a chapter gets written long
-              before anyone decides which project it belongs to. */}
-          <NavLink href="/studio" className="hidden sm:inline-flex">
-            LaTeX
-          </NavLink>
 
           <div className="flex-1" />
 

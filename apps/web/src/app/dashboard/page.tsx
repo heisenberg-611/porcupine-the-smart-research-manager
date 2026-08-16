@@ -120,9 +120,6 @@ export default async function DashboardPage() {
               <ButtonLink href="/projects/new" variant="primary">
                 Start your first project
               </ButtonLink>
-              {/* The studio needs no project, so an empty account is not a
-                  reason to offer nothing but "make a project". */}
-              <ButtonLink href="/studio">Open the LaTeX studio</ButtonLink>
             </div>
           }
         />
@@ -190,14 +187,6 @@ export default async function DashboardPage() {
           </section>
 
           <p className="text-muted text-fine">
-            {/* Both of these are top level, not inside a project. A chapter
-                gets written long before anyone decides which project it
-                belongs to, and a citation is copied from wherever the paper
-                happens to be. */}
-            <Link href="/studio" className="text-accent underline underline-offset-4">
-              LaTeX studio
-            </Link>{" "}
-            — write and typeset in the browser.{" "}
             <Link href="/zotero" className="text-accent underline underline-offset-4">
               Using Zotero
             </Link>{" "}

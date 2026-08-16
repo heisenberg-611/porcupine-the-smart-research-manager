@@ -30,6 +30,9 @@ function slugify(title: string) {
   return `${base || "project"}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+import { createClient } from "@/lib/supabase/server";
+import { createProjectFolder } from "@/lib/google";
+
 /**
  * Creates a project and the creator's OWNER membership in one transaction.
  *
@@ -51,6 +54,21 @@ export async function createProject(
   }
   const { title, description, kind } = parsed.data;
 
+  const supabase = await createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const providerToken = session?.provider_token;
+
+  let driveFolderId: string | null = null;
+  if (providerToken) {
+    try {
+      driveFolderId = (await createProjectFolder(providerToken, title)) ?? null;
+    } catch (e) {
+      console.warn("Failed to create Google Drive folder", e);
+    }
+  }
+
   try {
     const project = await withUserContext(claims, async (tx) => {
       const created = await tx.project.create({
@@ -60,6 +78,7 @@ export async function createProject(
           ...(description ? { description } : {}),
           kind,
           createdBy: claims.sub,
+          ...(driveFolderId ? { driveFolderId } : {}),
         },
         select: { id: true },
       });

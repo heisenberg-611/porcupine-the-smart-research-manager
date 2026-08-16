@@ -94,67 +94,114 @@ export function SignInForm() {
     });
   }
 
+  async function signInWithGoogle() {
+    setPending(true);
+    setError(null);
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        queryParams: {
+          access_type: "offline",
+          prompt: "consent",
+        },
+        scopes:
+          "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets",
+      },
+    });
+
+    if (error) {
+      setError(error.message);
+      setPending(false);
+    }
+  }
+
   if (stage === "email") {
     return (
-      <form onSubmit={requestCode} className="flex flex-col gap-4">
-        {error && <Banner tone="danger">{error}</Banner>}
-        <Field
-          label="Email"
-          id="email"
-          hint="Use your institutional address if you have one."
-        >
-          <Input
+      <div className="flex flex-col gap-6">
+        <form onSubmit={requestCode} className="flex flex-col gap-4">
+          {error && <Banner tone="danger">{error}</Banner>}
+          <Field
+            label="Email"
             id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@university.edu"
-          />
-        </Field>
-        <Button type="submit" disabled={pending}>
-          {pending ? "Sending…" : "Email me a code"}
+            hint="Use your institutional address if you have one."
+          >
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@university.edu"
+            />
+          </Field>
+          <Button type="submit" disabled={pending}>
+            {pending ? "Sending…" : "Email me a code"}
+          </Button>
+        </form>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-zinc-200 dark:border-zinc-800" />
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="bg-white px-2 text-zinc-500 dark:bg-zinc-950 dark:text-zinc-400">
+              Or continue with
+            </span>
+          </div>
+        </div>
+
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={signInWithGoogle}
+          disabled={pending}
+        >
+          Google
         </Button>
-      </form>
+      </div>
     );
   }
 
   return (
-    <form onSubmit={verifyCode} className="flex flex-col gap-4">
-      {error && <Banner tone="danger">{error}</Banner>}
-      <Banner>
-        Code sent to <strong>{email}</strong>.
-      </Banner>
-      <Field label="Verification code" id="code">
-        <Input
-          id="code"
-          name="code"
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          pattern="[0-9]{6,8}"
-          maxLength={8}
-          required
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          className="font-mono tracking-[0.4em]"
-        />
-      </Field>
-      <Button type="submit" disabled={pending}>
-        {pending ? "Verifying…" : "Sign in"}
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        onClick={() => {
-          setStage("email");
-          setCode("");
-          setError(null);
-        }}
-      >
-        Use a different email
-      </Button>
-    </form>
+    <div className="flex flex-col gap-6">
+      <form onSubmit={verifyCode} className="flex flex-col gap-4">
+        {error && <Banner tone="danger">{error}</Banner>}
+        <Banner>
+          Code sent to <strong>{email}</strong>.
+        </Banner>
+        <Field label="Verification code" id="code">
+          <Input
+            id="code"
+            name="code"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            pattern="[0-9]{6,8}"
+            maxLength={8}
+            required
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            className="font-mono tracking-[0.4em]"
+          />
+        </Field>
+        <Button type="submit" disabled={pending}>
+          {pending ? "Verifying…" : "Sign in"}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => {
+            setStage("email");
+            setCode("");
+            setError(null);
+          }}
+        >
+          Use a different email
+        </Button>
+      </form>
+    </div>
   );
 }

@@ -117,13 +117,15 @@ export function EvidenceControls({
         )}
       </form>
 
-      {/* Ordinary links, because the response is a file download: an anchor
-          gets the browser's own save handling for free. They carry the current
-          filter, sort and columns, so "export" means "export what I am looking
-          at". */}
       <div className="flex flex-wrap gap-2">
         <ButtonLink href={exportHref("csv")}>Export CSV</ButtonLink>
         <ButtonLink href={exportHref("xlsx")}>Export Excel</ButtonLink>
+        <form action={`/projects/${projectId}/evidence/export-sheets`} method="post">
+          <Hidden name="search" value={exportParams.toString()} />
+          <Button type="submit" variant="ghost">
+            Export to Sheets
+          </Button>
+        </form>
       </div>
     </div>
   );
