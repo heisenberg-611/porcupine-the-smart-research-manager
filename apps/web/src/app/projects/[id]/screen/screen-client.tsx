@@ -9,7 +9,7 @@ import { useEffect, useState, useTransition } from "react";
 
 import { AccessHelp, type AccessRoute } from "@/components/access-route";
 import { SourceLinks } from "@/components/source-links";
-import { Button, Select } from "@/components/ui";
+import { Button, Input, Select } from "@/components/ui";
 
 import { assignWork, recordDecision } from "./actions";
 
@@ -90,6 +90,10 @@ export function ScreenClient({
   const [showKeys, setShowKeys] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>("unscreened");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
+  /** Assignee and due date per paper, while the write is in flight. */
+  const [edits, setEdits] = useState<
+    Record<string, { assigneeId: string; dueAt: string }>
+  >({});
   const [pending, startTransition] = useTransition();
 
   /*
@@ -249,25 +253,61 @@ export function ScreenClient({
     });
   }
 
-  function assign(userId: string) {
+  /**
+   * Who, and by when — sent together, always, and held locally in between.
+   *
+   * `assignWork` writes both columns on every call: an omitted `dueAt` is
+   * written as null, not left alone. So each control has to send the other's
+   * value, and reading that value straight off `current` is a race. Picking an
+   * assignee and then a date fires two requests, and the second one reads a
+   * prop that only updates when `revalidatePath` has been round-tripped — so
+   * the date would post `assigneeId: null` and quietly undo the assignment a
+   * second earlier.
+   *
+   * The edit is therefore kept here, keyed by paper, and is what both controls
+   * render from. It is the same shape as `done`: optimistic, with the server's
+   * answer as the thing that rolls it back.
+   */
+  const assignment = current
+    ? (edits[current.id] ?? {
+        assigneeId: current.assigneeId ?? "",
+        dueAt: dueDayValue(current.dueAt),
+      })
+    : { assigneeId: "", dueAt: "" };
+
+  function assign(assigneeId: string, dueAt: string) {
     if (!current) return;
+    const target = current;
     setError(null);
     setStatus(null);
+    setEdits((prev) => ({ ...prev, [target.id]: { assigneeId, dueAt } }));
 
     startTransition(async () => {
       const response = await assignWork({
         projectId,
-        projectWorkId: current.id,
-        assigneeId: userId || null,
+        projectWorkId: target.id,
+        assigneeId: assigneeId || null,
+        dueAt: dueAt || null,
       });
 
       // Confirm it landed. A select that silently posts gives the user no way
       // to know whether the assignment took — and "did that save?" is the
       // question people answer by clicking it again.
       if (response.ok) {
-        const name = members.find((m) => m.userId === userId)?.name;
-        setStatus(name ? `Assigned to ${name}.` : "Assignment cleared.");
-      } else setError(response.error);
+        const name = members.find((m) => m.userId === assigneeId)?.name;
+        const who = name ? `Assigned to ${name}` : "Assignment cleared";
+        setStatus(dueAt ? `${who}, due ${dueDayLabel(dueAt)}.` : `${who}.`);
+        return;
+      }
+
+      // Drop the edit so both controls fall back to what the server actually
+      // holds, rather than showing a change that was refused.
+      setEdits((prev) => {
+        const next = { ...prev };
+        delete next[target.id];
+        return next;
+      });
+      setError(response.error);
     });
   }
 
@@ -444,6 +484,12 @@ export function ScreenClient({
                         ` · ${screenStatusLabel(row.screenStatus)}`}
                       {row.assigneeId &&
                         ` · ${members.find((m) => m.userId === row.assigneeId)?.name ?? "assigned"}`}
+                      {/* The day, not whether it has passed. Comparing against
+                          `Date.now()` here would render differently on the
+                          server and on the client and risk a hydration
+                          mismatch; /assigned is a server component and is
+                          where "Overdue" is said in red. */}
+                      {row.dueAt && ` · due ${dueDayLabel(dueDayValue(row.dueAt))}`}
                     </span>
                   </button>
                 </li>
@@ -527,21 +573,39 @@ export function ScreenClient({
             </Button>
           </div>
 
-          <label className="text-muted text-fine flex max-w-xs flex-col gap-1">
-            Assign to
-            <Select
-              value={current.assigneeId ?? ""}
-              onChange={(event) => assign(event.target.value)}
-              disabled={pending}
-            >
-              <option value="">Nobody</option>
-              {members.map((member) => (
-                <option key={member.userId} value={member.userId}>
-                  {member.userId === currentUserId ? `${member.name} (me)` : member.name}
-                </option>
-              ))}
-            </Select>
-          </label>
+          <div className="flex max-w-lg flex-wrap items-end gap-3">
+            <label className="text-muted text-fine flex min-w-[12rem] flex-1 flex-col gap-1">
+              Assign to
+              <Select
+                value={assignment.assigneeId}
+                onChange={(event) => assign(event.target.value, assignment.dueAt)}
+                disabled={pending}
+              >
+                <option value="">Nobody</option>
+                {members.map((member) => (
+                  <option key={member.userId} value={member.userId}>
+                    {member.userId === currentUserId
+                      ? `${member.name} (me)`
+                      : member.name}
+                  </option>
+                ))}
+              </Select>
+            </label>
+
+            {/* The deadline is stated on the control, not left to be
+                inferred. "Due the 20th" is ambiguous across four timezones in
+                a way nobody discovers until the day someone is called late by
+                it — which is the hazard B-07 is about. */}
+            <label className="text-muted text-fine flex flex-col gap-1">
+              Due by (23:59 UTC)
+              <Input
+                type="date"
+                value={assignment.dueAt}
+                onChange={(event) => assign(assignment.assigneeId, event.target.value)}
+                disabled={pending}
+              />
+            </label>
+          </div>
         </div>
       </div>
 
@@ -594,6 +658,36 @@ export function ScreenClient({
       </div>
     </section>
   );
+}
+
+/*
+ * A due date is a DAY, and the day is read in UTC.
+ *
+ * B-07 says store UTC, render in the viewer's zone, and state the deadline
+ * semantics. The middle part is wrong for this particular value and right for
+ * most others: the deadline is stored as 23:59:59.999Z on the day someone
+ * picked, so rendering that instant in a zone ahead of UTC shows the NEXT day
+ * — you choose the 20th and the app tells you the 21st. A date field promises
+ * that the day you picked is the day you see.
+ *
+ * So both directions are UTC, and the semantics are stated on the control
+ * rather than left for someone to infer.
+ */
+function dueDayValue(dueAt: string | null): string {
+  if (!dueAt) return "";
+  const at = new Date(dueAt);
+  return Number.isNaN(at.getTime()) ? "" : at.toISOString().slice(0, 10);
+}
+
+function dueDayLabel(day: string): string {
+  const at = new Date(`${day}T00:00:00Z`);
+  return Number.isNaN(at.getTime())
+    ? day
+    : at.toLocaleDateString(undefined, {
+        timeZone: "UTC",
+        month: "short",
+        day: "numeric",
+      });
 }
 
 /** A keycap. Small enough to be inline, distinct enough to be read as a key. */

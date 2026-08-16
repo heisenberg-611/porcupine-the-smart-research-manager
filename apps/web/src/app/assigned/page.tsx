@@ -213,11 +213,17 @@ export default async function AssignedPage() {
                           <span
                             className={`text-fine shrink-0 ${isOverdue ? "text-danger" : "text-muted"}`}
                           >
-                            {/* Rendered from a timestamptz; the viewer's locale decides
-                        the format. Never do date maths in local time (B-07). */}
+                            {/* Rendered from a timestamptz, in UTC. A due date is
+                        stored as 23:59:59.999Z on the day someone chose, so the
+                        viewer's own zone would show the NEXT day to everyone
+                        east of UTC — you set the 20th, Dhaka reads the 21st.
+                        The day has to survive the round trip, so the format is
+                        localised and the zone is not (B-07: never do date maths
+                        in local time). */}
                             {isOverdue ? "Overdue " : "Due "}
                             <time dateTime={row.due_at}>
                               {new Date(row.due_at).toLocaleDateString(undefined, {
+                                timeZone: "UTC",
                                 month: "short",
                                 day: "numeric",
                               })}

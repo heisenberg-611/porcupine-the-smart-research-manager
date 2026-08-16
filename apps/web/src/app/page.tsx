@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { ButtonLink } from "@/components/ui";
 import { getCurrentUser } from "@/lib/supabase/server";
@@ -11,9 +10,21 @@ export const metadata: Metadata = {
     "Run a systematic review or a thesis literature search end to end: find papers across five databases, screen them with your reasons recorded, extract the same fields from every one, and get the evidence table and PRISMA diagram out at the end.",
 };
 
+/*
+ * Signed in, this page still renders.
+ *
+ * It used to redirect straight to /dashboard, which made the wordmark in the
+ * header a dead control for everyone who was signed in — the one link on
+ * every page that is conventionally "take me to the front" bounced you back
+ * to where you already were. What the page says about the product is also
+ * the thing a user shows someone else, and they should not have to sign out
+ * to reach it.
+ *
+ * The call to action is the part that has to change: offering "Sign in" to
+ * someone already signed in is the tell that a page has one audience in mind.
+ */
 export default async function Home() {
   const user = await getCurrentUser();
-  if (user) redirect("/dashboard");
 
   return (
     <main
@@ -39,9 +50,15 @@ export default async function Home() {
           </p>
 
           <div className="mt-10 flex flex-wrap items-center gap-4">
-            <ButtonLink href="/sign-in" variant="primary">
-              Sign in
-            </ButtonLink>
+            {user ? (
+              <ButtonLink href="/dashboard" variant="primary">
+                Go to your dashboard
+              </ButtonLink>
+            ) : (
+              <ButtonLink href="/sign-in" variant="primary">
+                Sign in
+              </ButtonLink>
+            )}
             <ButtonLink href="/about">How it works</ButtonLink>
           </div>
         </header>

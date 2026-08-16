@@ -39,17 +39,21 @@ export async function AppHeader() {
           className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-1 gap-y-1 px-6 py-2"
         >
           {/*
-          Hidden on a phone, and nothing is lost: "Projects" below points at
-          the same place, so this is a wordmark rather than a destination.
+          The front page, not the dashboard. A wordmark is the one link people
+          expect to be "the top of the product" rather than "the top of my
+          work" — Dashboard is right there and says which it is. It pointed at
+          /dashboard while / redirected signed-in users to /dashboard, so for
+          anyone signed in it was a link that could not go anywhere.
 
-          It buys the ~85px the theme control needs to sit on the SAME ROW.
-          That matters more than it sounds. With everything present the header
-          wrapped to two lines, and a two-line header broke clicks much further
-          down the page — a link in the evidence table could not be reached at
-          all. A header that does not fit is not a cosmetic problem.
+          Hidden on a phone, and nothing is lost: it buys the ~85px the theme
+          control needs to sit on the SAME ROW. That matters more than it
+          sounds. With everything present the header wrapped to two lines, and
+          a two-line header broke clicks much further down the page — a link in
+          the evidence table could not be reached at all. A header that does
+          not fit is not a cosmetic problem.
         */}
           <Link
-            href="/dashboard"
+            href="/"
             className="text-ink text-heading mr-4 hidden font-serif sm:inline"
             aria-label="Porcupine home"
           >

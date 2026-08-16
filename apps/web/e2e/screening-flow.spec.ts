@@ -325,6 +325,47 @@ test.describe("screening at speed", () => {
     await expect(page.locator("article h2")).toHaveText(before);
   });
 
+  test("a paper can be given an owner and a deadline, together", async () => {
+    /*
+     * The two controls write the same row, and `assignWork` writes BOTH
+     * columns every time — so this asserts the pair survives, not just the
+     * field that was touched last. Setting the date used to be impossible;
+     * when it became possible, sending it without the assignee would have
+     * unassigned the paper.
+     *
+     * The day is TODAY in UTC, which is the end-of-day rule stated as a test:
+     * a deadline is 23:59:59.999Z on the day chosen, so a paper due today is
+     * not late. Stored as the START of that day instead — which is what
+     * `new Date("2026-08-16")` gives you — it would be overdue the instant it
+     * was set, on every paper anyone ever assigned.
+     */
+    await goto(page, `/projects/${projectId}/screen`);
+    const title = await page.locator("article h2").innerText();
+    const today = new Date().toISOString().slice(0, 10);
+
+    // Scoped to main: the header's "Assigned to me" link matches /assigned to/
+    // as well, and on a desktop viewport it matches FIRST — an unscoped
+    // assertion passes without the status message ever appearing.
+    const confirmation = page.getByRole("main").getByText(/assigned to /i);
+
+    await page.getByLabel(/assign to/i).selectOption({ index: 1 });
+    await expect(confirmation).toBeVisible();
+
+    await page.getByLabel(/due by/i).fill(today);
+    await expect(page.getByRole("main").getByText(/assigned to .*, due /i)).toBeVisible();
+
+    // Both, after a full round trip to the server and back.
+    await goto(page, `/projects/${projectId}/screen`);
+    await expect(page.getByLabel(/due by/i)).toHaveValue(today);
+    await expect(page.getByLabel(/assign to/i)).not.toHaveValue("");
+
+    // And the queue it was assigned into agrees: due, not yet overdue.
+    await goto(page, "/assigned");
+    const row = page.getByRole("listitem").filter({ hasText: title }).first();
+    await expect(row).toContainText(/Due /);
+    await expect(row).not.toContainText(/Overdue/);
+  });
+
   test("the shortcut list is visible, not hidden", async () => {
     await goto(page, `/projects/${projectId}/screen`);
     // A shortcut nobody is told about is a feature for whoever wrote it.

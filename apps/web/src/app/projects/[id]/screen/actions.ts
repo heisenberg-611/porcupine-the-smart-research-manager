@@ -213,9 +213,22 @@ export async function assignWork(
 
   const { projectId, projectWorkId, assigneeId, dueAt } = parsed.data;
 
+  /*
+   * A date means the END of that day, not the start of it.
+   *
+   * `<input type="date">` sends `2026-08-20`, which `new Date` reads as
+   * midnight UTC — the instant the day BEGINS. Stored that way, a paper due
+   * today is already overdue the moment it is assigned, because `due_at <
+   * now()` is true for every hour of the day someone chose. "Due Thursday"
+   * means Thursday is still yours.
+   *
+   * Only bare dates are shifted. A full timestamp is a caller that has
+   * already said which instant it means.
+   */
   let due: Date | null = null;
   if (dueAt) {
-    const parsedDate = new Date(dueAt);
+    const endOfDay = /^\d{4}-\d{2}-\d{2}$/.test(dueAt) ? `${dueAt}T23:59:59.999Z` : dueAt;
+    const parsedDate = new Date(endOfDay);
     if (Number.isNaN(parsedDate.getTime()))
       return { ok: false, error: "That date is not valid." };
     due = parsedDate;
