@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { startTransition, useState } from "react";
 
 import { Banner, Button, Field, Input, Select } from "@/components/ui";
 import { inviteMember } from "../actions";
@@ -39,7 +39,9 @@ export function InviteMemberForm({ projectId }: { projectId: string }) {
       return;
     }
     setDone(true);
-    router.refresh();
+    startTransition(() => {
+      router.refresh();
+    });
   }
 
   return (

@@ -342,10 +342,10 @@ create index works_search_idx on public.works using gin (search_tsv);
 -- Import-time dedupe: "is this nearly the same title?" The upsert above uses
 -- exact title_norm; this index backs the fuzzy candidate list shown to a user
 -- before any merge happens.
-create index works_title_trgm_idx on public.works using gin (title gin_trgm_ops);
+create index works_title_trgm_idx on public.works using gin (title extensions.gin_trgm_ops);
 
 -- Quote search over cited passages.
-create index anchors_quote_trgm_idx on public.anchors using gin (quote gin_trgm_ops);
+create index anchors_quote_trgm_idx on public.anchors using gin (quote extensions.gin_trgm_ops);
 
 -- Annotation body search. Annotations are server-confidential, not E2EE
 -- (ADR-001), which is what makes this possible at all.

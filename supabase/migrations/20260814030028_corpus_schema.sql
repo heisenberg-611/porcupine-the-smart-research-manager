@@ -2,6 +2,11 @@
 -- RLS policies and grants below this block are hand-written and are the
 -- actual security boundary. Do not regenerate this file in place.
 
+-- ═══════════════════════ Extensions ═══════════════════════
+-- Trigram matching backs import-time dedupe (a title that nearly matches) and
+-- quote search over anchors. Created before the indexes that need it.
+create extension if not exists pg_trgm with schema extensions;
+
 -- CreateEnum
 CREATE TYPE "ScreenStatus" AS ENUM ('IDENTIFIED', 'SCREENING', 'INCLUDED', 'EXCLUDED', 'READING', 'EXTRACTED', 'SYNTHESIZED');
 

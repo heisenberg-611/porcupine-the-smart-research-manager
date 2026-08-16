@@ -2,7 +2,7 @@
 
 import { createIdentity, toBase64 } from "@porcupine/crypto";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { startTransition, useState } from "react";
 
 import { Banner, Button, Card, Checkbox } from "@/components/ui";
 
@@ -104,8 +104,10 @@ export function EnrollForm({ next }: { next: string }) {
         <Button
           disabled={!confirmed}
           onClick={() => {
-            router.push(next);
-            router.refresh();
+            startTransition(() => {
+              router.push(next);
+              router.refresh();
+            });
           }}
         >
           Continue

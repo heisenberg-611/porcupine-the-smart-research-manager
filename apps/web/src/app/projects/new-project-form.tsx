@@ -2,7 +2,7 @@
 
 import { capabilities, type ProjectKind } from "@porcupine/shared";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { startTransition, useState } from "react";
 
 import { Banner, Button, Field, Input, Radio, Textarea } from "@/components/ui";
 
@@ -99,8 +99,10 @@ export function NewProjectForm() {
       setError(result.error);
       return;
     }
-    router.push(`/projects/${result.data.id}`);
-    router.refresh();
+    startTransition(() => {
+      router.push(`/projects/${result.data.id}`);
+      router.refresh();
+    });
   }
 
   return (

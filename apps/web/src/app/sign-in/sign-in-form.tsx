@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { startTransition, useState } from "react";
 
 import { Banner, Button, Field, Input } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
@@ -88,8 +88,10 @@ export function SignInForm() {
 
     // Enrollment decides whether this user still needs identity keys, so
     // every sign-in passes through it rather than guessing here.
-    router.push(`/enroll?next=${encodeURIComponent(next)}`);
-    router.refresh();
+    startTransition(() => {
+      router.push(`/enroll?next=${encodeURIComponent(next)}`);
+      router.refresh();
+    });
   }
 
   if (stage === "email") {

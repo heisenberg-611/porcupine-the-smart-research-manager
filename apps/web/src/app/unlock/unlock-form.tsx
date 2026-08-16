@@ -2,7 +2,7 @@
 
 import { fromBase64, rewrapIdentity, toBase64, unwrapIdentity } from "@porcupine/crypto";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { startTransition, useState } from "react";
 
 import { Banner, Button, Checkbox, Field, Input } from "@/components/ui";
 import {
@@ -106,8 +106,10 @@ export function UnlockForm({ next }: { next: string }) {
       }
 
       setIdentity(identity);
-      router.push(next);
-      router.refresh();
+      startTransition(() => {
+        router.push(next);
+        router.refresh();
+      });
     } catch (err) {
       setError(
         err instanceof Error && /passphrase/i.test(err.message)
