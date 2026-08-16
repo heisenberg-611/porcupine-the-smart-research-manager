@@ -30,9 +30,11 @@ export function SignInForm() {
     setPending(true);
     setError(null);
 
+    const cleanEmail = email.trim().toLowerCase();
+
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOtp({
-      email,
+      email: cleanEmail,
       options: { shouldCreateUser: true },
     });
 
@@ -49,26 +51,29 @@ export function SignInForm() {
     setPending(true);
     setError(null);
 
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanCode = code.replace(/[^0-9]/g, "");
+
     const supabase = createClient();
     let { error } = await supabase.auth.verifyOtp({
-      email,
-      token: code,
+      email: cleanEmail,
+      token: cleanCode,
       type: "email",
     });
 
     // Fallbacks if Supabase generated a specific token type rather than generic email
     if (error && error.message.includes("expired or is invalid")) {
       const retry = await supabase.auth.verifyOtp({
-        email,
-        token: code,
+        email: cleanEmail,
+        token: cleanCode,
         type: "magiclink",
       });
       error = retry.error;
       
       if (error && error.message.includes("expired or is invalid")) {
         const signupRetry = await supabase.auth.verifyOtp({
-          email,
-          token: code,
+          email: cleanEmail,
+          token: cleanCode,
           type: "signup",
         });
         error = signupRetry.error;
