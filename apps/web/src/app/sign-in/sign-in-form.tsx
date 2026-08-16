@@ -69,7 +69,7 @@ export function SignInForm() {
         type: "magiclink",
       });
       error = retry.error;
-      
+
       if (error && error.message.includes("expired or is invalid")) {
         const signupRetry = await supabase.auth.verifyOtp({
           email: cleanEmail,
