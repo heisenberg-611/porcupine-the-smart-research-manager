@@ -135,6 +135,10 @@ export default async function Home() {
           <p className="text-ink font-medium">Porcupine Research Manager</p>
           <p className="mt-2">Designed & Developed by Dhrubojyoti</p>
           <p className="mt-1">&copy; {new Date().getFullYear()} All rights reserved.</p>
+          <p className="mt-3 space-x-4">
+            <Link href="/privacy" className="hover:text-ink underline underline-offset-4 transition-colors">Privacy Policy</Link>
+            <Link href="/terms" className="hover:text-ink underline underline-offset-4 transition-colors">Terms of Service</Link>
+          </p>
         </div>
       </footer>
     </main>
