@@ -32,7 +32,8 @@ export function Button({
         "focus-visible:ring-accent focus-visible:ring-2 focus-visible:ring-offset-2",
         "focus-visible:ring-offset-canvas focus-visible:outline-none",
         "disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none",
-        variant === "primary" && "bg-accent text-accent-ink hover:brightness-110 shadow-sm hover:shadow-md hover:-translate-y-0.5",
+        variant === "primary" &&
+          "bg-accent text-accent-ink shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:brightness-110",
         // Ghost is a text button with a hover ground, not an outlined box.
         // Sixteen pages of outlined ghost buttons was most of why every screen
         // read as a form.
@@ -83,15 +84,31 @@ export function Field({
   );
 }
 
-export function Input({ className, ...props }: ComponentProps<"input">) {
+/**
+ * `compact` is a variant rather than something a caller layers on with
+ * `className`, because `cx` concatenates and does not merge: passing `h-7`
+ * alongside the default `min-h-12` leaves both in the class list and lets
+ * stylesheet order decide which wins. Swapping the size classes here is the
+ * only way an override is actually reliable.
+ *
+ * It is for dense toolbars — the editor's text-size field — where a 48px
+ * full-width field is not a smaller version of the right control, it is the
+ * wrong one. Everything that takes real typing stays at the default size.
+ */
+export function Input({
+  className,
+  compact,
+  ...props
+}: ComponentProps<"input"> & { compact?: boolean }) {
   return (
     <input
       className={cx(
-        "border-border bg-raised text-ink text-ui w-full rounded-xl border px-4 shadow-sm",
-        "min-h-12 transition-all duration-200",
+        "border-border bg-raised text-ink rounded-xl border shadow-sm",
+        "transition-all duration-200",
         "placeholder:text-muted/70",
         "focus:border-accent focus:ring-0",
-        "focus-visible:outline-none hover:border-accent/40",
+        "hover:border-accent/40 focus-visible:outline-none",
+        compact ? "text-fine h-7 rounded-md px-1" : "text-ui min-h-12 w-full px-4",
         className,
       )}
       {...props}
@@ -107,7 +124,7 @@ export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
         "py-3 transition-all duration-200",
         "placeholder:text-muted/70",
         "focus:border-accent focus:ring-0",
-        "focus-visible:outline-none hover:border-accent/40",
+        "hover:border-accent/40 focus-visible:outline-none",
         className,
       )}
       {...props}
@@ -123,7 +140,7 @@ export function Select({ className, ...props }: ComponentProps<"select">) {
         "min-h-12 transition-all duration-200",
         "placeholder:text-muted/70",
         "focus:border-accent focus:ring-0",
-        "focus-visible:outline-none hover:border-accent/40",
+        "hover:border-accent/40 focus-visible:outline-none",
         className,
       )}
       {...props}

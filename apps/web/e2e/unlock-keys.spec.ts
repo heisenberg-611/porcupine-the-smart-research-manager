@@ -233,7 +233,10 @@ test.describe("unlocking, and a project key", () => {
     await page.getByLabel(/recovery passphrase/i).fill(passphrase);
     await page.getByLabel(/remember this browser/i).check();
     await page.getByRole("button", { name: /^unlock$/i }).click();
-    await page.waitForURL(/\/projects/, { timeout: 120_000 });
+    // No `next` on this visit, so unlock falls back to its default landing
+    // page — the dashboard, not /projects, since the dashboard became the
+    // place every entry flow finishes.
+    await page.waitForURL(/\/dashboard/, { timeout: 120_000 });
 
     // A full reload — which, before this, always meant re-entering the
     // passphrase. The "a reload locks it again" test above is the one this

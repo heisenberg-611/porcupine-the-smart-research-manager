@@ -465,11 +465,37 @@ test.describe("Phase 0 exit criterion", () => {
     const nav = page.getByRole("navigation", { name: /main/i });
     await expect(nav).toBeVisible();
 
-    await nav.getByRole("link", { name: /^projects$/i }).click();
-    await expect(page).toHaveURL(/\/projects$/);
+    /*
+     * Below `sm` the header carries Dashboard alone. That is a width
+     * calculation, not a preference: four links plus the theme control plus
+     * Sign out do not fit on a 412px row, and a header that wraps to two rows
+     * covers the top of the page — which is how a link in the evidence table
+     * became unclickable.
+     *
+     * So the claim being tested is reachability, not a particular link on a
+     * particular viewport, and on a phone the route is one hop longer. This
+     * used to click the desktop links on both viewports and pass, because the
+     * `hidden` that was supposed to drop them never applied — the header was
+     * silently wrapping on every phone run.
+     */
+    const compact = (page.viewportSize()?.width ?? 0) < 640;
 
-    await nav.getByRole("link", { name: /assigned to me/i }).click();
-    await expect(page).toHaveURL(/\/assigned$/);
+    if (compact) {
+      await nav.getByRole("link", { name: /^dashboard$/i }).click();
+      await expect(page).toHaveURL(/\/dashboard$/);
+      await page.getByRole("link", { name: /\d+ projects/i }).click();
+      await expect(page).toHaveURL(/\/projects$/);
+
+      await nav.getByRole("link", { name: /^dashboard$/i }).click();
+      await page.getByRole("link", { name: /\d+ assigned to you/i }).click();
+      await expect(page).toHaveURL(/\/assigned$/);
+    } else {
+      await nav.getByRole("link", { name: /^projects$/i }).click();
+      await expect(page).toHaveURL(/\/projects$/);
+
+      await nav.getByRole("link", { name: /assigned to me/i }).click();
+      await expect(page).toHaveURL(/\/assigned$/);
+    }
 
     // Signed-in identity is always reachable, on any viewport. The address is
     // shown beside the button on desktop and carried in the button's
@@ -494,20 +520,20 @@ test.describe("Phase 0 exit criterion", () => {
     // The template's fields arrive with it. Scoped to the field list: the
     // create form's own input still holds the typed name, and the template
     // preview lists the same labels, so an unscoped match proves nothing.
-    const fields = page.getByRole("list", { name: /protocol fields/i });
+    const fields = page.getByRole("list", { name: /protocol questions/i });
     await expect(fields.getByText(/^Dataset/)).toBeVisible();
     await expect(fields.getByText(/^Headline metric/)).toBeVisible();
-    await expect(page.getByText(/10 fields/)).toBeVisible();
+    await expect(page.getByText(/10 questions/)).toBeVisible();
 
     // A field demanding provenance says so, because that is the constraint an
     // extractor will hit later.
     await expect(page.getByText(/needs a quoted source/).first()).toBeVisible();
 
     // Adding a field derives a stable key from the label.
-    await page.getByRole("button", { name: /add a field/i }).click();
+    await page.getByRole("button", { name: /add a question/i }).click();
     await page.getByLabel(/^label$/i).fill("Reported runtime (hours)");
     await page.getByLabel(/^type$/i).selectOption("NUMBER");
-    await page.getByRole("button", { name: /^add field$/i }).click();
+    await page.getByRole("button", { name: /^add question$/i }).click();
 
     await expect(page.getByText("Reported runtime (hours)")).toBeVisible();
     await expect(page.getByText("reported_runtime_hours")).toBeVisible();

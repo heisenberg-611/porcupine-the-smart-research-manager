@@ -36,6 +36,24 @@ export interface Member {
 }
 
 /**
+ * The queue orders, as data rather than as a string union repeated in three
+ * places.
+ *
+ * The options are derived from this list and the value is narrowed back
+ * through it, so a mode cannot exist in the dropdown without a matching
+ * `case` below — the failure this replaces was an `as any` on the change
+ * handler, which would have taken a renamed option, typechecked, and sorted
+ * by nothing.
+ */
+const SORT_MODES = [
+  { value: "unscreened", label: "Unscreened first" },
+  { value: "newest", label: "Newest first" },
+  { value: "oldest", label: "Oldest first" },
+] as const;
+
+type SortMode = (typeof SORT_MODES)[number]["value"];
+
+/**
  * The screening surface.
  *
  * One paper at a time, with the abstract visible and Include/Exclude the
@@ -70,7 +88,7 @@ export function ScreenClient({
   const [deferred, setDeferred] = useState<Record<string, true>>({});
   const [reason, setReason] = useState<ExclusionReason | "">("");
   const [showKeys, setShowKeys] = useState(false);
-  const [sortMode, setSortMode] = useState<"newest" | "oldest" | "cited" | "unscreened">("unscreened");
+  const [sortMode, setSortMode] = useState<SortMode>("unscreened");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
   const [pending, startTransition] = useTransition();
 
@@ -99,12 +117,13 @@ export function ScreenClient({
           return (b.year ?? 0) - (a.year ?? 0);
         case "oldest":
           return (a.year ?? 0) - (b.year ?? 0);
-        case "unscreened":
-          return a.screenStatus === "IDENTIFIED" && b.screenStatus !== "IDENTIFIED" ? -1 : 
-                 a.screenStatus !== "IDENTIFIED" && b.screenStatus === "IDENTIFIED" ? 1 : 0;
-        // most cited requires cited_by_count but we don't have it on ScreenRow. We'll fallback to unscreened.
-        default:
-          return 0;
+        case "unscreened": {
+          // Untouched papers first; everything already looked at keeps its
+          // relative order behind them.
+          const aNew = Number(a.screenStatus === "IDENTIFIED");
+          const bNew = Number(b.screenStatus === "IDENTIFIED");
+          return bNew - aNew;
+        }
       }
     });
   const current = remaining[Math.min(index, Math.max(remaining.length - 1, 0))];
@@ -361,6 +380,38 @@ export function ScreenClient({
           aria-label="Screening queue"
           className="border-rule sticky top-[var(--app-header-h)] hidden max-h-[calc(100dvh-var(--app-header-h)-2rem)] overflow-y-auto border-r pr-3 lg:block"
         >
+          {/* What the queue contains, and in what order. Both narrow the list
+              below, so they sit above it rather than in a settings menu. */}
+          <div className="mb-4 flex flex-col gap-2">
+            <Select
+              value={sortMode}
+              onChange={(event) => {
+                const picked = SORT_MODES.find((m) => m.value === event.target.value);
+                if (picked) setSortMode(picked.value);
+              }}
+              aria-label="Sort queue"
+            >
+              {SORT_MODES.map((mode) => (
+                <option key={mode.value} value={mode.value}>
+                  {mode.label}
+                </option>
+              ))}
+            </Select>
+            <Select
+              value={assigneeFilter}
+              onChange={(event) => setAssigneeFilter(event.target.value)}
+              aria-label="Filter queue by assignee"
+            >
+              <option value="all">All assignees</option>
+              <option value="unassigned">Unassigned</option>
+              {members.map((member) => (
+                <option key={member.userId} value={member.userId}>
+                  {member.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+
           <ul className="flex flex-col gap-0.5">
             {remaining.map((row) => {
               const isCurrent = row.id === current.id;
@@ -389,8 +440,10 @@ export function ScreenClient({
                       {/* Saying which ones you have already put off is the
                           point of putting them at the end. */}
                       {deferred[row.id] && " · skipped"}
-                      {row.screenStatus !== "IDENTIFIED" && ` · ${screenStatusLabel(row.screenStatus)}`}
-                      {row.assigneeId && ` · ${members.find((m) => m.userId === row.assigneeId)?.name ?? "assigned"}`}
+                      {row.screenStatus !== "IDENTIFIED" &&
+                        ` · ${screenStatusLabel(row.screenStatus)}`}
+                      {row.assigneeId &&
+                        ` · ${members.find((m) => m.userId === row.assigneeId)?.name ?? "assigned"}`}
                     </span>
                   </button>
                 </li>
@@ -442,14 +495,53 @@ export function ScreenClient({
             targets a different paper so they cannot race each other. */}
             <Button onClick={() => decide("INCLUDED")}>Include</Button>
 
-            <Button variant="danger" onClick={() => decide("EXCLUDED")}>
-              Exclude
-            </Button>
+            {/* The reason sits NEXT TO Exclude, not in a dialog after it.
+                For a systematic review it is required, so a person who has
+                to click Exclude before being told that has been made to do
+                the decision twice. The 1–9 shortcuts set this same value. */}
+            <div className="flex items-end gap-2">
+              <label className="text-muted text-fine flex flex-col gap-1">
+                Exclusion reason
+                <Select
+                  value={reason}
+                  onChange={(event) =>
+                    setReason(event.target.value as ExclusionReason | "")
+                  }
+                >
+                  <option value="">{reasonRequired ? "Choose one…" : "None"}</option>
+                  {EXCLUSION_REASONS.map((r) => (
+                    <option key={r.code} value={r.code}>
+                      {r.label}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+
+              <Button variant="danger" onClick={() => decide("EXCLUDED")}>
+                Exclude
+              </Button>
+            </div>
 
             <Button variant="ghost" disabled={pending} onClick={skip}>
               Skip for now
             </Button>
           </div>
+
+          <label className="text-muted text-fine flex max-w-xs flex-col gap-1">
+            Assign to
+            <Select
+              value={current.assigneeId ?? ""}
+              onChange={(event) => assign(event.target.value)}
+              disabled={pending}
+            >
+              <option value="">Nobody</option>
+              {members.map((member) => (
+                <option key={member.userId} value={member.userId}>
+                  {member.userId === currentUserId ? `${member.name} (me)` : member.name}
+                </option>
+              ))}
+            </Select>
+          </label>
         </div>
       </div>
 

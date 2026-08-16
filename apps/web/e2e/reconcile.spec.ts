@@ -192,7 +192,7 @@ test.describe("Phase 2b — dual extraction", () => {
     await alice.getByLabel(/protocol name/i).fill("Data extraction");
     await alice.getByRole("radio", { name: /machine learning benchmarks/i }).check();
     await alice.getByRole("button", { name: /create protocol/i }).click();
-    await expect(alice.getByText(/10 fields/)).toBeVisible();
+    await expect(alice.getByText(/10 questions/)).toBeVisible();
   });
 
   test("two people extract the same paper independently", async () => {
