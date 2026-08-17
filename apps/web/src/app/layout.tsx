@@ -5,6 +5,8 @@ import { AppHeader } from "@/components/app-header";
 import { CryptoSessionProvider } from "@/lib/crypto/session";
 import { THEME_SCRIPT } from "@/lib/theme";
 
+import { AppHeaderVisibility } from "@/components/app-header-visibility";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -46,7 +48,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             navigation between project screens. It holds nothing until someone
             unlocks, and holds it only in memory — see the provider. */}
         <CryptoSessionProvider>
-          <AppHeader />
+          <AppHeaderVisibility>
+            <AppHeader />
+          </AppHeaderVisibility>
           {children}
         </CryptoSessionProvider>
       </body>

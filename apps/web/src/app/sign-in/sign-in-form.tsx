@@ -81,8 +81,8 @@ export function SignInForm() {
       }
     }
 
-    setPending(false);
     if (error) {
+      setPending(false);
       setError(error.message);
       return;
     }
