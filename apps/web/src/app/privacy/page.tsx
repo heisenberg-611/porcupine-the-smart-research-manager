@@ -19,7 +19,7 @@ export default function PrivacyPolicyPage() {
       
       <div className="prose max-w-none prose-p:leading-relaxed prose-p:text-muted prose-headings:text-ink prose-h2:text-2xl prose-h2:font-bold prose-h2:text-accent prose-h2:border-b prose-h2:border-rule prose-h2:pb-2 prose-h2:mt-12 prose-h2:mb-6 prose-li:text-lg prose-li:my-4 prose-strong:text-ink">
         <p className="text-lg font-medium text-ink">
-          At Porcupine, we are deeply committed to protecting your privacy and the security of your research data. This Privacy Policy governs the manner in which Porcupine collects, uses, maintains, and discloses information collected from users.
+          At Porcupine (developed and maintained by Dhrubojyoti), we are deeply committed to protecting your privacy and the security of your research data. This Privacy Policy governs the manner in which Porcupine collects, uses, maintains, and discloses information collected from users.
         </p>
 
         <h2>1. Information We Collect</h2>
@@ -39,8 +39,16 @@ export default function PrivacyPolicyPage() {
 
         <h2>3. Third-Party Services & Google Workspace Integration</h2>
         <p>
-          Porcupine integrates deeply with third-party services like Google Workspace to provide you with a seamless research experience. When you connect these services, we only request the specific OAuth scopes and permissions strictly necessary for the integration to function (such as creating research folders, drafting documents, and exporting evidence tables to spreadsheets).
+          Porcupine integrates deeply with third-party services like Google Workspace to provide you with a seamless research experience. When you connect these services, we only request the specific OAuth scopes and permissions strictly necessary for the integration to function.
         </p>
+        <p>
+          Specifically, to accurately represent our identity and intent regarding Google user data:
+        </p>
+        <ul>
+          <li><strong>Who is requesting data:</strong> Porcupine, developed by Dhrubojyoti.</li>
+          <li><strong>What data we request:</strong> We request the restricted <code>drive.file</code> scope. This allows us to see, edit, create, and delete <strong>only</strong> the specific Google Drive files and folders that you open or create with Porcupine. We cannot access your other Drive files.</li>
+          <li><strong>Why we request this data:</strong> We request this access solely to automatically provision shared research folders, create collaborative Google Docs for drafting thesis chapters, and export your literature extraction data directly into Google Sheets for analysis.</li>
+        </ul>
         <div className="my-6 border-l-4 border-accent bg-accent/5 p-6 rounded-r-lg">
           <h3 className="mt-0 text-accent">Google API Limited Use Disclosure</h3>
           <p className="mb-0 text-sm md:text-base">

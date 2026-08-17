@@ -60,7 +60,7 @@ export default async function Home() {
 
           <div className="bg-surface/60 border-rule mt-10 rounded-xl border p-8">
             <h2 className="text-ink text-xl font-serif mb-4">App Purpose & Features</h2>
-            
+
             <h3 className="text-ink font-medium mt-4 mb-2">What does Porcupine do?</h3>
             <p className="text-muted text-ui text-pretty mb-6">
               Porcupine is a specialized literature review and thesis management platform. Its primary purpose is to help academic researchers, students, and teams streamline the systematic review process. The application allows users to search across academic databases, screen papers against predefined criteria, extract specific data fields, and automatically generate comprehensive evidence tables and PRISMA flow diagrams.
