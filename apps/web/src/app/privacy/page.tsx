@@ -31,9 +31,12 @@ export default function PrivacyPolicyPage() {
           Your research data, including your notes, annotations, and messages, are an essential part of your work. We use encryption to protect this data. By design, certain sensitive data is encrypted in your browser before it reaches our servers, meaning we cannot read it and cannot recover it for you if you lose access.
         </p>
 
-        <h2>Third-Party Services</h2>
+        <h2>Third-Party Services & Google Workspace</h2>
         <p>
-          Porcupine integrates with third-party services like Google Workspace and various academic databases to provide you with a seamless research experience. When you connect these services, we only request the permissions necessary for the integration to function. Please refer to their respective privacy policies to understand how they handle your data.
+          Porcupine integrates with third-party services like Google Workspace and various academic databases to provide you with a seamless research experience. When you connect these services, we only request the permissions necessary for the integration to function.
+        </p>
+        <p className="mt-4 border-l-4 border-primary pl-4 italic">
+          Porcupine's use and transfer to any other app of information received from Google APIs will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">Google API Services User Data Policy</a>, including the Limited Use requirements.
         </p>
 
         <h2>Changes to This Policy</h2>
