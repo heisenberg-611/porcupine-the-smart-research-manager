@@ -4,7 +4,7 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Terms of Service | Porcupine",
-  description: "Terms of Service and usage guidelines for Porcupine Research Manager.",
+  description: "Terms of Service and usage guidelines for Porcupine.",
 };
 
 export default function TermsOfServicePage() {
@@ -19,7 +19,7 @@ export default function TermsOfServicePage() {
       
       <div className="prose max-w-none prose-p:leading-relaxed prose-p:text-muted prose-headings:text-ink prose-h2:text-2xl prose-h2:font-bold prose-h2:text-accent prose-h2:border-b prose-h2:border-rule prose-h2:pb-2 prose-h2:mt-12 prose-h2:mb-6 prose-li:text-lg prose-li:my-4 prose-strong:text-ink">
         <p className="text-lg font-medium text-ink">
-          Welcome to Porcupine. These Terms of Service ("Terms") govern your access to and use of the Porcupine Research Manager website, software, and services (collectively, the "Service"). 
+          Welcome to Porcupine. These Terms of Service ("Terms") govern your access to and use of the Porcupine website, software, and services (collectively, the "Service"). 
         </p>
         <p>
           By accessing or using the Service, you agree to be bound by these Terms. If you disagree with any part of the terms, you do not have permission to access the Service.

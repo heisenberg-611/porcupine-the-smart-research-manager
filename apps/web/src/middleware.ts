@@ -75,6 +75,6 @@ export const config = {
     /*
      * Everything except static assets and image optimization.
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|woff2?)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.json|.well-known/.*|.*\\.(?:svg|png|jpg|jpeg|gif|webp|woff2?|html)$).*)",
   ],
 };

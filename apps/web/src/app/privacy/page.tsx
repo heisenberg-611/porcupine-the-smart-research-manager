@@ -4,7 +4,7 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Privacy Policy | Porcupine",
-  description: "Comprehensive privacy policy and data protection guidelines for Porcupine Research Manager.",
+  description: "Comprehensive privacy policy and data protection guidelines for Porcupine.",
 };
 
 export default function PrivacyPolicyPage() {
