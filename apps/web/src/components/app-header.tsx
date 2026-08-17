@@ -41,9 +41,9 @@ export async function AppHeader() {
           <Link
             href="/"
             className="text-ink text-heading mr-8 hidden font-serif sm:inline"
-            aria-label="Porcupine home"
+            aria-label="porcupineResearch home"
           >
-            Porcupine
+            porcupineResearch
           </Link>
 
           <div className="flex items-center gap-1">

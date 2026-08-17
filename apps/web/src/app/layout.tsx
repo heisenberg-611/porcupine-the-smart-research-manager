@@ -11,8 +11,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Porcupine",
-    template: "%s · Porcupine",
+    default: "porcupineResearch",
+    template: "%s · porcupineResearch",
   },
   description:
     "Research and thesis management: read, screen, extract, synthesize, and write — without keeping tabs on a thousand things across a dozen websites.",

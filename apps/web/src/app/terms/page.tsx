@@ -3,8 +3,8 @@ import { PageHeader } from "@/components/ui";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Terms of Service | Porcupine",
-  description: "Terms of Service and usage guidelines for Porcupine.",
+  title: "Terms of Service | porcupineResearch",
+  description: "Terms of Service and usage guidelines for porcupineResearch.",
 };
 
 export default function TermsOfServicePage() {
@@ -20,7 +20,7 @@ export default function TermsOfServicePage() {
 
         <h2>Welcome</h2>
         <p>
-          <strong>Introduction:</strong> Welcome to Porcupine. Porcupine is a collection of services, including a research management platform and storage subscription services (the “Services”), integrated with the Porcupine web application. Your access to and use of the Services are subject to these Terms of Service (“Terms of Service”) and all applicable laws.
+          <strong>Introduction:</strong> Welcome to porcupineResearch. porcupineResearch is a collection of services, including a research management platform and storage subscription services (the “Services”), integrated with the porcupineResearch web application. Your access to and use of the Services are subject to these Terms of Service (“Terms of Service”) and all applicable laws.
         </p>
         <p>
           <strong>Acceptance of Terms:</strong> By accessing and/or using the Services, you acknowledge that you have read, understood and agree to be bound by these Terms of Service and to comply with all applicable laws.
@@ -39,7 +39,7 @@ export default function TermsOfServicePage() {
           <strong>Ownership Retained:</strong> We do not claim ownership of any data or other content you transmit, upload or store on or through the Services (“Submissions”). You retain your rights to the Submissions you transmit, upload or store on or through the Services. You are solely responsible for all your Submissions and all activity that occurs under your account.
         </p>
         <p>
-          <strong>Limited License to Process:</strong> By using the Services, you automatically grant to Porcupine and its service providers a limited, royalty-free license and right to store, display, process, modify, and retransmit your Submissions solely to provide the Services to you. Notably, your End-to-End Encrypted data (like messages and LaTeX documents) cannot be read or processed by us in plaintext.
+          <strong>Limited License to Process:</strong> By using the Services, you automatically grant to porcupineResearch and its service providers a limited, royalty-free license and right to store, display, process, modify, and retransmit your Submissions solely to provide the Services to you. Notably, your End-to-End Encrypted data (like messages and LaTeX documents) cannot be read or processed by us in plaintext.
         </p>
 
         <h2>3. Fees and Payment</h2>
@@ -57,7 +57,7 @@ export default function TermsOfServicePage() {
 
         <h2>5. Third-Party Services and Integrations</h2>
         <p>
-          <strong>Google Services (Auth, Docs, Drive, Sheets):</strong> Our Service integrates with Google for authentication (Google Auth) and offers features that connect directly with your Google Workspace account (e.g., creating and accessing Google Drive folders, Google Docs, and Google Sheets). By utilizing these features, you must also comply with Google's Terms of Service and Acceptable Use Policies. Porcupine explicitly adheres to the Google API Services User Data Policy regarding the strict limited use of your data.
+          <strong>Google Services (Auth, Docs, Drive, Sheets):</strong> Our Service integrates with Google for authentication (Google Auth) and offers features that connect directly with your Google Workspace account (e.g., creating and accessing Google Drive folders, Google Docs, and Google Sheets). By utilizing these features, you must also comply with Google's Terms of Service and Acceptable Use Policies. porcupineResearch explicitly adheres to the Google API Services User Data Policy regarding the strict limited use of your data.
         </p>
         <p>
           <strong>Supabase (Database and Authentication):</strong> We use Supabase as our backend database and authentication provider. By using our Services, you acknowledge that your data may be stored and processed by Supabase in accordance with their privacy policies and terms of service.
@@ -76,7 +76,7 @@ export default function TermsOfServicePage() {
 
         <h2>7. Limitation of Liability</h2>
         <p>
-          <strong>Damages Disclaimer:</strong> TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, Porcupine AND ITS SERVICE PROVIDERS WILL NOT BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL OR PUNITIVE DAMAGES, INCLUDING WITHOUT LIMITATION, LOSS OF PROFITS, DATA, USE, GOODWILL, OR OTHER INTANGIBLE LOSSES, RESULTING FROM YOUR ACCESS TO OR USE OF OR INABILITY TO ACCESS OR USE THE SERVICES.
+          <strong>Damages Disclaimer:</strong> TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, porcupineResearch AND ITS SERVICE PROVIDERS WILL NOT BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL OR PUNITIVE DAMAGES, INCLUDING WITHOUT LIMITATION, LOSS OF PROFITS, DATA, USE, GOODWILL, OR OTHER INTANGIBLE LOSSES, RESULTING FROM YOUR ACCESS TO OR USE OF OR INABILITY TO ACCESS OR USE THE SERVICES.
         </p>
 
         <h2>8. Disclaimer of Warranties</h2>
@@ -86,7 +86,7 @@ export default function TermsOfServicePage() {
 
         <h2>9. General</h2>
         <p>
-          <strong>Entire Agreement:</strong> These Terms of Service constitute the entire agreement between you and Porcupine with respect to the use of the Site. Any changes to these Terms of Service will be effective when posted. If the changes are material, we will notify you via an email to the email associated with your account.
+          <strong>Entire Agreement:</strong> These Terms of Service constitute the entire agreement between you and porcupineResearch with respect to the use of the Site. Any changes to these Terms of Service will be effective when posted. If the changes are material, we will notify you via an email to the email associated with your account.
         </p>
         <p>
           <strong>Contact Us:</strong> If you have any questions about these Terms, please contact us at <Link href="mailto:dhrubojyoti.saha@g.bracu.ac.bd" className="text-accent hover:underline">dhrubojyoti.saha@g.bracu.ac.bd</Link>.

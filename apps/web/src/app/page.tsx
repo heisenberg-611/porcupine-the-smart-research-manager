@@ -184,7 +184,7 @@ export default async function Home() {
                 <span className="text-ink font-sans text-2xl font-bold tracking-tight">porcupineResearch</span>
               </div>
               <p className="text-ink-soft font-medium text-sm leading-relaxed text-pretty max-w-sm">
-                A specialized research and thesis management platform for systematic literature reviews.
+                Research and thesis management: read, screen, extract, synthesize, and write — without keeping tabs on a thousand things across a dozen websites.
               </p>
               <div className="text-muted text-fine space-y-1">
                 <p>Designed & Developed by Dhrubojyoti</p>
