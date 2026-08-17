@@ -1,4 +1,4 @@
-import { resolveAnchor } from "@porcupine/anchoring";
+import { resolveAnchor } from "@Porcupine/anchoring";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
@@ -177,28 +177,28 @@ export default async function ReadPage({
    */
   const focusAnchor = focusAnchorId
     ? await must(
-        supabase
-          .from("anchors")
-          .select("id, quote, prefix, suffix, start_off, end_off, page")
-          .eq("id", focusAnchorId)
-          .eq("project_id", id)
-          .maybeSingle(),
-        "the passage",
-      )
+      supabase
+        .from("anchors")
+        .select("id, quote, prefix, suffix, start_off, end_off, page")
+        .eq("id", focusAnchorId)
+        .eq("project_id", id)
+        .maybeSingle(),
+      "the passage",
+    )
     : null;
 
   const focus = focusAnchor
     ? resolveAnchor(
-        {
-          quote: focusAnchor.quote,
-          prefix: focusAnchor.prefix ?? undefined,
-          suffix: focusAnchor.suffix ?? undefined,
-          startOff: focusAnchor.start_off ?? undefined,
-          endOff: focusAnchor.end_off ?? undefined,
-          page: focusAnchor.page ?? undefined,
-        },
-        text,
-      )
+      {
+        quote: focusAnchor.quote,
+        prefix: focusAnchor.prefix ?? undefined,
+        suffix: focusAnchor.suffix ?? undefined,
+        startOff: focusAnchor.start_off ?? undefined,
+        endOff: focusAnchor.end_off ?? undefined,
+        page: focusAnchor.page ?? undefined,
+      },
+      text,
+    )
     : null;
 
   return (

@@ -1,10 +1,10 @@
 /**
- * @porcupine/db — Prisma client and the RLS-safe access helper.
+ * @Porcupine/db — Prisma client and the RLS-safe access helper.
  *
  * ⚠️  Importing this package anywhere but a web app's `src/server/db`
  * directory is an ESLint error.
  *
- * Prisma connects as `porcupine_app` and, without a claim set, RLS
+ * Prisma connects as `Porcupine_app` and, without a claim set, RLS
  * returns zero rows — the failure mode is fail-closed, but a query that
  * forgets `withUserContext` will simply appear broken rather than insecure.
  *
@@ -36,7 +36,7 @@ function createClient(): PrismaClient {
 }
 
 /**
- * Service-context client. Bypasses nothing — `porcupine_app` has no
+ * Service-context client. Bypasses nothing — `Porcupine_app` has no
  * BYPASSRLS — but carries no user claim either, so under RLS it sees
  * nothing until a claim is set. Use `withUserContext` for user-scoped work.
  *

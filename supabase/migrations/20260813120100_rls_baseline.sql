@@ -13,7 +13,7 @@
 --   3. With no claim set, current_setting(..., true) returns NULL, the
 --      predicate evaluates NULL, and every row is filtered. Empty result,
 --      never another user's rows.
---   4. porcupine_app has no BYPASSRLS. It is the role the app connects as.
+--   4. Porcupine_app has no BYPASSRLS. It is the role the app connects as.
 --   5. Membership checks go through SECURITY DEFINER helpers so policies
 --      never need a join — projectId is denormalized for exactly this reason.
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -24,28 +24,28 @@
 
 do $$
 begin
-  if not exists (select 1 from pg_roles where rolname = 'porcupine_app') then
-    create role porcupine_app nologin;
+  if not exists (select 1 from pg_roles where rolname = 'Porcupine_app') then
+    create role Porcupine_app nologin;
   end if;
 end
 $$;
 
-alter role porcupine_app nobypassrls;
+alter role Porcupine_app nobypassrls;
 
--- Migration and test contexts need SET ROLE porcupine_app so they can exercise
+-- Migration and test contexts need SET ROLE Porcupine_app so they can exercise
 -- policies as the app sees them. Granting membership does NOT grant bypass —
 -- postgres already outranks it. This is what lets pgTAP test the real role
 -- instead of testing a superuser and proving nothing.
-grant porcupine_app to postgres;
+grant Porcupine_app to postgres;
 
-grant usage on schema public to porcupine_app;
-grant select, insert, update, delete on all tables in schema public to porcupine_app;
-grant usage, select on all sequences in schema public to porcupine_app;
+grant usage on schema public to Porcupine_app;
+grant select, insert, update, delete on all tables in schema public to Porcupine_app;
+grant usage, select on all sequences in schema public to Porcupine_app;
 
 alter default privileges in schema public
-  grant select, insert, update, delete on tables to porcupine_app;
+  grant select, insert, update, delete on tables to Porcupine_app;
 alter default privileges in schema public
-  grant usage, select on sequences to porcupine_app;
+  grant usage, select on sequences to Porcupine_app;
 
 -- Supabase's own roles need the same grants to reach these tables through
 -- PostgREST. They remain subject to RLS.
@@ -150,11 +150,11 @@ $$;
 revoke execute on function public.is_project_member(uuid) from public;
 revoke execute on function public.has_project_role(uuid, "AccessRole"[]) from public;
 revoke execute on function public.is_org_member(uuid) from public;
-grant execute on function public.current_claims() to porcupine_app, authenticated, anon;
-grant execute on function public.current_user_id() to porcupine_app, authenticated, anon;
-grant execute on function public.is_project_member(uuid) to porcupine_app, authenticated;
-grant execute on function public.has_project_role(uuid, "AccessRole"[]) to porcupine_app, authenticated;
-grant execute on function public.is_org_member(uuid) to porcupine_app, authenticated;
+grant execute on function public.current_claims() to Porcupine_app, authenticated, anon;
+grant execute on function public.current_user_id() to Porcupine_app, authenticated, anon;
+grant execute on function public.is_project_member(uuid) to Porcupine_app, authenticated;
+grant execute on function public.has_project_role(uuid, "AccessRole"[]) to Porcupine_app, authenticated;
+grant execute on function public.is_org_member(uuid) to Porcupine_app, authenticated;
 
 -- ═══════════════════════════ Enable + FORCE RLS ═════════════════════════════
 

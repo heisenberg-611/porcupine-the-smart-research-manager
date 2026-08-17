@@ -310,7 +310,7 @@ model Project {
   accessHelpLabel String? @map("access_help_label")
 
   /// The ID of the dedicated Google Drive folder for this project.
-  driveFolderId   String? @map("drive_folder_id")
+  driveFolderId String? @map("drive_folder_id")
 
   /// The refresh token of the Admin who provisioned the Google Drive folder.
   /// Used to grant access to collaborators asynchronously.
@@ -323,8 +323,8 @@ model Project {
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   createdBy       String    @map("created_by") @db.Uuid
 
-  org     Organization?   @relation(fields: [orgId], references: [id])
-  members ProjectMember[]
+  org      Organization?   @relation(fields: [orgId], references: [id])
+  members  ProjectMember[]
   keys     ProjectKey[]
   channels Channel[]
   messages Message[]
@@ -422,10 +422,10 @@ model Channel {
 /// table, because an edited ciphertext is indistinguishable from a substituted
 /// one.
 model Message {
-  id        String   @id @db.Uuid
-  projectId String   @map("project_id") @db.Uuid
-  channelId String   @map("channel_id") @db.Uuid
-  authorId  String   @map("author_id") @db.Uuid
+  id         String   @id @db.Uuid
+  projectId  String   @map("project_id") @db.Uuid
+  channelId  String   @map("channel_id") @db.Uuid
+  authorId   String   @map("author_id") @db.Uuid
   /// Which project key opens this. Rotation does not re-encrypt history — it
   /// cannot, the server holds no key — so every row names its own epoch.
   epoch      Int
@@ -495,9 +495,9 @@ model ImportBatch {
 /// keyword ranking at search time and the coverage view that shows which
 /// questions no included paper actually addresses.
 model Question {
-  id        String  @id @default(uuid()) @db.Uuid
-  projectId String  @map("project_id") @db.Uuid
-  parentId  String? @map("parent_id") @db.Uuid
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  parentId  String?  @map("parent_id") @db.Uuid
   order     Int
   text      String
   keywords  String[]
@@ -505,10 +505,10 @@ model Question {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  project  Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  parent   Question?  @relation("QuestionTree", fields: [parentId], references: [id], onDelete: Cascade)
-  children Question[] @relation("QuestionTree")
-  works    ProjectWorkQuestion[]
+  project        Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent         Question?             @relation("QuestionTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children       Question[]            @relation("QuestionTree")
+  works          ProjectWorkQuestion[]
   protocolFields ProtocolField[]
 
   @@index([projectId])
@@ -550,13 +550,13 @@ model Work {
   /// R-14: from provider metadata. Drives the FTS config; never assume English.
   language String?
 
-  oaStatus     String?  @map("oa_status")
+  oaStatus        String?  @map("oa_status")
   /// Set ONLY when Unpaywall verifies the file is legitimately redistributable.
-  oaPdfUrl     String?  @map("oa_pdf_url")
-  citedByCount Int      @default(0) @map("cited_by_count")
+  oaPdfUrl        String?  @map("oa_pdf_url")
+  citedByCount    Int      @default(0) @map("cited_by_count")
   /// OpenAlex ids — the citation graph, used for snowballing.
   referencedWorks String[] @map("referenced_works")
-  concepts     Json?
+  concepts        Json?
 
   /// author_year_shorttitle. Stable and globally unique forever: changing one
   /// breaks every \cite{} in every LaTeX project that used it.
@@ -600,16 +600,16 @@ model Work {
 /// A stored federated query. Re-run on a schedule and diffed against what the
 /// project has already seen (R-22: pg_cron, since Vercel has no cron triggers).
 model SavedSearch {
-  id        String        @id @default(uuid()) @db.Uuid
-  projectId String        @map("project_id") @db.Uuid
-  name      String
+  id          String        @id @default(uuid()) @db.Uuid
+  projectId   String        @map("project_id") @db.Uuid
+  name        String
   /// { terms, providers, filters, dateRange }
-  query     Json
-  cadence   DigestCadence @default(WEEKLY)
-  lastRunAt DateTime?     @map("last_run_at") @db.Timestamptz(3)
+  query       Json
+  cadence     DigestCadence @default(WEEKLY)
+  lastRunAt   DateTime?     @map("last_run_at") @db.Timestamptz(3)
   /// Suppresses repeats across runs.
-  seenWorkIds String[]    @map("seen_work_ids") @db.Uuid
-  createdBy String        @map("created_by") @db.Uuid
+  seenWorkIds String[]      @map("seen_work_ids") @db.Uuid
+  createdBy   String        @map("created_by") @db.Uuid
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -634,7 +634,7 @@ model FileObject {
 
   bucket      String
   /// Key within the bucket: {ownerId}/{uuid}.pdf
-  storagePath String @map("storage_path")
+  storagePath String  @map("storage_path")
   etag        String?
 
   /// R-04. Defaults to a private per-user copy; only an Unpaywall-verified
@@ -677,14 +677,14 @@ model ProjectWork {
   /// search | doi | bibtex | ris | zotero | upload | snowball
   source    String
 
-  screenStatus ScreenStatus @default(IDENTIFIED) @map("screen_status")
+  screenStatus   ScreenStatus @default(IDENTIFIED) @map("screen_status")
   /// Controlled vocabulary, not free text: PRISMA requires exclusions reported
   /// by category, and the Phase 2 flow diagram is derived from these.
-  excludeReason String?    @map("exclude_reason")
-  readStatus   ReadStatus   @default(NOT_STARTED) @map("read_status")
-  priority     Int          @default(0)
+  excludeReason  String?      @map("exclude_reason")
+  readStatus     ReadStatus   @default(NOT_STARTED) @map("read_status")
+  priority       Int          @default(0)
   /// Computed from citations, recency, and Question.keywords overlap.
-  relevanceScore Float?     @map("relevance_score")
+  relevanceScore Float?       @map("relevance_score")
 
   assigneeId String?   @map("assignee_id") @db.Uuid
   dueAt      DateTime? @map("due_at") @db.Timestamptz(3)
@@ -770,8 +770,8 @@ model Protocol {
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  project Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  fields  ProtocolField[]
+  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fields      ProtocolField[]
   extractions Extraction[]
 
   @@unique([projectId, name, version])
@@ -780,24 +780,24 @@ model Protocol {
 }
 
 model ProtocolField {
-  id         String    @id @default(uuid()) @db.Uuid
-  protocolId String    @map("protocol_id") @db.Uuid
+  id             String    @id @default(uuid()) @db.Uuid
+  protocolId     String    @map("protocol_id") @db.Uuid
   /// Stable machine key. IMMUTABLE once any ExtractionValue references it —
   /// renaming would silently reassign every recorded answer to a different
   /// question. Changing a field means a new protocol version.
-  key        String
-  label      String
-  type       FieldType
+  key            String
+  label          String
+  type           FieldType
   /// ENUM/MULTI_ENUM choices.
-  options    Json?
-  required   Boolean   @default(false)
+  options        Json?
+  required       Boolean   @default(false)
   /// Forces provenance: the value cannot be saved without an Anchor.
-  requiresAnchor Boolean @default(false) @map("requires_anchor")
-  helpText   String?   @map("help_text")
-  order      Int
+  requiresAnchor Boolean   @default(false) @map("requires_anchor")
+  helpText       String?   @map("help_text")
+  order          Int
   /// Ties a field to the research question it answers, so coverage can be
   /// reported per question rather than per field.
-  questionId String?   @map("question_id") @db.Uuid
+  questionId     String?   @map("question_id") @db.Uuid
 
   protocol Protocol          @relation(fields: [protocolId], references: [id], onDelete: Cascade)
   question Question?         @relation(fields: [questionId], references: [id])
@@ -810,19 +810,19 @@ model ProtocolField {
 
 /// One extractor's answers for one paper under one protocol.
 model Extraction {
-  id            String           @id @default(uuid()) @db.Uuid
-  projectId     String           @map("project_id") @db.Uuid
-  projectWorkId String           @map("project_work_id") @db.Uuid
-  protocolId    String           @map("protocol_id") @db.Uuid
-  extractorId   String           @map("extractor_id") @db.Uuid
-  status        ExtractionStatus @default(DRAFT)
-  origin        ExtractionOrigin @default(HUMAN)
+  id             String           @id @default(uuid()) @db.Uuid
+  projectId      String           @map("project_id") @db.Uuid
+  projectWorkId  String           @map("project_work_id") @db.Uuid
+  protocolId     String           @map("protocol_id") @db.Uuid
+  extractorId    String           @map("extractor_id") @db.Uuid
+  status         ExtractionStatus @default(DRAFT)
+  origin         ExtractionOrigin @default(HUMAN)
   /// Phase 2b: the extraction ids a reconciliation drew from.
-  reconciledFrom String[]        @map("reconciled_from") @db.Uuid
-  verifiedBy    String?          @map("verified_by") @db.Uuid
-  submittedAt   DateTime?        @map("submitted_at") @db.Timestamptz(3)
-  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  reconciledFrom String[]         @map("reconciled_from") @db.Uuid
+  verifiedBy     String?          @map("verified_by") @db.Uuid
+  submittedAt    DateTime?        @map("submitted_at") @db.Timestamptz(3)
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   project     Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
   projectWork ProjectWork       @relation(fields: [projectWorkId], references: [id], onDelete: Cascade)
@@ -881,25 +881,25 @@ model Anchor {
   projectId String  @map("project_id") @db.Uuid
   fileId    String? @map("file_id") @db.Uuid
 
-  page   Int?
+  page     Int?
   /// Plaintext, so cited passages are searchable.
-  quote  String
-  prefix String?
-  suffix String?
-  startOff Int? @map("start_off")
-  endOff   Int? @map("end_off")
+  quote    String
+  prefix   String?
+  suffix   String?
+  startOff Int?    @map("start_off")
+  endOff   Int?    @map("end_off")
   /// Highlight geometry for the PDF layer.
-  rects   Json?
-  section String?
+  rects    Json?
+  section  String?
 
   status AnchorStatus @default(OK)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  file        FileObject?  @relation(fields: [fileId], references: [id], onDelete: Cascade)
-  annotations Annotation[]
+  project          Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  file             FileObject?       @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  annotations      Annotation[]
   extractionValues ExtractionValue[]
 
   @@index([projectId])

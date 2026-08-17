@@ -1,6 +1,6 @@
 "use client";
 
-import { capabilities, type ProjectKind } from "@porcupine/shared";
+import { capabilities, type ProjectKind } from "@Porcupine/shared";
 import { useRouter } from "next/navigation";
 import { startTransition, useState } from "react";
 
@@ -26,27 +26,27 @@ const KIND_OPTIONS: ReadonlyArray<{
   label: string;
   who: string;
 }> = [
-  {
-    value: "THESIS",
-    label: "Thesis or dissertation",
-    who: "One person reading widely, deciding what matters as they go.",
-  },
-  {
-    value: "SYSTEMATIC_REVIEW",
-    label: "Systematic review",
-    who: "A team answering one question reproducibly, to a protocol.",
-  },
-  {
-    value: "LAB_PAPER",
-    label: "Lab paper",
-    who: "A group writing up work, sharing a corpus.",
-  },
-  {
-    value: "GENERAL",
-    label: "Something else",
-    who: "Reading you want kept together.",
-  },
-];
+    {
+      value: "THESIS",
+      label: "Thesis or dissertation",
+      who: "One person reading widely, deciding what matters as they go.",
+    },
+    {
+      value: "SYSTEMATIC_REVIEW",
+      label: "Systematic review",
+      who: "A team answering one question reproducibly, to a protocol.",
+    },
+    {
+      value: "LAB_PAPER",
+      label: "Lab paper",
+      who: "A group writing up work, sharing a corpus.",
+    },
+    {
+      value: "GENERAL",
+      label: "Something else",
+      who: "Reading you want kept together.",
+    },
+  ];
 
 /**
  * What a kind actually gives you, read from `capabilities()` rather than

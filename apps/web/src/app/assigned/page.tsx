@@ -1,4 +1,4 @@
-import { OPEN_QUEUE_STATUSES, screenStatusLabel } from "@porcupine/shared";
+import { OPEN_QUEUE_STATUSES, screenStatusLabel } from "@Porcupine/shared";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";

@@ -116,15 +116,15 @@ export default async function CollaborationDocsPage({
               <div>
                 <p className="font-semibold text-ink mb-1 text-base">Personal Workspace</p>
                 <p className="leading-relaxed">
-                  For privacy and organization, this view only displays the documents that <strong>you have created</strong>. 
+                  For privacy and organization, this view only displays the documents that <strong>you have created</strong>.
                   To browse or access files created by other team members, simply click the <strong>Open Shared Drive Folder</strong> button above.
                 </p>
               </div>
             </div>
           )}
-          <FileList 
-            projectId={project.id} 
-            files={files} 
+          <FileList
+            projectId={project.id}
+            files={files}
             rootFolderId={project.drive_folder_id}
           />
         </div>

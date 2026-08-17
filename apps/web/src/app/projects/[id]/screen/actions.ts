@@ -5,7 +5,7 @@ import {
   EXCLUSION_REASON_CODES,
   SCREEN_STATUSES,
   type ScreenStatus,
-} from "@porcupine/shared";
+} from "@Porcupine/shared";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -87,9 +87,9 @@ export async function recordDecision(
       // downstream to string.
       const current = locked[0]
         ? {
-            screenStatus: locked[0].screen_status as ScreenStatus,
-            projectId: locked[0].project_id,
-          }
+          screenStatus: locked[0].screen_status as ScreenStatus,
+          projectId: locked[0].project_id,
+        }
         : null;
 
       // RLS already returned nothing if this user cannot see the row, so a

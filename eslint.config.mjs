@@ -86,7 +86,7 @@ export default tseslint.config(
         {
           paths: [
             {
-              name: "@porcupine/db",
+              name: "@Porcupine/db",
               message:
                 "Prisma bypasses RLS. Import from '@/server/db' and use withUserContext(), or use supabase-js for user-scoped reads. See docs/05-resolution-plan.md R-02.",
             },

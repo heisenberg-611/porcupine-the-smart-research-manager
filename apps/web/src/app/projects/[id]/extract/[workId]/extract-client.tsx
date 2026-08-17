@@ -1,7 +1,7 @@
 "use client";
 
-import { createSelector, type AnchorSelector } from "@porcupine/anchoring";
-import { fieldTypeLabel, needsOptions } from "@porcupine/shared";
+import { createSelector, type AnchorSelector } from "@Porcupine/anchoring";
+import { fieldTypeLabel, needsOptions } from "@Porcupine/shared";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
 import { Banner, Button, Checkbox, Input, Select, Textarea } from "@/components/ui";
@@ -304,173 +304,173 @@ export function ExtractClient({
 
         <section className="space-y-6 lg:overflow-y-auto lg:pr-2 lg:pb-8">
 
-        {missing.length > 0 && (
-          <Banner tone="danger">
-            <p className="font-medium">These required fields are still empty:</p>
-            <ul className="mt-1 list-disc pl-5">
-              {missing.map((field) => (
-                <li key={field.id}>
-                  {/* A link to the field, not just its name. On a twenty-field
+          {missing.length > 0 && (
+            <Banner tone="danger">
+              <p className="font-medium">These required fields are still empty:</p>
+              <ul className="mt-1 list-disc pl-5">
+                {missing.map((field) => (
+                  <li key={field.id}>
+                    {/* A link to the field, not just its name. On a twenty-field
                       form, naming a field the reader then has to hunt for is
                       most of the work left undone. */}
-                  <a href={`#field-${field.id}`} className="underline underline-offset-2">
-                    {field.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </Banner>
-        )}
+                    <a href={`#field-${field.id}`} className="underline underline-offset-2">
+                      {field.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </Banner>
+          )}
 
-        {frozen && (
-          <Banner>
-            This extraction is submitted and frozen. Reopen it as a draft to change an
-            answer — the change is deliberate, not forbidden.
-          </Banner>
-        )}
+          {frozen && (
+            <Banner>
+              This extraction is submitted and frozen. Reopen it as a draft to change an
+              answer — the change is deliberate, not forbidden.
+            </Banner>
+          )}
 
-        <div className="space-y-6">
-          {fields.map((field) => {
-            const answer = answers[field.id];
-            const quoted = field.requiresAnchor || field.type === "QUOTE";
+          <div className="space-y-6">
+            {fields.map((field) => {
+              const answer = answers[field.id];
+              const quoted = field.requiresAnchor || field.type === "QUOTE";
 
-            return (
-              <div
-                key={field.id}
-                id={`field-${field.id}`}
-                className={`border-rule scroll-mt-32 border-b pb-5 last:border-b-0 ${missing.some((m) => m.id === field.id)
+              return (
+                <div
+                  key={field.id}
+                  id={`field-${field.id}`}
+                  className={`border-rule scroll-mt-32 border-b pb-5 last:border-b-0 ${missing.some((m) => m.id === field.id)
                     ? "border-danger -ml-3 border-l-2 pl-3"
                     : ""
-                  }`}
-              >
-                <label
-                  htmlFor={`f-${field.id}`}
-                  className="text-ink text-ui block font-medium"
+                    }`}
                 >
-                  {field.label}
-                  {field.required && <span className="text-muted"> · required</span>}
-                </label>
+                  <label
+                    htmlFor={`f-${field.id}`}
+                    className="text-ink text-ui block font-medium"
+                  >
+                    {field.label}
+                    {field.required && <span className="text-muted"> · required</span>}
+                  </label>
 
-                <p className="meta mt-0.5">
-                  {fieldTypeLabel(field.type)}
-                  {quoted && " · answered by quoting the paper"}
-                </p>
-
-                {field.helpText && (
-                  <p className="text-muted measure text-fine mt-1 text-pretty">
-                    {field.helpText}
+                  <p className="meta mt-0.5">
+                    {fieldTypeLabel(field.type)}
+                    {quoted && " · answered by quoting the paper"}
                   </p>
-                )}
 
-                <div className="mt-3">
-                  {quoted ? (
-                    <div className="space-y-2">
-                      {answer?.text ? (
-                        <blockquote className="border-accent text-ink text-ui border-l-2 pl-3">
-                          {answer.text}
-                        </blockquote>
-                      ) : (
-                        <p className="text-muted text-fine italic">Nothing quoted yet.</p>
-                      )}
-
-                      {!frozen && (
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => setCapturing(field.id)}
-                            disabled={pending || !text}
-                          >
-                            {answer?.text
-                              ? "Quote a different passage"
-                              : "Quote from the paper"}
-                          </Button>
-                          {!answer?.text && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              onClick={() =>
-                                setAnswer(field.id, {
-                                  value: "Not reported",
-                                  text: "Not reported",
-                                  selector: null,
-                                })
-                              }
-                              disabled={pending}
-                            >
-                              Mark as Not reported
-                            </Button>
-                          )}
-                          {answer?.text && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              onClick={() =>
-                                setAnswer(field.id, {
-                                  value: null,
-                                  text: "",
-                                  selector: null,
-                                })
-                              }
-                              disabled={pending}
-                            >
-                              Clear
-                            </Button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <FieldInput
-                      field={field}
-                      answer={answer}
-                      disabled={frozen || pending}
-                      onChange={(value, text) => setAnswer(field.id, { value, text })}
-                    />
+                  {field.helpText && (
+                    <p className="text-muted measure text-fine mt-1 text-pretty">
+                      {field.helpText}
+                    </p>
                   )}
+
+                  <div className="mt-3">
+                    {quoted ? (
+                      <div className="space-y-2">
+                        {answer?.text ? (
+                          <blockquote className="border-accent text-ink text-ui border-l-2 pl-3">
+                            {answer.text}
+                          </blockquote>
+                        ) : (
+                          <p className="text-muted text-fine italic">Nothing quoted yet.</p>
+                        )}
+
+                        {!frozen && (
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              onClick={() => setCapturing(field.id)}
+                              disabled={pending || !text}
+                            >
+                              {answer?.text
+                                ? "Quote a different passage"
+                                : "Quote from the paper"}
+                            </Button>
+                            {!answer?.text && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={() =>
+                                  setAnswer(field.id, {
+                                    value: "Not reported",
+                                    text: "Not reported",
+                                    selector: null,
+                                  })
+                                }
+                                disabled={pending}
+                              >
+                                Mark as Not reported
+                              </Button>
+                            )}
+                            {answer?.text && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={() =>
+                                  setAnswer(field.id, {
+                                    value: null,
+                                    text: "",
+                                    selector: null,
+                                  })
+                                }
+                                disabled={pending}
+                              >
+                                Clear
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <FieldInput
+                        field={field}
+                        answer={answer}
+                        disabled={frozen || pending}
+                        onChange={(value, text) => setAnswer(field.id, { value, text })}
+                      />
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {!frozen ? (
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={save} disabled={pending}>
-              {pending ? "Saving…" : "Save draft"}
-            </Button>
-            <Button variant="ghost" onClick={submit} disabled={pending}>
-              Submit
-            </Button>
+              );
+            })}
           </div>
-        ) : (
-          <Button
-            variant="ghost"
-            disabled={pending}
-            onClick={() =>
-              startTransition(async () => {
-                const response = await reopenExtraction({
-                  projectId,
-                  projectWorkId,
-                  extractionId,
-                });
-                if (!response.ok) setError(response.error);
-              })
-            }
-          >
-            Reopen as a draft
-          </Button>
-        )}
 
-        <div aria-live="polite">
-          {notice && <p className="text-muted text-ui">{notice}</p>}
-          {error && (
-            <p role="alert" className="text-danger text-ui">
-              {error}
-            </p>
+          {!frozen ? (
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={save} disabled={pending}>
+                {pending ? "Saving…" : "Save draft"}
+              </Button>
+              <Button variant="ghost" onClick={submit} disabled={pending}>
+                Submit
+              </Button>
+            </div>
+          ) : (
+            <Button
+              variant="ghost"
+              disabled={pending}
+              onClick={() =>
+                startTransition(async () => {
+                  const response = await reopenExtraction({
+                    projectId,
+                    projectWorkId,
+                    extractionId,
+                  });
+                  if (!response.ok) setError(response.error);
+                })
+              }
+            >
+              Reopen as a draft
+            </Button>
           )}
-        </div>
-      </section>
+
+          <div aria-live="polite">
+            {notice && <p className="text-muted text-ui">{notice}</p>}
+            {error && (
+              <p role="alert" className="text-danger text-ui">
+                {error}
+              </p>
+            )}
+          </div>
+        </section>
       </div>
     </div>
   );

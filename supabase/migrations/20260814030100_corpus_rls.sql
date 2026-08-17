@@ -332,7 +332,7 @@ comment on function public.upsert_work(jsonb) is
   'Owns title normalization and identifier dedupe so every provider adapter '
   'and import path produces the same keys.';
 
-grant execute on function public.upsert_work(jsonb) to porcupine_app, authenticated;
+grant execute on function public.upsert_work(jsonb) to Porcupine_app, authenticated;
 
 -- ═══════════════════════ Indexes that Prisma cannot express ═════════════════
 

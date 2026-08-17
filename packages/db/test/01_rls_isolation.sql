@@ -4,14 +4,14 @@
 -- The concurrency half of `rls_no_cross_tenant` lives in scripts/pgtap.mjs,
 -- because a single psql session cannot exercise a connection pool.
 --
--- Everything here runs as porcupine_app, not as postgres. Running these as a
+-- Everything here runs as Porcupine_app, not as postgres. Running these as a
 -- superuser would pass regardless of policy and prove nothing.
 
 begin;
 select plan(12);
 
 -- ── Fixtures ────────────────────────────────────────────────────────────────
--- Created as the migration owner, before we drop to porcupine_app.
+-- Created as the migration owner, before we drop to Porcupine_app.
 
 set local role postgres;
 
@@ -46,7 +46,7 @@ insert into project_keys
 -- With no claim set, every predicate evaluates NULL and every row is filtered.
 -- This is the fail-closed property: an empty result, never another user's rows.
 
-set local role porcupine_app;
+set local role Porcupine_app;
 
 select is(
   (select count(*) from projects)::int, 0,

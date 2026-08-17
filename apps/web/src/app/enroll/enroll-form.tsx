@@ -1,6 +1,6 @@
 "use client";
 
-import { createIdentity, toBase64 } from "@porcupine/crypto";
+import { createIdentity, toBase64 } from "@Porcupine/crypto";
 import { useRouter } from "next/navigation";
 import { startTransition, useState } from "react";
 
@@ -83,7 +83,7 @@ export function EnrollForm({ next }: { next: string }) {
               const url = URL.createObjectURL(blob);
               const a = document.createElement("a");
               a.href = url;
-              a.download = "porcupine-recovery-passphrase.txt";
+              a.download = "Porcupine-recovery-passphrase.txt";
               a.click();
               URL.revokeObjectURL(url);
             }}

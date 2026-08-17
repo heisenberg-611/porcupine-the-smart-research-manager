@@ -5,7 +5,7 @@ import {
   fromBase64,
   toBase64,
   wrapProjectKeyFor,
-} from "@porcupine/crypto";
+} from "@Porcupine/crypto";
 import { useState } from "react";
 
 import {
@@ -93,7 +93,7 @@ export function SetUpEncryption({
 
       if (epoch === 1) {
         try {
-          const { sealMessage } = await import("@porcupine/crypto");
+          const { sealMessage } = await import("@Porcupine/crypto");
           const channelId = crypto.randomUUID();
           const nameCt = await sealMessage("general", projectKey, {
             channelId,

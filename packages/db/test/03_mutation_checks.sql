@@ -82,7 +82,7 @@ values ('30000000-0000-0000-0000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaa
 
 -- ═══════════ Condition A: policies engaged, no claim → must be zero ═════════
 
-set local role porcupine_app;
+set local role Porcupine_app;
 select set_config('request.jwt.claims', '', true);
 
 select is((select count(*) from works)::int,                  0, 'guarded: works');
@@ -108,7 +108,7 @@ alter table public.file_objects           disable row level security;
 alter table public.anchors                disable row level security;
 alter table public.annotations            disable row level security;
 
-set local role porcupine_app;
+set local role Porcupine_app;
 
 select cmp_ok((select count(*) from works)::int, '>', 0,
   'MUTATION: works is non-empty with RLS off — the zero above was the policy');

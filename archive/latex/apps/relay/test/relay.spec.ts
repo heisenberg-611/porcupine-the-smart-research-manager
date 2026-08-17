@@ -5,7 +5,7 @@ import {
   signRelayTicket,
   type ClientMessage,
   type ServerMessage,
-} from "@porcupine/shared";
+} from "@Porcupine/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 
@@ -73,7 +73,7 @@ class Client {
   readonly received: ServerMessage[] = [];
   private readonly waiters: Array<(m: ServerMessage) => void> = [];
 
-  private constructor(readonly ws: WebSocket) {}
+  private constructor(readonly ws: WebSocket) { }
 
   static async connect(token: string, fileId = FILE_ID): Promise<Client> {
     const ws = new WebSocket(`${BASE}/doc/${fileId}?ticket=${encodeURIComponent(token)}`);
@@ -158,7 +158,7 @@ beforeAll(async () => {
 
   // Wait for the health endpoint rather than sleeping a fixed interval.
   const deadline = Date.now() + 90_000;
-  for (;;) {
+  for (; ;) {
     if (Date.now() > deadline) throw new Error("wrangler dev did not start");
     try {
       const res = await fetch(`http://127.0.0.1:${PORT}/health`);
@@ -274,7 +274,7 @@ describe("collaboration", () => {
     late.send({ t: "sync", since: 0 });
 
     const seen: string[] = [];
-    for (;;) {
+    for (; ;) {
       const msg = await late.next();
       if (msg.t === "synced") break;
       if (msg.t === "update") seen.push(msg.d);
@@ -304,7 +304,7 @@ describe("collaboration", () => {
     const fresh = await Client.connect(await ticket({ userId: "fresh" }));
     fresh.send({ t: "sync", since: 0 });
     const seen: string[] = [];
-    for (;;) {
+    for (; ;) {
       const msg = await fresh.next();
       if (msg.t === "synced") break;
       if (msg.t === "update") seen.push(msg.d);
@@ -362,7 +362,7 @@ describe("durability", () => {
     back.send({ t: "sync", since: 0 });
 
     const seen: string[] = [];
-    for (;;) {
+    for (; ;) {
       const msg = await back.next();
       if (msg.t === "synced") break;
       if (msg.t === "update") seen.push(msg.d);

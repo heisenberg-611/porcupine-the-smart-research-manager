@@ -66,7 +66,7 @@ insert into import_batches
 values (gen_random_uuid(), 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
         '11111111-1111-1111-1111-111111111111', 'bibtex', 10, 2, 3, 5, now());
 
-set local role porcupine_app;
+set local role Porcupine_app;
 select set_config('request.jwt.claims',
   '{"sub":"11111111-1111-1111-1111-111111111111"}', true);
 

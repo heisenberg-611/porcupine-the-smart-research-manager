@@ -232,7 +232,7 @@ Yjs is the source of truth (§8.1), but a GitHub-linked repo has a second writer
 
 **The mechanism is the `docEpoch` protocol (ADR-021), specified in full in `05-resolution-plan.md` R-01.** In one line: _Yjs ops are valid only within an epoch, and every cross-epoch reconciliation is a three-way Git merge._ Yjs guarantees convergence, not correctness; Git guarantees a visible conflict. Each engine gets only the job it is sound for.
 
-Pull is a transaction with a frozen document — `FREEZE` → materialize an anchor commit → `fetch` → three-way merge → rebuild a fresh `Y.Doc` → `docEpoch += 1` → broadcast `SWAP`. Clients key their IndexedDB Yjs store by `"<docId>:<docEpoch>"`, so after a swap **a stale op has no reachable path back into the document.** A client that was offline across a swap does not replay: its local state is exported to a `porcupine/offline/<userId>/<ts>` branch off the epoch-`N−1` anchor and merged through Git, with real conflict markers.
+Pull is a transaction with a frozen document — `FREEZE` → materialize an anchor commit → `fetch` → three-way merge → rebuild a fresh `Y.Doc` → `docEpoch += 1` → broadcast `SWAP`. Clients key their IndexedDB Yjs store by `"<docId>:<docEpoch>"`, so after a swap **a stale op has no reachable path back into the document.** A client that was offline across a swap does not replay: its local state is exported to a `Porcupine/offline/<userId>/<ts>` branch off the epoch-`N−1` anchor and merged through Git, with real conflict markers.
 
 Rules:
 

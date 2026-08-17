@@ -1,5 +1,5 @@
 {
-  "name": "porcupine",
+  "name": "Porcupine",
   "version": "0.0.0",
   "private": true,
   "description": "Research & thesis management platform",
@@ -8,7 +8,7 @@
   },
   "packageManager": "pnpm@11.21.0",
   "scripts": {
-    "dev": "pnpm --filter @porcupine/web dev",
+    "dev": "pnpm --filter @Porcupine/web dev",
     "build": "pnpm -r build",
     "postinstall": "pnpm db:generate",
     "typecheck": "pnpm -r typecheck",
@@ -19,10 +19,10 @@
     "db:start": "supabase start",
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
-    "db:diff": "pnpm --filter @porcupine/db diff",
-    "db:generate": "pnpm --filter @porcupine/db generate",
-    "db:test": "pnpm --filter @porcupine/db test",
-    "db:seed": "pnpm --filter @porcupine/db seed",
+    "db:diff": "pnpm --filter @Porcupine/db diff",
+    "db:generate": "pnpm --filter @Porcupine/db generate",
+    "db:test": "pnpm --filter @Porcupine/db test",
+    "db:seed": "pnpm --filter @Porcupine/db seed",
     "guards": "bash scripts/guards.sh",
     "check-tests": "bash scripts/check-tests.sh",
     "verify": "bash scripts/verify.sh"

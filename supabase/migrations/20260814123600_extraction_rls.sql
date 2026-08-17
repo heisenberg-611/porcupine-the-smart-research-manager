@@ -245,7 +245,7 @@ comment on view public.v_evidence_table is
   'fields appear as holes rather than vanishing — an inner join would make an '
   'incomplete extraction look complete.';
 
-grant select on public.v_evidence_table to porcupine_app, authenticated;
+grant select on public.v_evidence_table to Porcupine_app, authenticated;
 
 -- FTS over extracted values, so "which papers said anything about X" is one
 -- query. R-14: language-aware, never a hardcoded config.

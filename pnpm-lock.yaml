@@ -41,19 +41,19 @@ importers:
       '@heroicons/react':
         specifier: ^2.2.0
         version: 2.2.0(react@19.2.8)
-      '@porcupine/anchoring':
+      '@Porcupine/anchoring':
         specifier: workspace:*
         version: link:../../packages/anchoring
-      '@porcupine/crypto':
+      '@Porcupine/crypto':
         specifier: workspace:*
         version: link:../../packages/crypto
-      '@porcupine/db':
+      '@Porcupine/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@porcupine/discovery':
+      '@Porcupine/discovery':
         specifier: workspace:*
         version: link:../../packages/discovery
-      '@porcupine/shared':
+      '@Porcupine/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       '@radix-ui/react-popover':

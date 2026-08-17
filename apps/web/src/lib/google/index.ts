@@ -67,8 +67,8 @@ export async function listFolderFiles(accessToken: string, folderId: string) {
 
 export async function listProjectFiles(accessToken: string, projectId: string, onlyOwnedByMe: boolean = false, folderId?: string) {
   const drive = getDriveClient(accessToken);
-  
-  let q = `(appProperties has { key='porcupineProjectId' and value='${projectId}' }`;
+
+  let q = `(appProperties has { key='PorcupineProjectId' and value='${projectId}' }`;
   if (folderId) {
     q += ` or '${folderId}' in parents`;
   }
@@ -93,7 +93,7 @@ export async function createGoogleDoc(accessToken: string, name: string, project
       name,
       mimeType: "application/vnd.google-apps.document",
       ...(folderId ? { parents: [folderId] } : {}),
-      appProperties: { porcupineProjectId: projectId }
+      appProperties: { PorcupineProjectId: projectId }
     },
     fields: "id, webViewLink",
   });
@@ -107,7 +107,7 @@ export async function createGoogleSheet(accessToken: string, name: string, proje
       name,
       mimeType: "application/vnd.google-apps.spreadsheet",
       ...(folderId ? { parents: [folderId] } : {}),
-      appProperties: { porcupineProjectId: projectId }
+      appProperties: { PorcupineProjectId: projectId }
     },
     fields: "id, webViewLink",
   });
@@ -121,7 +121,7 @@ export async function createGoogleSlide(accessToken: string, name: string, proje
       name,
       mimeType: "application/vnd.google-apps.presentation",
       ...(folderId ? { parents: [folderId] } : {}),
-      appProperties: { porcupineProjectId: projectId }
+      appProperties: { PorcupineProjectId: projectId }
     },
     fields: "id, webViewLink",
   });
@@ -157,10 +157,10 @@ export async function revokeGoogleFileAccess(
     fileId,
     fields: "permissions(id, emailAddress)",
   });
-  
+
   const permissions = response.data.permissions || [];
   console.log(`[revokeGoogleFileAccess] Found ${permissions.length} permissions for file ${fileId}`);
-  
+
   const targetPermission = permissions.find((p) => {
     console.log(`[revokeGoogleFileAccess] Checking permission id=${p.id} email=${p.emailAddress}`);
     return p.emailAddress?.toLowerCase() === emailAddress.toLowerCase();

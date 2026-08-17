@@ -122,4 +122,4 @@ comment on view public.v_project_progress is
   'project_works still applies. Without it a view is a hole straight through '
   'every policy underneath it.';
 
-grant select on public.v_project_progress to porcupine_app, authenticated;
+grant select on public.v_project_progress to Porcupine_app, authenticated;

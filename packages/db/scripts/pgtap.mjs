@@ -96,7 +96,7 @@ function runSqlSuites() {
       if (planMismatch) {
         problems.push(
           `plan mismatch — planned ${planMismatch[1]}, ran ${planMismatch[2]} ` +
-            `(assertions did not run; a passing count here would be meaningless)`,
+          `(assertions did not run; a passing count here would be meaningless)`,
         );
       }
 
@@ -157,7 +157,7 @@ async function concurrencyTest() {
     }
     await setup.query("commit");
   } catch (err) {
-    await setup.query("rollback").catch(() => {});
+    await setup.query("rollback").catch(() => { });
     await setup.end();
     throw err;
   }
@@ -179,7 +179,7 @@ async function concurrencyTest() {
           const client = await pool.connect();
           try {
             await client.query("begin");
-            await client.query("set local role porcupine_app");
+            await client.query("set local role Porcupine_app");
             await client.query(`select set_config('request.jwt.claims', $1, true)`, [
               JSON.stringify({ sub: tenant.userId }),
             ]);
@@ -190,12 +190,12 @@ async function concurrencyTest() {
               leaks++;
               console.error(
                 `\x1b[31m  LEAK: ${tenant.slug} saw ${rows.length} row(s): ` +
-                  `${rows.map((r) => r.slug).join(", ")}\x1b[0m`,
+                `${rows.map((r) => r.slug).join(", ")}\x1b[0m`,
               );
             }
             await client.query("commit");
           } catch (err) {
-            await client.query("rollback").catch(() => {});
+            await client.query("rollback").catch(() => { });
             throw err;
           } finally {
             client.release();
@@ -213,7 +213,7 @@ async function concurrencyTest() {
         const client = await pool.connect();
         try {
           await client.query("begin");
-          await client.query("set local role porcupine_app");
+          await client.query("set local role Porcupine_app");
           await client.query(`select set_config('request.jwt.claims', $1, true)`, [
             JSON.stringify({ sub: tenants[0].userId }),
           ]);
@@ -222,7 +222,7 @@ async function concurrencyTest() {
 
           // Same connection, new transaction, deliberately no claim.
           await client.query("begin");
-          await client.query("set local role porcupine_app");
+          await client.query("set local role Porcupine_app");
           const { rows } = await client.query("select slug from projects");
           if (rows.length !== 0) survivors++;
           await client.query("commit");
@@ -285,7 +285,7 @@ async function rateLimitConcurrencyTest() {
         const client = await pool.connect();
         try {
           await client.query("begin");
-          await client.query("set local role porcupine_app");
+          await client.query("set local role Porcupine_app");
           const { rows } = await client.query(
             "select public.rate_limit_take($1, $2, $3) as wait",
             [key, CAPACITY, 0.0001], // refill slow enough to be irrelevant here
@@ -303,13 +303,13 @@ async function rateLimitConcurrencyTest() {
     if (granted === CAPACITY) {
       console.log(
         `  \x1b[32mok\x1b[0m - exactly ${granted}/${CLIENTS} takes granted ` +
-          `against a bucket of ${CAPACITY}`,
+        `against a bucket of ${CAPACITY}`,
       );
     } else {
       failed = true;
       console.error(
         `  \x1b[31mnot ok\x1b[0m - ${granted} takes granted against a bucket ` +
-          `of ${CAPACITY}: the read-modify-write is not atomic`,
+        `of ${CAPACITY}: the read-modify-write is not atomic`,
       );
     }
   } finally {
@@ -389,7 +389,7 @@ async function screeningConcurrencyTest() {
         const client = await pool.connect();
         try {
           await client.query("begin");
-          await client.query("set local role porcupine_app");
+          await client.query("set local role Porcupine_app");
           await client.query(`select set_config('request.jwt.claims', $1, true)`, [
             JSON.stringify({ sub: ids.user }),
           ]);
@@ -420,7 +420,7 @@ async function screeningConcurrencyTest() {
           await client.query("commit");
           return "recorded";
         } catch (err) {
-          await client.query("rollback").catch(() => {});
+          await client.query("rollback").catch(() => { });
           throw err;
         } finally {
           client.release();
@@ -439,13 +439,13 @@ async function screeningConcurrencyTest() {
     if (recorded === 1 && logged[0].n === 1) {
       console.log(
         `  \x1b[32mok\x1b[0m - 1 of ${CLIENTS} decisions recorded, ${refused} refused ` +
-          `(no lost update)`,
+        `(no lost update)`,
       );
     } else {
       failed = true;
       console.error(
         `  \x1b[31mnot ok\x1b[0m - ${recorded} decisions recorded and ${logged[0].n} logged ` +
-          `for one paper; concurrent screeners are overwriting each other`,
+        `for one paper; concurrent screeners are overwriting each other`,
       );
     }
 
@@ -492,7 +492,7 @@ heading(
 if (Number(elapsed) > 90) {
   console.error(
     `\x1b[33m⚠ suite took ${elapsed}s — the 90s budget exists because a slow ` +
-      `gate gets skipped, and a skipped gate is worthless (B-03)\x1b[0m`,
+    `gate gets skipped, and a skipped gate is worthless (B-03)\x1b[0m`,
   );
 }
 

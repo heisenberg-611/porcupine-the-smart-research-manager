@@ -45,7 +45,7 @@ insert into project_members
 
 -- ── Alice provisions the epoch-1 key to herself and to Bob ──────────────────
 
-set local role porcupine_app;
+set local role Porcupine_app;
 select set_config('request.jwt.claims',
   '{"sub":"aa000000-0000-0000-0000-000000000001"}', true);
 
@@ -76,7 +76,7 @@ select throws_ok($$
 $$, '42501', null,
   'a wrap cannot claim someone else made it — wrapped_by must be the caller');
 
-set local role porcupine_app;
+set local role Porcupine_app;
 select set_config('request.jwt.claims',
   '{"sub":"aa000000-0000-0000-0000-000000000003"}', true);
 
@@ -97,7 +97,7 @@ select is(
   'a non-member sees no wraps at all (fail closed)'
 );
 
-set local role porcupine_app;
+set local role Porcupine_app;
 select set_config('request.jwt.claims',
   '{"sub":"aa000000-0000-0000-0000-000000000002"}', true);
 
@@ -141,7 +141,7 @@ select is(
 -- A rotation must add an epoch, never rewrite one — an edited wrap is a key
 -- substitution that leaves no trace.
 
-set local role porcupine_app;
+set local role Porcupine_app;
 select set_config('request.jwt.claims',
   '{"sub":"aa000000-0000-0000-0000-000000000002"}', true);
 
@@ -178,7 +178,7 @@ select is(
 
 -- ── Rotation is a new epoch, not an edit ────────────────────────────────────
 
-set local role porcupine_app;
+set local role Porcupine_app;
 select set_config('request.jwt.claims',
   '{"sub":"aa000000-0000-0000-0000-000000000001"}', true);
 

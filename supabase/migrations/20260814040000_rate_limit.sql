@@ -119,4 +119,4 @@ comment on function public.rate_limit_take(text, double precision, double precis
 
 grant execute on function
   public.rate_limit_take(text, double precision, double precision, double precision)
-  to porcupine_app, authenticated;
+  to Porcupine_app, authenticated;

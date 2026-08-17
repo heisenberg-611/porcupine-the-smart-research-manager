@@ -8,7 +8,7 @@
  * "do not override".
  */
 
-export const THEME_KEY = "porcupine.theme";
+export const THEME_KEY = "Porcupine.theme";
 
 export type Theme = "light" | "dark" | "system";
 

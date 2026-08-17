@@ -37,7 +37,7 @@ export function RouteError({
   useEffect(() => {
     // The browser console is where a developer looks first, and the error
     // boundary swallows it otherwise.
-    console.error("[porcupine] route error", error);
+    console.error("[Porcupine] route error", error);
   }, [error]);
 
   return (

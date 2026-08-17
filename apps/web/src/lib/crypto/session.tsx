@@ -1,6 +1,6 @@
 "use client";
 
-import type { UnwrappedIdentity } from "@porcupine/crypto";
+import type { UnwrappedIdentity } from "@Porcupine/crypto";
 import {
   createContext,
   useCallback,
@@ -85,14 +85,14 @@ export function CryptoSessionProvider({ children }: { children: ReactNode }) {
         // Synchronous, and false for anyone who has never registered — which
         // is almost everyone, almost always. Everything past this point is
         // loaded on demand, so the common path costs one `localStorage` read.
-        if (localStorage.getItem("porcupine.device") !== "1") {
+        if (localStorage.getItem("Porcupine.device") !== "1") {
           setRestoring(false);
           return;
         }
 
         const [{ fromBase64, toBase64, unwrapIdentityWithMasterKey }, device, wrap] =
           await Promise.all([
-            import("@porcupine/crypto"),
+            import("@Porcupine/crypto"),
             import("./device"),
             import("@/app/unlock/device-actions"),
           ]);

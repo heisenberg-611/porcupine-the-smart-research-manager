@@ -324,7 +324,7 @@ an axe pass is clean at both viewports.
 - **The end-user guide.** Deferred deliberately, at the user's instruction, to
   after the product is finished. Writing it now would document six screens that
   weeks 1–6 are about to change, and a guide that contradicts the app is worse
-  than none. (`docs/USING-PORCUPINE.md` is a local-setup document for running
+  than none. (`docs/USING-Porcupine.md` is a local-setup document for running
   the thing, not the guide meant here.) What this phase owes it is the §2
   requirement that every screen states its own purpose — a product that
   explains itself needs a shorter guide.

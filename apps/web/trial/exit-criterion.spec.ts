@@ -21,9 +21,9 @@ import { expect, test, type BrowserContext, type Page } from "@playwright/test";
  * That needs four humans and an afternoon, and no test substitutes for it.
  * Anything this run reports about ergonomics is inference, not evidence.
  *
- *     pnpm --filter @porcupine/web test:trial
+ *     pnpm --filter @Porcupine/web test:trial
  *
- * Requires `pnpm --filter @porcupine/discovery measure:corpus` first.
+ * Requires `pnpm --filter @Porcupine/discovery measure:corpus` first.
  */
 
 /** Page-load budget. Beyond this a screening session stops feeling live. */

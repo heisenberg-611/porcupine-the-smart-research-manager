@@ -61,7 +61,7 @@ describe("XLSX", () => {
    * CRC against an independent implementation.
    */
   const unzipDir = () => {
-    const dir = mkdtempSync(join(tmpdir(), "porcupine-xlsx-"));
+    const dir = mkdtempSync(join(tmpdir(), "Porcupine-xlsx-"));
     return dir;
   };
 

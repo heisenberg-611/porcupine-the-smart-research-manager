@@ -1,6 +1,6 @@
 "use server";
 
-import { CONTEXT_LENGTH } from "@porcupine/anchoring";
+import { CONTEXT_LENGTH } from "@Porcupine/anchoring";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 

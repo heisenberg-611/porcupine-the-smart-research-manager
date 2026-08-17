@@ -1,5 +1,5 @@
 {
-  "name": "@porcupine/web",
+  "name": "@Porcupine/web",
   "version": "0.0.0",
   "private": true,
   "scripts": {
@@ -14,11 +14,11 @@
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
-    "@porcupine/anchoring": "workspace:*",
-    "@porcupine/crypto": "workspace:*",
-    "@porcupine/db": "workspace:*",
-    "@porcupine/discovery": "workspace:*",
-    "@porcupine/shared": "workspace:*",
+    "@Porcupine/anchoring": "workspace:*",
+    "@Porcupine/crypto": "workspace:*",
+    "@Porcupine/db": "workspace:*",
+    "@Porcupine/discovery": "workspace:*",
+    "@Porcupine/shared": "workspace:*",
     "@radix-ui/react-popover": "^1.1.23",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",

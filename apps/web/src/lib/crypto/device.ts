@@ -42,7 +42,7 @@
  * discarded immediately after.
  */
 
-const DB_NAME = "porcupine-device";
+const DB_NAME = "Porcupine-device";
 const STORE = "keys";
 const KEY_ID = "device-ecdh";
 
@@ -129,7 +129,7 @@ export async function hasDeviceKey(): Promise<boolean> {
  * duplicated DOM while a page was still streaming. Doing nothing at all in the
  * common case is both the fix and the obviously right behaviour.
  */
-const MARKER = "porcupine.device";
+const MARKER = "Porcupine.device";
 
 export function maybeRegistered(): boolean {
   try {
@@ -186,7 +186,7 @@ async function deriveAesKey(
       // Domain separation: this key is for wrapping a master key on a device
       // and nothing else, so a future use of the same ECDH pair cannot
       // accidentally derive the same bytes.
-      info: new TextEncoder().encode("porcupine/device-master-key/v1"),
+      info: new TextEncoder().encode("Porcupine/device-master-key/v1"),
     },
     shared,
     { name: "AES-GCM", length: 256 },

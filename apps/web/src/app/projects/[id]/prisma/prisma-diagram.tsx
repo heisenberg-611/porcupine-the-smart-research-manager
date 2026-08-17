@@ -1,4 +1,4 @@
-import { exclusionReasonLabel } from "@porcupine/shared";
+import { exclusionReasonLabel } from "@Porcupine/shared";
 
 export interface PrismaCounts {
   recordsIdentified: number;

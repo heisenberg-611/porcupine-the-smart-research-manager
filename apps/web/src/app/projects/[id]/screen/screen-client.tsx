@@ -4,7 +4,7 @@ import {
   EXCLUSION_REASONS,
   screenStatusLabel,
   type ExclusionReason,
-} from "@porcupine/shared";
+} from "@Porcupine/shared";
 import { useEffect, useState, useTransition } from "react";
 
 import { AccessHelp, type AccessRoute } from "@/components/access-route";
@@ -270,9 +270,9 @@ export function ScreenClient({
    */
   const assignment = current
     ? (edits[current.id] ?? {
-        assigneeId: current.assigneeId ?? "",
-        dueAt: dueDayValue(current.dueAt),
-      })
+      assigneeId: current.assigneeId ?? "",
+      dueAt: dueDayValue(current.dueAt),
+    })
     : { assigneeId: "", dueAt: "" };
 
   function assign(assigneeId: string, dueAt: string) {
@@ -684,10 +684,10 @@ function dueDayLabel(day: string): string {
   return Number.isNaN(at.getTime())
     ? day
     : at.toLocaleDateString(undefined, {
-        timeZone: "UTC",
-        month: "short",
-        day: "numeric",
-      });
+      timeZone: "UTC",
+      month: "short",
+      day: "numeric",
+    });
 }
 
 /** A keycap. Small enough to be inline, distinct enough to be read as a key. */

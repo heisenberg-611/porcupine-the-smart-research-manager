@@ -27,7 +27,7 @@ set local role postgres;
 insert into users (id, email, display_name, created_at, updated_at) values
   ('11111111-1111-1111-1111-111111111111', 'alice@test.dev', 'Alice', now(), now());
 
-set local role porcupine_app;
+set local role Porcupine_app;
 select set_config('request.jwt.claims',
   '{"sub":"11111111-1111-1111-1111-111111111111"}', true);
 

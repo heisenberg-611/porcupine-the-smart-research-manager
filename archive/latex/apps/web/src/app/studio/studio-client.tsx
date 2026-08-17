@@ -48,8 +48,8 @@ const COMPILE_KEY: KeyBinding = {
   preventDefault: true,
 };
 
-const SPLIT_KEY = "porcupine.latex.split";
-const FONT_KEY = "porcupine.latex.fontsize";
+const SPLIT_KEY = "Porcupine.latex.split";
+const FONT_KEY = "Porcupine.latex.fontsize";
 /** Below 10px nothing is legible; above 24 the editor holds three words. */
 const MIN_FONT = 10;
 const MAX_FONT = 24;
@@ -58,7 +58,7 @@ const MIN_SPLIT = 20;
 const MAX_SPLIT = 80;
 
 /** Set by the component; the keymap is created once, outside React. */
-let compileFromKeyboard: () => void = () => {};
+let compileFromKeyboard: () => void = () => { };
 
 const DEFAULT_TEX = `\\documentclass{article}
 \\begin{document}

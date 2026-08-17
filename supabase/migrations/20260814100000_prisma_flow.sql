@@ -131,5 +131,5 @@ comment on view public.v_prisma_exclusions is
   'that do not require a reason — a systematic review cannot produce it, '
   'because the trigger on project_works refuses the row.';
 
-grant select on public.v_prisma_flow to porcupine_app, authenticated;
-grant select on public.v_prisma_exclusions to porcupine_app, authenticated;
+grant select on public.v_prisma_flow to Porcupine_app, authenticated;
+grant select on public.v_prisma_exclusions to Porcupine_app, authenticated;

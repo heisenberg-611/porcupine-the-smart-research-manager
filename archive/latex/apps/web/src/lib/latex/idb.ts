@@ -3,12 +3,12 @@
  *
  * Two stores wanted the same database and that is a trap: an `indexedDB.open`
  * with a lower version than the database already has fails outright, so two
- * modules each opening "porcupine-latex" at their own version would work until
+ * modules each opening "Porcupine-latex" at their own version would work until
  * one of them was bumped and then break the other permanently. Every store the
  * studio needs is created here, under one version.
  */
 
-const DB_NAME = "porcupine-latex";
+const DB_NAME = "Porcupine-latex";
 const DB_VERSION = 2;
 
 /** Uploaded TeX package bytes, keyed by the name TeX asks for. */

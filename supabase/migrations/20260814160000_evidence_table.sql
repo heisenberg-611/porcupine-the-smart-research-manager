@@ -187,7 +187,7 @@ comment on function public.evidence_rows is
   'sorting a page of rows in the client sorts the wrong set. SECURITY '
   'INVOKER: every row has passed the caller''s RLS policies.';
 
-grant execute on function public.evidence_rows to porcupine_app, authenticated;
+grant execute on function public.evidence_rows to Porcupine_app, authenticated;
 
 -- The function filters on (project_id, protocol_id). The existing index on
 -- extractions is (project_id, status), and the unique constraint leads with
@@ -251,4 +251,4 @@ comment on view public.v_question_coverage is
   'included papers, not all papers — screened-out papers were never going to '
   'be extracted from.';
 
-grant select on public.v_question_coverage to porcupine_app, authenticated;
+grant select on public.v_question_coverage to Porcupine_app, authenticated;

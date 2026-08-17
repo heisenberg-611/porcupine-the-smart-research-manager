@@ -19,7 +19,7 @@ import { expect, test, type Page } from "@playwright/test";
  * ignore the suite. It prints numbers for a human to read.
  *
  *     pnpm db:seed --all-extracted
- *     pnpm --filter @porcupine/web measure
+ *     pnpm --filter @Porcupine/web measure
  */
 
 const MAILPIT = "http://127.0.0.1:54324";
@@ -133,8 +133,8 @@ function summarise(label: string, runs: Timing[]) {
   const kb = (runs[0]!.bytes / 1024).toFixed(0);
   console.log(
     `  ${label.padEnd(26)} ttfb ${stat((t) => t.ttfb).padEnd(24)} ` +
-      `dcl ${stat((t) => t.domContentLoaded).padEnd(24)} ` +
-      `lcp ${stat((t) => t.lcp).padEnd(24)} html ${kb} KB`,
+    `dcl ${stat((t) => t.domContentLoaded).padEnd(24)} ` +
+    `lcp ${stat((t) => t.lcp).padEnd(24)} html ${kb} KB`,
   );
 }
 

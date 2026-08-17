@@ -1,6 +1,6 @@
 "use server";
 
-import { dedupe, parseImport, resolveIdentifiers } from "@porcupine/discovery";
+import { dedupe, parseImport, resolveIdentifiers } from "@Porcupine/discovery";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 

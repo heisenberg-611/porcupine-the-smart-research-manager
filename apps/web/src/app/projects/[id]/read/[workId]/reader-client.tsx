@@ -1,6 +1,6 @@
 "use client";
 
-import { createSelector, type AnchorSelector } from "@porcupine/anchoring";
+import { createSelector, type AnchorSelector } from "@Porcupine/anchoring";
 import { useCallback, useRef, useState, useTransition } from "react";
 
 import { Button, Checkbox, Textarea } from "@/components/ui";
@@ -232,18 +232,16 @@ export function ReaderClient({
                 {/* The whole point of the DRIFTED state: say it, do not hide it. */}
                 {annotation.status !== "OK" && (
                   <p
-                    className={`text-fine mt-2 rounded px-2 py-1 ${
-                      annotation.status === "DRIFTED"
-                        ? "bg-accent/10 text-ink"
-                        : "bg-danger/10 text-danger"
-                    }`}
+                    className={`text-fine mt-2 rounded px-2 py-1 ${annotation.status === "DRIFTED"
+                      ? "bg-accent/10 text-ink"
+                      : "bg-danger/10 text-danger"
+                      }`}
                   >
                     {annotation.status === "DRIFTED"
-                      ? `Possibly moved${
-                          annotation.similarity
-                            ? ` (${Math.round(annotation.similarity * 100)}% match)`
-                            : ""
-                        } — ${annotation.driftReason ?? "check the passage"}`
+                      ? `Possibly moved${annotation.similarity
+                        ? ` (${Math.round(annotation.similarity * 100)}% match)`
+                        : ""
+                      } — ${annotation.driftReason ?? "check the passage"}`
                       : `Lost in this document — ${annotation.driftReason ?? "the passage is gone"}`}
                   </p>
                 )}

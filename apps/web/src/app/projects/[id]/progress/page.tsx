@@ -1,4 +1,4 @@
-import { SCREEN_STATUSES, screenStatusLabel } from "@porcupine/shared";
+import { SCREEN_STATUSES, screenStatusLabel } from "@Porcupine/shared";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
@@ -282,9 +282,8 @@ function Stat({
         {hint && <span className="mt-0.5 block opacity-80">{hint}</span>}
       </dt>
       <dd
-        className={`text-title mt-1 font-semibold tabular-nums ${
-          tone === "danger" && value > 0 ? "text-danger" : "text-ink"
-        }`}
+        className={`text-title mt-1 font-semibold tabular-nums ${tone === "danger" && value > 0 ? "text-danger" : "text-ink"
+          }`}
       >
         {value}
       </dd>

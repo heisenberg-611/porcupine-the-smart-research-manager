@@ -40,7 +40,7 @@ Then sign in as `demo@test.dev`, code in Mailpit.
 | Mailpit — every email it sends | http://localhost:54324 |
 | Supabase Studio — the database | http://localhost:54323 |
 
-**`docs/USING-PORCUPINE.md` is the guide to actually using it**, including an
+**`docs/USING-Porcupine.md` is the guide to actually using it**, including an
 honest list of what is not built yet. Start there if you are lost in the app
 rather than in the code.
 
@@ -84,7 +84,7 @@ Two things that have caught real bugs here and are worth knowing about:
 Run the e2e suite the way CI does before trusting it:
 
 ```bash
-CI=1 pnpm --filter @porcupine/web exec playwright test
+CI=1 pnpm --filter @Porcupine/web exec playwright test
 ```
 
 Two workers and two retries, which is where cross-test interference shows up
@@ -121,7 +121,7 @@ numbered plan document, the plan is stale.
 
 | Document                           | What                                                        |
 | ---------------------------------- | ----------------------------------------------------------- |
-| `docs/USING-PORCUPINE.md`          | How to use the app, and what is not built                   |
+| `docs/USING-Porcupine.md`          | How to use the app, and what is not built                   |
 | `docs/BUILD-LOG.md`                | What happened, honestly                                     |
 | `docs/00-product-plan.md`          | The roadmap                                                 |
 | `docs/01-data-model.md`            | Every table and why it is shaped that way                   |

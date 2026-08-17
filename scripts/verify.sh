@@ -27,13 +27,13 @@ run "guards"             pnpm guards
 # A test file no config collects is worse than no test: it reports coverage
 # it does not provide. Three have slipped through already.
 run "tests are wired"    bash scripts/check-tests.sh
-run "shared"             pnpm --filter @porcupine/shared test
-run "crypto"             pnpm --filter @porcupine/crypto test
-run "discovery"          pnpm --filter @porcupine/discovery test
-run "anchoring"          pnpm --filter @porcupine/anchoring test
+run "shared"             pnpm --filter @Porcupine/shared test
+run "crypto"             pnpm --filter @Porcupine/crypto test
+run "discovery"          pnpm --filter @Porcupine/discovery test
+run "anchoring"          pnpm --filter @Porcupine/anchoring test
 # apps/web had a `test` script and a vitest config that NOTHING invoked. A unit
 # test written there would have run green locally and never once in CI.
-run "web"                pnpm --filter @porcupine/web test
+run "web"                pnpm --filter @Porcupine/web test
 
 # Everything below needs the local stack. Say so plainly rather than letting
 # psql fail with ECONNREFUSED, which names a port and not a fix.
@@ -56,9 +56,9 @@ run "RLS coverage"       bash scripts/assert-rls.sh
 
 if [ "${1:-}" = "--e2e" ]; then
   run "schema drift"     pnpm db:diff
-  run "build"            pnpm --filter @porcupine/web build
+  run "build"            pnpm --filter @Porcupine/web build
   # A port of its own, so a dev server on 3000 does not have to be killed.
-  E2E_PORT="${E2E_PORT:-3100}" run "e2e + axe" pnpm --filter @porcupine/web test:e2e
+  E2E_PORT="${E2E_PORT:-3100}" run "e2e + axe" pnpm --filter @Porcupine/web test:e2e
 else
   printf '\n\033[33mSkipped: build and e2e. Run `pnpm verify --e2e` before pushing UI changes.\033[0m\n'
 fi

@@ -8,7 +8,7 @@ import { defineConfig } from "vitest/config";
  * measurement that will eventually be deleted for being flaky — and the
  * number it produces is meant to be read by a person, not asserted.
  *
- *     pnpm --filter @porcupine/discovery measure:oa
+ *     pnpm --filter @Porcupine/discovery measure:oa
  */
 export default defineConfig({
   test: {

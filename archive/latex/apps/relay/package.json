@@ -1,5 +1,5 @@
 {
-  "name": "@porcupine/relay",
+  "name": "@Porcupine/relay",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@porcupine/shared": "workspace:*"
+    "@Porcupine/shared": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260101.0",

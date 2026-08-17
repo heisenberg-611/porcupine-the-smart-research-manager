@@ -1,6 +1,6 @@
 import "server-only";
 
-import { importSigningKey, signRelayTicket } from "@porcupine/shared";
+import { importSigningKey, signRelayTicket } from "@Porcupine/shared";
 
 /**
  * Mints relay tickets (ADR-020).

@@ -1,5 +1,5 @@
 /**
- * @porcupine/crypto — client-side cryptography.
+ * @Porcupine/crypto — client-side cryptography.
  *
  * Browser only. Nothing in this package may run on the server: the whole
  * point is that private keys and passphrases never leave the device.

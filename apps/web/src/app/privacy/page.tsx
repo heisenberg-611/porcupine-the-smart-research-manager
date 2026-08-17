@@ -10,14 +10,14 @@ export const metadata: Metadata = {
 export default function PrivacyPolicyPage() {
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-8 px-6 py-12 animate-in fade-in duration-500">
-      <PageHeader 
-        title="Privacy Policy" 
+      <PageHeader
+        title="Privacy Policy"
         description={`Last updated: ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`}
         backHref="/"
         backLabel="Home"
       />
       <div className="prose max-w-none prose-p:leading-relaxed prose-p:mb-6 prose-p:text-muted prose-headings:text-ink prose-h2:text-2xl [&_h2]:text-2xl prose-h2:font-bold [&_h2]:font-bold prose-h2:text-accent [&_h2]:text-accent prose-h2:border-b [&_h2]:border-b prose-h2:border-rule [&_h2]:border-rule prose-h2:pb-2 [&_h2]:pb-2 prose-h2:mt-12 [&_h2]:mt-12 prose-h2:mb-6 [&_h2]:mb-6 prose-li:text-lg prose-li:my-4 prose-strong:text-lg prose-strong:font-bold prose-strong:text-ink [&_strong]:font-bold">
-        
+
         <h2>Overview</h2>
         <p>
           <strong>Your Data is Yours:</strong> Porcupine is a project committed to providing the best tool for managing your research, literature reviews, and thesis writing. Our philosophy is that what you put into Porcupine is yours, and one of our founding principles is to make sure you remain in control of your data and can share it how you like — or choose not to share it at all.
@@ -51,7 +51,7 @@ export default function PrivacyPolicyPage() {
         <p>
           When using third-party platforms, we request the most restrictive permissions available that still allow Porcupine to perform its advertised functions.
         </p>
-        
+
         <h3>Google Workspace Integration</h3>
         <p>
           <strong>Restrictive Permissions:</strong> To provide seamless collaboration and identity verification, Porcupine integrates with Google Workspace and Google Authentication. When you connect your Google account, you grant Porcupine the following scopes: <strong><code>https://www.googleapis.com/auth/drive.file</code></strong>, <strong><code>email</code></strong>, and <strong><code>profile</code></strong>. The <code>drive.file</code> scope is a highly restrictive permission that only allows Porcupine to see, edit, create, and delete Google Docs and Sheets that the app <em>specifically created</em> or that you explicitly selected via the Google Picker. The <code>email</code> and <code>profile</code> scopes are used exclusively to securely identify you and create your account.
@@ -62,7 +62,7 @@ export default function PrivacyPolicyPage() {
 
         <h2>Third-Party Services Used</h2>
         <p>
-          <strong>Cloud Infrastructure:</strong> Porcupine server data is stored securely using cloud infrastructure provided by Vercel, Supabase, and Cloudflare. 
+          <strong>Cloud Infrastructure:</strong> Porcupine server data is stored securely using cloud infrastructure provided by Vercel, Supabase, and Cloudflare.
         </p>
         <p>
           <strong>Metadata Retrieval:</strong> Certain operations you perform in Porcupine may trigger requests to public third-party services such as OpenAlex, Crossref, arXiv, or Semantic Scholar for metadata retrieval. These third parties may log your IP address and search terms (e.g., DOI) according to their privacy policies, but no other identifying personal information is provided.

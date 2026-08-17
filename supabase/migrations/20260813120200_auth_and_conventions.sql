@@ -163,5 +163,5 @@ comment on function public.build_tsvector(text, text) is
   'R-14: language-aware tsvector for generated columns. Never call '
   'to_tsvector(''english'', …) directly — see docs/05-resolution-plan.md R-14.';
 
-grant execute on function public.text_search_config(text) to porcupine_app, authenticated, anon;
-grant execute on function public.build_tsvector(text, text) to porcupine_app, authenticated, anon;
+grant execute on function public.text_search_config(text) to Porcupine_app, authenticated, anon;
+grant execute on function public.build_tsvector(text, text) to Porcupine_app, authenticated, anon;

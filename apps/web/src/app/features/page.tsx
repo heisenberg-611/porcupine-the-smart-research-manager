@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/ui";
-import { 
-  ShieldCheckIcon, 
-  UsersIcon, 
-  DocumentTextIcon, 
-  ArrowsRightLeftIcon, 
-  ChartBarIcon, 
-  TableCellsIcon 
+import {
+  ShieldCheckIcon,
+  UsersIcon,
+  DocumentTextIcon,
+  ArrowsRightLeftIcon,
+  ChartBarIcon,
+  TableCellsIcon
 } from "@heroicons/react/24/outline";
 
 export const metadata: Metadata = {
@@ -56,13 +56,13 @@ const features = [
 export default function FeaturesPage() {
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-12 px-6 py-12 animate-in fade-in duration-500">
-      <PageHeader 
-        title="Features" 
+      <PageHeader
+        title="Features"
         description="Everything you need to manage your research, collaborate with your team, and write your thesis."
         backHref="/"
         backLabel="Home"
       />
-      
+
       <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 mt-8">
         {features.map((feature) => (
           <div key={feature.name} className="relative flex flex-col gap-4 p-6 rounded-2xl border border-rule bg-surface/50 transition-colors hover:bg-surface">
@@ -86,8 +86,8 @@ export default function FeaturesPage() {
         <p className="text-muted mb-8 max-w-xl mx-auto">
           Join Porcupine today and take control of your literature reviews with our powerful, secure, and collaborative toolset.
         </p>
-        <a 
-          href="/signup" 
+        <a
+          href="/signup"
           className="inline-flex items-center justify-center rounded-full bg-accent px-8 py-3 text-sm font-semibold text-white shadow-sm hover:bg-accent/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent transition-all"
         >
           Get Started for Free

@@ -5,7 +5,7 @@ import {
   needsOptions,
   templateById,
   toFieldKey,
-} from "@porcupine/shared";
+} from "@Porcupine/shared";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 

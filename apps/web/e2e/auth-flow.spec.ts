@@ -197,7 +197,7 @@ test.describe("Phase 0 exit criterion", () => {
     await page.getByLabel("Email").fill(uniqueEmail("stranger"));
     await page.getByRole("button", { name: /add member/i }).click();
 
-    await expect(page.getByText(/no porcupine account/i)).toBeVisible();
+    await expect(page.getByText(/no Porcupine account/i)).toBeVisible();
   });
 
   test("search page is reachable, accessible, and degrades on provider failure", async () => {

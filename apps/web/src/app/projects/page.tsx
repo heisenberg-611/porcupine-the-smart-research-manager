@@ -1,4 +1,4 @@
-import { capabilities, type ProjectKind } from "@porcupine/shared";
+import { capabilities, type ProjectKind } from "@Porcupine/shared";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -118,7 +118,7 @@ export default async function ProjectsPage() {
                 <Link href={`/projects/${project.id}`} className="block h-full">
                   <Card className="h-full flex flex-col p-6 border-border/60 hover:border-accent/40 bg-surface/50 hover:bg-surface hover:shadow-md hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-accent/20 to-accent/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                    
+
                     <div className="flex-1">
                       <h2 className="text-ink text-xl font-bold tracking-tight mb-2 group-hover:text-accent transition-colors">{project.title}</h2>
                       {project.description && (
@@ -127,7 +127,7 @@ export default async function ProjectsPage() {
                         </p>
                       )}
                     </div>
-                    
+
                     <div className="mt-6 pt-4 border-t border-border/50 flex flex-col gap-2">
                       <div className="flex flex-wrap items-center gap-2 text-muted text-[11px] font-mono tracking-wider uppercase font-semibold">
                         <span className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-canvas/80 border border-border/50">

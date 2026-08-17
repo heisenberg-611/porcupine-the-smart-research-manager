@@ -99,7 +99,7 @@ update extractions set status = 'SUBMITTED', submitted_at = now()
 where id in ('a0000000-0000-0000-0000-00000000000a',
              'a0000000-0000-0000-0000-00000000000b');
 
-set local role porcupine_app;
+set local role Porcupine_app;
 select set_config('request.jwt.claims',
   '{"sub":"33333333-3333-3333-3333-333333333333"}', true);
 
@@ -142,7 +142,7 @@ insert into protocol_fields
   (id, protocol_id, key, label, type, required, requires_anchor, "order")
 values ('f0000000-0000-0000-0000-000000000004', 'e0000000-0000-0000-0000-000000000001',
         'funding', 'Funding', 'TEXT', false, false, 3);
-set local role porcupine_app;
+set local role Porcupine_app;
 select set_config('request.jwt.claims',
   '{"sub":"33333333-3333-3333-3333-333333333333"}', true);
 
@@ -256,7 +256,7 @@ values ('a0000000-0000-0000-0000-00000000000c', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaa
        ('a0000000-0000-0000-0000-00000000000d', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
         'd0000000-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000001',
         '55555555-5555-5555-5555-555555555555', 'DRAFT', '{}', now(), now());
-set local role porcupine_app;
+set local role Porcupine_app;
 select set_config('request.jwt.claims',
   '{"sub":"33333333-3333-3333-3333-333333333333"}', true);
 
@@ -342,7 +342,7 @@ values ('a0000000-0000-0000-0000-00000000000e', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbb
        ('a0000000-0000-0000-0000-00000000000f', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
         'd0000000-0000-0000-0000-000000000002', 'e0000000-0000-0000-0000-000000000002',
         '22222222-2222-2222-2222-222222222222', 'SUBMITTED', '{}', now(), now());
-set local role porcupine_app;
+set local role Porcupine_app;
 select set_config('request.jwt.claims',
   '{"sub":"33333333-3333-3333-3333-333333333333"}', true);
 
@@ -399,7 +399,7 @@ select is(
 
 set local role postgres;
 delete from extractions where id = 'a0000000-0000-0000-0000-000000000099';
-set local role porcupine_app;
+set local role Porcupine_app;
 select set_config('request.jwt.claims',
   '{"sub":"33333333-3333-3333-3333-333333333333"}', true);
 
@@ -436,7 +436,7 @@ select lives_ok(
 set local role postgres;
 insert into users (id, email, display_name, created_at, updated_at)
 values ('44444444-4444-4444-4444-444444444444', 'dave@test.dev', 'Dave', now(), now());
-set local role porcupine_app;
+set local role Porcupine_app;
 select set_config('request.jwt.claims',
   '{"sub":"44444444-4444-4444-4444-444444444444"}', true);
 

@@ -369,7 +369,7 @@ does, the layout, and pointers to where the reasoning lives.
       without horizontal scrolling; views can be saved
 - [ ] Screening is completable end to end without a mouse
 - [ ] axe green on desktop and mobile, zero violations, as now
-- [ ] `pnpm --filter @porcupine/web measure` re-run and recorded; evidence-page
+- [ ] `pnpm --filter @Porcupine/web measure` re-run and recorded; evidence-page
       HTML measurably smaller
 - [ ] The BUILD-LOG entry exists, with its Problems section non-empty
 

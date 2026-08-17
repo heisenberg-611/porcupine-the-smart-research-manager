@@ -10,17 +10,17 @@ export const metadata: Metadata = {
 export default function TermsOfServicePage() {
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-8 px-6 py-12 animate-in fade-in duration-500">
-      <PageHeader 
-        title="Terms of Service" 
+      <PageHeader
+        title="Terms of Service"
         description={`Last updated: ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`}
         backHref="/"
         backLabel="Home"
       />
       <div className="prose max-w-none prose-p:leading-relaxed prose-p:mb-6 prose-p:text-muted prose-headings:text-ink prose-h2:text-2xl [&_h2]:text-2xl prose-h2:font-bold [&_h2]:font-bold prose-h2:text-accent [&_h2]:text-accent prose-h2:border-b [&_h2]:border-b prose-h2:border-rule [&_h2]:border-rule prose-h2:pb-2 [&_h2]:pb-2 prose-h2:mt-12 [&_h2]:mt-12 prose-h2:mb-6 [&_h2]:mb-6 prose-li:text-lg prose-li:my-4 prose-strong:text-lg prose-strong:font-bold prose-strong:text-ink [&_strong]:font-bold">
-        
+
         <h2>Welcome</h2>
         <p>
-          <strong>Introduction:</strong> Welcome to Porcupine. Porcupine is a collection of services, including a research management platform and storage subscription services (the “Services”), integrated with the Porcupine web application. Your access to and use of the Services are subject to these Terms of Service (“Terms of Service”) and all applicable laws. 
+          <strong>Introduction:</strong> Welcome to Porcupine. Porcupine is a collection of services, including a research management platform and storage subscription services (the “Services”), integrated with the Porcupine web application. Your access to and use of the Services are subject to these Terms of Service (“Terms of Service”) and all applicable laws.
         </p>
         <p>
           <strong>Acceptance of Terms:</strong> By accessing and/or using the Services, you acknowledge that you have read, understood and agree to be bound by these Terms of Service and to comply with all applicable laws.
@@ -76,7 +76,7 @@ export default function TermsOfServicePage() {
 
         <h2>7. Limitation of Liability</h2>
         <p>
-          <strong>Damages Disclaimer:</strong> TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, PORCUPINE AND ITS SERVICE PROVIDERS WILL NOT BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL OR PUNITIVE DAMAGES, INCLUDING WITHOUT LIMITATION, LOSS OF PROFITS, DATA, USE, GOODWILL, OR OTHER INTANGIBLE LOSSES, RESULTING FROM YOUR ACCESS TO OR USE OF OR INABILITY TO ACCESS OR USE THE SERVICES.
+          <strong>Damages Disclaimer:</strong> TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, Porcupine AND ITS SERVICE PROVIDERS WILL NOT BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL OR PUNITIVE DAMAGES, INCLUDING WITHOUT LIMITATION, LOSS OF PROFITS, DATA, USE, GOODWILL, OR OTHER INTANGIBLE LOSSES, RESULTING FROM YOUR ACCESS TO OR USE OF OR INABILITY TO ACCESS OR USE THE SERVICES.
         </p>
 
         <h2>8. Disclaimer of Warranties</h2>

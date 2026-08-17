@@ -1,4 +1,4 @@
-import { capabilities, isProjectKind, type ProjectKind } from "@porcupine/shared";
+import { capabilities, isProjectKind, type ProjectKind } from "@Porcupine/shared";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -110,10 +110,10 @@ export default async function ProjectPage({
       // reconciliation view it can never use is a round trip spent on nothing.
       caps.dualExtraction
         ? supabase
-            .from("v_reconciliation_queue")
-            .select("project_work_id", { count: "exact", head: true })
-            .eq("project_id", id)
-            .eq("reconciled", false)
+          .from("v_reconciliation_queue")
+          .select("project_work_id", { count: "exact", head: true })
+          .eq("project_id", id)
+          .eq("reconciled", false)
         : Promise.resolve({ count: 0, error: null }),
       supabase
         .from("questions")
@@ -151,54 +151,54 @@ export default async function ProjectPage({
   const next =
     questionCount === 0
       ? {
-          href: sectionHref(id, "questions"),
-          label: "Say what this review asks",
-          // Before finding papers, because it changes what finding papers
-          // returns: with no questions the ranking has nothing to score
-          // against and every result reports matching nothing.
-          why: "Search is ranked against your research questions, and there are none yet.",
-        }
+        href: sectionHref(id, "questions"),
+        label: "Say what this review asks",
+        // Before finding papers, because it changes what finding papers
+        // returns: with no questions the ranking has nothing to score
+        // against and every result reports matching nothing.
+        why: "Search is ranked against your research questions, and there are none yet.",
+      }
       : papers === 0
         ? {
-            href: sectionHref(id, "search"),
-            // NOT "Find papers", which is what the nav link and the Collect
-            // section card are both already called — three links to one
-            // destination on one page, and Playwright's strict mode was right
-            // to call it ambiguous. Every other next-action here names the
-            // ACTION rather than the screen ("Continue screening", "Build the
-            // protocol"); this one had drifted into naming the screen.
-            label: "Find your first papers",
-            why: "The library is empty.",
-          }
+          href: sectionHref(id, "search"),
+          // NOT "Find papers", which is what the nav link and the Collect
+          // section card are both already called — three links to one
+          // destination on one page, and Playwright's strict mode was right
+          // to call it ambiguous. Every other next-action here names the
+          // ACTION rather than the screen ("Continue screening", "Build the
+          // protocol"); this one had drifted into naming the screen.
+          label: "Find your first papers",
+          why: "The library is empty.",
+        }
         : unscreened > 0
           ? {
-              href: sectionHref(id, "screen"),
-              label: "Continue screening",
-              why: `${unscreened} ${unscreened === 1 ? "paper is" : "papers are"} still unscreened.`,
-            }
+            href: sectionHref(id, "screen"),
+            label: "Continue screening",
+            why: `${unscreened} ${unscreened === 1 ? "paper is" : "papers are"} still unscreened.`,
+          }
           : !hasProtocol
             ? {
-                href: sectionHref(id, "protocol"),
-                label: "Build the protocol",
-                why: "Nothing can be extracted until there are questions to ask.",
-              }
+              href: sectionHref(id, "protocol"),
+              label: "Build the protocol",
+              why: "Nothing can be extracted until there are questions to ask.",
+            }
             : awaiting > 0
               ? {
-                  href: sectionHref(id, "reconcile"),
-                  label: "Reconcile disagreements",
-                  why: `${awaiting} ${awaiting === 1 ? "paper has" : "papers have"} two extractions that disagree.`,
-                }
+                href: sectionHref(id, "reconcile"),
+                label: "Reconcile disagreements",
+                why: `${awaiting} ${awaiting === 1 ? "paper has" : "papers have"} two extractions that disagree.`,
+              }
               : extracted < included
                 ? {
-                    href: `${sectionHref(id, "library")}?status=INCLUDED`,
-                    label: "Extract from included papers",
-                    why: `${included - extracted} of ${included} included ${included - extracted === 1 ? "paper has" : "papers have"} no extraction yet.`,
-                  }
+                  href: `${sectionHref(id, "library")}?status=INCLUDED`,
+                  label: "Extract from included papers",
+                  why: `${included - extracted} of ${included} included ${included - extracted === 1 ? "paper has" : "papers have"} no extraction yet.`,
+                }
                 : {
-                    href: sectionHref(id, "evidence"),
-                    label: "Review the evidence",
-                    why: "Everything included has been extracted.",
-                  };
+                  href: sectionHref(id, "evidence"),
+                  label: "Review the evidence",
+                  why: "Everything included has been extracted.",
+                };
 
   const byGroup = new Map<SectionGroup, typeof sections>();
   for (const section of sections) {

@@ -1,6 +1,6 @@
 "use server";
 
-import { PROJECT_KINDS } from "@porcupine/shared";
+import { PROJECT_KINDS } from "@Porcupine/shared";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { z } from "zod";
@@ -353,7 +353,7 @@ export async function provisionSharedDriveFolder(projectId: string): Promise<Act
 
       await tx.project.update({
         where: { id: projectId },
-        data: { 
+        data: {
           driveFolderId,
           ...(refreshToken ? { googleRefreshToken: refreshToken } : {})
         },
@@ -478,12 +478,12 @@ export async function disconnectGoogleAccount() {
   const cookieStore = await cookies();
   cookieStore.delete("google_provider_token");
   cookieStore.delete("google_provider_refresh_token");
-  
+
   const { createClient } = await import("@/lib/supabase/server");
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   console.log(`[disconnectGoogleAccount] User: ${user?.email}`);
-  
+
   if (user && user.identities) {
     const googleIdentity = user.identities.find(id => id.provider === "google");
     // Only unlink if they have more than 1 identity to prevent them from being completely signed out of Porcupine
@@ -506,7 +506,7 @@ export async function disconnectGoogleAccount() {
           where: { userId: user.id, removedAt: null },
           include: { project: true },
         });
-        
+
         console.log(`[disconnectGoogleAccount] Found ${memberProjects.length} projects for user`);
 
         const { revokeGoogleFileAccess, getAdminToken } = await import("@/lib/google");
@@ -514,16 +514,16 @@ export async function disconnectGoogleAccount() {
         for (const mp of memberProjects) {
           console.log(`[disconnectGoogleAccount] Processing project ${mp.project.id}, driveFolderId=${mp.project.driveFolderId}, hasRefreshToken=${!!mp.project.googleRefreshToken}`);
           if (mp.project.driveFolderId && mp.project.googleRefreshToken) {
-            
+
             // Check if the user is the admin (owner) of this project. If they are the owner, they own the folder.
             // We shouldn't revoke their access, but we should remove the refresh token so the project loses automation capabilities!
             if (mp.accessRole === "OWNER" || mp.accessRole === "ADMIN") {
-               console.log(`[disconnectGoogleAccount] User is OWNER/ADMIN of project ${mp.project.id}. Removing project.googleRefreshToken instead of revoking file access.`);
-               await prisma.project.update({
-                 where: { id: mp.project.id },
-                 data: { googleRefreshToken: null }
-               });
-               continue;
+              console.log(`[disconnectGoogleAccount] User is OWNER/ADMIN of project ${mp.project.id}. Removing project.googleRefreshToken instead of revoking file access.`);
+              await prisma.project.update({
+                where: { id: mp.project.id },
+                data: { googleRefreshToken: null }
+              });
+              continue;
             }
 
             const adminToken = await getAdminToken(mp.project.googleRefreshToken);

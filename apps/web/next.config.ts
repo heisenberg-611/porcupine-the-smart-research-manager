@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
   // imports "./libsodium-sumo.mjs" instead of the libsodium-sumo package.
   // Fixed by patches/libsodium-wrappers-sumo@0.7.16.patch rather than a
   // bundler alias, so every consumer gets it — including the future relay.
-  transpilePackages: ["@porcupine/db", "@porcupine/shared", "@porcupine/crypto"],
+  transpilePackages: ["@Porcupine/db", "@Porcupine/shared", "@Porcupine/crypto"],
 
   // The Prisma engine is a native binary and must not be bundled. The
   // generated client also reaches for runtime-utils, which the bundler

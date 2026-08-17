@@ -1,6 +1,6 @@
 "use client";
 
-import { fromBase64, unwrapProjectKey } from "@porcupine/crypto";
+import { fromBase64, unwrapProjectKey } from "@Porcupine/crypto";
 import { useCallback, useEffect, useState } from "react";
 
 import { getKeyState, getMemberKeys } from "@/app/projects/[id]/keys/actions";

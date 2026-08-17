@@ -5,7 +5,7 @@ import {
   PROVIDER_IDS,
   rankWorks,
   type ScoredWork,
-} from "@porcupine/discovery";
+} from "@Porcupine/discovery";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 

@@ -21,7 +21,7 @@ JWT travels with the request so PostgREST evaluates RLS against it). Postgres
 ## Rules that are not negotiable
 
 **RLS is the security boundary, not the application.** Every table has
-`FORCE ROW LEVEL SECURITY`. The app connects as `porcupine_app`, which does not
+`FORCE ROW LEVEL SECURITY`. The app connects as `Porcupine_app`, which does not
 have BYPASSRLS. Views are `security_invoker`. Never add a `WHERE user_id = ...`
 in place of a policy — if a query needs one to be safe, the policy is wrong.
 

@@ -43,7 +43,7 @@ insert into project_members
 
 -- ── Alice opens a channel and says something ────────────────────────────────
 
-set local role porcupine_app;
+set local role Porcupine_app;
 select set_config('request.jwt.claims',
   '{"sub":"bb000000-0000-0000-0000-000000000001"}', true);
 
@@ -94,7 +94,7 @@ $$, '42501', null,
 
 -- ── Bob, a member, reads it ─────────────────────────────────────────────────
 
-set local role porcupine_app;
+set local role Porcupine_app;
 select set_config('request.jwt.claims',
   '{"sub":"bb000000-0000-0000-0000-000000000002"}', true);
 
@@ -111,7 +111,7 @@ $$, 'and can reply');
 
 -- ── Mallory, in a different project, sees none of it ────────────────────────
 
-set local role porcupine_app;
+set local role Porcupine_app;
 select set_config('request.jwt.claims',
   '{"sub":"bb000000-0000-0000-0000-000000000003"}', true);
 
@@ -131,7 +131,7 @@ select is((select count(*)::int from messages
 
 -- ── Append-only ─────────────────────────────────────────────────────────────
 
-set local role porcupine_app;
+set local role Porcupine_app;
 select set_config('request.jwt.claims',
   '{"sub":"bb000000-0000-0000-0000-000000000002"}', true);
 

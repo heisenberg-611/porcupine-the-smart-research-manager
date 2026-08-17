@@ -1,6 +1,6 @@
 "use client";
 
-import { fromBase64, rewrapIdentity, toBase64, unwrapIdentity } from "@porcupine/crypto";
+import { fromBase64, rewrapIdentity, toBase64, unwrapIdentity } from "@Porcupine/crypto";
 import { useState } from "react";
 
 import { getMyKeyMaterial, storeRewrappedBundle } from "@/app/unlock/actions";

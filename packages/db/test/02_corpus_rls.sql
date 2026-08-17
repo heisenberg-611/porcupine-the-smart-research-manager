@@ -1,6 +1,6 @@
 -- Phase 1 — RLS for the corpus tables.
 --
--- Runs as porcupine_app throughout. Running as a superuser would pass whatever
+-- Runs as Porcupine_app throughout. Running as a superuser would pass whatever
 -- the policies said and prove nothing.
 --
 -- Two shapes here are unlike Phase 0 and get explicit coverage:
@@ -95,7 +95,7 @@ values
    '11111111-1111-1111-1111-111111111111', 'NOTE', 'my own half-formed thought', 'PRIVATE',
    now(), now());
 
-set local role porcupine_app;
+set local role Porcupine_app;
 
 -- ═══════════════ Fail closed, including the global table ════════════════════
 

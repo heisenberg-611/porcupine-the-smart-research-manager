@@ -63,16 +63,16 @@ select is_empty(
 -- ── Rule 4: the application role is unprivileged ────────────────────────────
 
 select ok(
-  not (select rolbypassrls from pg_roles where rolname = 'porcupine_app'),
-  'porcupine_app cannot bypass RLS'
+  not (select rolbypassrls from pg_roles where rolname = 'Porcupine_app'),
+  'Porcupine_app cannot bypass RLS'
 );
 select ok(
-  not (select rolsuper from pg_roles where rolname = 'porcupine_app'),
-  'porcupine_app is not a superuser'
+  not (select rolsuper from pg_roles where rolname = 'Porcupine_app'),
+  'Porcupine_app is not a superuser'
 );
 select ok(
-  not (select rolcreaterole from pg_roles where rolname = 'porcupine_app'),
-  'porcupine_app cannot create roles'
+  not (select rolcreaterole from pg_roles where rolname = 'Porcupine_app'),
+  'Porcupine_app cannot create roles'
 );
 
 -- ── Rule 5: append-only tables have no UPDATE or DELETE policy ──────────────

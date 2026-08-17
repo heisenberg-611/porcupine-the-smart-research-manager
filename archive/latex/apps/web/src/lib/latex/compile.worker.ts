@@ -52,7 +52,7 @@ declare const __LATEX_ASSET_VERSION__: string;
  * cache and the old one is swept below. That is also why the assets can be
  * served `immutable`: their content only changes when their version does.
  */
-const CACHE = `porcupine-latex-${__LATEX_ASSET_VERSION__}`;
+const CACHE = `Porcupine-latex-${__LATEX_ASSET_VERSION__}`;
 
 const WASM_URL = "/latex/tectonic_wasm.wasm";
 const BUNDLE_URL = "/latex/tectonic-bundle.tar.gz";
@@ -111,7 +111,7 @@ async function cached(url: string): Promise<Response> {
 
   // Clone before storing: putting a response consumes its body, and the caller
   // still needs to read it.
-  if (store) await store.put(url, response.clone()).catch(() => {});
+  if (store) await store.put(url, response.clone()).catch(() => { });
   return response;
 }
 
@@ -126,7 +126,7 @@ async function sweepOldCaches(): Promise<void> {
     const names = await caches.keys();
     await Promise.all(
       names
-        .filter((name) => name.startsWith("porcupine-latex-") && name !== CACHE)
+        .filter((name) => name.startsWith("Porcupine-latex-") && name !== CACHE)
         .map((name) => caches.delete(name)),
     );
   } catch {

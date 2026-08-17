@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 
 import { ButtonLink, EmptyState, PageHeader } from "@/components/ui";
 import { must } from "@/lib/supabase/query";
-import { OPEN_QUEUE_STATUSES } from "@porcupine/shared";
+import { OPEN_QUEUE_STATUSES } from "@Porcupine/shared";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -160,7 +160,7 @@ export default async function DashboardPage() {
                 Your projects
               </h2>
             </div>
-            
+
             <ul className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {projects.map((project) => {
                 const undecided = undecidedBy.get(project.id) ?? 0;
@@ -170,7 +170,7 @@ export default async function DashboardPage() {
                   <li key={project.id} className="group">
                     <Link href={`/projects/${project.id}`} className="block h-full">
                       <div className="border-rule bg-surface/40 hover:bg-accent/5 hover:border-accent/40 flex h-full flex-col justify-between gap-4 rounded-2xl border p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-md backdrop-blur-sm">
-                        
+
                         <div className="flex flex-col gap-4">
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex items-center gap-3 min-w-0">
@@ -191,7 +191,7 @@ export default async function DashboardPage() {
                               </div>
                             </div>
                           </div>
-                          
+
                           {project.description && (
                             <p className="text-muted text-fine line-clamp-2 leading-relaxed">
                               {project.description}
@@ -203,7 +203,7 @@ export default async function DashboardPage() {
                           <span className="text-muted text-fine">
                             {papers} {papers === 1 ? "paper" : "papers"}
                           </span>
-                          
+
                           {/* The one number that decides whether to open it. */}
                           {undecided > 0 ? (
                             <span className="text-accent text-fine font-medium">
@@ -218,7 +218,7 @@ export default async function DashboardPage() {
                             </span>
                           )}
                         </div>
-                        
+
                       </div>
                     </Link>
                   </li>
@@ -288,13 +288,12 @@ function Stat({
           {label}
         </span>
         <span
-          className={`text-display mt-2 block font-serif tabular-nums relative z-10 ${
-            tone === "danger" && value > 0 ? "text-danger" : "text-ink"
-          }`}
+          className={`text-display mt-2 block font-serif tabular-nums relative z-10 ${tone === "danger" && value > 0 ? "text-danger" : "text-ink"
+            }`}
         >
           {value}
         </span>
-        
+
         {/* Subtle background glow effect on hover */}
         <div className="absolute -inset-x-4 -bottom-4 h-1/2 bg-gradient-to-t from-accent/5 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
       </Link>

@@ -1,6 +1,6 @@
 "use client";
 
-import { fromBase64, openMessage, sealMessage, toBase64 } from "@porcupine/crypto";
+import { fromBase64, openMessage, sealMessage, toBase64 } from "@Porcupine/crypto";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";

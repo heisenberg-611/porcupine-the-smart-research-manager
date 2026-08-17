@@ -52,7 +52,7 @@ insert into project_works
    'c0000000-0000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222',
    'search', now(), now());
 
-set local role porcupine_app;
+set local role Porcupine_app;
 select set_config('request.jwt.claims',
   '{"sub":"11111111-1111-1111-1111-111111111111"}', true);
 

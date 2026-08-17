@@ -53,7 +53,7 @@ insert into anchors (id, project_id, quote, created_at, updated_at) values
   ('20000000-0000-0000-0000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
    'the primary outcome was mortality at 30 days', now(), now());
 
-set local role porcupine_app;
+set local role Porcupine_app;
 select set_config('request.jwt.claims',
   '{"sub":"22222222-2222-2222-2222-222222222222"}', true);
 
@@ -231,7 +231,7 @@ select is(
 
 set local role postgres;
 delete from extraction_values where id = 'b0000000-0000-0000-0000-000000000002';
-set local role porcupine_app;
+set local role Porcupine_app;
 select set_config('request.jwt.claims',
   '{"sub":"22222222-2222-2222-2222-222222222222"}', true);
 

@@ -1,19 +1,32 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "porcupine-relay",
+  "name": "Porcupine-relay",
   "main": "src/index.ts",
   "compatibility_date": "2026-08-01",
-  "compatibility_flags": ["nodejs_compat"],
-
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   // One Durable Object per LaTeX file. SQLite-backed, which is on the free
   // plan and gives us a real transactional log for updates.
   "durable_objects": {
-    "bindings": [{ "name": "LATEX_DOC", "class_name": "LatexDoc" }],
+    "bindings": [
+      {
+        "name": "LATEX_DOC",
+        "class_name": "LatexDoc"
+      }
+    ],
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["LatexDoc"] }],
-
-  "observability": { "enabled": true },
-
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "LatexDoc"
+      ]
+    }
+  ],
+  "observability": {
+    "enabled": true
+  },
   "vars": {
     // Ed25519 public key, base64url. Verification only — the relay cannot
     // mint tickets. Overridden per environment.

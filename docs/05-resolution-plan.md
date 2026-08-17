@@ -110,9 +110,9 @@ The verdict in `04` was right but under-specified. Here is the complete algebra.
 
 1. Client sends `PULL_BEGIN`. DO transitions the document to `SYNCING` and broadcasts `FREEZE`.
 2. All connected editors go **read-only** with a banner. The DO rejects any `update` message while frozen. Because clients are read-only, no ops are generated to buffer — this is why freezing beats queueing.
-3. The initiating client materializes the current Yjs state to files and commits to `porcupine/live`. **This commit is the merge base anchor.**
+3. The initiating client materializes the current Yjs state to files and commits to `Porcupine/live`. **This commit is the merge base anchor.**
 4. `git fetch origin`.
-5. Three-way merge of `origin/<branch>` into `porcupine/live` via `isomorphic-git`, base = merge-base.
+5. Three-way merge of `origin/<branch>` into `Porcupine/live` via `isomorphic-git`, base = merge-base.
 6. **Clean** → merged tree. **Conflicted** → document enters `CONFLICTED`, stays frozen, conflict hunks go to the resolver UI. Only the initiating client may resolve — single-writer by construction, so there is no concurrent-resolution case to design.
 7. Build a **fresh `Y.Doc`** from the merged tree. `docEpoch += 1`.
 8. Client uploads the new state as a single snapshot `LatexUpdate` at the new epoch and sends `SWAP { docEpoch, snapshotRef }`.
@@ -122,7 +122,7 @@ The verdict in `04` was right but under-specified. Here is the complete algebra.
 **The offline client — the case that actually bites.** A client that was disconnected across a swap reconnects presenting `docEpoch = N−1`. The DO refuses its updates. The client then:
 
 - exports its local `Y.Doc` to files,
-- creates branch `porcupine/offline/<userId>/<ts>` from the epoch-`N−1` anchor commit,
+- creates branch `Porcupine/offline/<userId>/<ts>` from the epoch-`N−1` anchor commit,
 - commits, and enters the pull protocol from step 4 with that branch as the source.
 
 Their work is **never lost and never silently interleaved.** It becomes a Git branch and goes through a real three-way merge with real conflict markers. This is the entire reason the anchor commit at step 3 exists.
@@ -155,7 +155,7 @@ More importantly, **the failure mode is fail-closed.** If the claim is never set
   ```ts
   withUserContext(jwt, fn); // $transaction: set_config(..., true) first, then fn
   ```
-- `porcupine_app` role: no `BYPASSRLS`. Every table `FORCE ROW LEVEL SECURITY`. Every policy `USING (<claim-derived predicate>)` — **no permissive fallback, no `OR true`, ever.**
+- `Porcupine_app` role: no `BYPASSRLS`. Every table `FORCE ROW LEVEL SECURITY`. Every policy `USING (<claim-derived predicate>)` — **no permissive fallback, no `OR true`, ever.**
 
 **Acceptance tests (pgTAP, merge gate, must stay under 90 s):**
 
@@ -333,7 +333,7 @@ Honest residual risk, after all of the above:
 1. **R-01's epoch protocol is correct but expensive to build.** It is roughly two of Phase 5's nine weeks and it has no shortcut. If Phase 5 runs late, cut GitHub _pull_ before you cut the protocol — push-and-PR-only is a coherent product; a half-implemented merge is a corruption bug.
 2. **The three-host split has three failure domains.** Vercel down, Cloudflare down, or Supabase down are three different incidents with three different status pages. `CollabTransport` limits the blast radius of the third-party one, but operationally this is more surface than a single host.
 3. **C-22 is a deadline, not a decision.** The day someone pays you, Hobby is a ToS violation. Move to Pro _before_ that day, not after.
-4. ~~**R-04's OA dedupe rate is an assumption.**~~ **Measured, 2026-08-14.** `pnpm --filter @porcupine/discovery measure:oa` — 293 deduplicated works across six fields:
+4. ~~**R-04's OA dedupe rate is an assumption.**~~ **Measured, 2026-08-14.** `pnpm --filter @Porcupine/discovery measure:oa` — 293 deduplicated works across six fields:
 
    | field | n | open-access PDF |
    | --- | --- | --- |

@@ -7,7 +7,7 @@ import {
   type FieldType,
   type ProjectKind,
   type RatingPair,
-} from "@porcupine/shared";
+} from "@Porcupine/shared";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";

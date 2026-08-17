@@ -429,7 +429,7 @@ async function enforceSize(
   const chunks: Uint8Array[] = [];
   let total = 0;
 
-  for (;;) {
+  for (; ;) {
     const { done, value } = await reader.read();
     if (done) break;
     total += value.length;
@@ -462,8 +462,8 @@ async function enforceSize(
 export function userAgent(): string {
   const contact = process.env.POLITE_POOL_EMAIL;
   return contact
-    ? `Porcupine/0.1 (https://porcupine.app; mailto:${contact})`
-    : "Porcupine/0.1 (https://porcupine.app)";
+    ? `Porcupine/0.1 (https://Porcupine.app; mailto:${contact})`
+    : "Porcupine/0.1 (https://Porcupine.app)";
 }
 
 /**

@@ -44,7 +44,7 @@ Anything here that contradicts a numbered doc means the numbered doc is stale. F
 | 1.2 | `apps/web` — Next 16.3, React 19.2, Tailwind 4, design tokens, skip link |
 | 1.3 | Local Supabase on Docker, Postgres 17.6 |
 | 1.4 | Prisma 7 schema, Phase 0 slice: 7 tables, 8 enums |
-| 1.5 | RLS baseline — FORCE on all 7 tables, `porcupine_app` without BYPASSRLS, 3 `SECURITY DEFINER` helpers |
+| 1.5 | RLS baseline — FORCE on all 7 tables, `Porcupine_app` without BYPASSRLS, 3 `SECURITY DEFINER` helpers |
 | 1.6 | pgTAP: 31 assertions + the concurrency test |
 | 1.7 | CI: 4 jobs — static, boundaries, RLS, a11y |
 
@@ -72,7 +72,7 @@ These were made at the keyboard and are recorded here rather than as ADRs, becau
 1. **snake_case columns + `timestamptz` everywhere.** Prisma defaults to camelCase columns and naive `timestamp`. Hand-written RLS and pgTAP are first-class artifacts in this project, and quoted `"camelCase"` in SQL is a permanent tax. `timestamptz` closes hazard B-07 before any date math exists. Cost: `@map` on every column.
 2. **TypeScript held at 5.9 although 7.0 is GA.** `typescript-eslint` and the Next plugin are guaranteed against 5.9. Revisit when the ecosystem catches up; nothing in the codebase depends on the difference.
 3. **Migration ownership split.** Prisma owns the schema; `supabase/migrations/` owns what ran; `prisma migrate diff` is the bridge; RLS is hand-written SQL. `prisma migrate dev` must never touch this database — it doesn't know about policies and would drop them. Now stated in the schema header.
-4. **`grant porcupine_app to postgres`.** Without it, pgTAP can't `SET ROLE` and would test as superuser — which passes regardless of policy and proves nothing. Membership does not grant bypass.
+4. **`grant Porcupine_app to postgres`.** Without it, pgTAP can't `SET ROLE` and would test as superuser — which passes regardless of policy and proves nothing. Membership does not grant bypass.
 5. **The a11y gate runs on a mobile viewport too.** Responsive is a stated requirement; touch-target and reflow violations only appear there.
 
 ### Deviations from the plan
@@ -87,7 +87,7 @@ These were made at the keyboard and are recorded here rather than as ADRs, becau
 ### Problems hit
 
 1. **Corepack couldn't activate pnpm 11** (`ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING`) and its shim then blocked `npm i -g`. Fixed by `corepack disable`, removing the shims, installing via npm.
-2. **`grant porcupine_app to supabase_admin` aborted the whole migration** — reserved role, superuser only. The failure left `porcupine_app` uncreated, so 11 downstream assertions failed with a misleading "role does not exist." Removed the grant.
+2. **`grant Porcupine_app to supabase_admin` aborted the whole migration** — reserved role, superuser only. The failure left `Porcupine_app` uncreated, so 11 downstream assertions failed with a misleading "role does not exist." Removed the grant.
 3. **pgTAP `has_function` needs the quoted enum type** — `"AccessRole"[]`, not `AccessRole[]`.
 4. **`LayoutProps` doesn't exist before a build.** Next 16 generates it into `.next/types`, so a cold `tsc --noEmit` fails. Wrote explicit prop types instead — better anyway, since CI typechecks before building.
 5. **`exactOptionalPropertyTypes` rejected `workers: undefined`** in the Playwright config. Conditional spread. The flag doing exactly its job.
@@ -809,7 +809,7 @@ where none of that machinery appears. Deterministic RNG, so two runs give
 the same corpus. Idempotent, so re-running replaces exactly those two
 projects.
 
-`pnpm --filter @porcupine/web measure` — the page-level timing that Phase 2
+`pnpm --filter @Porcupine/web measure` — the page-level timing that Phase 2
 signed off without.
 
 ### The measurement, finally
@@ -953,7 +953,7 @@ sparse. I read the capability's NAME instead of what the destination does.
 Caught by an existing e2e test that clicks through to PRISMA in a THESIS, and
 by nothing else — my own "no link leads to a refusal" test passed happily,
 because it looks for refusal *wording* and the PRISMA page never had any. A
-test that checks the symptom does not check the judgement. `USING-PORCUPINE.md`
+test that checks the symptom does not check the judgement. `USING-Porcupine.md`
 had the same error in its capability table and is corrected.
 
 **Two pre-existing tests broke on `getByRole("list").first()`.** The project
@@ -1255,7 +1255,7 @@ never true.
 every project kind, and read by nothing: no screen, no server action, no test.
 Nothing updates `kind` — there is no code path that could. Meanwhile the
 project overview said the opposite ("A project's kind is fixed when it is
-created") and so did `USING-PORCUPINE.md`. Three places, two of them right.
+created") and so did `USING-Porcupine.md`. Three places, two of them right.
 
 So the single most consequential and least reversible decision in the product
 was being presented with a reassurance that it was reversible, by a flag whose
@@ -1375,7 +1375,7 @@ Left in place rather than removed, with that written next to it: nothing tells
 a user anything on its strength, so it is inert rather than untrue. The comment
 says what would change that.
 
-**`USING-PORCUPINE.md` had drifted across five weeks of UI work** and nobody
+**`USING-Porcupine.md` had drifted across five weeks of UI work** and nobody
 had noticed, including me — it still said "Every screen below is reachable from
 the project page. There is no wizard", written before the project nav, the
 grouped overview and the next-action existed. It now describes the shell that

@@ -194,7 +194,7 @@ async function ensureAuthUser(email) {
   if (!SERVICE_KEY) {
     throw new Error(
       "SUPABASE_SECRET_KEY is not set, so no account can be created.\n" +
-        "  It is in .env; if that file is missing, run `supabase status` and copy it.",
+      "  It is in .env; if that file is missing, run `supabase status` and copy it.",
     );
   }
 
@@ -266,7 +266,7 @@ function makeWorks(n) {
       authors: JSON.stringify(authors),
       venue: pick(VENUE),
       year: 2012 + Math.floor(rnd() * 14),
-      doi: `10.1000/porcupine.demo.${i}`,
+      doi: `10.1000/Porcupine.demo.${i}`,
     });
   }
   return works;
@@ -370,12 +370,12 @@ async function main() {
     // and project_works — but `works` is a SHARED table by design (the same
     // paper in two projects is one row), so the seeded works survive and the
     // second run collides on `works_doi_key`. The DOI prefix is the handle:
-    // every seeded work carries `10.1000/porcupine.demo.N`, which is inside
+    // every seeded work carries `10.1000/Porcupine.demo.N`, which is inside
     // the 10.1000 test range and cannot collide with a real record.
     await client.query("delete from projects where slug = any($1)", [
       [SR_SLUG, THESIS_SLUG],
     ]);
-    await client.query("delete from works where doi like '10.1000/porcupine.demo.%'");
+    await client.query("delete from works where doi like '10.1000/Porcupine.demo.%'");
 
     const srId = randomUUID();
     const thesisId = randomUUID();
@@ -464,7 +464,7 @@ async function main() {
      * the status column is legible.
      */
     // `exclude_reason` is text constrained to this controlled list, not an
-    // enum — the codes live in `@porcupine/shared` (EXCLUSION_REASONS) because
+    // enum — the codes live in `@Porcupine/shared` (EXCLUSION_REASONS) because
     // PRISMA renders them. Weighted rather than uniform: real reviews exclude
     // overwhelmingly on population and design, and a flat distribution would
     // make the PRISMA breakdown look like noise.
@@ -708,7 +708,7 @@ async function main() {
   Re-run to reset both. Nothing else in the database is touched.
 `);
   } catch (err) {
-    await client.query("rollback").catch(() => {});
+    await client.query("rollback").catch(() => { });
     throw err;
   } finally {
     await client.end();

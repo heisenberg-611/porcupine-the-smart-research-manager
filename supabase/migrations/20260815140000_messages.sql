@@ -125,5 +125,5 @@ create policy messages_insert_author on public.messages
     )
   );
 
-grant select, insert on public.channels to porcupine_app;
-grant select, insert on public.messages to porcupine_app;
+grant select, insert on public.channels to Porcupine_app;
+grant select, insert on public.messages to Porcupine_app;

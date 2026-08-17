@@ -19,7 +19,7 @@ import { goto } from "./ready";
  * suite people learn to ignore.
  *
  *     pnpm db:seed
- *     pnpm --filter @porcupine/web exec playwright test e2e/evidence-table.spec.ts
+ *     pnpm --filter @Porcupine/web exec playwright test e2e/evidence-table.spec.ts
  */
 
 const SEED_EMAIL = process.env.SEED_EMAIL ?? "demo@test.dev";

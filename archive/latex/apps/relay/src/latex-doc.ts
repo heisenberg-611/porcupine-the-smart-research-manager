@@ -1,4 +1,4 @@
-import type { ClientMessage, ServerMessage } from "@porcupine/shared";
+import type { ClientMessage, ServerMessage } from "@Porcupine/shared";
 
 interface Attachment {
   userId: string;

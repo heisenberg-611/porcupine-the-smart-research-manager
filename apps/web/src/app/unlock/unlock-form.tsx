@@ -1,6 +1,6 @@
 "use client";
 
-import { fromBase64, rewrapIdentity, toBase64, unwrapIdentity } from "@porcupine/crypto";
+import { fromBase64, rewrapIdentity, toBase64, unwrapIdentity } from "@Porcupine/crypto";
 import { useRouter } from "next/navigation";
 import { startTransition, useState } from "react";
 

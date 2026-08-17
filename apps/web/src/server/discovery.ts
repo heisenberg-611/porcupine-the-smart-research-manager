@@ -1,6 +1,6 @@
 import "server-only";
 
-import { PostgresRateLimiter } from "@porcupine/discovery";
+import { PostgresRateLimiter } from "@Porcupine/discovery";
 
 import { prisma } from "./db";
 
@@ -9,7 +9,7 @@ import { prisma } from "./db";
  *
  * This is the whole point of R-22: Vercel runs the app as Lambda functions
  * with no shared memory, so the in-process limiter that ships with
- * @porcupine/discovery would be a per-invocation counter. Ten concurrent
+ * @Porcupine/discovery would be a per-invocation counter. Ten concurrent
  * functions would issue ten times the rate we agreed with arXiv, and the
  * first we would hear about it is a block.
  *

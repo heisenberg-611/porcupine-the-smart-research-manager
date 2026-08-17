@@ -1,6 +1,6 @@
 "use client";
 
-import type { ScoredWork } from "@porcupine/discovery";
+import type { ScoredWork } from "@Porcupine/discovery";
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 
@@ -47,7 +47,7 @@ export function SearchClient({
   const [pending, startTransition] = useTransition();
   const input = useRef<HTMLInputElement>(null);
 
-  const STORAGE_KEY = `porcupine-search-${projectId}`;
+  const STORAGE_KEY = `Porcupine-search-${projectId}`;
 
   useEffect(() => {
     try {

@@ -13,7 +13,7 @@ select plan(10);
 
 set local role postgres;
 
-set local role porcupine_app;
+set local role Porcupine_app;
 select set_config('request.jwt.claims',
   '{"sub":"11111111-1111-1111-1111-111111111111"}', true);
 
@@ -43,7 +43,7 @@ select is(
   1,
   'and the row it cannot see does exist'
 );
-set local role porcupine_app;
+set local role Porcupine_app;
 
 select is(
   public.rate_limit_take('test:basic', 2, 1),
@@ -85,7 +85,7 @@ set local role postgres;
 update rate_limit_buckets
    set updated_at = now() - interval '7 days'
  where key = 'test:basic';
-set local role porcupine_app;
+set local role Porcupine_app;
 
 select is(
   public.rate_limit_take('test:basic', 2, 1),

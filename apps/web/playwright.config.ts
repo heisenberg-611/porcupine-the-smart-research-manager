@@ -22,7 +22,7 @@ for (const candidate of [".env.local", "../../.env"]) {
  * to shut it down to run the tests — that happened three times before this
  * existed, and twice I killed someone else's server to get past it.
  *
- *     E2E_PORT=3100 pnpm --filter @porcupine/web test:e2e
+ *     E2E_PORT=3100 pnpm --filter @Porcupine/web test:e2e
  */
 const PORT = Number(process.env.E2E_PORT ?? 3000);
 

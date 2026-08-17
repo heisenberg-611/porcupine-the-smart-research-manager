@@ -11,7 +11,7 @@ import type { WorkInput } from "../src/types";
 /**
  * Builds the 300-paper corpus for the Phase 1 exit trial.
  *
- *     pnpm --filter @porcupine/discovery measure:corpus
+ *     pnpm --filter @Porcupine/discovery measure:corpus
  *
  * Real papers, not generated ones. A synthetic corpus would have uniform
  * title lengths, no missing abstracts, no duplicate preprints, and no

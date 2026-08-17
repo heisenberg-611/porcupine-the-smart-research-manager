@@ -157,7 +157,7 @@ insert into extraction_values
   (gen_random_uuid(), 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a0000000-0000-0000-0000-000000000005',
    'f0000000-0000-0000-0000-000000000005', '"double"'::jsonb, 'double', null, now(), now());
 
-set local role porcupine_app;
+set local role Porcupine_app;
 select set_config('request.jwt.claims',
   '{"sub":"22222222-2222-2222-2222-222222222222"}', true);
 

@@ -1,4 +1,4 @@
-import { capabilities, type ProjectKind } from "@porcupine/shared";
+import { capabilities, type ProjectKind } from "@Porcupine/shared";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 

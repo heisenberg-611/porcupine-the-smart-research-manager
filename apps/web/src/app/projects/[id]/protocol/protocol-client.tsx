@@ -6,7 +6,7 @@ import {
   needsOptions,
   PROTOCOL_TEMPLATES,
   type FieldType,
-} from "@porcupine/shared";
+} from "@Porcupine/shared";
 import { useState, useTransition } from "react";
 
 import { Button, Checkbox, Field, Input, Radio, Select, Textarea } from "@/components/ui";

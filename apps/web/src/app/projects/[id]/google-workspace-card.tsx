@@ -33,7 +33,7 @@ export function GoogleWorkspaceCard({
   useEffect(() => {
     if (searchParams.get("provisionDrive") === "true") {
       router.replace(`/projects/${projectId}/docs`);
-      
+
       if (!driveFolderId && canManage) {
         connectAndCreate();
       }
@@ -44,14 +44,14 @@ export function GoogleWorkspaceCard({
     setPending(true);
     setError(null);
     const supabase = createClient();
-    
+
     if (!hasToken || !hasFullAccess) {
       // Check if the current user ALREADY has a Google identity linked
       const { data: { user } } = await supabase.auth.getUser();
       const hasGoogleIdentity = user?.identities?.some(id => id.provider === "google");
 
       const scopes = "https://www.googleapis.com/auth/drive.file email profile";
-      
+
       const queryParams: Record<string, string> = { access_type: "offline", prompt: "consent" };
       if (userEmail) queryParams.login_hint = userEmail;
 
@@ -121,16 +121,16 @@ export function GoogleWorkspaceCard({
           </svg>
           Are you sure you want to disconnect?
         </h4>
-        
+
         <div className="text-danger/80 text-fine space-y-2 ml-7">
           {accessRole === "OWNER" || accessRole === "ADMIN" ? (
             <p>
-              As an Admin/Owner, disconnecting will disable automated Google Drive sharing for this project. Other members will no longer be automatically added to the shared folder. <br/><br/>
+              As an Admin/Owner, disconnecting will disable automated Google Drive sharing for this project. Other members will no longer be automatically added to the shared folder. <br /><br />
               Because you are the folder owner, you will retain native access to the folder in Google Drive.
             </p>
           ) : (
             <p>
-              Disconnecting will immediately revoke your access to the project's shared Google Drive folder and all files within it. <br/><br/>
+              Disconnecting will immediately revoke your access to the project's shared Google Drive folder and all files within it. <br /><br />
               You will only retain access to individual files that you explicitly created.
             </p>
           )}
@@ -190,9 +190,9 @@ export function GoogleWorkspaceCard({
             ) : null}
           </div>
         </div>
-        
+
         {renderConfirmation()}
-        
+
         <div className="mt-3 flex gap-2">
           <Button
             type="button"
@@ -202,21 +202,21 @@ export function GoogleWorkspaceCard({
           </Button>
           {!hasToken && (
             <Button
-               type="button"
-               variant="ghost"
-               onClick={connectAndCreate}
-               disabled={pending}
+              type="button"
+              variant="ghost"
+              onClick={connectAndCreate}
+              disabled={pending}
             >
               Connect your Google Account
             </Button>
           )}
           {hasToken && !hasFullAccess && (
             <Button
-               type="button"
-               variant="ghost"
-               onClick={connectAndCreate}
-               disabled={pending}
-               className="ring-1 ring-warning text-warning hover:bg-warning/10"
+              type="button"
+              variant="ghost"
+              onClick={connectAndCreate}
+              disabled={pending}
+              className="ring-1 ring-warning text-warning hover:bg-warning/10"
             >
               Reconnect with Drive permissions
             </Button>
@@ -236,7 +236,7 @@ export function GoogleWorkspaceCard({
         <div>
           <h3 className="text-ink text-heading font-medium">Connect Google Workspace</h3>
           <p className="text-muted text-ui">
-            Connect your Google account to create a central Google Drive folder for this project. 
+            Connect your Google account to create a central Google Drive folder for this project.
             Extracted data can be directly exported to Google Sheets here.
           </p>
           {hasToken && (

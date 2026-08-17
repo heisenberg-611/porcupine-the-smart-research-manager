@@ -110,10 +110,10 @@ as $$
   end;
 $$;
 
-grant execute on function public.agreement_norm    to porcupine_app, authenticated;
-grant execute on function public.agreement_number  to porcupine_app, authenticated;
-grant execute on function public.agreement_boolean to porcupine_app, authenticated;
-grant execute on function public.values_agree      to porcupine_app, authenticated;
+grant execute on function public.agreement_norm    to Porcupine_app, authenticated;
+grant execute on function public.agreement_number  to Porcupine_app, authenticated;
+grant execute on function public.agreement_boolean to Porcupine_app, authenticated;
+grant execute on function public.values_agree      to Porcupine_app, authenticated;
 
 -- ═══════════ Rule: a reconciliation must name what it reconciled ════════════
 --
@@ -324,7 +324,7 @@ with (security_invoker = true) as
     -- constraint already prevents it; this says so where it is relied upon.
     and a.extractor_id <> b.extractor_id;
 
-grant select on public.v_dual_extraction_pairs to porcupine_app, authenticated;
+grant select on public.v_dual_extraction_pairs to Porcupine_app, authenticated;
 
 create or replace view public.v_extraction_disagreements
 with (security_invoker = true) as
@@ -359,7 +359,7 @@ with (security_invoker = true) as
   left join public.extraction_values vb
     on vb.extraction_id = p.extraction_b and vb.field_id = f.id;
 
-grant select on public.v_extraction_disagreements to porcupine_app, authenticated;
+grant select on public.v_extraction_disagreements to Porcupine_app, authenticated;
 
 create or replace view public.v_reconciliation_queue
 with (security_invoker = true) as
@@ -392,4 +392,4 @@ comment on view public.v_reconciliation_queue is
   'One row per dual-extracted paper: how many fields the two readings agree '
   'on, how many they disagree on, and whether a third reader has resolved it.';
 
-grant select on public.v_reconciliation_queue to porcupine_app, authenticated;
+grant select on public.v_reconciliation_queue to Porcupine_app, authenticated;

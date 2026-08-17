@@ -9,7 +9,7 @@ No feature code until the pgTAP suite is a merge gate. That ordering is the whol
 ## Repository shape
 
 ```
-porcupine/
+Porcupine/
 ├── apps/
 │   ├── web/               Next.js 16 App Router → Vercel
 │   └── relay/             CF Worker + Durable Object (week-1 spike, ADR-020)
@@ -44,7 +44,7 @@ Two tools want to own migrations. The split:
 | 1.2 | `apps/web` — Next.js 16, React 19, Tailwind, shadcn/ui | `pnpm build` clean; one page renders                                                                                                                                       |
 | 1.3 | Local Supabase on Docker                               | `supabase start` healthy; Studio reachable                                                                                                                                 |
 | 1.4 | Prisma schema — Phase 0 slice only                     | `User`, `Device`, `Organization`, `OrgMember`, `Project`, `ProjectMember`, `ProjectKey`. Includes the v6 deltas from `01-data-model.md` Appendix A that touch these tables |
-| 1.5 | **Restricted role + RLS baseline**                     | `porcupine_app` has no `BYPASSRLS`; every `public` table has `FORCE ROW LEVEL SECURITY`; `SECURITY DEFINER` helpers `is_project_member()` / `has_project_role()` exist     |
+| 1.5 | **Restricted role + RLS baseline**                     | `Porcupine_app` has no `BYPASSRLS`; every `public` table has `FORCE ROW LEVEL SECURITY`; `SECURITY DEFINER` helpers `is_project_member()` / `has_project_role()` exist     |
 | 1.6 | **pgTAP harness + the three R-02 tests**               | `rls_denies_without_claim`, `rls_no_cross_tenant` (32-way concurrent), `rls_claim_does_not_survive_txn` — all green, suite under 90 s                                      |
 | 1.7 | CI runs 1.1 + 1.6 as a **merge gate**                  | A PR that adds a table without RLS fails                                                                                                                                   |
 

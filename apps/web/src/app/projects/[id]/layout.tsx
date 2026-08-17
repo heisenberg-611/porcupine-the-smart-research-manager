@@ -1,4 +1,4 @@
-import { isProjectKind } from "@porcupine/shared";
+import { isProjectKind } from "@Porcupine/shared";
 import type { ReactNode } from "react";
 import { notFound, redirect } from "next/navigation";
 

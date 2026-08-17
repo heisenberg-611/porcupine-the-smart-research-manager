@@ -143,7 +143,7 @@ who had compared a safety number.
 
 - **Client reads and Realtime go through `supabase-js`** with the user's JWT. RLS enforced natively. Primary read path.
 - **Prisma handles migrations and trusted server-side writes** in Server Actions / Route Handlers, with authorization enforced in application code.
-- Prisma connects as `porcupine_app` — **not** the owner — with only DML grants. Every table gets `ALTER TABLE ... FORCE ROW LEVEL SECURITY`, so RLS applies to Prisma too as defence in depth.
+- Prisma connects as `Porcupine_app` — **not** the owner — with only DML grants. Every table gets `ALTER TABLE ... FORCE ROW LEVEL SECURITY`, so RLS applies to Prisma too as defence in depth.
 - Where a Prisma query must run as the user:
   ```ts
   await prisma.$transaction(async (tx) => {
