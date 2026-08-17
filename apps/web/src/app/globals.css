@@ -142,43 +142,49 @@
 :root {
   color-scheme: light;
 }
+
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
   }
 }
+
 :root[data-theme="dark"] {
   color-scheme: dark;
 }
+
 :root[data-theme="light"] {
   color-scheme: light;
 }
 
-/*
- * A measure. Somewhere past about 75 characters the eye starts losing the
- * start of the next line, which matters when the text is an abstract being
- * read for the twentieth time that afternoon.
- */
-@utility measure {
-  max-width: 68ch;
-}
+@layer utilities {
+  /*
+   * A measure. Somewhere past about 75 characters the eye starts losing the
+   * start of the next line, which matters when the text is an abstract being
+   * read for the twentieth time that afternoon.
+   */
+  .measure {
+    max-width: 68ch;
+  }
 
-@utility prose-body {
-  font-size: var(--text-body);
-  line-height: var(--text-body--line-height);
-  color: var(--color-ink-soft);
-  max-width: 68ch;
-  text-wrap: pretty;
-}
+  .prose-body {
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    color: var(--color-ink-soft);
+    max-width: 68ch;
+    text-wrap: pretty;
+  }
 
-/* Small caps for metadata lines — author, venue, year. Quieter than bold. */
-@utility meta {
-  font-size: var(--text-fine);
-  letter-spacing: 0.02em;
-  color: var(--color-muted);
+  /* Small caps for metadata lines — author, venue, year. Quieter than bold. */
+  .meta {
+    font-size: var(--text-fine);
+    letter-spacing: 0.02em;
+    color: var(--color-muted);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {

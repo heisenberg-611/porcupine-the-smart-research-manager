@@ -20,6 +20,7 @@ export function SignInForm() {
   const next = params.get("next") ?? "/dashboard";
 
   const [stage, setStage] = useState<"email" | "code">("email");
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -114,10 +115,15 @@ export function SignInForm() {
   if (stage === "email") {
     return (
       <div className="flex flex-col gap-6">
+        <div>
+          <h1 className="text-ink text-title font-semibold tracking-tight">
+            {mode === "signin" ? "Sign in to your account" : "Create an account"}
+          </h1>
+        </div>
         <form onSubmit={requestCode} className="flex flex-col gap-4">
           {error && <Banner tone="danger">{error}</Banner>}
           
-          <Button type="button" variant="ghost" onClick={signInWithGoogle} disabled={pending} className="bg-surface border border-border shadow-sm flex justify-center gap-3 items-center w-full min-h-12 hover:bg-surface-hover mb-2">
+          <Button type="button" variant="ghost" onClick={signInWithGoogle} disabled={pending} className="bg-surface border border-border shadow-sm flex justify-center gap-3 items-center w-full min-h-12 hover:bg-surface-hover hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 mb-2">
             <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
               <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
@@ -136,6 +142,12 @@ export function SignInForm() {
             </div>
           </div>
 
+          <p className="text-muted text-ui text-pretty mb-1">
+            {mode === "signin"
+              ? "Welcome back. We'll email you an eight-digit code. No password to forget."
+              : "Start managing your research. We'll email you a secure eight-digit signup code."}
+          </p>
+
           <Field
             label="Email Address"
             id="email"
@@ -153,8 +165,16 @@ export function SignInForm() {
             />
           </Field>
           <Button type="submit" disabled={pending}>
-            {pending ? "Sending…" : "Email me a code"}
+            {pending ? "Sending…" : mode === "signin" ? "Email me a login code" : "Email me a signup code"}
           </Button>
+
+          <div className="mt-4 text-center text-ui text-muted">
+            {mode === "signin" ? (
+              <p>Don't have an account? <button type="button" onClick={() => setMode("signup")} className="text-accent hover:underline font-medium focus-visible:outline-none">Sign up</button></p>
+            ) : (
+              <p>Already have an account? <button type="button" onClick={() => setMode("signin")} className="text-accent hover:underline font-medium focus-visible:outline-none">Log in</button></p>
+            )}
+          </div>
         </form>
 
       </div>
@@ -163,6 +183,14 @@ export function SignInForm() {
 
   return (
     <div className="flex flex-col gap-6">
+      <div>
+        <h1 className="text-ink text-title font-semibold tracking-tight">
+          {mode === "signin" ? "Sign in to your account" : "Create an account"}
+        </h1>
+        <p className="text-muted text-ui mt-2 text-pretty">
+          Check your email for the code.
+        </p>
+      </div>
       <form onSubmit={verifyCode} className="flex flex-col gap-4">
         {error && <Banner tone="danger">{error}</Banner>}
         <Banner>
@@ -183,7 +211,7 @@ export function SignInForm() {
           />
         </Field>
         <Button type="submit" disabled={pending}>
-          {pending ? "Verifying…" : "Sign in"}
+          {pending ? "Verifying…" : mode === "signin" ? "Sign in" : "Create account"}
         </Button>
         <Button
           type="button"

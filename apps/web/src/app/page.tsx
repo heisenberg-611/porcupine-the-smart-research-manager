@@ -39,11 +39,11 @@ export default async function Home() {
             Literature Review Software
           </p>
           <div className="flex items-center gap-6">
-            <Image 
-              src={logo} 
-              alt="Porcupine Logo" 
-              className="w-20 h-20 sm:w-24 sm:h-24 object-contain rounded-2xl shadow-sm drop-shadow-xl" 
-              priority 
+            <Image
+              src={logo}
+              alt="Porcupine Logo"
+              className="w-20 h-20 sm:w-24 sm:h-24 object-contain rounded-2xl shadow-sm drop-shadow-xl"
+              priority
             />
             <h1 className="text-ink font-serif text-5xl leading-tight tracking-tight text-balance sm:text-7xl">
               Porcupine
@@ -62,8 +62,8 @@ export default async function Home() {
           <div className="bg-surface border-rule mt-8 rounded-xl border p-6">
             <h2 className="text-ink font-medium">Seamless Google Workspace Integration</h2>
             <p className="text-muted text-ui mt-2 text-pretty">
-              Porcupine's core purpose is to help research teams organize and collaborate on their systematic reviews. 
-              By connecting your Google account, Porcupine automatically provisions shared Google Drive folders for your projects, 
+              Porcupine's core purpose is to help research teams organize and collaborate on their systematic reviews.
+              By connecting your Google account, Porcupine automatically provisions shared Google Drive folders for your projects,
               creates Google Docs for collaborative paper drafting, and exports completed extraction tables to Google Sheets.
             </p>
           </div>
