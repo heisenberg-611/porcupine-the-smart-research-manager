@@ -50,7 +50,7 @@ export function GoogleWorkspaceCard({
       const { data: { user } } = await supabase.auth.getUser();
       const hasGoogleIdentity = user?.identities?.some(id => id.provider === "google");
 
-      const scopes = "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets email profile";
+      const scopes = "https://www.googleapis.com/auth/drive.file email profile";
       
       const queryParams: Record<string, string> = { access_type: "offline", prompt: "consent" };
       if (userEmail) queryParams.login_hint = userEmail;
