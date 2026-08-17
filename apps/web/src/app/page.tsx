@@ -28,10 +28,36 @@ export default async function Home() {
   const user = await getCurrentUser();
 
   return (
-    <main
-      id="main"
-      className="mx-auto flex min-h-[calc(100dvh-var(--app-header-h))] max-w-5xl flex-col px-6 py-16"
-    >
+    <>
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            :root {
+              --color-canvas: #fbfaf7 !important;
+              --color-surface: #f4f2ec !important;
+              --color-raised: #ffffff !important;
+              --color-border: #e5e1d8 !important;
+              --color-rule: #ddd8cc !important;
+
+              --color-ink: #1c1a17 !important;
+              --color-ink-soft: #3f3b34 !important;
+              --color-muted: #66615a !important;
+
+              --color-accent: #2f6f5e !important;
+              --color-accent-ink: #ffffff !important;
+              --color-accent-soft: #e7efeb !important;
+              --color-danger: #9c2f26 !important;
+              --color-danger-soft: #f7ebe9 !important;
+              
+              color-scheme: light !important;
+            }
+          `,
+        }}
+      />
+      <main
+        id="main"
+        className="mx-auto flex min-h-[calc(100dvh-var(--app-header-h))] max-w-5xl flex-col px-6 py-16"
+      >
       <div className="flex-1">
         <header className="border-rule mb-20 border-b pb-12">
           <p className="text-accent text-ui mb-6 font-mono tracking-widest uppercase">
@@ -155,10 +181,10 @@ export default async function Home() {
           <div className="lg:col-span-2 flex flex-col gap-6">
             <div className="flex items-center gap-3">
               <Image src={logo} alt="Porcupine Logo" className="w-10 h-10 object-contain rounded shadow-sm" />
-              <span className="text-ink font-serif text-2xl font-bold tracking-tight">Porcupine</span>
+              <span className="text-ink font-sans text-2xl font-bold tracking-tight">Porcupine</span>
             </div>
-            <p className="text-muted text-fine leading-relaxed text-pretty max-w-sm">
-              Your notes and messages are encrypted in your browser. We cannot read them, and we cannot recover them for you either.
+            <p className="text-ink-soft font-medium text-sm leading-relaxed text-pretty max-w-sm">
+              A specialized research and thesis management platform for systematic literature reviews.
             </p>
             <div className="text-muted text-fine space-y-1">
               <p>Designed & Developed by Dhrubojyoti</p>
@@ -213,6 +239,7 @@ export default async function Home() {
         </div>
       </footer>
     </main>
+    </>
   );
 }
 
