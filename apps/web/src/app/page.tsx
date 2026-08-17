@@ -59,24 +59,27 @@ export default async function Home() {
           </p>
 
           <div className="bg-surface/60 border-rule mt-10 rounded-xl border p-8">
-            <h2 className="text-ink text-xl font-serif mb-4">App Purpose & Google Integration</h2>
+            <h2 className="text-ink text-xl font-serif mb-4">App Purpose & Features</h2>
             
             <h3 className="text-ink font-medium mt-4 mb-2">What does Porcupine do?</h3>
             <p className="text-muted text-ui text-pretty mb-6">
               Porcupine is a specialized literature review and thesis management platform. Its primary purpose is to help academic researchers, students, and teams streamline the systematic review process. The application allows users to search across academic databases, screen papers against predefined criteria, extract specific data fields, and automatically generate comprehensive evidence tables and PRISMA flow diagrams.
             </p>
 
-            <h3 className="text-ink font-medium mt-4 mb-2">How we use your Google Data</h3>
+            <h3 className="text-ink font-medium mt-4 mb-2">Integrated with Google Workspace</h3>
             <p className="text-muted text-ui text-pretty mb-4">
-              To provide seamless collaboration and document management, Porcupine integrates directly with your Google Workspace. By connecting your Google account, you allow Porcupine to:
+              To provide seamless collaboration and document management, Porcupine works with Google Workspace. By connecting your account, you allow Porcupine to:
             </p>
             <ul className="list-disc list-outside ml-5 text-muted text-ui text-pretty space-y-2 mb-4">
-              <li><strong className="text-ink">Google Drive:</strong> Automatically provision and manage shared folders for your research projects, ensuring all team members have access to the right resources.</li>
-              <li><strong className="text-ink">Google Docs:</strong> Create collaborative documents within your project folders for drafting thesis chapters, taking notes, and writing review methodologies.</li>
-              <li><strong className="text-ink">Google Sheets:</strong> Export your completed literature extraction data directly into formatted Google Sheets for statistical analysis and sharing.</li>
+              <li>Automatically provision and manage shared folders in Google Drive™ for your research projects.</li>
+              <li>Create collaborative documents using Google Docs™ within your project folders for drafting thesis chapters.</li>
+              <li>Export your completed literature extraction data directly into formatted Google Sheets™ for statistical analysis.</li>
             </ul>
-            <p className="text-muted text-fine text-pretty italic">
-              Porcupine's access is strictly limited to providing these core research management features. We do not use your Google data for advertising, nor do we sell it to third parties. For more details, please review our <Link href="/privacy" className="text-accent hover:underline">Privacy Policy</Link>.
+            <p className="text-muted text-fine text-pretty italic mb-3">
+              Porcupine's access is strictly limited to providing these core research management features. We do not use your data for advertising, nor do we sell it to third parties. For more details, please review our <Link href="/privacy" className="text-accent hover:underline">Privacy Policy</Link>.
+            </p>
+            <p className="text-muted text-fine text-pretty">
+              Google Workspace, Google Drive, Google Docs, and Google Sheets are trademarks of Google LLC.
             </p>
           </div>
 
