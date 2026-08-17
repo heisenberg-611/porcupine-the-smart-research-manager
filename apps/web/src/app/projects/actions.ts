@@ -545,3 +545,45 @@ export async function disconnectGoogleAccount() {
   console.log("[disconnectGoogleAccount] Done");
   return { ok: true };
 }
+
+const DeleteProjectInput = z.object({
+  projectId: z.string().uuid(),
+});
+
+export async function deleteProject(
+  input: z.infer<typeof DeleteProjectInput>,
+): Promise<ActionResult> {
+  const claims = await getUserClaims();
+  if (!claims) return { ok: false, error: "Not signed in." };
+
+  const parsed = DeleteProjectInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: "Invalid input." };
+  }
+  const { projectId } = parsed.data;
+
+  try {
+    return await withUserContext(claims, async (tx) => {
+      const me = await tx.projectMember.findUnique({
+        where: { projectId_userId: { projectId, userId: claims.sub } },
+      });
+
+      if (!me || me.accessRole !== "OWNER") {
+        return { ok: false, error: "Only project owners can delete projects." };
+      }
+
+      await tx.project.delete({
+        where: { id: projectId },
+      });
+
+      // We don't redirect here because the action is called from a dialog which
+      // handles client-side redirection after a successful response.
+      // We do need to revalidate the projects list.
+      revalidatePath("/projects");
+      return { ok: true };
+    });
+  } catch (e: unknown) {
+    console.error("deleteProject failed:", e);
+    return { ok: false, error: "Could not delete the project." };
+  }
+}

@@ -10,6 +10,7 @@ import {
   type ProjectSection,
   type SectionGroup,
 } from "@/lib/project-sections";
+import { DeleteProjectDialog } from "./delete-project-dialog";
 import { QuickCreateButton } from "./quick-create-button";
 
 /**
@@ -35,10 +36,12 @@ export function ProjectSidebar({
   projectId,
   projectTitle,
   sections,
+  isOwner = false,
 }: {
   projectId: string;
   projectTitle: string;
   sections: ProjectSection[];
+  isOwner?: boolean;
 }) {
   const pathname = usePathname();
   const active = activeSection(pathname ?? "", projectId);
@@ -134,6 +137,18 @@ export function ProjectSidebar({
             <QuickCreateButton type="slide" projectId={projectId} label="Create Slide" />
           </div>
         </div>
+
+        {isOwner && (
+          <div className="mt-8 mb-4">
+            <h2 className="text-danger/80 text-xs mb-3 px-3 font-mono tracking-widest uppercase font-bold flex items-center gap-3">
+              Danger Zone
+              <div className="flex-1 h-px bg-danger/20" />
+            </h2>
+            <div className="px-3 flex flex-col gap-2">
+              <DeleteProjectDialog projectId={projectId} projectTitle={projectTitle} />
+            </div>
+          </div>
+        )}
       </div>
     </nav>
   );

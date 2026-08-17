@@ -13,6 +13,7 @@
     "measure": "playwright test --config playwright.measure.config.ts"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "@porcupine/anchoring": "workspace:*",
     "@porcupine/crypto": "workspace:*",
     "@porcupine/db": "workspace:*",

@@ -16,80 +16,80 @@ export default function TermsOfServicePage() {
         backHref="/"
         backLabel="Home"
       />
-      
-      <div className="prose max-w-none prose-p:leading-relaxed prose-p:text-muted prose-headings:text-ink prose-h2:text-2xl prose-h2:font-bold prose-h2:text-accent prose-h2:border-b prose-h2:border-rule prose-h2:pb-2 prose-h2:mt-12 prose-h2:mb-6 prose-li:text-lg prose-li:my-4 prose-strong:text-ink">
-        <p className="text-lg font-medium text-ink">
-          Welcome to Porcupine, a service developed and maintained by Dhrubojyoti. These Terms of Service ("Terms") govern your access to and use of the Porcupine website, software, and services (collectively, the "Service"). 
+      <div className="prose max-w-none prose-p:leading-relaxed prose-p:mb-6 prose-p:text-muted prose-headings:text-ink prose-h2:text-2xl [&_h2]:text-2xl prose-h2:font-bold [&_h2]:font-bold prose-h2:text-accent [&_h2]:text-accent prose-h2:border-b [&_h2]:border-b prose-h2:border-rule [&_h2]:border-rule prose-h2:pb-2 [&_h2]:pb-2 prose-h2:mt-12 [&_h2]:mt-12 prose-h2:mb-6 [&_h2]:mb-6 prose-li:text-lg prose-li:my-4 prose-strong:text-lg prose-strong:font-bold prose-strong:text-ink [&_strong]:font-bold">
+        
+        <h2>Welcome</h2>
+        <p>
+          <strong>Introduction:</strong> Welcome to Porcupine. Porcupine is a collection of services, including a research management platform and storage subscription services (the “Services”), integrated with the Porcupine web application. Your access to and use of the Services are subject to these Terms of Service (“Terms of Service”) and all applicable laws. 
         </p>
         <p>
-          By accessing or using the Service, you agree to be bound by these Terms. If you disagree with any part of the terms, you do not have permission to access the Service.
-        </p>
-
-        <h2>1. Description of Service</h2>
-        <p>
-          Porcupine is a literature review management platform designed to assist researchers, students, and collaborative teams in organizing, screening, extracting, and reporting data for systematic literature reviews. The Service deeply integrates with third-party productivity tools (such as Google Workspace) to facilitate collaborative drafting and data export.
+          <strong>Acceptance of Terms:</strong> By accessing and/or using the Services, you acknowledge that you have read, understood and agree to be bound by these Terms of Service and to comply with all applicable laws.
         </p>
 
-        <h2>2. Accounts and Responsibilities</h2>
+        <h2>1. Your Account/Registration</h2>
         <p>
-          When you create an account with us, you must provide information that is accurate, complete, and current at all times. Failure to do so constitutes a breach of the Terms, which may result in immediate termination of your account on our Service.
+          <strong>Age Requirement:</strong> Registration is required to subscribe to the Services. You must be 13 years or older to subscribe to the Services. By registering, you represent and warrant that all information provided by you during the registration process is truthful, accurate and complete, and you will not use the Services for any purpose that is unlawful.
         </p>
         <p>
-          You are responsible for safeguarding the password and authentication methods that you use to access the Service and for any activities or actions under your account. You agree not to disclose your password to any third party. You must notify us immediately upon becoming aware of any breach of security or unauthorized use of your account.
-        </p>
-
-        <h2>3. User Content and Intellectual Property</h2>
-        <p>
-          <strong>Your Content:</strong> You retain all rights and ownership to the research data, papers, annotations, and metadata you submit or upload to the Service ("User Content"). By uploading User Content, you grant Porcupine a limited, worldwide, non-exclusive license to host, store, and process this content solely for the purpose of providing and operating the Service to you.
-        </p>
-        <p>
-          <strong>Our Content:</strong> The Service and its original content (excluding User Content), features, and functionality are and will remain the exclusive property of Porcupine and its licensors. The Service is protected by copyright, trademark, and other laws of both the United States and foreign countries.
+          <strong>Account Security:</strong> You are responsible for maintaining the security of your account. You agree to notify us immediately of any unauthorized use of your account. We cannot and will not be liable for any loss or damage in the event of an unauthorized use by a third party of your account.
         </p>
 
-        <h2>4. Acceptable Use Policy</h2>
+        <h2>2. Your Submissions and Other Data</h2>
         <p>
-          You agree not to use the Service:
+          <strong>Ownership Retained:</strong> We do not claim ownership of any data or other content you transmit, upload or store on or through the Services (“Submissions”). You retain your rights to the Submissions you transmit, upload or store on or through the Services. You are solely responsible for all your Submissions and all activity that occurs under your account.
         </p>
-        <ul>
-          <li>In any way that violates any applicable national or international law or regulation.</li>
-          <li>For the purpose of exploiting, harming, or attempting to exploit or harm minors in any way by exposing them to inappropriate content or otherwise.</li>
-          <li>To transmit, or procure the sending of, any advertising or promotional material, including any "junk mail," "chain letter," "spam," or any other similar solicitation.</li>
-          <li>To impersonate or attempt to impersonate Porcupine, a Porcupine employee, another user, or any other person or entity.</li>
-          <li>In any way that infringes upon the rights of others, or in any way is illegal, threatening, fraudulent, or harmful.</li>
-        </ul>
-
-        <h2>5. Integration with Google Workspace</h2>
         <p>
-          Our Service offers features that integrate directly with your Google Workspace account (e.g., creating Google Drive folders, Google Docs, and Google Sheets). By utilizing these features, you must also comply with Google's Terms of Service and Acceptable Use Policies. Porcupine explicitly adheres to the <Link href="/privacy" className="text-accent hover:underline">Google API Services User Data Policy</Link> regarding the strict limited use of your data.
+          <strong>Limited License to Process:</strong> By using the Services, you automatically grant to Porcupine and its service providers a limited, royalty-free license and right to store, display, process, modify, and retransmit your Submissions solely to provide the Services to you. Notably, your End-to-End Encrypted data (like messages and LaTeX documents) cannot be read or processed by us in plaintext.
         </p>
 
-        <h2>6. Limitation of Liability</h2>
+        <h2>3. Fees and Payment</h2>
         <p>
-          In no event shall Porcupine, nor its directors, employees, partners, agents, suppliers, or affiliates, be liable for any indirect, incidental, special, consequential or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses, resulting from:
-        </p>
-        <ul>
-          <li>Your access to or use of or inability to access or use the Service.</li>
-          <li>Any conduct or content of any third party on the Service.</li>
-          <li>Any content obtained from the Service.</li>
-          <li>Unauthorized access, use, or alteration of your transmissions or content.</li>
-        </ul>
-
-        <h2>7. Termination</h2>
-        <p>
-          We may terminate or suspend your account and bar access to the Service immediately, without prior notice or liability, under our sole discretion, for any reason whatsoever and without limitation, including but not limited to a breach of the Terms.
+          <strong>Storage Charges:</strong> The Services are offered under free and/or paid subscriptions. The fees for paid subscriptions are not license fees, but charges due for storage and related services.
         </p>
         <p>
-          If you wish to terminate your account, you may simply discontinue using the Service or request account deletion via your settings.
+          <strong>Billing Information:</strong> You agree to provide complete and accurate billing information in connection with your paid subscription(s). All fees and charges, when paid, are nonrefundable and accrue on the first day of the initial subscription term. We reserve the right to change the fees with prior notice.
         </p>
 
-        <h2>8. Changes to Terms</h2>
+        <h2>4. Acceptable Use and Conduct</h2>
         <p>
-          We reserve the right, at our sole discretion, to modify or replace these Terms at any time. If a revision is material, we will provide at least 30 days' notice prior to any new terms taking effect. What constitutes a material change will be determined at our sole discretion. By continuing to access or use our Service after any revisions become effective, you agree to be bound by the revised terms.
+          <strong>Prohibited Activities:</strong> As a condition of your access and use of the Services, you agree that you will not: (a) impersonate any individual or entity; (b) use the Services in any manner with the intent to interrupt, damage, disable, overburden or impair the Services; (c) use the Services in violation of any applicable laws; or (d) attempt to circumvent, reverse engineer, decrypt or otherwise alter or interfere with the Services.
         </p>
 
-        <h2>9. Contact Us</h2>
+        <h2>5. Third-Party Services and Integrations</h2>
         <p>
-          If you have any questions about these Terms, please <Link href="mailto:support@porcupineresearch.me" className="text-accent hover:underline">contact us</Link>.
+          <strong>Google Services (Auth, Docs, Drive, Sheets):</strong> Our Service integrates with Google for authentication (Google Auth) and offers features that connect directly with your Google Workspace account (e.g., creating and accessing Google Drive folders, Google Docs, and Google Sheets). By utilizing these features, you must also comply with Google's Terms of Service and Acceptable Use Policies. Porcupine explicitly adheres to the Google API Services User Data Policy regarding the strict limited use of your data.
+        </p>
+        <p>
+          <strong>Supabase (Database and Authentication):</strong> We use Supabase as our backend database and authentication provider. By using our Services, you acknowledge that your data may be stored and processed by Supabase in accordance with their privacy policies and terms of service.
+        </p>
+        <p>
+          <strong>Vercel (Hosting):</strong> Our web application is hosted and deployed using Vercel. Vercel acts as a sub-processor and may process limited connection data in accordance with their policies to provide hosting and infrastructure services.
+        </p>
+
+        <h2>6. Changes to and Termination of the Services</h2>
+        <p>
+          <strong>Service Modifications:</strong> We aim to continually improve the delivery and content of the Services and, as a result, we will make changes to the Services from time to time. New features may be added, but we also may modify or discontinue any element of the Services. We will notify you if there are any material changes.
+        </p>
+        <p>
+          <strong>Right to Terminate:</strong> We reserve the right, at any time, to disable the Services temporarily for security or maintenance reasons, or to terminate your access if you violate these Terms.
+        </p>
+
+        <h2>7. Limitation of Liability</h2>
+        <p>
+          <strong>Damages Disclaimer:</strong> TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, PORCUPINE AND ITS SERVICE PROVIDERS WILL NOT BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL OR PUNITIVE DAMAGES, INCLUDING WITHOUT LIMITATION, LOSS OF PROFITS, DATA, USE, GOODWILL, OR OTHER INTANGIBLE LOSSES, RESULTING FROM YOUR ACCESS TO OR USE OF OR INABILITY TO ACCESS OR USE THE SERVICES.
+        </p>
+
+        <h2>8. Disclaimer of Warranties</h2>
+        <p>
+          <strong>Service Provided "As Is":</strong> YOUR ACCESS TO AND USE OF THE SERVICES IS AT YOUR OWN RISK. YOU UNDERSTAND AND AGREE THAT THE SERVICES ARE PROVIDED TO YOU ON AN “AS IS” BASIS WITHOUT ANY WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+        </p>
+
+        <h2>9. General</h2>
+        <p>
+          <strong>Entire Agreement:</strong> These Terms of Service constitute the entire agreement between you and Porcupine with respect to the use of the Site. Any changes to these Terms of Service will be effective when posted. If the changes are material, we will notify you via an email to the email associated with your account.
+        </p>
+        <p>
+          <strong>Contact Us:</strong> If you have any questions about these Terms, please contact us at <Link href="mailto:dhrubojyoti.saha@g.bracu.ac.bd" className="text-accent hover:underline">dhrubojyoti.saha@g.bracu.ac.bd</Link>.
         </p>
       </div>
     </main>

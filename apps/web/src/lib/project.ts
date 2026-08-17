@@ -50,3 +50,17 @@ export const getProject = cache(async (id: string): Promise<ProjectShell | null>
   );
   return (project as ProjectShell | null) ?? null;
 });
+
+export const getProjectRole = cache(
+  async (projectId: string, userId: string): Promise<string | null> => {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("project_members")
+      .select("access_role")
+      .eq("project_id", projectId)
+      .eq("user_id", userId)
+      .single();
+    
+    return data?.access_role ?? null;
+  }
+);

@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { ProjectNav } from "@/components/project-nav";
 import { ProjectSidebar } from "@/components/project-sidebar";
-import { getProject } from "@/lib/project";
+import { getProject, getProjectRole } from "@/lib/project";
 import { projectSections } from "@/lib/project-sections";
 import { getCurrentUser } from "@/lib/supabase/server";
 
@@ -43,6 +43,9 @@ export default async function ProjectLayout({
 
   if (!project) notFound();
 
+  const role = await getProjectRole(id, user.id);
+  const isOwner = role === "OWNER";
+
   // A kind the app does not know about is a data problem, not a reason to
   // render a nav with everything switched off. Fall back to the most
   // restrictive set rather than guessing generously.
@@ -75,6 +78,7 @@ export default async function ProjectLayout({
           projectId={project.id}
           projectTitle={project.title}
           sections={sections}
+          isOwner={isOwner}
         />
         <div className="min-w-0 flex-1 lg:overflow-y-auto px-4 sm:px-6 lg:px-12 py-8">
           {children}
