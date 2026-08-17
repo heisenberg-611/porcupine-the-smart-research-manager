@@ -84,30 +84,7 @@ export default async function Home() {
               students running a thesis search on the same machinery.
             </p>
 
-            <div className="bg-surface/60 border-rule mt-10 rounded-xl border p-8">
-              <h2 className="text-ink text-xl font-serif mb-4">App Purpose & Features</h2>
 
-              <h3 className="text-ink font-medium mt-4 mb-2">What does porcupineResearch do?</h3>
-              <p className="text-muted text-ui text-pretty mb-6">
-                porcupineResearch is a specialized literature review and thesis management platform. Its primary purpose is to help academic researchers, students, and teams streamline the systematic review process. The application allows users to search across academic databases, screen papers against predefined criteria, extract specific data fields, and automatically generate comprehensive evidence tables and PRISMA flow diagrams.
-              </p>
-
-              <h3 className="text-ink font-medium mt-4 mb-2">Integrated with Google Workspace</h3>
-              <p className="text-muted text-ui text-pretty mb-4">
-                To provide seamless collaboration and document management, porcupineResearch works with Google Workspace. By connecting your account, you allow porcupineResearch to:
-              </p>
-              <ul className="list-disc list-outside ml-5 text-muted text-ui text-pretty space-y-2 mb-4">
-                <li>Automatically provision and manage shared folders in Google Drive™ for your research projects.</li>
-                <li>Create collaborative documents using Google Docs™ within your project folders for drafting thesis chapters.</li>
-                <li>Export your completed literature extraction data directly into formatted Google Sheets™ for statistical analysis.</li>
-              </ul>
-              <p className="text-muted text-fine text-pretty italic mb-3">
-                porcupineResearch's access is strictly limited to providing these core research management features. We do not use your data for advertising, nor do we sell it to third parties. For more details, please review our <Link href="/privacy" className="text-accent hover:underline">Privacy Policy</Link>.
-              </p>
-              <p className="text-muted text-fine text-pretty">
-                Google Workspace, Google Drive, Google Docs, and Google Sheets are trademarks of Google LLC.
-              </p>
-            </div>
 
             <div className="mt-10 flex flex-wrap items-center gap-4">
               {user ? (

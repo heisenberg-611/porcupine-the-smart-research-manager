@@ -14,7 +14,7 @@ import { NextResponse, type NextRequest } from "next/server";
 // `/about` is public deliberately: it is the page that explains the product to
 // someone deciding whether to sign up. Behind auth it would only ever be read
 // by people who no longer need it.
-const PUBLIC_PATHS = ["/", "/about", "/sign-in", "/auth", "/privacy", "/terms"];
+const PUBLIC_PATHS = ["/", "/about", "/sign-in", "/auth", "/privacy", "/terms", "/features", "/pricing", "/security", "/changelog", "/guides", "/api", "/blog", "/dpa", "/cookies"];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.some(
