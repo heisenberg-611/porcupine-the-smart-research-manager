@@ -178,7 +178,10 @@ export default async function ExtractPage({
   }));
 
   return (
-    <main id="main" className="mx-auto flex w-full max-w-5xl flex-col px-6 pb-12 lg:h-[calc(100dvh-var(--app-header-h)-4rem)] lg:pb-0">
+    <main
+      id="main"
+      className="mx-auto flex w-full max-w-5xl flex-col px-6 pb-12 lg:h-[calc(100dvh-var(--app-header-h)-4rem)] lg:pb-0"
+    >
       <ExtractClient
         pageHeader={header}
         projectId={id}

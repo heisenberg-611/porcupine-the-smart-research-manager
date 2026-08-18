@@ -429,7 +429,7 @@ async function enforceSize(
   const chunks: Uint8Array[] = [];
   let total = 0;
 
-  for (; ;) {
+  for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
     total += value.length;

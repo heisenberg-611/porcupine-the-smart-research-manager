@@ -54,27 +54,27 @@ export function ProjectSidebar({
   return (
     <nav
       aria-label={`${projectTitle} sections`}
-      className="hidden lg:flex flex-col w-64 shrink-0 h-[calc(100vh-theme(spacing.16))] bg-surface border-r border-border"
+      className="bg-surface border-border hidden h-[calc(100vh-theme(spacing.16))] w-64 shrink-0 flex-col border-r lg:flex"
     >
-      <div className="shrink-0 pt-8 px-4 pb-4 bg-surface z-10">
+      <div className="bg-surface z-10 shrink-0 px-4 pt-8 pb-4">
         <Link
           href={sectionHref(projectId, "")}
           aria-current={active === "" ? "page" : undefined}
           className={cx(
-            "block rounded-xl px-4 py-3 transition-all duration-200 active:scale-95 border",
+            "block rounded-xl border px-4 py-3 transition-all duration-200 active:scale-95",
             "focus-visible:ring-accent focus-visible:ring-2 focus-visible:outline-none",
-            active === "" 
-              ? "bg-surface border-border shadow-sm ring-1 ring-black/5 dark:ring-white/5" 
-              : "bg-surface/40 border-transparent hover:bg-surface hover:border-border hover:shadow-sm hover:scale-[1.02]",
+            active === ""
+              ? "bg-surface border-border shadow-sm ring-1 ring-black/5 dark:ring-white/5"
+              : "bg-surface/40 hover:bg-surface hover:border-border border-transparent hover:scale-[1.02] hover:shadow-sm",
           )}
         >
-          <div className="flex items-center gap-2 mb-1.5">
-            <div className="w-2 h-2 rounded-full bg-accent animate-pulse" />
-            <span className="text-muted text-[10px] font-mono tracking-wider uppercase font-semibold">
+          <div className="mb-1.5 flex items-center gap-2">
+            <div className="bg-accent h-2 w-2 animate-pulse rounded-full" />
+            <span className="text-muted font-mono text-[10px] font-semibold tracking-wider uppercase">
               Current Project
             </span>
           </div>
-          <span className="text-ink text-base block leading-snug font-semibold text-pretty transition-colors">
+          <span className="text-ink block text-base leading-snug font-semibold text-pretty transition-colors">
             {projectTitle}
           </span>
         </Link>
@@ -88,9 +88,9 @@ export function ProjectSidebar({
 
             return (
               <div key={group}>
-                <h2 className="text-ink text-xs mb-2 px-3 font-mono tracking-widest uppercase font-bold flex items-center gap-3">
+                <h2 className="text-ink mb-2 flex items-center gap-3 px-3 font-mono text-xs font-bold tracking-widest uppercase">
                   {group}
-                  <div className="flex-1 h-px bg-border/60" />
+                  <div className="bg-border/60 h-px flex-1" />
                 </h2>
                 <ul className="space-y-1">
                   {inGroup.map((section) => {
@@ -112,7 +112,9 @@ export function ProjectSidebar({
                             aria-hidden
                             className={cx(
                               "mr-3 h-4 w-0.5 rounded-full transition-all duration-300",
-                              current ? "bg-accent scale-y-100" : "bg-transparent scale-y-0",
+                              current
+                                ? "bg-accent scale-y-100"
+                                : "scale-y-0 bg-transparent",
                             )}
                           />
                           {section.label}
@@ -127,11 +129,11 @@ export function ProjectSidebar({
         </div>
 
         <div className="mt-8">
-          <h2 className="text-ink text-xs mb-3 px-3 font-mono tracking-widest uppercase font-bold flex items-center gap-3">
+          <h2 className="text-ink mb-3 flex items-center gap-3 px-3 font-mono text-xs font-bold tracking-widest uppercase">
             Quick Actions
-            <div className="flex-1 h-px bg-border/60" />
+            <div className="bg-border/60 h-px flex-1" />
           </h2>
-          <div className="px-3 flex flex-col gap-2">
+          <div className="flex flex-col gap-2 px-3">
             <QuickCreateButton type="doc" projectId={projectId} label="Create Doc" />
             <QuickCreateButton type="sheet" projectId={projectId} label="Create Sheet" />
             <QuickCreateButton type="slide" projectId={projectId} label="Create Slide" />
@@ -140,11 +142,11 @@ export function ProjectSidebar({
 
         {isOwner && (
           <div className="mt-8 mb-4">
-            <h2 className="text-danger/80 text-xs mb-3 px-3 font-mono tracking-widest uppercase font-bold flex items-center gap-3">
+            <h2 className="text-danger/80 mb-3 flex items-center gap-3 px-3 font-mono text-xs font-bold tracking-widest uppercase">
               Danger Zone
-              <div className="flex-1 h-px bg-danger/20" />
+              <div className="bg-danger/20 h-px flex-1" />
             </h2>
-            <div className="px-3 flex flex-col gap-2">
+            <div className="flex flex-col gap-2 px-3">
               <DeleteProjectDialog projectId={projectId} projectTitle={projectTitle} />
             </div>
           </div>

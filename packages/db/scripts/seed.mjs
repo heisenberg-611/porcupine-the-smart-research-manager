@@ -194,7 +194,7 @@ async function ensureAuthUser(email) {
   if (!SERVICE_KEY) {
     throw new Error(
       "SUPABASE_SECRET_KEY is not set, so no account can be created.\n" +
-      "  It is in .env; if that file is missing, run `supabase status` and copy it.",
+        "  It is in .env; if that file is missing, run `supabase status` and copy it.",
     );
   }
 
@@ -708,7 +708,7 @@ async function main() {
   Re-run to reset both. Nothing else in the database is touched.
 `);
   } catch (err) {
-    await client.query("rollback").catch(() => { });
+    await client.query("rollback").catch(() => {});
     throw err;
   } finally {
     await client.end();

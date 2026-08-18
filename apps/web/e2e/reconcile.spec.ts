@@ -63,8 +63,8 @@ async function signInAndEnroll(browser: Browser, email: string): Promise<Page> {
 
   await goto(page, "/sign-in");
   await page.getByLabel("Email").fill(email);
-  await page.getByRole("button", { name: /email me a code/i }).click();
-  await page.getByLabel(/six-digit code/i).fill(await fetchOtp(email));
+  await page.getByRole("button", { name: /email me a .*code/i }).click();
+  await page.getByLabel(/verification code/i).fill(await fetchOtp(email));
   await page.getByRole("button", { name: /^sign in$/i }).click();
 
   // Wait for the redirect to settle BEFORE branching. Reading page.url()
@@ -164,7 +164,7 @@ test.describe("Phase 2b — dual extraction", () => {
     const invites = [bobEmail, carolEmail];
     for (let i = 0; i < invites.length; i++) {
       await alice.getByLabel("Email").fill(invites[i]!);
-      await alice.getByLabel("Role").selectOption("CONTRIBUTOR");
+      await alice.getByLabel("Role", { exact: true }).selectOption("CONTRIBUTOR");
       await alice.getByRole("button", { name: /add member/i }).click();
       await expect(
         alice.getByText(new RegExp(`members\\s*\\(${i + 2}\\)`, "i")),

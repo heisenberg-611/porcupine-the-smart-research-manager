@@ -2,7 +2,7 @@ import { google } from "googleapis";
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID,
-  process.env.SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET
+  process.env.SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET,
 );
 
 export async function getAdminToken(refreshToken: string): Promise<string | null> {
@@ -59,13 +59,19 @@ export async function listFolderFiles(accessToken: string, folderId: string) {
   const drive = getDriveClient(accessToken);
   const response = await drive.files.list({
     q: `'${folderId}' in parents and trashed = false`,
-    fields: "files(id, name, mimeType, webViewLink, iconLink, modifiedTime, createdTime, owners(displayName, photoLink))",
+    fields:
+      "files(id, name, mimeType, webViewLink, iconLink, modifiedTime, createdTime, owners(displayName, photoLink))",
     orderBy: "modifiedTime desc",
   });
   return response.data.files ?? [];
 }
 
-export async function listProjectFiles(accessToken: string, projectId: string, onlyOwnedByMe: boolean = false, folderId?: string) {
+export async function listProjectFiles(
+  accessToken: string,
+  projectId: string,
+  onlyOwnedByMe: boolean = false,
+  folderId?: string,
+) {
   const drive = getDriveClient(accessToken);
 
   let q = `(appProperties has { key='PorcupineProjectId' and value='${projectId}' }`;
@@ -80,48 +86,64 @@ export async function listProjectFiles(accessToken: string, projectId: string, o
 
   const response = await drive.files.list({
     q,
-    fields: "files(id, name, mimeType, webViewLink, iconLink, modifiedTime, createdTime, owners(displayName, photoLink))",
+    fields:
+      "files(id, name, mimeType, webViewLink, iconLink, modifiedTime, createdTime, owners(displayName, photoLink))",
     orderBy: "modifiedTime desc",
   });
   return response.data.files ?? [];
 }
 
-export async function createGoogleDoc(accessToken: string, name: string, projectId: string, folderId?: string) {
+export async function createGoogleDoc(
+  accessToken: string,
+  name: string,
+  projectId: string,
+  folderId?: string,
+) {
   const drive = getDriveClient(accessToken);
   const response = await drive.files.create({
     requestBody: {
       name,
       mimeType: "application/vnd.google-apps.document",
       ...(folderId ? { parents: [folderId] } : {}),
-      appProperties: { PorcupineProjectId: projectId }
+      appProperties: { PorcupineProjectId: projectId },
     },
     fields: "id, webViewLink",
   });
   return response.data;
 }
 
-export async function createGoogleSheet(accessToken: string, name: string, projectId: string, folderId?: string) {
+export async function createGoogleSheet(
+  accessToken: string,
+  name: string,
+  projectId: string,
+  folderId?: string,
+) {
   const drive = getDriveClient(accessToken);
   const response = await drive.files.create({
     requestBody: {
       name,
       mimeType: "application/vnd.google-apps.spreadsheet",
       ...(folderId ? { parents: [folderId] } : {}),
-      appProperties: { PorcupineProjectId: projectId }
+      appProperties: { PorcupineProjectId: projectId },
     },
     fields: "id, webViewLink",
   });
   return response.data;
 }
 
-export async function createGoogleSlide(accessToken: string, name: string, projectId: string, folderId?: string) {
+export async function createGoogleSlide(
+  accessToken: string,
+  name: string,
+  projectId: string,
+  folderId?: string,
+) {
   const drive = getDriveClient(accessToken);
   const response = await drive.files.create({
     requestBody: {
       name,
       mimeType: "application/vnd.google-apps.presentation",
       ...(folderId ? { parents: [folderId] } : {}),
-      appProperties: { PorcupineProjectId: projectId }
+      appProperties: { PorcupineProjectId: projectId },
     },
     fields: "id, webViewLink",
   });
@@ -132,7 +154,7 @@ export async function shareGoogleFile(
   accessToken: string,
   fileId: string,
   emailAddress: string,
-  role: "reader" | "commenter" | "writer"
+  role: "reader" | "commenter" | "writer",
 ) {
   const drive = getDriveClient(accessToken);
   const response = await drive.permissions.create({
@@ -150,7 +172,7 @@ export async function shareGoogleFile(
 export async function revokeGoogleFileAccess(
   accessToken: string,
   fileId: string,
-  emailAddress: string
+  emailAddress: string,
 ) {
   const drive = getDriveClient(accessToken);
   const response = await drive.permissions.list({
@@ -159,22 +181,30 @@ export async function revokeGoogleFileAccess(
   });
 
   const permissions = response.data.permissions || [];
-  console.log(`[revokeGoogleFileAccess] Found ${permissions.length} permissions for file ${fileId}`);
+  console.log(
+    `[revokeGoogleFileAccess] Found ${permissions.length} permissions for file ${fileId}`,
+  );
 
   const targetPermission = permissions.find((p) => {
-    console.log(`[revokeGoogleFileAccess] Checking permission id=${p.id} email=${p.emailAddress}`);
+    console.log(
+      `[revokeGoogleFileAccess] Checking permission id=${p.id} email=${p.emailAddress}`,
+    );
     return p.emailAddress?.toLowerCase() === emailAddress.toLowerCase();
   });
 
   if (targetPermission?.id) {
-    console.log(`[revokeGoogleFileAccess] Deleting permission id=${targetPermission.id} for email=${emailAddress}`);
+    console.log(
+      `[revokeGoogleFileAccess] Deleting permission id=${targetPermission.id} for email=${emailAddress}`,
+    );
     await drive.permissions.delete({
       fileId,
       permissionId: targetPermission.id,
     });
     console.log(`[revokeGoogleFileAccess] Successfully deleted permission.`);
   } else {
-    console.log(`[revokeGoogleFileAccess] Could not find permission for email=${emailAddress}`);
+    console.log(
+      `[revokeGoogleFileAccess] Could not find permission for email=${emailAddress}`,
+    );
   }
 }
 
@@ -182,7 +212,7 @@ export async function createGoogleShortcut(
   accessToken: string,
   targetFileId: string,
   targetFolderId: string,
-  name: string
+  name: string,
 ) {
   const drive = getDriveClient(accessToken);
   const response = await drive.files.create({

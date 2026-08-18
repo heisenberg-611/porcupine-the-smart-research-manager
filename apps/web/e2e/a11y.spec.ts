@@ -12,8 +12,30 @@ import { goto } from "./ready";
  * repo than to retrofit at Phase 7, which is the classic way to miss it.
  *
  * Every route added to the app should be added here.
+ *
+ * The thirteen public pages are all here now, and they were not: the list was
+ * three entries while the footer linked to twelve pages, so the ones a
+ * signed-out visitor is most likely to read — pricing, security, the policies
+ * — had never been checked at all. They are cheap to check, being static, and
+ * they are the pages that decide whether a procurement office gets past the
+ * front door.
  */
-const ROUTES = ["/", "/about", "/sign-in"] as const;
+const ROUTES = [
+  "/",
+  "/about",
+  "/features",
+  "/pricing",
+  "/security",
+  "/guides",
+  "/api",
+  "/changelog",
+  "/blog",
+  "/privacy",
+  "/terms",
+  "/dpa",
+  "/cookies",
+  "/sign-in",
+] as const;
 
 for (const route of ROUTES) {
   test(`${route} has no WCAG 2.2 AA violations`, async ({ page }) => {
@@ -57,7 +79,13 @@ test("the landing page explains the product, not a third of it", async ({ page }
   await expect(main.getByText(/PRISMA/).first()).toBeVisible();
 
   // And somewhere to go for the longer version, without signing up.
-  await page.getByRole("link", { name: /how it works/i }).click();
+  //
+  // Scoped to main. The site footer now appears on every public page and
+  // carries its own "How it works" link — same name, same destination, which
+  // is correct for a site index and makes an unscoped locator match twice.
+  // The assertion is about the landing page offering the route, so the
+  // landing page's own content is what it should be looking at.
+  await main.getByRole("link", { name: /how it works/i }).click();
   await expect(page).toHaveURL(/\/about/);
   await expect(
     page.getByRole("heading", { name: /what this does not do/i }),

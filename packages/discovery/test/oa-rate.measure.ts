@@ -85,20 +85,20 @@ describe("R-04: open-access rate", () => {
       const freePct = r.total === 0 ? 0 : (r.freeToRead / r.total) * 100;
       console.log(
         `  ${r.field.padEnd(20)} ${String(r.total).padStart(5)}   ` +
-        `${pdfPct.toFixed(0).padStart(7)}%   ${freePct.toFixed(0).padStart(11)}%`,
+          `${pdfPct.toFixed(0).padStart(7)}%   ${freePct.toFixed(0).padStart(11)}%`,
       );
     }
     console.log(
       `\n  Overall (deduplicated, n=${total}): ` +
-      `${(rate * 100).toFixed(1)}% report an open-access PDF`,
+        `${(rate * 100).toFixed(1)}% report an open-access PDF`,
     );
     console.log(`  The cost model assumes 45%.`);
     console.log(
       "\n  UPPER BOUND, not the redistributable share. This is OpenAlex's\n" +
-      "  is_oa flag, which says a copy is free to read — it does not check\n" +
-      "  the LICENCE, and R-04 only permits R2_SHARED for files verified\n" +
-      "  redistributable. Confirming that needs Unpaywall, which is a\n" +
-      "  Phase 2 integration. Treat this as a ceiling.\n",
+        "  is_oa flag, which says a copy is free to read — it does not check\n" +
+        "  the LICENCE, and R-04 only permits R2_SHARED for files verified\n" +
+        "  redistributable. Confirming that needs Unpaywall, which is a\n" +
+        "  Phase 2 integration. Treat this as a ceiling.\n",
     );
 
     // The sample has to be big enough to mean anything.

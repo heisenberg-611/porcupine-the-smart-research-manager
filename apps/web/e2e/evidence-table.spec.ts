@@ -107,12 +107,12 @@ test.describe("the evidence table at scale", () => {
 
     await goto(page, "/sign-in");
     await page.getByLabel("Email").fill(SEED_EMAIL);
-    await page.getByRole("button", { name: /email me a code/i }).click();
+    await page.getByRole("button", { name: /email me a .*code/i }).click();
 
     const code = await fetchOtpAfter(SEED_EMAIL, before);
     test.skip(code === null, "no sign-in code arrived — run `pnpm db:seed` first");
 
-    await page.getByLabel(/six-digit code/i).fill(code!);
+    await page.getByLabel(/verification code/i).fill(code!);
     await page.getByRole("button", { name: /^sign in$/i }).click();
     await page.waitForURL(/\/(enroll|dashboard|projects)/);
 

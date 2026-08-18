@@ -96,8 +96,8 @@ test.describe("unlocking, and a project key", () => {
 
     await goto(page, "/sign-in");
     await page.getByLabel("Email").fill(email);
-    await page.getByRole("button", { name: /email me a code/i }).click();
-    await page.getByLabel(/six-digit code/i).fill(await fetchOtp(email));
+    await page.getByRole("button", { name: /email me a .*code/i }).click();
+    await page.getByLabel(/verification code/i).fill(await fetchOtp(email));
     await page.getByRole("button", { name: /^sign in$/i }).click();
     await page.waitForURL(/\/(enroll|dashboard|projects)/);
 

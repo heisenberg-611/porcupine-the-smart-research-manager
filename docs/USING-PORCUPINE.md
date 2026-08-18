@@ -11,11 +11,16 @@ usability phase.
 
 ## 1. Getting it running
 
-Everything runs on your machine. There is no deployed environment yet.
+**There is a hosted version: https://porcupineresearch.me.** It runs on Vercel
+with a managed Supabase database, it is maintained by Dhrubojyoti, and signing
+in there is the whole setup. If you only want to *use* the app, stop here and go
+there — everything from §2 onward applies unchanged.
 
-There is also a root `README.md` now, aimed at someone opening the repository
-rather than the app. This document is the one to read if you are lost in the
-product.
+The rest of this section is for running your own copy, which is worth doing when
+the corpus itself is sensitive or your institution requires research data to
+stay on its own infrastructure. The root `README.md` is the authoritative
+install and also covers pointing it at your own Postgres rather than the Docker
+one; this document is the one to read if you are lost in the *product*.
 
 ```bash
 # 1. Docker Desktop must be RUNNING first. The database lives in containers,
@@ -222,9 +227,9 @@ things you are failing to find.
 | **LaTeX / Overleaf export** | Not started. CSV and Excel only. |
 | **GitHub linking** | The capability flag exists; no screen does anything with it. |
 | **Reference-manager sync** | Import is one-way, paste-only. No Zotero sync, no re-export to a manager. |
-| **Deployment** | Local only. No hosted version, no sharing a link with a colleague. |
+| **Sharing across instances** | Everyone on a review has to be on the same instance. On porcupineresearch.me they already are; two self-hosted copies cannot see each other's projects, and there is no export-and-merge that would let them. |
 | **AI / auto-extraction** | Deliberately none (ADR-003). Every answer is typed by a person. |
-| **Email that leaves your machine** | Everything goes to Mailpit. |
+| **Email that leaves your machine** | Running locally, everything goes to Mailpit. The hosted version sends real mail. |
 | **Assigning dual extraction** | Nothing tells two people to extract the same paper. It happens when two people both choose it. Reconciliation then notices. |
 
 ---

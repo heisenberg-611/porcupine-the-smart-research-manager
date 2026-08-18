@@ -68,8 +68,8 @@ async function signUp(
 
   await goto(page, "/sign-in");
   await page.getByLabel("Email").fill(email);
-  await page.getByRole("button", { name: /email me a code/i }).click();
-  await page.getByLabel(/six-digit code/i).fill(await fetchOtp(email));
+  await page.getByRole("button", { name: /email me a .*code/i }).click();
+  await page.getByLabel(/verification code/i).fill(await fetchOtp(email));
   await page.getByRole("button", { name: /^sign in$/i }).click();
   await page.waitForURL(/\/(enroll|dashboard|projects)/);
 
@@ -153,7 +153,7 @@ test.describe("two people, one encrypted conversation", () => {
     projectId = alice.url().split("/").pop()!;
 
     await alice.getByLabel("Email").fill(bobEmail);
-    await alice.getByLabel("Role").selectOption("CONTRIBUTOR");
+    await alice.getByLabel("Role", { exact: true }).selectOption("CONTRIBUTOR");
     await alice.getByRole("button", { name: /add member/i }).click();
     await expect(alice.getByText(/members \(2\)/i)).toBeVisible();
   });

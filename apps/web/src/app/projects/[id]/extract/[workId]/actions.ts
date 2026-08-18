@@ -183,25 +183,59 @@ export async function saveDraft(
           anchorId = anchor.id;
         }
 
-        await tx.extractionValue.upsert({
+        /*
+         * Read, then update or create. NOT `upsert`.
+         *
+         * Prisma compiles `upsert` to `INSERT ... ON CONFLICT DO UPDATE`, and
+         * a BEFORE INSERT trigger fires on the PROPOSED row before Postgres
+         * has looked for a conflict. `extraction_values_require_anchor` is
+         * such a trigger, and the proposed row carries `anchor_id = NULL`
+         * whenever this save has no newly captured passage — which is every
+         * save after the first, because a selector is only sent when the
+         * person has just selected text.
+         *
+         * So saving a draft a second time, on any protocol with a quote field
+         * already answered, failed with `The field "..." requires a quoted
+         * passage from the source` — while the row it was refusing to touch
+         * had a perfectly good passage attached. The `update` branch below it
+         * was correct and never ran; the conflict was resolved after the
+         * trigger had already raised.
+         *
+         * Two statements instead of one is the price. The alternative — making
+         * the trigger tolerate a null anchor on insert — would delete the rule
+         * that a quoted field cannot be typed into, which is the whole point
+         * of the field type.
+         */
+        const current = await tx.extractionValue.findUnique({
           where: { extractionId_fieldId: { extractionId, fieldId: entry.fieldId } },
-          create: {
-            projectId,
-            extractionId,
-            fieldId: entry.fieldId,
-            value: entry.value as object,
-            valueText: entry.valueText ?? null,
-            anchorId,
-          },
-          update: {
-            value: entry.value as object,
-            valueText: entry.valueText ?? null,
-            // Keep the existing passage when this save carries none: an edit
-            // to the surrounding text should not silently drop provenance.
-            ...(anchorId ? { anchorId } : {}),
-          },
           select: { id: true },
         });
+
+        if (current) {
+          await tx.extractionValue.update({
+            where: { id: current.id },
+            data: {
+              value: entry.value as object,
+              valueText: entry.valueText ?? null,
+              // Keep the existing passage when this save carries none: an edit
+              // to the surrounding text should not silently drop provenance.
+              ...(anchorId ? { anchorId } : {}),
+            },
+            select: { id: true },
+          });
+        } else {
+          await tx.extractionValue.create({
+            data: {
+              projectId,
+              extractionId,
+              fieldId: entry.fieldId,
+              value: entry.value as object,
+              valueText: entry.valueText ?? null,
+              anchorId,
+            },
+            select: { id: true },
+          });
+        }
         count++;
       }
 

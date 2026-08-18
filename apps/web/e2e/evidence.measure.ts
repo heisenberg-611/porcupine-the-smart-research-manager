@@ -62,8 +62,8 @@ async function fetchOtp(email: string): Promise<string> {
 async function signIn(page: Page) {
   await page.goto("/sign-in");
   await page.getByLabel("Email").fill(SEED_EMAIL);
-  await page.getByRole("button", { name: /email me a code/i }).click();
-  await page.getByLabel(/six-digit code/i).fill(await fetchOtp(SEED_EMAIL));
+  await page.getByRole("button", { name: /email me a .*code/i }).click();
+  await page.getByLabel(/verification code/i).fill(await fetchOtp(SEED_EMAIL));
   await page.getByRole("button", { name: /^sign in$/i }).click();
   await page.waitForURL(/\/(enroll|projects)/);
 
@@ -133,8 +133,8 @@ function summarise(label: string, runs: Timing[]) {
   const kb = (runs[0]!.bytes / 1024).toFixed(0);
   console.log(
     `  ${label.padEnd(26)} ttfb ${stat((t) => t.ttfb).padEnd(24)} ` +
-    `dcl ${stat((t) => t.domContentLoaded).padEnd(24)} ` +
-    `lcp ${stat((t) => t.lcp).padEnd(24)} html ${kb} KB`,
+      `dcl ${stat((t) => t.domContentLoaded).padEnd(24)} ` +
+      `lcp ${stat((t) => t.lcp).padEnd(24)} html ${kb} KB`,
   );
 }
 

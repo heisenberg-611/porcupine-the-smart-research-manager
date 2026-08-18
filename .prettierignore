@@ -17,3 +17,10 @@ apps/web/public/
 
 # Archived code
 archive/
+
+# Verbatim legal text. The Apache 2.0 file must stay byte-identical to the
+# canonical one (md5 3b83ef96387f14655fc854ddc3c6bd57 apart from the copyright
+# line in its appendix); reflowing it would make a diff against the original
+# impossible to read and is exactly what a licence must not have done to it.
+LICENSE
+NOTICE

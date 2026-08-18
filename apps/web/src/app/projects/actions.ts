@@ -28,7 +28,12 @@ function slugify(title: string) {
   return `${base || "project"}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-import { createProjectFolder, shareGoogleFile, getAdminToken, getGoogleEmail } from "@/lib/google";
+import {
+  createProjectFolder,
+  shareGoogleFile,
+  getAdminToken,
+  getGoogleEmail,
+} from "@/lib/google";
 
 export async function createProject(
   input: z.infer<typeof CreateProjectInput>,
@@ -95,7 +100,7 @@ export async function inviteMember(
 
   try {
     // We must use the global `prisma` client to look up the invitee by email.
-    // RLS restricts `tx.user` visibility to self and co-members, which means 
+    // RLS restricts `tx.user` visibility to self and co-members, which means
     // we would never be able to invite a stranger because their row would be invisible.
     const invitee = await prisma.user.findUnique({
       where: { email },
@@ -221,9 +226,17 @@ export async function updateMemberRole(
           else if (["REVIEWER"].includes(accessRole)) role = "commenter";
 
           try {
-            await shareGoogleFile(adminToken, project.driveFolderId, existing.user.email, role);
+            await shareGoogleFile(
+              adminToken,
+              project.driveFolderId,
+              existing.user.email,
+              role,
+            );
           } catch (e) {
-            console.error(`Failed to update google access role for ${existing.user.email}`, e);
+            console.error(
+              `Failed to update google access role for ${existing.user.email}`,
+              e,
+            );
           }
         }
       }
@@ -279,7 +292,11 @@ export async function removeMember(
         const adminToken = await getAdminToken(project.googleRefreshToken);
         if (adminToken) {
           try {
-            await revokeGoogleFileAccess(adminToken, project.driveFolderId, existing.user.email);
+            await revokeGoogleFileAccess(
+              adminToken,
+              project.driveFolderId,
+              existing.user.email,
+            );
           } catch (e) {
             console.error(`Failed to revoke access for ${existing.user.email}`, e);
           }
@@ -294,7 +311,9 @@ export async function removeMember(
   }
 }
 
-export async function provisionSharedDriveFolder(projectId: string): Promise<ActionResult> {
+export async function provisionSharedDriveFolder(
+  projectId: string,
+): Promise<ActionResult> {
   const claims = await getUserClaims();
   if (!claims) return { ok: false, error: "Not signed in." };
 
@@ -308,7 +327,7 @@ export async function provisionSharedDriveFolder(projectId: string): Promise<Act
 
   try {
     return await withUserContext(claims, async (tx) => {
-      // Must be an admin/owner to create it. We can rely on RLS, but Prisma 
+      // Must be an admin/owner to create it. We can rely on RLS, but Prisma
       // doesn't fully enforce RLS on updates, so we check membership manually.
       const me = await tx.projectMember.findUnique({
         where: { projectId_userId: { projectId, userId: claims.sub } },
@@ -329,11 +348,15 @@ export async function provisionSharedDriveFolder(projectId: string): Promise<Act
       const googleEmail = await getGoogleEmail(providerToken);
       const userRecord = await tx.user.findUnique({
         where: { id: claims.sub },
-        select: { email: true }
+        select: { email: true },
       });
 
       if (googleEmail?.toLowerCase() !== userRecord?.email?.toLowerCase()) {
-        return { ok: false, error: "Account Mismatch: The Google account you connected does not match your Porcupine login email. Please disconnect your Google account below and try again with the correct account." };
+        return {
+          ok: false,
+          error:
+            "Account Mismatch: The Google account you connected does not match your Porcupine login email. Please disconnect your Google account below and try again with the correct account.",
+        };
       }
 
       let driveFolderId: string | undefined | null;
@@ -341,8 +364,15 @@ export async function provisionSharedDriveFolder(projectId: string): Promise<Act
         driveFolderId = await createProjectFolder(providerToken, project.title);
       } catch (e: unknown) {
         console.error("createProjectFolder failed", e);
-        if (e instanceof Error && e.message.includes("insufficient authentication scopes")) {
-          return { ok: false, error: "Missing Google Drive permissions. Please reconnect your account and make sure to CHECK ALL BOXES on the Google consent screen." };
+        if (
+          e instanceof Error &&
+          e.message.includes("insufficient authentication scopes")
+        ) {
+          return {
+            ok: false,
+            error:
+              "Missing Google Drive permissions. Please reconnect your account and make sure to CHECK ALL BOXES on the Google consent screen.",
+          };
         }
         return { ok: false, error: "Failed to create Google Drive folder." };
       }
@@ -355,7 +385,7 @@ export async function provisionSharedDriveFolder(projectId: string): Promise<Act
         where: { id: projectId },
         data: {
           driveFolderId,
-          ...(refreshToken ? { googleRefreshToken: refreshToken } : {})
+          ...(refreshToken ? { googleRefreshToken: refreshToken } : {}),
         },
       });
 
@@ -371,7 +401,12 @@ export async function provisionSharedDriveFolder(projectId: string): Promise<Act
         if (member.accessRole !== "OBSERVER") continue; // only Viewers get auto-sharing
 
         try {
-          await shareGoogleFile(providerToken, driveFolderId, member.user.email, "reader");
+          await shareGoogleFile(
+            providerToken,
+            driveFolderId,
+            member.user.email,
+            "reader",
+          );
         } catch (e) {
           console.error(`Failed to share folder with ${member.user.email}`, e);
         }
@@ -382,7 +417,10 @@ export async function provisionSharedDriveFolder(projectId: string): Promise<Act
     });
   } catch (e: unknown) {
     console.error("provisionSharedDriveFolder failed:", e);
-    return { ok: false, error: e instanceof Error ? e.message : "An unexpected error occurred." };
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "An unexpected error occurred.",
+    };
   }
 }
 
@@ -416,7 +454,11 @@ export async function registerGoogleAccount(projectId: string): Promise<ActionRe
       }
 
       if (!project.googleRefreshToken) {
-        return { ok: false, error: "Admin has not enabled automated sharing. Please ask the admin to share the folder manually." };
+        return {
+          ok: false,
+          error:
+            "Admin has not enabled automated sharing. Please ask the admin to share the folder manually.",
+        };
       }
 
       const googleEmail = await getGoogleEmail(providerToken);
@@ -426,11 +468,15 @@ export async function registerGoogleAccount(projectId: string): Promise<ActionRe
 
       const userRecord = await tx.user.findUnique({
         where: { id: claims.sub },
-        select: { email: true }
+        select: { email: true },
       });
 
       if (googleEmail?.toLowerCase() !== userRecord?.email?.toLowerCase()) {
-        return { ok: false, error: "Account Mismatch: The Google account you connected does not match your Porcupine login email. Please disconnect your Google account below and try again with the correct account." };
+        return {
+          ok: false,
+          error:
+            "Account Mismatch: The Google account you connected does not match your Porcupine login email. Please disconnect your Google account below and try again with the correct account.",
+        };
       }
 
       const adminToken = await getAdminToken(project.googleRefreshToken);
@@ -453,7 +499,10 @@ export async function registerGoogleAccount(projectId: string): Promise<ActionRe
     });
   } catch (e: unknown) {
     console.error("registerGoogleAccount failed:", e);
-    return { ok: false, error: e instanceof Error ? e.message : "An unexpected error occurred." };
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "An unexpected error occurred.",
+    };
   }
 }
 
@@ -463,7 +512,9 @@ export async function checkGoogleConnection() {
   if (!providerToken) return { connected: false, scopes: [] as string[] };
 
   try {
-    const res = await fetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${providerToken}`);
+    const res = await fetch(
+      `https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${providerToken}`,
+    );
     if (!res.ok) return { connected: false, scopes: [] as string[] };
     const data = await res.json();
     const scopes: string[] = (data.scope || "").split(" ");
@@ -481,11 +532,13 @@ export async function disconnectGoogleAccount() {
 
   const { createClient } = await import("@/lib/supabase/server");
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   console.log(`[disconnectGoogleAccount] User: ${user?.email}`);
 
   if (user && user.identities) {
-    const googleIdentity = user.identities.find(id => id.provider === "google");
+    const googleIdentity = user.identities.find((id) => id.provider === "google");
     // Only unlink if they have more than 1 identity to prevent them from being completely signed out of Porcupine
     if (googleIdentity && user.identities.length > 1) {
       try {
@@ -495,9 +548,13 @@ export async function disconnectGoogleAccount() {
         console.error("Failed to unlink identity:", e);
       }
     } else if (googleIdentity && user.identities.length === 1) {
-      console.log("[disconnectGoogleAccount] Skipped unlinking Google identity because it is their only login method. Retaining session.");
+      console.log(
+        "[disconnectGoogleAccount] Skipped unlinking Google identity because it is their only login method. Retaining session.",
+      );
     } else {
-      console.log("[disconnectGoogleAccount] No google identity found in user.identities");
+      console.log(
+        "[disconnectGoogleAccount] No google identity found in user.identities",
+      );
     }
 
     if (user.email) {
@@ -507,33 +564,49 @@ export async function disconnectGoogleAccount() {
           include: { project: true },
         });
 
-        console.log(`[disconnectGoogleAccount] Found ${memberProjects.length} projects for user`);
+        console.log(
+          `[disconnectGoogleAccount] Found ${memberProjects.length} projects for user`,
+        );
 
         const { revokeGoogleFileAccess, getAdminToken } = await import("@/lib/google");
 
         for (const mp of memberProjects) {
-          console.log(`[disconnectGoogleAccount] Processing project ${mp.project.id}, driveFolderId=${mp.project.driveFolderId}, hasRefreshToken=${!!mp.project.googleRefreshToken}`);
+          console.log(
+            `[disconnectGoogleAccount] Processing project ${mp.project.id}, driveFolderId=${mp.project.driveFolderId}, hasRefreshToken=${!!mp.project.googleRefreshToken}`,
+          );
           if (mp.project.driveFolderId && mp.project.googleRefreshToken) {
-
             // Check if the user is the admin (owner) of this project. If they are the owner, they own the folder.
             // We shouldn't revoke their access, but we should remove the refresh token so the project loses automation capabilities!
             if (mp.accessRole === "OWNER" || mp.accessRole === "ADMIN") {
-              console.log(`[disconnectGoogleAccount] User is OWNER/ADMIN of project ${mp.project.id}. Removing project.googleRefreshToken instead of revoking file access.`);
+              console.log(
+                `[disconnectGoogleAccount] User is OWNER/ADMIN of project ${mp.project.id}. Removing project.googleRefreshToken instead of revoking file access.`,
+              );
               await prisma.project.update({
                 where: { id: mp.project.id },
-                data: { googleRefreshToken: null }
+                data: { googleRefreshToken: null },
               });
               continue;
             }
 
             const adminToken = await getAdminToken(mp.project.googleRefreshToken);
             if (adminToken) {
-              console.log(`[disconnectGoogleAccount] Calling revokeGoogleFileAccess for ${user.email} on folder ${mp.project.driveFolderId}`);
-              await revokeGoogleFileAccess(adminToken, mp.project.driveFolderId, user.email).catch(e => {
-                console.error(`Failed to revoke access for ${user.email} on project ${mp.project.id}`, e);
+              console.log(
+                `[disconnectGoogleAccount] Calling revokeGoogleFileAccess for ${user.email} on folder ${mp.project.driveFolderId}`,
+              );
+              await revokeGoogleFileAccess(
+                adminToken,
+                mp.project.driveFolderId,
+                user.email,
+              ).catch((e) => {
+                console.error(
+                  `Failed to revoke access for ${user.email} on project ${mp.project.id}`,
+                  e,
+                );
               });
             } else {
-              console.log(`[disconnectGoogleAccount] Failed to get admin token for project ${mp.project.id}`);
+              console.log(
+                `[disconnectGoogleAccount] Failed to get admin token for project ${mp.project.id}`,
+              );
             }
           }
         }
