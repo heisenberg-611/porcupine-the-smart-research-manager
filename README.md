@@ -12,6 +12,11 @@ students running a thesis search on the same machinery.
 
 [**Use it →** porcupineresearch.me](https://porcupineresearch.me) · [How it works](https://porcupineresearch.me/about) · [Security](https://porcupineresearch.me/security) · [Guides](https://porcupineresearch.me/guides)
 
+[![Licence: Apache 2.0](https://img.shields.io/badge/licence-Apache%202.0-2f6f5e)](LICENSE)
+&nbsp;[![Next.js 16](https://img.shields.io/badge/Next.js-16-1c1a17)](https://nextjs.org)
+&nbsp;[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Supabase-1c1a17)](https://supabase.com)
+&nbsp;[![No AI](https://img.shields.io/badge/AI-none%2C%20deliberately-9c2f26)](#what-it-does)
+
 </div>
 
 ---
@@ -251,6 +256,24 @@ numbered plan document, the plan is stale.
 | `docs/05-resolution-plan.md`       | The numbered risks (R-02, R-06 …) cited throughout the code |
 | `docs/06`–`10`                     | Phase build plans, including the current phase              |
 | `docs/adr/`                        | Architecture decisions                                      |
+
+---
+
+## Licence
+
+**Apache License 2.0** — see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
+
+Use it, fork it, run it for a department, change it, or build something else on
+top of it. Apache 2.0 rather than MIT for the two things MIT leaves out: an
+explicit patent grant from every contributor, and a requirement that modified
+files say they were modified — which matters for a tool whose output is meant
+to be defensible. If someone hands you an evidence table produced by a fork,
+you should be able to find out what the fork changed.
+
+The licence covers the software. It does not cover the bibliographic data the
+app retrieves from OpenAlex, Crossref, arXiv, Europe PMC and Semantic Scholar,
+each of which has its own terms, and it does not cover anything you put into
+your own instance. That is yours.
 
 ---
 

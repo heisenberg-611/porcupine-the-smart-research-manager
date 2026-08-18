@@ -79,6 +79,10 @@ export default function PricingPage() {
             Encryption for messages and LaTeX sources, with the keys held in your browser
             rather than on a server. See <Link href="/security">security</Link>.
           </li>
+          <li>
+            The full source under the Apache License 2.0, patent grant included. Fork it,
+            audit it, change it, run it for a department.
+          </li>
         </ul>
 
         <h2>What the hosted version costs you instead</h2>
@@ -98,12 +102,14 @@ export default function PricingPage() {
 
         <h2>Will it stay free?</h2>
         <p>
-          Free for students and for academic research is the intention. What actually
-          protects you is not this sentence but the fact that the source is public and the
-          exports work: if the hosted service ever charged, you could take your data and
-          run your own copy the same afternoon. If it does charge, the thing being charged
-          for would be the running of it — the server, the backups, the support — and not
-          features removed from the version you can run yourself.
+          Free for students and for academic research is the intention, and what holds
+          that open is not this sentence. The source is under the{" "}
+          <strong>Apache License 2.0</strong>, which cannot be withdrawn from a release
+          already made, and the exports work — so if the hosted service ever charged you
+          could take your data and run your own copy the same afternoon. If it does
+          charge, the thing being charged for would be the running of it — the server, the
+          backups, the support — and not features removed from the version you can run
+          yourself.
         </p>
         <p>
           If that changes, it will be announced on the{" "}

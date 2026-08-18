@@ -110,8 +110,9 @@ export default function TermsOfServicePage() {
         <p>
           <strong>Reverse engineering is explicitly fine.</strong> A template would forbid
           it here. Read the source, audit the cryptography, modify it, run your own fork —
-          that is the point of shipping it this way, and a security claim you are not
-          allowed to verify is not one worth making.
+          the Apache License 2.0 grants you all of that, and a security claim you are not
+          allowed to verify is not one worth making. The licence asks two things back:
+          keep the notices, and mark the files you changed.
         </p>
 
         <h2>5. Third-Party Services and Integrations</h2>
@@ -190,10 +191,12 @@ export default function TermsOfServicePage() {
 
         <h2>9. General</h2>
         <p>
-          <strong>Entire agreement:</strong> these terms, together with any licence file
-          published in the repository, are the whole of the agreement about using this
-          software. Changes take effect when posted here, and material ones are recorded
-          on the <Link href="/changelog">changelog</Link>.
+          <strong>Entire agreement:</strong> these terms, together with the{" "}
+          <strong>Apache License 2.0</strong> in the repository, are the whole of the
+          agreement about using this software. Where the two meet, the licence governs the
+          software and these terms govern the hosted service. Changes take effect when
+          posted here, and material ones are recorded on the{" "}
+          <Link href="/changelog">changelog</Link>.
         </p>
         <p>
           <strong>Contact Us:</strong> If you have any questions about these Terms, please
