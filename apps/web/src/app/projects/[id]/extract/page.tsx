@@ -80,7 +80,18 @@ export default async function ExtractDashboardPage({
       .in("screen_status", ["INCLUDED", "READING", "EXTRACTED", "SYNTHESIZED"]),
     supabase
       .from("project_members")
-      .select("user_id, users ( display_name )")
+      /*
+       * `users!project_members_user_id_fkey`, not `users`.
+       *
+       * Naming the constraint became necessary the moment
+       * `project_members.invited_by` gained a foreign key of its own: there are
+       * now TWO relationships between `project_members` and `users`, and
+       * PostgREST refuses to guess, with "Could not embed because more than
+       * one relationship was found". An implicit embed is only unambiguous
+       * while there is exactly one way through, which is a property of the
+       * schema and not of this query.
+       */
+      .select("user_id, users!project_members_user_id_fkey ( display_name )")
       .eq("project_id", id)
       .is("removed_at", null),
   ]);

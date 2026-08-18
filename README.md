@@ -182,6 +182,24 @@ Two things that will bite otherwise:
 Google Docs/Drive/Sheets integration and the collaboration relay are optional;
 `.env.example` documents their variables and the app works without them.
 
+### One thing that needs a scheduler
+
+Deleting an account waits 30 days before it is carried out, and **this app has
+no background worker** — so something has to call the endpoint that does it:
+
+```bash
+curl -X POST https://your-instance/tasks/purge-accounts \
+     -H "Authorization: Bearer $PURGE_TASK_SECRET"
+```
+
+On the hosted service that is a daily Vercel Cron. On your own copy it is your
+cron, or you, and until it runs an account that asked to be deleted is still
+waiting. Set `PURGE_TASK_SECRET` or the endpoint refuses every request — which
+is the right failure, but it is a failure.
+
+Somebody who wants their account gone immediately can tick the box on the
+account page, which skips the wait entirely and needs no cron at all.
+
 ---
 
 ## Working on it

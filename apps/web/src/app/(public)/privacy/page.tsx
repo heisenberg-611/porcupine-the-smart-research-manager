@@ -199,8 +199,11 @@ export default function PrivacyPolicyPage() {
           deletion, and because the database is yours, SQL covers anything the app does
           not. Nothing expires, nothing is archived on your behalf, and nothing is kept
           after you delete it. On the hosted service backups are the operator&rsquo;s to
-          schedule and purge; on your own copy they are yours. Removing a member rotates
-          the project key, so they cannot read what is said after they leave.
+          schedule and purge; on your own copy they are yours. Removing a member, or a
+          member deleting their account, flags the project key for rotation — and the
+          rotation itself happens in a browser, when one of that project&rsquo;s admins
+          next unlocks it. Until then, somebody who kept a copy of the key could still
+          read new messages. The server cannot rotate a key it does not hold.
         </p>
 
         <h2>Changes</h2>

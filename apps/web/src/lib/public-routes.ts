@@ -37,6 +37,22 @@ export const PUBLIC_PATHS = [
  */
 export const AUTH_PATHS = ["/sign-in", "/auth"] as const;
 
+/**
+ * Reachable without a session, and not a page at all.
+ *
+ * The scheduled-purge endpoint authenticates itself with a shared secret and
+ * runs from a cron with no cookies, so the middleware must let it through —
+ * but it is emphatically not a marketing page and must not get the public
+ * shell, so it is a third list rather than an entry in either of the two
+ * above.
+ *
+ * It is `/tasks/...` and deliberately NOT `/api/...`: `/api` is a marketing
+ * page in this app, `PUBLIC_PATHS` matches it by prefix, and a cron endpoint
+ * that inherited that match would have been public to the middleware by
+ * accident rather than by decision.
+ */
+export const MACHINE_PATHS = ["/tasks"] as const;
+
 /** True for a marketing page — the ones that get the public shell. */
 export function isPublicPage(pathname: string): boolean {
   return PUBLIC_PATHS.some(
@@ -48,6 +64,8 @@ export function isPublicPage(pathname: string): boolean {
 export function isPublicPath(pathname: string): boolean {
   return (
     isPublicPage(pathname) ||
-    AUTH_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+    [...AUTH_PATHS, ...MACHINE_PATHS].some(
+      (p) => pathname === p || pathname.startsWith(`${p}/`),
+    )
   );
 }

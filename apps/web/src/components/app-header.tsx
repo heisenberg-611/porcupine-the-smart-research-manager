@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 
+import { getPendingDeletion } from "@/lib/account-state";
 import { getCurrentUser } from "@/lib/supabase/server";
 
 /**
@@ -20,6 +21,8 @@ import { getCurrentUser } from "@/lib/supabase/server";
 export async function AppHeader() {
   const user = await getCurrentUser();
   if (!user) return null;
+
+  const pendingDeletion = await getPendingDeletion(user.id);
 
   return (
     <>
@@ -63,6 +66,10 @@ export async function AppHeader() {
               {user.email}
             </span>
 
+            <NavLink href="/account" className="hidden sm:inline-flex">
+              Account
+            </NavLink>
+
             <ThemeToggle />
 
             <form action="/auth/sign-out" method="post">
@@ -78,6 +85,29 @@ export async function AppHeader() {
         </nav>
       </header>
       <div className="h-[var(--app-header-h)] shrink-0" aria-hidden />
+
+      {/*
+        The one notice worth putting above every screen.
+        
+        Nothing has happened yet — the account still works and still belongs to
+        its projects — so this is not a warning about a broken state, it is the
+        only place the person will reliably see that a clock is running. It is
+        below the spacer rather than inside the fixed header, so it scrolls away
+        instead of eating 44px of every page for thirty days.
+      */}
+      {pendingDeletion && (
+        <div
+          role="status"
+          className="border-danger/30 bg-danger-soft text-ink text-ui border-b px-6 py-3"
+        >
+          <p className="mx-auto max-w-5xl text-pretty">
+            This account is scheduled for deletion on <strong>{pendingDeletion}</strong>.{" "}
+            <Link href="/account" className="text-accent underline underline-offset-4">
+              Keep it
+            </Link>
+          </p>
+        </div>
+      )}
     </>
   );
 }

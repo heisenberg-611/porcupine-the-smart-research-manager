@@ -88,7 +88,10 @@ export default async function ProjectPage({
         supabase
           .from("project_members")
           .select(
-            "id, user_id, access_role, history_access, joined_at, users(display_name, email)",
+            // See the note in extract/page.tsx: two relationships now exist
+            // between project_members and users, so the embed names which.
+            "id, user_id, access_role, history_access, joined_at, " +
+              "users!project_members_user_id_fkey(display_name, email)",
           )
           .eq("project_id", id)
           .is("removed_at", null)
