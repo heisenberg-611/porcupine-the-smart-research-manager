@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import { useProjectActivity } from "@/lib/use-project-activity";
+
 import { InlineUnlock } from "@/components/inline-unlock";
 import { SetUpEncryption } from "@/components/set-up-encryption";
 import { Banner, Button, Card, Field, Input } from "@/components/ui";
@@ -149,22 +151,34 @@ export function MessagesClient({ projectId }: { projectId: string }) {
   /*
    * Refetch when the tab comes back to the front.
    *
-   * There is no live delivery here, and that is a deliberate gap rather than
-   * an oversight. Supabase Realtime bills per delivered message PER
-   * SUBSCRIBER — the v6 replan found that and it is why presence and read
-   * receipts were deferred on cost — so a socket held open per member per
-   * channel is the most expensive thing this product could switch on. Polling
-   * is the same bill in a different shape.
-   *
-   * Refocus plus an explicit Refresh covers the case that actually happens
-   * (you were reading something else, you come back) without a subscription.
-   * Live delivery arrives when someone has decided what it is worth.
+   * Kept alongside the subscription below rather than replaced by it: the
+   * realtime container is optional — CI runs without it — and coming back to
+   * a tab is the case that has to work everywhere.
    */
   useEffect(() => {
     const onFocus = () => void loadMessages();
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, [loadMessages]);
+
+  /*
+   * And live, now, at a cost that was worth paying.
+   *
+   * This was deliberately absent, and the reason was money: Supabase Realtime
+   * bills per delivered message PER SUBSCRIBER, so a socket per member per
+   * channel with one delivery per message is the most expensive thing this
+   * product could switch on. That objection was right about per-message
+   * delivery and does not apply to what this subscribes to.
+   *
+   * The signal is one row per project per kind, UPDATED rather than appended,
+   * and the hook debounces to one wake-up per second. A channel arguing about
+   * a paper for ten minutes at conversational speed costs a few dozen events,
+   * not one per message per reader. What arrives carries no content — it
+   * cannot, the table has three columns and none of them is a message — so
+   * this refetches through `loadMessages`, which decrypts in the browser as
+   * it always has.
+   */
+  useProjectActivity(projectId, "messages", () => void loadMessages());
 
   async function addChannel(event: React.FormEvent) {
     event.preventDefault();
