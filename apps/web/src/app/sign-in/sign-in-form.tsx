@@ -149,8 +149,10 @@ export function SignInForm() {
             </svg>
             <span className="font-medium">Continue with Google</span>
           </Button>
-
-          <div className="relative my-2">
+          <p className="text-muted text-ui text-pretty">
+            Use your university address if you have one.
+          </p>
+          <div className="relative">
             <div className="absolute inset-0 flex items-center">
               <div className="border-border w-full border-t"></div>
             </div>
