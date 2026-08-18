@@ -3,7 +3,15 @@
 import { useState } from "react";
 import { createCollaborationFile } from "@/app/projects/[id]/docs/actions";
 
-export function QuickCreateButton({ type, projectId, label }: { type: "doc" | "sheet" | "slide", projectId: string, label: string }) {
+export function QuickCreateButton({
+  type,
+  projectId,
+  label,
+}: {
+  type: "doc" | "sheet" | "slide";
+  projectId: string;
+  label: string;
+}) {
   const [pending, setPending] = useState(false);
 
   return (
@@ -11,7 +19,11 @@ export function QuickCreateButton({ type, projectId, label }: { type: "doc" | "s
       disabled={pending}
       onClick={async () => {
         setPending(true);
-        const res = await createCollaborationFile({ projectId, title: "New Document", type });
+        const res = await createCollaborationFile({
+          projectId,
+          title: "New Document",
+          type,
+        });
         if (res.ok) {
           if (res.data?.url) {
             window.open(res.data.url, "_blank");
@@ -19,13 +31,16 @@ export function QuickCreateButton({ type, projectId, label }: { type: "doc" | "s
             alert("Failed to create file. URL not returned.");
           }
         } else {
-          alert(res.error || "Failed to create file. You might need to connect your Google account in the Docs tab.");
+          alert(
+            res.error ||
+              "Failed to create file. You might need to connect your Google account in the Docs tab.",
+          );
         }
         setPending(false);
       }}
-      className="text-ui text-left flex h-8 items-center rounded-lg px-3 text-muted hover:text-ink hover:bg-surface/50 transition-all duration-200 hover:translate-x-1 active:scale-95 disabled:opacity-50 disabled:hover:translate-x-0 disabled:active:scale-100"
+      className="text-ui text-muted hover:text-ink hover:bg-surface/50 flex h-8 items-center rounded-lg px-3 text-left transition-all duration-200 hover:translate-x-1 active:scale-95 disabled:opacity-50 disabled:hover:translate-x-0 disabled:active:scale-100"
     >
-      <span className="mr-3 text-muted/50">{pending ? "..." : "+"}</span> {label}
+      <span className="text-muted/50 mr-3">{pending ? "..." : "+"}</span> {label}
     </button>
   );
 }

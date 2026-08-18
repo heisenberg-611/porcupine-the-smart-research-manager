@@ -80,7 +80,7 @@ export default async function ProjectLayout({
           sections={sections}
           isOwner={isOwner}
         />
-        <div className="min-w-0 flex-1 lg:overflow-y-auto px-4 sm:px-6 lg:px-12 py-8">
+        <div className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:overflow-y-auto lg:px-12">
           {children}
         </div>
       </div>

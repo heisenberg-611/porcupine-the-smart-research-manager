@@ -50,116 +50,116 @@ export const SECTION_GROUPS: readonly SectionGroup[] = [
 const ALL_SECTIONS: ReadonlyArray<
   ProjectSection & { requires?: keyof ProjectCapabilities }
 > = [
-    {
-      // First in the workflow, because it is first in the work: the keywords
-      // here are what search ranks against, so a project that skips this ranks
-      // nothing. It used to have no screen at all — see the actions file.
-      slug: "questions",
-      label: "Research questions",
-      group: "Collect",
-      blurb: "What the review asks. Search is ranked against these.",
-    },
-    {
-      slug: "search",
-      label: "Find papers",
-      group: "Collect",
-      blurb: "Search five sources at once. Duplicates are merged.",
-    },
-    {
-      slug: "import",
-      label: "Import",
-      group: "Collect",
-      blurb: "Paste BibTeX or RIS from a reference manager.",
-    },
-    {
-      slug: "library",
-      label: "Library",
-      group: "Collect",
-      blurb: "Everything in the project, filterable by status.",
-    },
-    {
-      slug: "screen",
-      label: "Screen",
-      group: "Screen",
-      blurb: "Decide what is in, one paper at a time.",
-    },
-    {
-      slug: "progress",
-      label: "Progress",
-      group: "Screen",
-      blurb: "How much is done, by whom, and how fast.",
-    },
-    {
-      slug: "prisma",
-      label: "PRISMA",
-      group: "Screen",
-      blurb: "The flow diagram, built from real decisions.",
-      // NOT gated, despite `capabilities().prismaDiagram` existing and being
-      // false for a thesis. The page renders the diagram for every project kind;
-      // the flag only controls a note saying exclusion reasons were optional
-      // here, so the boxes may be sparse. Hiding the section on the strength of
-      // the flag's NAME removed a working feature from three project kinds —
-      // caught by an existing e2e test that clicks through to PRISMA in a
-      // THESIS. Read what the destination does, not what the capability is
-      // called.
-    },
-    {
-      // "Protocol" is the methodology term, and it hid the feature from the
-      // person who asked for it: what this screen defines is the set of things
-      // everyone records about every paper. The route, the table and the docs
-      // keep the word; the label says what it does.
-      //
-      // In Collect, not Extract. It must exist before any extraction happens,
-      // and it should shape what you collect — meeting it after screening is
-      // meeting it too late to change anything.
-      slug: "protocol",
-      label: "Protocol",
-      group: "Collect",
-      blurb: "What everyone records about every paper, so papers can be compared.",
-    },
-    {
-      slug: "extract",
-      label: "Extract papers",
-      group: "Extract",
-      blurb: "Track and manage paper extractions by member.",
-    },
-    {
-      slug: "reconcile",
-      label: "Reconcile",
-      group: "Extract",
-      blurb: "Resolve where two extractors disagreed.",
-      requires: "dualExtraction",
-    },
-    {
-      slug: "evidence",
-      label: "Evidence",
-      group: "Synthesise",
-      blurb: "Papers as rows, protocol fields as columns. Exports.",
-    },
-    {
-      slug: "docs",
-      label: "Collaboration Docs",
-      group: "Synthesise",
-      blurb: "Shared Google Docs and Sheets for this project.",
-    },
-    {
-      slug: "messages",
-      label: "Messages",
-      group: "Synthesise",
-      blurb: "Encrypted conversation. The server cannot read it.",
-    },
-    {
-      // Named after the job, not the mechanism. It was "Encryption", which is
-      // what the page uses rather than what it is for — and it stopped being a
-      // stop on the way to a conversation when messages absorbed setup, so what
-      // is left here is the administrative work: rotation, removal, devices,
-      // safety numbers.
-      slug: "keys",
-      label: "Keys & members",
-      group: "Synthesise",
-      blurb: "The project's content key, and who holds a copy.",
-    },
-  ];
+  {
+    // First in the workflow, because it is first in the work: the keywords
+    // here are what search ranks against, so a project that skips this ranks
+    // nothing. It used to have no screen at all — see the actions file.
+    slug: "questions",
+    label: "Research questions",
+    group: "Collect",
+    blurb: "What the review asks. Search is ranked against these.",
+  },
+  {
+    slug: "search",
+    label: "Find papers",
+    group: "Collect",
+    blurb: "Search five sources at once. Duplicates are merged.",
+  },
+  {
+    slug: "import",
+    label: "Import",
+    group: "Collect",
+    blurb: "Paste BibTeX or RIS from a reference manager.",
+  },
+  {
+    slug: "library",
+    label: "Library",
+    group: "Collect",
+    blurb: "Everything in the project, filterable by status.",
+  },
+  {
+    slug: "screen",
+    label: "Screen",
+    group: "Screen",
+    blurb: "Decide what is in, one paper at a time.",
+  },
+  {
+    slug: "progress",
+    label: "Progress",
+    group: "Screen",
+    blurb: "How much is done, by whom, and how fast.",
+  },
+  {
+    slug: "prisma",
+    label: "PRISMA",
+    group: "Screen",
+    blurb: "The flow diagram, built from real decisions.",
+    // NOT gated, despite `capabilities().prismaDiagram` existing and being
+    // false for a thesis. The page renders the diagram for every project kind;
+    // the flag only controls a note saying exclusion reasons were optional
+    // here, so the boxes may be sparse. Hiding the section on the strength of
+    // the flag's NAME removed a working feature from three project kinds —
+    // caught by an existing e2e test that clicks through to PRISMA in a
+    // THESIS. Read what the destination does, not what the capability is
+    // called.
+  },
+  {
+    // "Protocol" is the methodology term, and it hid the feature from the
+    // person who asked for it: what this screen defines is the set of things
+    // everyone records about every paper. The route, the table and the docs
+    // keep the word; the label says what it does.
+    //
+    // In Collect, not Extract. It must exist before any extraction happens,
+    // and it should shape what you collect — meeting it after screening is
+    // meeting it too late to change anything.
+    slug: "protocol",
+    label: "Protocol",
+    group: "Collect",
+    blurb: "What everyone records about every paper, so papers can be compared.",
+  },
+  {
+    slug: "extract",
+    label: "Extract papers",
+    group: "Extract",
+    blurb: "Track and manage paper extractions by member.",
+  },
+  {
+    slug: "reconcile",
+    label: "Reconcile",
+    group: "Extract",
+    blurb: "Resolve where two extractors disagreed.",
+    requires: "dualExtraction",
+  },
+  {
+    slug: "evidence",
+    label: "Evidence",
+    group: "Synthesise",
+    blurb: "Papers as rows, protocol fields as columns. Exports.",
+  },
+  {
+    slug: "docs",
+    label: "Collaboration Docs",
+    group: "Synthesise",
+    blurb: "Shared Google Docs and Sheets for this project.",
+  },
+  {
+    slug: "messages",
+    label: "Messages",
+    group: "Synthesise",
+    blurb: "Encrypted conversation. The server cannot read it.",
+  },
+  {
+    // Named after the job, not the mechanism. It was "Encryption", which is
+    // what the page uses rather than what it is for — and it stopped being a
+    // stop on the way to a conversation when messages absorbed setup, so what
+    // is left here is the administrative work: rotation, removal, devices,
+    // safety numbers.
+    slug: "keys",
+    label: "Keys & members",
+    group: "Synthesise",
+    blurb: "The project's content key, and who holds a copy.",
+  },
+];
 
 /** The sections this project kind actually has, in workflow order. */
 export function projectSections(

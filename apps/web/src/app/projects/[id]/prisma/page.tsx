@@ -205,18 +205,20 @@ function Row({
     <tr>
       <th
         scope="row"
-        className={`px-4 py-2 text-left font-normal ${indented
-          ? "text-muted text-fine pl-8"
-          : emphasis
-            ? "text-ink font-medium"
-            : "text-ink"
-          }`}
+        className={`px-4 py-2 text-left font-normal ${
+          indented
+            ? "text-muted text-fine pl-8"
+            : emphasis
+              ? "text-ink font-medium"
+              : "text-ink"
+        }`}
       >
         {label}
       </th>
       <td
-        className={`px-4 py-2 text-right tabular-nums ${emphasis ? "text-ink font-semibold" : "text-muted"
-          }`}
+        className={`px-4 py-2 text-right tabular-nums ${
+          emphasis ? "text-ink font-semibold" : "text-muted"
+        }`}
       >
         {value}
       </td>

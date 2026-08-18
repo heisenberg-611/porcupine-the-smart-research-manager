@@ -172,7 +172,8 @@ export function KeysClient({ projectId }: { projectId: string }) {
       }
 
       setStatus(
-        `Epoch ${result.data.epoch} sealed to ${result.data.wraps} ${result.data.wraps === 1 ? "member" : "members"
+        `Epoch ${result.data.epoch} sealed to ${result.data.wraps} ${
+          result.data.wraps === 1 ? "member" : "members"
         }.`,
       );
       await load();

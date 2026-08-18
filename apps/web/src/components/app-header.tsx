@@ -34,10 +34,7 @@ export async function AppHeader() {
         takes the slack on the first row, so the wrap lands in a sensible place
         instead of breaking mid-group.
       */}
-        <nav
-          aria-label="Main"
-          className="flex h-full w-full flex-wrap items-center px-6"
-        >
+        <nav aria-label="Main" className="flex h-full w-full flex-wrap items-center px-6">
           <Link
             href="/"
             className="text-ink text-heading mr-8 hidden font-serif sm:inline"

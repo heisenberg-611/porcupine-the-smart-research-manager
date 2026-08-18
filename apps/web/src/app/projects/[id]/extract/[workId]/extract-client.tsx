@@ -173,12 +173,12 @@ export function ExtractClient({
             selector:
               answer?.selector && answer.selector.startOff !== undefined
                 ? {
-                  quote: answer.selector.quote,
-                  prefix: answer.selector.prefix ?? null,
-                  suffix: answer.selector.suffix ?? null,
-                  startOff: answer.selector.startOff ?? null,
-                  endOff: answer.selector.endOff ?? null,
-                }
+                    quote: answer.selector.quote,
+                    prefix: answer.selector.prefix ?? null,
+                    suffix: answer.selector.suffix ?? null,
+                    startOff: answer.selector.startOff ?? null,
+                    endOff: answer.selector.endOff ?? null,
+                  }
                 : null,
           };
         }),
@@ -227,12 +227,12 @@ export function ExtractClient({
             selector:
               answer?.selector && answer.selector.startOff !== undefined
                 ? {
-                  quote: answer.selector.quote,
-                  prefix: answer.selector.prefix ?? null,
-                  suffix: answer.selector.suffix ?? null,
-                  startOff: answer.selector.startOff ?? null,
-                  endOff: answer.selector.endOff ?? null,
-                }
+                    quote: answer.selector.quote,
+                    prefix: answer.selector.prefix ?? null,
+                    suffix: answer.selector.suffix ?? null,
+                    startOff: answer.selector.startOff ?? null,
+                    endOff: answer.selector.endOff ?? null,
+                  }
                 : null,
           };
         }),
@@ -252,9 +252,9 @@ export function ExtractClient({
 
   return (
     <div className="flex flex-col gap-4 lg:h-full">
-      <div className="sticky top-[calc(var(--app-header-h)+var(--project-nav-h))] lg:-top-8 z-30 bg-canvas pt-8 pb-4 -mx-6 px-6">
+      <div className="bg-canvas sticky top-[calc(var(--app-header-h)+var(--project-nav-h))] z-30 -mx-6 px-6 pt-8 pb-4 lg:-top-8">
         {pageHeader}
-        <div className="grid gap-8 lg:grid-cols-[1fr_1fr] mt-8 border-b border-rule pb-2">
+        <div className="border-rule mt-8 grid gap-8 border-b pb-2 lg:grid-cols-[1fr_1fr]">
           <h2 className="text-ink text-heading">The paper</h2>
           <div className="flex flex-wrap items-baseline justify-between gap-x-4">
             <h2 className="text-ink text-heading">The questions</h2>
@@ -269,7 +269,7 @@ export function ExtractClient({
         </div>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-[1fr_1fr] lg:flex-1 lg:min-h-0">
+      <div className="grid gap-8 lg:min-h-0 lg:flex-1 lg:grid-cols-[1fr_1fr]">
         <section className="lg:overflow-y-auto lg:pr-2 lg:pb-8">
           {text ? (
             <div
@@ -277,8 +277,9 @@ export function ExtractClient({
               data-testid="extract-source"
               onMouseUp={capture}
               onKeyUp={capture}
-              className={`prose-body border-rule py-4 ${capturing ? "ring-accent bg-accent-soft/40 rounded px-3 ring-2" : ""
-                }`}
+              className={`prose-body border-rule py-4 ${
+                capturing ? "ring-accent bg-accent-soft/40 rounded px-3 ring-2" : ""
+              }`}
             >
               {text}
             </div>
@@ -303,7 +304,6 @@ export function ExtractClient({
         </section>
 
         <section className="space-y-6 lg:overflow-y-auto lg:pr-2 lg:pb-8">
-
           {missing.length > 0 && (
             <Banner tone="danger">
               <p className="font-medium">These required fields are still empty:</p>
@@ -313,7 +313,10 @@ export function ExtractClient({
                     {/* A link to the field, not just its name. On a twenty-field
                       form, naming a field the reader then has to hunt for is
                       most of the work left undone. */}
-                    <a href={`#field-${field.id}`} className="underline underline-offset-2">
+                    <a
+                      href={`#field-${field.id}`}
+                      className="underline underline-offset-2"
+                    >
                       {field.label}
                     </a>
                   </li>
@@ -338,10 +341,11 @@ export function ExtractClient({
                 <div
                   key={field.id}
                   id={`field-${field.id}`}
-                  className={`border-rule scroll-mt-32 border-b pb-5 last:border-b-0 ${missing.some((m) => m.id === field.id)
-                    ? "border-danger -ml-3 border-l-2 pl-3"
-                    : ""
-                    }`}
+                  className={`border-rule scroll-mt-32 border-b pb-5 last:border-b-0 ${
+                    missing.some((m) => m.id === field.id)
+                      ? "border-danger -ml-3 border-l-2 pl-3"
+                      : ""
+                  }`}
                 >
                   <label
                     htmlFor={`f-${field.id}`}
@@ -370,7 +374,9 @@ export function ExtractClient({
                             {answer.text}
                           </blockquote>
                         ) : (
-                          <p className="text-muted text-fine italic">Nothing quoted yet.</p>
+                          <p className="text-muted text-fine italic">
+                            Nothing quoted yet.
+                          </p>
                         )}
 
                         {!frozen && (
