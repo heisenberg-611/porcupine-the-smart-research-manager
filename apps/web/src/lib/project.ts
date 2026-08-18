@@ -51,16 +51,33 @@ export const getProject = cache(async (id: string): Promise<ProjectShell | null>
   return (project as ProjectShell | null) ?? null;
 });
 
+/**
+ * This person's role in this project, or null if they are not a member.
+ *
+ * `maybeSingle()`, not `single()`. A non-member is the expected case here —
+ * every caller uses this to decide whether to show a control — and `single()`
+ * makes that case an ERROR, which the bare `const { data }` destructure this
+ * used to have then swallowed into `null`. Same answer, by accident, and the
+ * accident covered real failures too: a broken embed or an RLS denial also
+ * arrived as null, so a permission bug in this query would have quietly
+ * demoted everyone to no role rather than showing anything was wrong.
+ *
+ * With `maybeSingle` the absent row is data — null — and `must` is free to
+ * throw on the failures that are genuinely failures.
+ */
 export const getProjectRole = cache(
   async (projectId: string, userId: string): Promise<string | null> => {
     const supabase = await createClient();
-    const { data } = await supabase
-      .from("project_members")
-      .select("access_role")
-      .eq("project_id", projectId)
-      .eq("user_id", userId)
-      .single();
-    
-    return data?.access_role ?? null;
-  }
+    const member = await must(
+      supabase
+        .from("project_members")
+        .select("access_role")
+        .eq("project_id", projectId)
+        .eq("user_id", userId)
+        .maybeSingle(),
+      "your role in this project",
+    );
+
+    return (member as { access_role: string } | null)?.access_role ?? null;
+  },
 );

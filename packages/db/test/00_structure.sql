@@ -62,17 +62,27 @@ select is_empty(
 
 -- ── Rule 4: the application role is unprivileged ────────────────────────────
 
+-- Lower case, because that is the name Postgres actually stored.
+--
+-- The baseline migration says `create role Porcupine_app nologin` with no
+-- quotes, and an unquoted identifier is folded to lower case — so `pg_roles`
+-- holds `porcupine_app`. These three assertions compared against the mixed-case
+-- spelling, matched no row, and `ok(NULL)` is a failure, not a pass.
+--
+-- The `set local role Porcupine_app` in every other test file is unquoted too,
+-- so it folds the same way and has always worked. Only a comparison against a
+-- STRING is case-sensitive, which is why this was the one place it showed.
 select ok(
-  not (select rolbypassrls from pg_roles where rolname = 'Porcupine_app'),
-  'Porcupine_app cannot bypass RLS'
+  not (select rolbypassrls from pg_roles where rolname = 'porcupine_app'),
+  'porcupine_app cannot bypass RLS'
 );
 select ok(
-  not (select rolsuper from pg_roles where rolname = 'Porcupine_app'),
-  'Porcupine_app is not a superuser'
+  not (select rolsuper from pg_roles where rolname = 'porcupine_app'),
+  'porcupine_app is not a superuser'
 );
 select ok(
-  not (select rolcreaterole from pg_roles where rolname = 'Porcupine_app'),
-  'Porcupine_app cannot create roles'
+  not (select rolcreaterole from pg_roles where rolname = 'porcupine_app'),
+  'porcupine_app cannot create roles'
 );
 
 -- ── Rule 5: append-only tables have no UPDATE or DELETE policy ──────────────

@@ -93,7 +93,21 @@ test.describe("Phase 0 exit criterion", () => {
     await goto(page, "/sign-in");
 
     await page.getByLabel("Email").fill(email);
-    await page.getByRole("button", { name: /email me a code/i }).click();
+    /*
+     * `/email me a .*code/`, not `/email me a code/`.
+     *
+     * The button says "Email me a login code" or "Email me a signup code"
+     * depending on which mode the form is in — a distinction worth having, and
+     * one that broke every spec in this directory when it landed, because all
+     * nine of them matched on the exact old string. Twenty-four tests failed
+     * with "Target page, context or browser has been closed", which is what a
+     * locator that never resolves looks like once the timeout kills the
+     * context, and says nothing at all about a renamed button.
+     *
+     * Same for the code field below: its label is "Verification code" now, not
+     * "six-digit code".
+     */
+    await page.getByRole("button", { name: /email me a .*code/i }).click();
 
     await expect(page.getByLabel(/verification code/i)).toBeVisible();
 
@@ -176,7 +190,7 @@ test.describe("Phase 0 exit criterion", () => {
     await page.getByRole("link", { name: /transformer efficiency/i }).click();
 
     await page.getByLabel("Email").fill(inviteeEmail);
-    await page.getByLabel("Role").selectOption("REVIEWER");
+    await page.getByLabel("Role", { exact: true }).selectOption("REVIEWER");
 
     // ADR-006: the history prompt appears only for reviewers, which is the
     // case where it carries weight.
@@ -647,6 +661,22 @@ test.describe("Phase 0 exit criterion", () => {
     // And reopening is a door, not a wall.
     await page.getByRole("button", { name: /reopen as a draft/i }).click();
     await expect(page.getByLabel(/^dataset/i)).toBeEnabled();
+
+    /*
+     * Submit it again, so this test hands the next one a submitted extraction.
+     *
+     * The evidence table stopped showing DRAFT rows in 20260816211000, which
+     * is right — a table of half-typed answers is not something a supervisor
+     * can be sent. This test used to end on the reopen, leaving the only
+     * extraction in the project as a draft, so the very next test found an
+     * empty evidence table and failed on a locator rather than on the rule
+     * that had changed.
+     *
+     * Restoring the state is the honest fix. Making the next test tolerate an
+     * empty table would delete the assertion it exists for.
+     */
+    await page.getByRole("button", { name: /^submit$/i }).click();
+    await expect(page.getByRole("status")).toContainText(/frozen/i);
   });
 
   test("the evidence table shows the extraction, holes included", async () => {

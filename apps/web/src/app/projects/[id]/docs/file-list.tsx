@@ -1,19 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Card, Input } from "@/components/ui";
+import { Button, Card, Input, Select } from "@/components/ui";
 import { createCollaborationFile, fetchFolderContents, shareFileAction } from "./actions";
-
-interface DriveFile {
-  id: string | null | undefined;
-  name: string | null | undefined;
-  mimeType: string | null | undefined;
-  webViewLink: string | null | undefined;
-  iconLink: string | null | undefined;
-  modifiedTime: string | null | undefined;
-  createdTime?: string | null | undefined;
-  owners?: Array<{ displayName?: string | null; photoLink?: string | null }> | null;
-}
+import type { DriveFile } from "./drive-file";
 
 export function FileList({
   projectId,
@@ -32,9 +22,11 @@ export function FileList({
   const [shareEmail, setShareEmail] = useState("");
   const [shareRole, setShareRole] = useState<"reader" | "commenter" | "writer">("reader");
   const [isSharing, setIsSharing] = useState(false);
-  
+
   // Navigation state
-  const [folderStack, setFolderStack] = useState<{ id: string, name: string }[]>([{ id: rootFolderId, name: "Root" }]);
+  const [folderStack, setFolderStack] = useState<{ id: string; name: string }[]>([
+    { id: rootFolderId, name: "Root" },
+  ]);
   const [currentFiles, setCurrentFiles] = useState<DriveFile[]>(initialFiles);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -44,7 +36,7 @@ export function FileList({
     let defaultTitle = "New Document";
     if (type === "sheet") defaultTitle = "New Spreadsheet";
     if (type === "slide") defaultTitle = "New Presentation";
-    
+
     const title = newName.trim() || defaultTitle;
     setPendingType(type);
     setError(null);
@@ -98,7 +90,7 @@ export function FileList({
     e.preventDefault();
     e.stopPropagation();
     if (!shareEmail.trim() || !fileId) return;
-    
+
     setIsSharing(true);
     setError(null);
     const res = await shareFileAction({ fileId, email: shareEmail, role: shareRole });
@@ -120,41 +112,50 @@ export function FileList({
           <h2 className="text-ink text-heading font-medium">Shared Files</h2>
           {folderStack.length > 1 && (
             <span className="text-muted text-ui font-mono">
-              / {folderStack.slice(1).map(f => f.name).join(" / ")}
+              /{" "}
+              {folderStack
+                .slice(1)
+                .map((f) => f.name)
+                .join(" / ")}
             </span>
           )}
         </div>
-        
-        <div className="flex flex-wrap items-end gap-4 p-5 border rounded-xl bg-surface border-border shadow-sm">
-          <div className="flex-1 min-w-[200px]">
-            <label htmlFor="newFileName" className="block text-fine text-muted font-medium mb-1.5 uppercase tracking-wider">New File Name</label>
-            <Input 
+
+        <div className="bg-surface border-border flex flex-wrap items-end gap-4 rounded-xl border p-5 shadow-sm">
+          <div className="min-w-[200px] flex-1">
+            <label
+              htmlFor="newFileName"
+              className="text-fine text-muted mb-1.5 block font-medium tracking-wider uppercase"
+            >
+              New File Name
+            </label>
+            <Input
               id="newFileName"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="e.g. Brainstorming Notes"
-              className="h-10 bg-canvas"
+              className="bg-canvas h-10"
             />
           </div>
           <div className="flex items-center gap-2">
-            <Button 
-              onClick={() => handleCreate("doc")} 
+            <Button
+              onClick={() => handleCreate("doc")}
               disabled={pendingType !== null}
-              className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all active:scale-95 h-10 px-4"
+              className="h-10 bg-blue-600 px-4 text-white shadow-sm transition-all hover:bg-blue-700 active:scale-95"
             >
               {pendingType === "doc" ? "Creating..." : "+ Create Doc"}
             </Button>
-            <Button 
-              onClick={() => handleCreate("sheet")} 
+            <Button
+              onClick={() => handleCreate("sheet")}
               disabled={pendingType !== null}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all active:scale-95 h-10 px-4"
+              className="h-10 bg-emerald-600 px-4 text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-95"
             >
               {pendingType === "sheet" ? "Creating..." : "+ Create Sheet"}
             </Button>
-            <Button 
-              onClick={() => handleCreate("slide")} 
+            <Button
+              onClick={() => handleCreate("slide")}
               disabled={pendingType !== null}
-              className="bg-amber-500 hover:bg-amber-600 text-white shadow-sm transition-all active:scale-95 h-10 px-4"
+              className="h-10 bg-amber-500 px-4 text-white shadow-sm transition-all hover:bg-amber-600 active:scale-95"
             >
               {pendingType === "slide" ? "Creating..." : "+ Create Slide"}
             </Button>
@@ -166,7 +167,7 @@ export function FileList({
 
       <div className="flex flex-col gap-2">
         {folderStack.length > 1 && (
-          <Button onClick={navigateUp} variant="ghost" className="self-start text-muted">
+          <Button onClick={navigateUp} variant="ghost" className="text-muted self-start">
             &larr; Back to parent
           </Button>
         )}
@@ -179,44 +180,62 @@ export function FileList({
           <ul className="flex flex-col gap-2">
             {currentFiles.map((file) => (
               <li key={file.id ?? Math.random().toString()}>
-                <Card className="p-4 hover:border-accent transition-colors">
+                <Card className="hover:border-accent p-4 transition-colors">
                   <div className="flex items-start gap-3">
-                    <a 
-                      href={file.webViewLink ?? "#"} 
-                      target={file.mimeType === "application/vnd.google-apps.folder" ? "_self" : "_blank"} 
+                    <a
+                      href={file.webViewLink ?? "#"}
+                      target={
+                        file.mimeType === "application/vnd.google-apps.folder"
+                          ? "_self"
+                          : "_blank"
+                      }
                       rel="noreferrer"
-                      className="flex-1 flex items-start gap-3 group min-w-0"
+                      className="group flex min-w-0 flex-1 items-start gap-3"
                       onClick={(e) => handleFileClick(e, file)}
                     >
                       {file.iconLink && (
-                        <img src={file.iconLink} alt="" className="w-6 h-6 object-contain mt-1" />
+                        <img
+                          src={file.iconLink}
+                          alt=""
+                          className="mt-1 h-6 w-6 object-contain"
+                        />
                       )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-ink text-ui font-medium truncate group-hover:text-accent transition-colors">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-ink text-ui group-hover:text-accent truncate font-medium transition-colors">
                           {file.name}
                         </p>
-                        
-                        <div className="flex items-center gap-3 mt-1">
+
+                        <div className="mt-1 flex items-center gap-3">
                           {file.owners && file.owners[0] && (
-                            <div className="flex items-center gap-1.5 text-muted text-fine">
+                            <div className="text-muted text-fine flex items-center gap-1.5">
                               {file.owners[0].photoLink && (
-                                <img src={file.owners[0].photoLink} alt="" className="w-4 h-4 rounded-full" />
+                                <img
+                                  src={file.owners[0].photoLink}
+                                  alt=""
+                                  className="h-4 w-4 rounded-full"
+                                />
                               )}
                               <span>{file.owners[0].displayName}</span>
                             </div>
                           )}
                           <p className="text-muted text-fine">
-                            {file.createdTime ? `Created ${new Date(file.createdTime).toLocaleDateString()}` : file.modifiedTime ? `Modified ${new Date(file.modifiedTime).toLocaleDateString()}` : ''}
+                            {file.createdTime
+                              ? `Created ${new Date(file.createdTime).toLocaleDateString()}`
+                              : file.modifiedTime
+                                ? `Modified ${new Date(file.modifiedTime).toLocaleDateString()}`
+                                : ""}
                           </p>
                         </div>
                       </div>
                     </a>
 
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       onClick={(e) => {
                         e.preventDefault();
-                        setSharingFileId(sharingFileId === file.id ? null : (file.id ?? null));
+                        setSharingFileId(
+                          sharingFileId === file.id ? null : (file.id ?? null),
+                        );
                         setShareEmail("");
                       }}
                     >
@@ -225,28 +244,37 @@ export function FileList({
                   </div>
 
                   {sharingFileId === file.id && (
-                    <div className="mt-4 pt-4 border-t border-border flex items-end gap-3" onClick={(e) => e.stopPropagation()}>
+                    <div
+                      className="border-border mt-4 flex items-end gap-3 border-t pt-4"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <div className="flex-1">
-                        <label className="block text-fine text-muted mb-1">Email Address</label>
-                        <Input 
+                        <label className="text-fine text-muted mb-1 block">
+                          Email Address
+                        </label>
+                        <Input
                           value={shareEmail}
                           onChange={(e) => setShareEmail(e.target.value)}
                           placeholder="colleague@example.com"
                         />
                       </div>
                       <div>
-                        <label className="block text-fine text-muted mb-1">Role</label>
-                        <select 
-                          className="h-10 px-3 rounded-lg border border-border bg-surface text-ui"
+                        <label className="text-fine text-muted mb-1 block">Role</label>
+                        <Select
+                          compact
                           value={shareRole}
-                          onChange={(e) => setShareRole(e.target.value as "reader" | "commenter" | "writer")}
+                          onChange={(e) =>
+                            setShareRole(
+                              e.target.value as "reader" | "commenter" | "writer",
+                            )
+                          }
                         >
                           <option value="reader">Viewer</option>
                           <option value="commenter">Commenter</option>
                           <option value="writer">Editor</option>
-                        </select>
+                        </Select>
                       </div>
-                      <Button 
+                      <Button
                         onClick={(e) => file.id && handleShare(e, file.id)}
                         disabled={isSharing || !shareEmail}
                       >

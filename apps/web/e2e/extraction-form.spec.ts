@@ -58,8 +58,8 @@ async function signInAndEnroll(browser: Browser, email: string): Promise<Page> {
   const page = await context.newPage();
   await goto(page, "/sign-in");
   await page.getByLabel("Email").fill(email);
-  await page.getByRole("button", { name: /email me a code/i }).click();
-  await page.getByLabel(/six-digit code/i).fill(await fetchOtp(email));
+  await page.getByRole("button", { name: /email me a .*code/i }).click();
+  await page.getByLabel(/verification code/i).fill(await fetchOtp(email));
   await page.getByRole("button", { name: /^sign in$/i }).click();
   await page.waitForURL(/\/(enroll|dashboard|projects)/);
 

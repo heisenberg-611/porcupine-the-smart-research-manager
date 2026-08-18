@@ -1,11 +1,19 @@
 "use server";
 
 import { cookies } from "next/headers";
+
+import type { DriveFile } from "./drive-file";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getUserClaims } from "@/lib/supabase/server";
 import { withUserContext } from "@/server/db";
-import { createGoogleDoc, createGoogleSheet, createGoogleSlide, listFolderFiles, shareGoogleFile } from "@/lib/google";
+import {
+  createGoogleDoc,
+  createGoogleSheet,
+  createGoogleSlide,
+  listFolderFiles,
+  shareGoogleFile,
+} from "@/lib/google";
 import type { ActionResult } from "../../actions";
 
 const CreateFileInput = z.object({
@@ -21,7 +29,7 @@ const ShareFileInput = z.object({
 });
 
 export async function shareFileAction(
-  input: z.infer<typeof ShareFileInput>
+  input: z.infer<typeof ShareFileInput>,
 ): Promise<ActionResult> {
   const claims = await getUserClaims();
   if (!claims) return { ok: false, error: "Not signed in." };
@@ -49,7 +57,7 @@ export async function shareFileAction(
 }
 
 export async function createCollaborationFile(
-  input: z.infer<typeof CreateFileInput>
+  input: z.infer<typeof CreateFileInput>,
 ): Promise<ActionResult<{ url: string | null }>> {
   const claims = await getUserClaims();
   if (!claims) return { ok: false, error: "Not signed in." };
@@ -93,13 +101,27 @@ export async function createCollaborationFile(
         if (type === "doc") {
           result = await createGoogleDoc(providerToken, title, projectId, targetFolderId);
         } else if (type === "slide") {
-          result = await createGoogleSlide(providerToken, title, projectId, targetFolderId);
+          result = await createGoogleSlide(
+            providerToken,
+            title,
+            projectId,
+            targetFolderId,
+          );
         } else {
-          result = await createGoogleSheet(providerToken, title, projectId, targetFolderId);
+          result = await createGoogleSheet(
+            providerToken,
+            title,
+            projectId,
+            targetFolderId,
+          );
         }
       } catch (e: unknown) {
         console.error("Failed to create file", e);
-        return { ok: false, error: "Failed to create file in Google Drive. Ensure your Google account is connected and you have write permissions to the shared folder." };
+        return {
+          ok: false,
+          error:
+            "Failed to create file in Google Drive. Ensure your Google account is connected and you have write permissions to the shared folder.",
+        };
       }
 
       revalidatePath(`/projects/${projectId}/docs`);
@@ -107,12 +129,26 @@ export async function createCollaborationFile(
     });
   } catch (e: unknown) {
     console.error("createCollaborationFile failed:", e);
-    return { ok: false, error: e instanceof Error ? e.message : "Failed to create file. Check permissions." };
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Failed to create file. Check permissions.",
+    };
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function fetchFolderContents(folderId: string): Promise<ActionResult<any[]>> {
+/*
+ * The return type is a Drive entry, not `any[]`.
+ *
+ * It was `any[]` behind an `eslint-disable-next-line`, and the directive was
+ * on the wrong line — it covered the `export async function` and not the
+ * `any` three lines below it, so ESLint reported both an unused directive and
+ * the error it was meant to suppress. `DriveFile` is the shape the client was
+ * already assuming; see `drive-file.ts` for why it is declared there rather
+ * than in either of the two files that use it.
+ */
+export async function fetchFolderContents(
+  folderId: string,
+): Promise<ActionResult<DriveFile[]>> {
   const claims = await getUserClaims();
   if (!claims) return { ok: false, error: "Not signed in." };
 

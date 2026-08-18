@@ -144,15 +144,36 @@ export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
   );
 }
 
-export function Select({ className, ...props }: ComponentProps<"select">) {
+/**
+ * `compact` is a variant, not a className override — same reason as `Input`.
+ *
+ * `cx` is a plain join; there is no tailwind-merge in this repo. Passing
+ * `className="w-auto"` to a control whose base list contains `w-full` does not
+ * replace it, it appends a second width utility of equal specificity and lets
+ * the stylesheet's emission order decide. That is not a rule anyone can hold
+ * in their head, so the properties that a caller might reasonably want to
+ * change — width, height, padding, type scale — are chosen HERE, by branch,
+ * and never by concatenation.
+ *
+ * The compact form exists for the two places a select sits inline in a row of
+ * other controls rather than in a form: the member role picker and the Drive
+ * sharing dialog. Both were raw `<select>` elements until the guard caught
+ * them, and both were raw precisely because the full-width primitive did not
+ * fit and overriding it appeared not to work.
+ */
+export function Select({
+  className,
+  compact,
+  ...props
+}: ComponentProps<"select"> & { compact?: boolean }) {
   return (
     <select
       className={cx(
-        "border-border bg-raised text-ink text-ui w-full rounded-xl border px-4 shadow-sm",
-        "min-h-12 transition-all duration-200",
-        "placeholder:text-muted/70",
+        "border-border bg-raised text-ink rounded-xl border shadow-sm",
+        "transition-all duration-200",
         "hover:border-accent/40",
         "focus:border-accent focus-visible:outline-none",
+        compact ? "text-ui min-h-9 rounded-lg px-2" : "text-ui min-h-12 w-full px-4",
         className,
       )}
       {...props}

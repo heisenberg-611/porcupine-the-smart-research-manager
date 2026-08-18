@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { deleteProject } from "@/app/projects/actions";
-import { Button } from "@/components/ui";
+import { Button, Input } from "@/components/ui";
 
 export function DeleteProjectDialog({
   projectId,
@@ -19,7 +19,7 @@ export function DeleteProjectDialog({
   const [error, setError] = useState<string | null>(null);
   // We use state to track confirmation input
   const [confirmText, setConfirmText] = useState("");
-  
+
   const expectedText = projectTitle;
   const canDelete = confirmText === expectedText;
 
@@ -31,7 +31,7 @@ export function DeleteProjectDialog({
     setConfirmText("");
     dialogRef.current?.showModal();
   };
-  
+
   const close = () => {
     dialogRef.current?.close();
   };
@@ -52,7 +52,7 @@ export function DeleteProjectDialog({
 
   const handleDelete = async () => {
     if (!canDelete) return;
-    
+
     setIsDeleting(true);
     setError(null);
 
@@ -71,47 +71,60 @@ export function DeleteProjectDialog({
       <button
         type="button"
         onClick={open}
-        className="w-full text-left px-3 py-2 text-danger hover:bg-danger-soft hover:translate-x-1 rounded-lg text-sm font-semibold transition-all duration-200"
+        className="text-danger hover:bg-danger-soft w-full rounded-lg px-3 py-2 text-left text-sm font-semibold transition-all duration-200 hover:translate-x-1"
       >
         Delete Project
       </button>
 
       <dialog
         ref={dialogRef}
-        className="m-auto backdrop:bg-black/50 backdrop:backdrop-blur-sm bg-raised text-ink border border-danger/30 rounded-xl shadow-2xl p-0 w-full max-w-lg open:animate-in open:fade-in-0 open:zoom-in-95"
+        className="bg-raised text-ink border-danger/30 open:animate-in open:fade-in-0 open:zoom-in-95 m-auto w-full max-w-lg rounded-xl border p-0 shadow-2xl backdrop:bg-black/50 backdrop:backdrop-blur-sm"
       >
-        <div className="p-6 flex flex-col gap-5">
+        <div className="flex flex-col gap-5 p-6">
           <div>
-            <h2 className="text-xl font-bold text-danger mb-2">Delete Project?</h2>
+            <h2 className="text-danger mb-2 text-xl font-bold">Delete Project?</h2>
             <p className="text-ui text-muted leading-relaxed">
-              This action is <strong className="text-ink">permanent and cannot be undone</strong>. 
+              This action is{" "}
+              <strong className="text-ink">permanent and cannot be undone</strong>.
               Deleting this project will immediately destroy:
             </p>
-            <ul className="list-disc list-inside mt-3 space-y-1 text-ui text-muted">
+            <ul className="text-ui text-muted mt-3 list-inside list-disc space-y-1">
               <li>All project data and metadata</li>
               <li>Every uploaded file and PDF</li>
               <li>All member access and roles</li>
               <li>All tasks, extractions, and history</li>
             </ul>
           </div>
-          
-          <div className="bg-danger-soft/50 border border-danger/20 rounded-lg p-4">
-            <label htmlFor="confirm-delete" className="block text-ui font-medium text-ink mb-2">
-              Please type <strong className="font-mono bg-surface px-1 py-0.5 rounded select-all">{expectedText}</strong> to confirm.
+
+          <div className="bg-danger-soft/50 border-danger/20 rounded-lg border p-4">
+            <label
+              htmlFor="confirm-delete"
+              className="text-ui text-ink mb-2 block font-medium"
+            >
+              Please type{" "}
+              <strong className="bg-surface rounded px-1 py-0.5 font-mono select-all">
+                {expectedText}
+              </strong>{" "}
+              to confirm.
             </label>
-            <input
+            {/* The shared primitive. The hand-rolled version here carried
+                `focus:border-danger focus:ring-danger` to make the confirmation
+                field read as dangerous, and neither ever applied: the focus
+                rule this app draws sat outside every cascade layer at the time
+                and outranked both. What it actually produced was the standard
+                indicator plus a red ring nobody ever saw. */}
+            <Input
               id="confirm-delete"
               type="text"
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
-              className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-ink focus:border-danger focus:ring-1 focus:ring-danger focus:outline-none"
               placeholder={expectedText}
               autoComplete="off"
             />
           </div>
 
           {error && (
-            <p className="text-danger text-sm bg-danger-soft px-3 py-2 rounded-lg">
+            <p className="text-danger bg-danger-soft rounded-lg px-3 py-2 text-sm">
               {error}
             </p>
           )}

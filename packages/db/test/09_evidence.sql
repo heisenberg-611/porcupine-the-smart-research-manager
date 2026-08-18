@@ -157,6 +157,23 @@ insert into extraction_values
   (gen_random_uuid(), 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a0000000-0000-0000-0000-000000000005',
    'f0000000-0000-0000-0000-000000000005', '"double"'::jsonb, 'double', null, now(), now());
 
+-- Out of DRAFT, now that the values are in.
+--
+-- `evidence_rows` and `v_question_coverage` gained `status <> 'DRAFT'` in
+-- 20260816211000, and that is right — an evidence table that shows half-typed
+-- drafts is not a table anyone can act on. This file was not updated with it,
+-- so all five fixtures stayed DRAFT, the function returned nothing, and 26 of
+-- the 34 assertions below failed. Including the mutation check, which is the
+-- one that says the zero was not RLS doing its job.
+--
+-- It has to be an UPDATE rather than 'SUBMITTED' in the INSERT above:
+-- `freeze_submitted_extraction_values` refuses to let a value be written into
+-- an extraction that is already submitted, which is the same order a person
+-- goes in — fill it in, then submit.
+update extractions
+   set status = 'SUBMITTED'
+ where project_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+
 set local role Porcupine_app;
 select set_config('request.jwt.claims',
   '{"sub":"22222222-2222-2222-2222-222222222222"}', true);
