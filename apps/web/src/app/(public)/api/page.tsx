@@ -62,9 +62,11 @@ export default function ApiPage() {
 
         <h2>The database is yours</h2>
         <p>
-          porcupineResearch runs on your own PostgreSQL instance, so the fully general
-          answer is SQL. The schema is in <code>supabase/migrations</code> and every table
-          is documented in <code>docs/01-data-model.md</code>.
+          If you run your own copy, the fully general answer is SQL: it is your PostgreSQL
+          instance. The schema is in <code>supabase/migrations</code> and every table is
+          documented in <code>docs/01-data-model.md</code>. On the hosted service this
+          route is not available — you have an account there, not a database — so the
+          exports above are the whole of it.
         </p>
         <p>Two warnings that matter more than they sound:</p>
         <ul>
@@ -98,9 +100,10 @@ export default function ApiPage() {
           written against it is the moment the schema stops being free to change.
         </p>
         <p>
-          Until there is a hosted version, none of that has a reader: an API on a machine
-          only you can reach is an API for one client. So it waits, and the exports are
-          supported in the meantime.
+          None of that is written yet, and until it is, the exports above are the
+          supported route. If an API would change what you can do with your data — rather
+          than merely being tidier than a CSV — that is worth saying in an issue, because
+          the shape of the first real use case is the thing missing.
         </p>
       </div>
 

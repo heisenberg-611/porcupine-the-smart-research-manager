@@ -1,11 +1,8 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 
 import { ButtonLink } from "@/components/ui";
 import { getCurrentUser } from "@/lib/supabase/server";
-
-import logo from "../logo.png";
 
 export const metadata: Metadata = {
   description:
@@ -42,23 +39,24 @@ export default async function Home() {
   const user = await getCurrentUser();
 
   return (
-    <main id="main" className="mx-auto max-w-5xl px-6 py-16 sm:py-24">
-      <header className="border-rule border-b pb-14">
+    <main id="main" className="mx-auto max-w-5xl px-6 py-16 sm:py-13">
+      <header className="border-rule border-b pb-15">
         <p className="text-accent text-fine font-mono tracking-widest uppercase">
           Literature review software
         </p>
 
-        <div className="mt-6 flex items-center gap-5">
-          <Image
-            src={logo}
-            alt=""
-            className="size-16 shrink-0 rounded-2xl object-contain sm:size-20"
-            priority
-          />
-          <h1 className="text-ink font-serif text-4xl leading-tight tracking-tight text-balance sm:text-6xl">
-            Every paper you read, in one defensible pile.
-          </h1>
-        </div>
+        {/*
+          No logo beside the headline.
+
+          It was here, and it is the site header's job now — the header carries
+          the mark and the wordmark on every public page, so a second copy
+          directly below it was the same image twice in the first 200px. The
+          headline gets the whole width instead, which is what a headline that
+          long wants.
+        */}
+        <h1 className="text-ink mt-6 font-serif text-4xl leading-tight tracking-tight text-balance sm:text-6xl">
+          Every paper you read, in one defensible pile.
+        </h1>
 
         {/*
           One paragraph, not three. This said the same thing three times —
@@ -86,7 +84,7 @@ export default async function Home() {
         </div>
       </header>
 
-      <section aria-labelledby="steps" className="mt-16">
+      <section aria-labelledby="steps" className="mt-12">
         <h2 id="steps" className="text-ink text-title font-serif">
           Six stages, in order
         </h2>
@@ -119,7 +117,7 @@ export default async function Home() {
         </ol>
       </section>
 
-      <section aria-labelledby="honest" className="border-rule mt-16 border-t pt-14">
+      <section aria-labelledby="honest" className="border-rule mt-15 border-t pt-12">
         <h2 id="honest" className="text-ink text-title font-serif">
           What it will not do
         </h2>

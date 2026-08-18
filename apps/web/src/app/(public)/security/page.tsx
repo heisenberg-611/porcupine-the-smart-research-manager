@@ -31,7 +31,7 @@ export default function SecurityPage() {
     <main id="main" className="mx-auto flex max-w-4xl flex-col gap-10 px-6 py-16">
       <PageHeader
         title="Security"
-        description="The short version: your messages are unreadable to us, your paper library is not, and the difference is deliberate."
+        description="The short version: your messages are unreadable to us, your paper library is not, and the difference is deliberate. Where you run it changes who “us” means, and that is named below rather than left vague."
       />
 
       <section
@@ -126,9 +126,12 @@ export default function SecurityPage() {
           <li>
             <strong>Whoever runs the server, for the middle tier.</strong> Membership,
             screening decisions, annotations and extracted values are readable by an
-            operator. If your corpus itself is sensitive — which paper set a lab is
-            reading can leak a research direction before publication — that is the fact to
-            take to your privacy office.
+            operator. On the hosted service that is Dhrubojyoti Saha, plus Vercel and
+            Supabase as infrastructure; on a copy you run yourself it is your own database
+            administrator and nobody else. If your corpus itself is sensitive — which
+            paper set a lab is reading can leak a research direction before publication —
+            that is the fact to take to your privacy office, and the reason the
+            self-hosted option exists.
           </li>
           <li>
             <strong>Traffic analysis.</strong> Ciphertext sizes and timing leak. An

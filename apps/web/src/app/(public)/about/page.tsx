@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "How it works",
@@ -82,6 +83,30 @@ export default function AboutPage() {
           The papers themselves, their titles and your screening decisions are not
           encrypted this way. They have to be searchable and countable, and pretending
           otherwise would be a claim we could not keep.
+        </p>
+      </section>
+
+      {/* Between the encryption section and the limits, deliberately. Someone
+          who has just read what the server can and cannot see is exactly the
+          person who wants to know whose server it is. */}
+      <section className="border-rule mt-12 border-t pt-8">
+        <h2 className="text-ink text-title">Where it runs</h2>
+        <p className="text-muted measure text-ui mt-4 text-pretty">
+          Two ways, and they are the same build. The hosted service is this site —{" "}
+          <Link href="/sign-in">sign in</Link> and you have a project in a minute. It runs
+          on Vercel with a managed Supabase database and is maintained by Dhrubojyoti
+          Saha, who wrote the software.
+        </p>
+        <p className="text-muted measure text-ui mt-4 text-pretty">
+          Or run your own copy. The source is on GitHub, the README is the install, and it
+          points at any PostgreSQL database you control — which is the answer when the
+          corpus itself is sensitive, or when your institution requires research data to
+          stay on its own infrastructure. Nothing is held back from that version; it is
+          the same code this site is built from.
+        </p>
+        <p className="text-muted measure text-ui mt-4 text-pretty">
+          The one thing that does not cross between them is a project. Everyone working on
+          a review has to be on the same instance.
         </p>
       </section>
 

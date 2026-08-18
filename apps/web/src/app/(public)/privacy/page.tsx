@@ -10,13 +10,19 @@ export const metadata: Metadata = {
 /*
  * Corrected against what this software actually does.
  *
- * The version this replaces described a hosted SaaS business: development
- * funded "through subscriptions for additional features and storage space",
- * attachment files "like PDFs" collected when you upload them, library data
- * synchronised "with our servers", and infrastructure at Vercel, Supabase and
- * Cloudflare. None of that exists. There is no billing code, no file upload
- * anywhere in the app, and no deployment — porcupineResearch runs on hardware
- * the reader controls.
+ * The version this replaces described a business that does not exist:
+ * development funded "through subscriptions for additional features and
+ * storage space", and attachment files "like PDFs" collected when you upload
+ * them. There is no billing code in this project, and no file upload anywhere
+ * in the app.
+ *
+ * There ARE servers, and this page has to say whose. The hosted service runs
+ * on Vercel with a managed Supabase database; those are the sub-processors and
+ * they are named. What the page must not do is describe only that deployment,
+ * because a reader running their own copy has a different and much shorter
+ * answer to nearly every question below. Both are here, and where they differ
+ * the difference is stated rather than averaged into something true of
+ * neither.
  *
  * A privacy policy that overstates what is collected is not the safe direction
  * to err in. It is the document a university privacy office relies on, and one
@@ -46,10 +52,13 @@ export default function PrivacyPolicyPage() {
 
         <h2>Data We Collect</h2>
         <p>
-          Because there is no hosted version, &ldquo;collect&rdquo; below means{" "}
-          <em>stored in the database your instance runs against</em> — a database you
-          administer. None of it is transmitted to the author of this software, and there
-          is no telemetry, analytics or error reporting in the app that could.
+          &ldquo;Collect&rdquo; below means{" "}
+          <em>stored in the database your instance runs against</em>. On the hosted
+          service at porcupineresearch.me that is a managed Supabase database administered
+          by Dhrubojyoti Saha; on a copy you run yourself it is a database you administer,
+          and none of it reaches us at all. In neither case is there telemetry, analytics
+          or error reporting — the app contains no code that would report your usage
+          anywhere.
         </p>
         <ul>
           <li>
@@ -160,11 +169,13 @@ export default function PrivacyPolicyPage() {
 
         <h2>Third-Party Services Used</h2>
         <p>
-          <strong>Your infrastructure, not ours:</strong> there is no hosted
-          porcupineResearch, so there is no cloud provider holding your data on our
-          behalf. It sits in the PostgreSQL database you started. Where your instance{" "}
-          <em>does</em> reach out is set out on the{" "}
-          <Link href="/dpa">data processing page</Link>, and it is a short list.
+          <strong>Vercel and Supabase, on the hosted service.</strong> The application
+          runs on Vercel; the PostgreSQL database, and the authentication that issues your
+          sign-in code, are managed by Supabase. Those two are the sub-processors, named
+          here rather than in a list you have to request. Running your own copy, neither
+          is involved — the data sits in the database you started. Everything else your
+          instance talks to is on the <Link href="/dpa">data processing page</Link>, and
+          it is a short list.
         </p>
         <p>
           <strong>Bibliographic search:</strong> using the search screen sends your query
@@ -187,9 +198,9 @@ export default function PrivacyPolicyPage() {
           <strong>Right to erasure:</strong> the app has project deletion and account
           deletion, and because the database is yours, SQL covers anything the app does
           not. Nothing expires, nothing is archived on your behalf, and nothing is kept
-          after you delete it — backups are yours to schedule and yours to purge. Removing
-          a member rotates the project key, so they cannot read what is said after they
-          leave.
+          after you delete it. On the hosted service backups are the operator&rsquo;s to
+          schedule and purge; on your own copy they are yours. Removing a member rotates
+          the project key, so they cannot read what is said after they leave.
         </p>
 
         <h2>Changes</h2>

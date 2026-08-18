@@ -12,11 +12,11 @@ export const metadata: Metadata = {
 /**
  * By phase, not by version number.
  *
- * There are no releases to number: this is not deployed anywhere, so "v1.4.2"
- * would be a version of nothing that anyone is running. What a reader of this
- * page actually wants to know is which capabilities exist yet, and the build
- * phases are the honest unit for that — each one ends with an exit criterion
- * that had to be demonstrated before the next began.
+ * There are no releases to number: the hosted service deploys from the
+ * repository, so "v1.4.2" would be a label nothing is pinned to. What a reader
+ * of this page actually wants to know is which capabilities exist yet, and the
+ * build phases are the honest unit for that — each one ends with an exit
+ * criterion that had to be demonstrated before the next began.
  *
  * Dates are the dates in `docs/BUILD-LOG.md`. Where a phase found a real bug
  * during its exit trial, that is recorded here too. A changelog that lists only
@@ -27,7 +27,7 @@ export default function ChangelogPage() {
     <main id="main" className="mx-auto flex max-w-3xl flex-col gap-10 px-6 py-16">
       <PageHeader
         title="Changelog"
-        description="Grouped by build phase rather than by release number, because there are no releases yet — there is no hosted version to release to."
+        description="Grouped by build phase rather than by release number. The hosted service tracks the repository, so what is described here is what is live."
       />
 
       <ol className="flex flex-col gap-10">

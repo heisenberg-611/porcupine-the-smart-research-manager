@@ -26,15 +26,25 @@ export default function GuidesPage() {
     <main id="main" className="mx-auto flex max-w-3xl flex-col gap-10 px-6 py-16">
       <PageHeader
         title="Guides"
-        description="How to get it running, the one concept that explains the rest of the app, and the deliberate refusals that read like faults."
+        description="Getting in, the one concept that explains the rest of the app, and the deliberate refusals that read like faults."
       />
 
       <div className="longform">
-        <h2>Running it</h2>
+        <h2>The quick way in</h2>
         <p>
-          There is no hosted version, so the first guide is an install. You need{" "}
-          <strong>Docker Desktop running</strong> and Node 24; everything else is in the
-          repository.
+          <Link href="/sign-in">Sign in on this site</Link>. That is the whole setup — the
+          hosted service is maintained by Dhrubojyoti Saha, and you get a project in about
+          a minute. Skip to &ldquo;choose the project kind carefully&rdquo; below; it is
+          the part that actually matters.
+        </p>
+
+        <h2>Running your own copy</h2>
+        <p>
+          Worth doing when the corpus itself is sensitive, or when your institution
+          requires research data to stay on its own infrastructure. The source is on
+          GitHub and the README is the authoritative install; this is the short version.
+          You need <strong>Docker Desktop running</strong> and Node 24, and everything
+          else is in the repository.
         </p>
         <ol>
           <li>
@@ -63,14 +73,16 @@ export default function GuidesPage() {
 
         <h2>Signing in — the thing that catches everyone</h2>
         <p>
-          There is <strong>no password</strong>. You type an email address and the app
-          sends a six-digit code. Running locally, that email never leaves your machine:
-          it goes to Mailpit at <code>localhost:54324</code>. If you have been watching
-          your real inbox, that is why nothing arrived.
+          There is <strong>no password</strong> anywhere, hosted or local. You type an
+          email address and the app sends a six-digit code. On the hosted service that
+          arrives in your inbox. Running locally it never leaves your machine at all: it
+          goes to Mailpit at <code>localhost:54324</code>. If you have been watching your
+          real inbox, that is why nothing arrived.
         </p>
         <p>
-          Any address works locally and nothing is verified, so <code>me@test.dev</code>{" "}
-          is fine.
+          Any address works on your own copy and nothing is verified there, so{" "}
+          <code>me@test.dev</code> is fine. On the hosted service it has to be an address
+          you can actually read, since the code goes to it.
         </p>
 
         <h2>Choose the project kind carefully</h2>
@@ -179,8 +191,8 @@ export default function GuidesPage() {
         <h2>When something goes wrong</h2>
         <ul>
           <li>
-            <strong>Everything fails, nothing loads.</strong> Docker is not running. Start
-            Docker Desktop, then <code>pnpm db:start</code>.
+            <strong>Everything fails, nothing loads.</strong> On your own copy, this is
+            Docker not running: start Docker Desktop, then <code>pnpm db:start</code>.
           </li>
           <li>
             <strong>Search returns nothing.</strong> The providers are real external APIs

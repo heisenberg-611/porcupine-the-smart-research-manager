@@ -36,7 +36,7 @@ export default function FeaturesPage() {
     <main id="main" className="mx-auto flex max-w-4xl flex-col gap-10 px-6 py-16">
       <PageHeader
         title="Features"
-        description="Everything below is a screen you can open today. What is not built yet has its own list at the bottom, because that is the half people find out about too late."
+        description="Everything below is a screen you can open today, on the hosted service or on your own copy — they are the same build. What is not built yet has its own list at the bottom, because that is the half people find out about too late."
       />
 
       <div className="flex flex-col gap-12">
@@ -83,12 +83,13 @@ export default function FeaturesPage() {
       </section>
 
       <section className="border-rule bg-surface/50 rounded-[--radius-card] border p-8">
-        <h2 className="text-ink text-title font-serif">Free while it is in build</h2>
+        <h2 className="text-ink text-title font-serif">Free, and yours either way</h2>
         <p className="text-ink-soft measure text-ui mt-3 text-pretty">
-          There is no paid tier, no trial and no card. There is also no hosted version yet
-          — you run it on your own machine. Both of those are covered on the{" "}
-          <Link href="/pricing">pricing page</Link>, along with what would have to change
-          before either does.
+          No paid tier, no trial and no card. Use the hosted service — this site is it, so{" "}
+          <Link href="/sign-in">signing in</Link> is the whole setup — or run your own
+          copy from the repository against a database you control. Same code, same
+          features. The <Link href="/pricing">pricing page</Link> covers why you might
+          want the second one.
         </p>
       </section>
     </main>
@@ -253,9 +254,9 @@ const GAPS: ReadonlyArray<{ term: string; detail: string }> = [
       "Two people editing the same note at the same time is a later phase; today the last write wins. Screening decisions are the exception — those are protected from overwriting each other.",
   },
   {
-    term: "A hosted version",
+    term: "Sharing a project across instances",
     detail:
-      "It runs on your machine. There is no deployment yet, so you cannot send a colleague a link to your project.",
+      "Everyone working on a review has to be on the same instance. On the hosted service they already are; two self-hosted copies cannot see each other's projects, and there is no export-and-merge that would let them.",
   },
   {
     term: "LaTeX and Overleaf export",
