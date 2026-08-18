@@ -1,0 +1,53 @@
+/**
+ * The pages you can read without an account — one list, two consumers.
+ *
+ * It was two lists, and they had already diverged. `middleware.ts` let all
+ * thirteen marketing routes through; `app-header-visibility.tsx` knew about
+ * four of them. The other nine therefore rendered the SIGNED-IN application
+ * header — Dashboard, Projects, Assigned to me, the sign-out form — above a
+ * page written for someone who has not signed up. Signed out, they showed no
+ * navigation at all, so /pricing was a dead end with no way back.
+ *
+ * Adding a public page now means adding it here, once. The route group at
+ * `app/(public)` is the third place this shape appears, and it cannot be
+ * derived from — a route group leaves no trace in the URL, which is exactly
+ * why it is the right way to share a layout and the wrong way to answer a
+ * question about a pathname.
+ */
+export const PUBLIC_PATHS = [
+  "/",
+  "/about",
+  "/features",
+  "/pricing",
+  "/security",
+  "/guides",
+  "/api",
+  "/changelog",
+  "/blog",
+  "/privacy",
+  "/terms",
+  "/dpa",
+  "/cookies",
+] as const;
+
+/**
+ * Routes that need no session but are not marketing pages: they are the
+ * machinery of getting one. Public to the middleware, and never framed by the
+ * public layout.
+ */
+export const AUTH_PATHS = ["/sign-in", "/auth"] as const;
+
+/** True for a marketing page — the ones that get the public shell. */
+export function isPublicPage(pathname: string): boolean {
+  return PUBLIC_PATHS.some(
+    (p) => pathname === p || (p !== "/" && pathname.startsWith(`${p}/`)),
+  );
+}
+
+/** True for anything reachable without signing in. */
+export function isPublicPath(pathname: string): boolean {
+  return (
+    isPublicPage(pathname) ||
+    AUTH_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+  );
+}

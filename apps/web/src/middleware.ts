@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { isPublicPath } from "@/lib/public-routes";
+
 /**
  * Refreshes the Supabase session on every request and gates private routes.
  *
@@ -11,16 +13,16 @@ import { NextResponse, type NextRequest } from "next/server";
  * This is a convenience gate, not the security boundary — RLS is. A bug here
  * shows someone an empty page; it does not show them another user's data.
  */
-// `/about` is public deliberately: it is the page that explains the product to
-// someone deciding whether to sign up. Behind auth it would only ever be read
-// by people who no longer need it.
-const PUBLIC_PATHS = ["/", "/about", "/sign-in", "/auth", "/privacy", "/terms", "/features", "/pricing", "/security", "/changelog", "/guides", "/api", "/blog", "/dpa", "/cookies"];
-
-function isPublic(pathname: string) {
-  return PUBLIC_PATHS.some(
-    (p) => pathname === p || (p !== "/" && pathname.startsWith(`${p}/`)),
-  );
-}
+/*
+ * `/about` is public deliberately: it is the page that explains the product to
+ * someone deciding whether to sign up. Behind auth it would only ever be read
+ * by people who no longer need it — and the same argument covers every other
+ * page in `app/(public)`.
+ *
+ * The list itself lives in `lib/public-routes.ts` because the app header needs
+ * the same answer, and when the two were written out separately here they
+ * disagreed.
+ */
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -54,7 +56,7 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  if (!user && !isPublic(pathname)) {
+  if (!user && !isPublicPath(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/sign-in";
     return NextResponse.redirect(url);

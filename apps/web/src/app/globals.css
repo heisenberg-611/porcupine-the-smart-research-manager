@@ -184,7 +184,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-
   *,
   *::before,
   *::after {
@@ -274,4 +273,160 @@ h2,
 h3 {
   font-family: var(--font-serif);
   letter-spacing: -0.01em;
+}
+/*
+ * The public pages are always daylight.
+ *
+ * Everything behind sign-in follows the reader's choice — they are working in
+ * it for hours, and at 1am that choice is the whole point. The pages in front
+ * of it are not that: they are the product's face, they get linked to and
+ * screenshotted, and a landing page that arrives dark because of a preference
+ * set months ago for a different screen is a different page from the one
+ * whoever sent the link was looking at.
+ *
+ * Two selectors, one palette:
+ *
+ *   `.theme-day`      — the wrapper the public layout puts around its content.
+ *                       Custom properties inherit, and a declaration on the
+ *                       element itself beats one inherited from `:root`, so
+ *                       this re-themes the whole subtree with no `!important`
+ *                       and no specificity fight.
+ *   `:root:has(...)`  — the same values on the root, so the things OUTSIDE
+ *                       that subtree follow too: `<body class="bg-canvas">`,
+ *                       the scrollbar, and the overscroll gutter. Without it a
+ *                       dark-mode reader gets a light page in a dark frame.
+ *
+ * This block must stay AFTER the two dark blocks above. `:root:has(.theme-day)`
+ * and `:root[data-theme="dark"]` have the SAME specificity — (0,2,0), since
+ * `:has()` takes the weight of its argument — so source order is what decides
+ * it, and moving this up the file would silently give a dark-mode reader a
+ * dark landing page again.
+ *
+ * These are the light values from `@theme` above, repeated rather than
+ * referenced: CSS has no way to say "the values that block declared", and a
+ * second `@theme` would be resolved at build time and could not be scoped.
+ */
+.theme-day,
+:root:has(.theme-day) {
+  --color-canvas: #fbfaf7;
+  --color-surface: #f4f2ec;
+  --color-raised: #ffffff;
+  --color-border: #e5e1d8;
+  --color-rule: #ddd8cc;
+
+  --color-ink: #1c1a17;
+  --color-ink-soft: #3f3b34;
+  --color-muted: #66615a;
+
+  --color-accent: #2f6f5e;
+  --color-accent-ink: #ffffff;
+  --color-accent-soft: #e7efeb;
+  --color-danger: #9c2f26;
+  --color-danger-soft: #f7ebe9;
+
+  /* So the caret, the scrollbar and any form control on these pages are
+     dressed the same way as the page around them. */
+  color-scheme: light;
+}
+
+@layer components {
+  /*
+   * Long-form document type — the policy and reference pages.
+   *
+   * These pages used to be marked up with `prose`, `prose-p:text-muted`,
+   * `prose-h2:border-b` and thirty more like them. Not one of those classes
+   * existed: `@tailwindcss/typography` is not a dependency of this app and
+   * is not registered in this file, so every one of them compiled to nothing.
+   * Tailwind's preflight resets headings to the surrounding font-size and
+   * weight, which is what made the result so hard to read — an `<h2>` in the
+   * privacy policy rendered at body size, in body weight, indistinguishable
+   * from the paragraph under it.
+   *
+   * Written against this project's own tokens instead of adding the plugin.
+   * The plugin ships an entire opinionated scale that would then have to be
+   * argued back into line with the scale in `@theme`, for four static pages.
+   *
+   * Descendant selectors rather than utilities on every element, because the
+   * point is that a section of a policy is styled by being IN the policy —
+   * these pages are edited as prose and nobody should have to remember six
+   * class names to add a paragraph.
+   */
+  .longform {
+    color: var(--color-ink-soft);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    text-wrap: pretty;
+  }
+
+  .longform > * + * {
+    margin-top: 1.25rem;
+  }
+
+  .longform h2 {
+    color: var(--color-ink);
+    font-size: var(--text-title);
+    line-height: var(--text-title--line-height);
+    margin-top: 3rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--color-rule);
+  }
+
+  .longform h3 {
+    color: var(--color-ink);
+    font-size: var(--text-heading);
+    line-height: var(--text-heading--line-height);
+    margin-top: 2rem;
+  }
+
+  /* The first heading of a document sits directly under the page header,
+     which already provides the space. */
+  .longform > :first-child {
+    margin-top: 0;
+  }
+
+  .longform ul,
+  .longform ol {
+    padding-left: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+  }
+
+  .longform ul {
+    list-style: disc;
+  }
+
+  .longform ol {
+    list-style: decimal;
+  }
+
+  .longform li::marker {
+    color: var(--color-muted);
+  }
+
+  .longform strong {
+    color: var(--color-ink);
+    font-weight: 600;
+  }
+
+  .longform a {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .longform code {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    background: var(--color-surface);
+    border-radius: 0.25rem;
+    padding: 0.1em 0.35em;
+  }
+
+  /* A measure on the paragraphs only. Tables and definition grids inside a
+     document want the full column width; running text does not. */
+  .longform p,
+  .longform li {
+    max-width: 68ch;
+  }
 }

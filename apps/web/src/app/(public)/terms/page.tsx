@@ -3,93 +3,194 @@ import { PageHeader } from "@/components/ui";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Terms of Service | porcupineResearch",
+  title: "Terms of Service",
   description: "Terms of Service and usage guidelines for porcupineResearch.",
 };
 
+/*
+ * Written for the software that exists: one you install and run yourself.
+ *
+ * The version this replaces was a hosted-SaaS template. It defined the
+ * "Services" as including "storage subscription services", devoted a numbered
+ * section to billing information and non-refundable subscription fees, and
+ * named Supabase and Vercel as sub-processors holding your data. There is no
+ * billing code in this project and no deployment for those companies to host.
+ *
+ * Terms describing a relationship that does not exist are not harmlessly
+ * over-cautious. Section 3 asked people to agree to charges nobody can levy,
+ * and section 5 told them their data sits with two vendors it does not reach —
+ * which is precisely the paragraph a privacy office reads before saying no.
+ *
+ * The self-hosted reality also inverts several clauses. There is no licence to
+ * process your submissions, because nothing is transmitted to us to process.
+ * There is no right to terminate your access, because your access is a service
+ * running on your own machine.
+ */
 export default function TermsOfServicePage() {
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-8 px-6 py-12 animate-in fade-in duration-500">
-      <PageHeader
-        title="Terms of Service"
-        description={`Last updated: ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`}
-        backHref="/"
-        backLabel="Home"
-      />
-      <div className="prose max-w-none prose-p:leading-relaxed prose-p:mb-6 prose-p:text-muted prose-headings:text-ink prose-h2:text-2xl [&_h2]:text-2xl prose-h2:font-bold [&_h2]:font-bold prose-h2:text-accent [&_h2]:text-accent prose-h2:border-b [&_h2]:border-b prose-h2:border-rule [&_h2]:border-rule prose-h2:pb-2 [&_h2]:pb-2 prose-h2:mt-12 [&_h2]:mt-12 prose-h2:mb-6 [&_h2]:mb-6 prose-li:text-lg prose-li:my-4 prose-strong:text-lg prose-strong:font-bold prose-strong:text-ink [&_strong]:font-bold">
-
+    <main id="main" className="mx-auto flex max-w-3xl flex-col gap-10 px-6 py-16">
+      <PageHeader title="Terms of Service" description="Last updated 18 August 2026." />
+      <div className="longform">
         <h2>Welcome</h2>
         <p>
-          <strong>Introduction:</strong> Welcome to porcupineResearch. porcupineResearch is a collection of services, including a research management platform and storage subscription services (the “Services”), integrated with the porcupineResearch web application. Your access to and use of the Services are subject to these Terms of Service (“Terms of Service”) and all applicable laws.
+          <strong>What this covers:</strong> porcupineResearch is software for managing a
+          literature review, which you install and run on infrastructure you control.
+          There is no hosted service — no server we operate, no account on our side, no
+          storage plan. These terms cover your use of the software itself, and are subject
+          to all applicable laws.
         </p>
         <p>
-          <strong>Acceptance of Terms:</strong> By accessing and/or using the Services, you acknowledge that you have read, understood and agree to be bound by these Terms of Service and to comply with all applicable laws.
+          <strong>Acceptance:</strong> by using the software you acknowledge that you have
+          read and agree to these terms. If you disagree with them, the remedy is
+          straightforward: do not run it.
+        </p>
+        <p>
+          <strong>A consequence worth stating first.</strong> Because the software runs on
+          your machine, most of what a normal terms-of-service document controls is simply
+          not ours to control. We cannot suspend your account, cannot see your data,
+          cannot lose it, and cannot bill you for it. Several clauses below say so where a
+          template would have claimed otherwise.
         </p>
 
         <h2>1. Your Account/Registration</h2>
         <p>
-          <strong>Age Requirement:</strong> Registration is required to subscribe to the Services. You must be 13 years or older to subscribe to the Services. By registering, you represent and warrant that all information provided by you during the registration process is truthful, accurate and complete, and you will not use the Services for any purpose that is unlawful.
+          <strong>Age:</strong> an account is created on your own instance, and you should
+          be 13 or older to use the software. You are responsible for who else you invite
+          to a project you administer.
         </p>
         <p>
-          <strong>Account Security:</strong> You are responsible for maintaining the security of your account. You agree to notify us immediately of any unauthorized use of your account. We cannot and will not be liable for any loss or damage in the event of an unauthorized use by a third party of your account.
+          <strong>Account security is yours, including the recovery passphrase.</strong>{" "}
+          The passphrase shown once at enrolment is the only thing standing between the
+          database and your encrypted messages, and there is no reset — not withheld,
+          genuinely absent. Nobody, including whoever administers your instance, can
+          recover encrypted content once it is lost. That is what end-to-end encryption
+          means, and it is the trade the <Link href="/security">security page</Link> sets
+          out in full.
         </p>
 
         <h2>2. Your Submissions and Other Data</h2>
         <p>
-          <strong>Ownership Retained:</strong> We do not claim ownership of any data or other content you transmit, upload or store on or through the Services (“Submissions”). You retain your rights to the Submissions you transmit, upload or store on or through the Services. You are solely responsible for all your Submissions and all activity that occurs under your account.
+          <strong>Your data is yours, and it never leaves your instance.</strong> We claim
+          no ownership of anything you put into the software and no licence to process it
+          — a licence to process would be meaningless, since nothing you enter is
+          transmitted to us. Your library, decisions, notes and extracted answers live in
+          a database you administer, and export to CSV and Excel whenever you want them
+          out.
         </p>
         <p>
-          <strong>Limited License to Process:</strong> By using the Services, you automatically grant to porcupineResearch and its service providers a limited, royalty-free license and right to store, display, process, modify, and retransmit your Submissions solely to provide the Services to you. Notably, your End-to-End Encrypted data (like messages and LaTeX documents) cannot be read or processed by us in plaintext.
+          <strong>What you put in is your responsibility.</strong> That includes copyright
+          in material you import, and any ethics approval your data requires. The software
+          will not check either.
         </p>
 
-        <h2>3. Fees and Payment</h2>
+        <h2>3. Fees</h2>
         <p>
-          <strong>Storage Charges:</strong> The Services are offered under free and/or paid subscriptions. The fees for paid subscriptions are not license fees, but charges due for storage and related services.
-        </p>
-        <p>
-          <strong>Billing Information:</strong> You agree to provide complete and accurate billing information in connection with your paid subscription(s). All fees and charges, when paid, are nonrefundable and accrue on the first day of the initial subscription term. We reserve the right to change the fees with prior notice.
+          <strong>There are none.</strong> No subscription, no seats, no storage plan, no
+          card. There is no billing code in this project — not disabled and not behind a
+          flag — so there is nothing here to agree to about payment. The costs you do
+          carry are your own hardware, your own database and your own backups.{" "}
+          <Link href="/pricing">Pricing</Link> explains why that is the arrangement.
         </p>
 
         <h2>4. Acceptable Use and Conduct</h2>
         <p>
-          <strong>Prohibited Activities:</strong> As a condition of your access and use of the Services, you agree that you will not: (a) impersonate any individual or entity; (b) use the Services in any manner with the intent to interrupt, damage, disable, overburden or impair the Services; (c) use the Services in violation of any applicable laws; or (d) attempt to circumvent, reverse engineer, decrypt or otherwise alter or interfere with the Services.
+          <strong>What not to do with it:</strong> (a) do not impersonate anyone, inside a
+          project or in an academic output drawn from one; (b) do not use the search
+          feature to abuse the bibliographic providers — they are free public indexes,
+          they rate-limit, and hammering them spoils it for everyone; (c) do not use it in
+          violation of applicable law or of your institution&rsquo;s research-ethics
+          requirements; (d) do not attempt to read another member&rsquo;s encrypted
+          content, or to represent extracted data as having been checked by someone who
+          did not check it.
+        </p>
+        <p>
+          <strong>Reverse engineering is explicitly fine.</strong> A template would forbid
+          it here. Read the source, audit the cryptography, modify it, run your own fork —
+          that is the point of shipping it this way, and a security claim you are not
+          allowed to verify is not one worth making.
         </p>
 
         <h2>5. Third-Party Services and Integrations</h2>
         <p>
-          <strong>Google Services (Auth, Docs, Drive, Sheets):</strong> Our Service integrates with Google for authentication (Google Auth) and offers features that connect directly with your Google Workspace account (e.g., creating and accessing Google Drive folders, Google Docs, and Google Sheets). By utilizing these features, you must also comply with Google's Terms of Service and Acceptable Use Policies. porcupineResearch explicitly adheres to the Google API Services User Data Policy regarding the strict limited use of your data.
+          <strong>Google, and only if you connect it:</strong> nothing touches Google
+          until a project member deliberately connects an account. From then on, documents
+          in that folder are held in that member&rsquo;s Google Drive under Google&rsquo;s
+          terms, and you must comply with them. The scope requested is{" "}
+          <code>drive.file</code>, which reaches only files this app created or the member
+          explicitly picked; porcupineResearch adheres to the Google API Services User
+          Data Policy, including its Limited Use requirements.
         </p>
         <p>
-          <strong>Supabase (Database and Authentication):</strong> We use Supabase as our backend database and authentication provider. By using our Services, you acknowledge that your data may be stored and processed by Supabase in accordance with their privacy policies and terms of service.
+          <strong>Bibliographic providers:</strong> the search screen queries OpenAlex,
+          Crossref, arXiv, Europe PMC and Semantic Scholar. They are third parties with
+          their own terms, they may log your instance&rsquo;s address and your query, and
+          they can be unavailable — the app is built to carry on when one of them is.
         </p>
         <p>
-          <strong>Vercel (Hosting):</strong> Our web application is hosted and deployed using Vercel. Vercel acts as a sub-processor and may process limited connection data in accordance with their policies to provide hosting and infrastructure services.
+          <strong>No hosting sub-processors.</strong> The stack is PostgreSQL and a web
+          server on machines you chose. Whether that is a laptop, a departmental server or
+          a cloud account is your decision, and whoever runs it is your sub-processor
+          rather than ours. See <Link href="/dpa">data processing</Link>.
         </p>
 
         <h2>6. Changes to and Termination of the Services</h2>
         <p>
-          <strong>Service Modifications:</strong> We aim to continually improve the delivery and content of the Services and, as a result, we will make changes to the Services from time to time. New features may be added, but we also may modify or discontinue any element of the Services. We will notify you if there are any material changes.
+          <strong>The software changes; your copy does not, until you update it.</strong>{" "}
+          Features are added, and occasionally removed — what shipped when is on the{" "}
+          <Link href="/changelog">changelog</Link>. Nothing changes underneath a running
+          instance, because nobody but you can deploy to it.
         </p>
         <p>
-          <strong>Right to Terminate:</strong> We reserve the right, at any time, to disable the Services temporarily for security or maintenance reasons, or to terminate your access if you violate these Terms.
+          <strong>
+            There is no right to terminate your access, and we are not reserving one.
+          </strong>{" "}
+          Your instance is yours. If this project stopped tomorrow, the copy you are
+          running would keep working and your data would keep exporting.
         </p>
 
         <h2>7. Limitation of Liability</h2>
         <p>
-          <strong>Damages Disclaimer:</strong> TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, porcupineResearch AND ITS SERVICE PROVIDERS WILL NOT BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL OR PUNITIVE DAMAGES, INCLUDING WITHOUT LIMITATION, LOSS OF PROFITS, DATA, USE, GOODWILL, OR OTHER INTANGIBLE LOSSES, RESULTING FROM YOUR ACCESS TO OR USE OF OR INABILITY TO ACCESS OR USE THE SERVICES.
+          <strong>Damages:</strong> to the maximum extent permitted by applicable law, the
+          author of this software will not be liable for any direct, indirect, incidental,
+          special, consequential or punitive damages — including loss of data, loss of
+          use, or lost work — arising from your use of or inability to use it.
+        </p>
+        <p>
+          <strong>The specific one to plan for:</strong> lose your recovery passphrase and
+          your encrypted messages and manuscripts cannot be recovered by anyone. Keep
+          backups of your database, and keep the passphrase somewhere you would still have
+          it after losing the machine.
         </p>
 
         <h2>8. Disclaimer of Warranties</h2>
         <p>
-          <strong>Service Provided "As Is":</strong> YOUR ACCESS TO AND USE OF THE SERVICES IS AT YOUR OWN RISK. YOU UNDERSTAND AND AGREE THAT THE SERVICES ARE PROVIDED TO YOU ON AN “AS IS” BASIS WITHOUT ANY WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+          <strong>Provided as is:</strong> the software comes with no warranty of any
+          kind, express or implied, including fitness for a particular purpose. It is in
+          active development and parts of it are not built — the{" "}
+          <Link href="/features">features page</Link> lists which, and that list is
+          maintained rather than decorative.
+        </p>
+        <p>
+          <strong>It does not make your review correct.</strong> The app records
+          decisions, enforces the rules you chose and refuses several things that would
+          corrupt an audit trail. It does not judge papers, and the methodological
+          soundness of your review remains yours and your supervisor&rsquo;s.
         </p>
 
         <h2>9. General</h2>
         <p>
-          <strong>Entire Agreement:</strong> These Terms of Service constitute the entire agreement between you and porcupineResearch with respect to the use of the Site. Any changes to these Terms of Service will be effective when posted. If the changes are material, we will notify you via an email to the email associated with your account.
+          <strong>Entire agreement:</strong> these terms, together with the licence in the
+          repository, are the whole of the agreement about using this software. Changes
+          take effect when posted here; there is no mailing list to notify, because there
+          is no account on our side to hold your address.
         </p>
         <p>
-          <strong>Contact Us:</strong> If you have any questions about these Terms, please contact us at <Link href="mailto:dhrubojyoti.saha@g.bracu.ac.bd" className="text-accent hover:underline">dhrubojyoti.saha@g.bracu.ac.bd</Link>.
+          <strong>Contact Us:</strong> If you have any questions about these Terms, please
+          contact us at{" "}
+          <a href="mailto:dhrubojyoti.saha@g.bracu.ac.bd">
+            dhrubojyoti.saha@g.bracu.ac.bd
+          </a>
+          .
         </p>
       </div>
     </main>
