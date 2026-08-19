@@ -84,7 +84,35 @@ export function NewProjectForm() {
   const [pending, setPending] = useState(false);
   const [kind, setKind] = useState<ProjectKind>("THESIS");
 
-  async function onSubmit(formData: FormData) {
+  /*
+   * `onSubmit`, not `action`. This is the whole reason the button looked dead.
+   *
+   * The form used `<form action={onSubmit}>`, which makes React treat the
+   * handler as a FORM ACTION and run it inside a transition. Every state update
+   * inside a transition is a deferred update: React is explicitly allowed to
+   * hold it back rather than paint it, and here it held back the only thing
+   * that would have told anybody the click landed. `setPending(true)` ran, the
+   * variable was true, and the button never repainted — measured, not guessed:
+   * sampling the button every 60ms through a real creation showed
+   * "Create project [ENABLED]" for the entire operation and then a navigation.
+   *
+   * A plain submit handler makes it an ordinary update, which paints
+   * immediately. That is also why the first attempt at this — moving where
+   * `setPending(false)` was called — changed nothing: the reset was never the
+   * problem, the render was.
+   *
+   * `pending` is now cleared on FAILURE only. On success nothing resets it,
+   * deliberately: this component unmounts when the navigation lands, and the
+   * wait people actually notice is the server rendering the project page, not
+   * the insert. A button that stops saying "creating" while the creating is
+   * still going is the bug it was meant to fix.
+   */
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    // Read the fields BEFORE the first await. `currentTarget` is nulled once
+    // the event has been handled, so touching it afterwards throws.
+    const formData = new FormData(event.currentTarget);
+
     setPending(true);
     setError(null);
 
@@ -94,11 +122,12 @@ export function NewProjectForm() {
       kind: (formData.get("kind") as ProjectKind) ?? kind,
     });
 
-    setPending(false);
     if (!result.ok) {
+      setPending(false);
       setError(result.error);
       return;
     }
+
     startTransition(() => {
       router.push(`/projects/${result.data.id}`);
       router.refresh();
@@ -106,7 +135,7 @@ export function NewProjectForm() {
   }
 
   return (
-    <form action={onSubmit} className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} className="flex flex-col gap-4">
       {error && <Banner tone="danger">{error}</Banner>}
 
       <Field label="Title" id="title">
@@ -162,7 +191,7 @@ export function NewProjectForm() {
       </Field>
 
       <Button type="submit" disabled={pending} className="self-start">
-        {pending ? "Creating…" : "Create project"}
+        {pending ? "Creating your project…" : "Create project"}
       </Button>
     </form>
   );

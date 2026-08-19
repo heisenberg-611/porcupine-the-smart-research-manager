@@ -20,7 +20,27 @@ export function InviteMemberForm({ projectId }: { projectId: string }) {
   const [pending, setPending] = useState(false);
   const [role, setRole] = useState<string>("CONTRIBUTOR");
 
-  async function onSubmit(formData: FormData) {
+  /*
+   * `onSubmit`, not `action` — the same trap the new-project form fell into.
+   *
+   * `<form action={fn}>` makes React run the handler inside a transition, and
+   * state updates inside a transition are DEFERRED: React may hold the repaint
+   * back rather than show it. So `setPending(true)` set the variable, the
+   * button carried on saying "Add member", and adding somebody to a project
+   * looked like a click that had not landed.
+   *
+   * A plain submit handler makes it an ordinary update, which paints straight
+   * away. Measured on the sibling form by sampling the button every 60ms
+   * through a real submission; before the change it read "Create project
+   * [ENABLED]" for the whole operation.
+   */
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    // Read the fields before the first await: `currentTarget` is nulled once
+    // the event has been handled.
+    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+
     setPending(true);
     setError(null);
     setDone(false);
@@ -38,6 +58,13 @@ export function InviteMemberForm({ projectId }: { projectId: string }) {
       setError(result.error);
       return;
     }
+
+    // Clear the fields, which the browser used to do for us when this was a
+    // form action. Nothing navigates here — the member appears in the list
+    // above — so leaving the last invitee's address in the box invites
+    // sending it twice.
+    form.reset();
+    setRole("CONTRIBUTOR");
     setDone(true);
     startTransition(() => {
       router.refresh();
@@ -45,7 +72,7 @@ export function InviteMemberForm({ projectId }: { projectId: string }) {
   }
 
   return (
-    <form action={onSubmit} className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} className="flex flex-col gap-4">
       {error && <Banner tone="danger">{error}</Banner>}
       {done && <Banner>Member added.</Banner>}
 
@@ -94,7 +121,7 @@ export function InviteMemberForm({ projectId }: { projectId: string }) {
       )}
 
       <Button type="submit" disabled={pending} className="self-start">
-        {pending ? "Adding…" : "Add member"}
+        {pending ? "Adding the member…" : "Add member"}
       </Button>
     </form>
   );
