@@ -168,9 +168,8 @@ export default async function EvidencePage({
         groupKey={query.groupKey}
         onlyIncomplete={query.onlyIncomplete}
         columns={query.columns}
-      />
-
-      {/* Hidden below `sm`, which is both a design call and a containment.
+      >
+        {/* Hidden below `sm`, which is both a design call and a containment.
 
           Design: choosing among twenty columns is a desktop-shaped problem. On
           a phone the table is a horizontal scroll whatever you do, and the
@@ -185,13 +184,14 @@ export default async function EvidencePage({
           mechanism is still unexplained and is recorded in the BUILD-LOG. What
           IS established is that it only happens on the narrow layout, so the
           narrow layout does not get the control. */}
-      <div className="hidden sm:block">
-        <ColumnChooser
-          fields={allFields.map((f) => ({ key: f.key, label: f.label }))}
-          selected={fields.map((f) => f.key)}
-          search={evidenceSearchParams(query, page).replace(/^\?/, "")}
-        />
-      </div>
+        <div className="hidden sm:block">
+          <ColumnChooser
+            fields={allFields.map((f) => ({ key: f.key, label: f.label }))}
+            selected={fields.map((f) => f.key)}
+            search={evidenceSearchParams(query, page).replace(/^\?/, "")}
+          />
+        </div>
+      </EvidenceControls>
 
       {rows.length === 0 ? (
         <EmptyState
@@ -239,7 +239,21 @@ export default async function EvidencePage({
               Cards have no off-screen axis for a target to hide on. */}
           <div className="hidden md:block">
             <TableScroll label="Evidence table">
-              <table className="text-ui w-full text-left">
+              {/*
+                `min-w-full`, not `w-full`.
+                
+                With `w-full` the table is told to fit its container, so twenty
+                columns are crammed into the viewport width and the one column
+                with real prose in it — the paper title — loses. Titles wrapped
+                to six lines, rows grew to about 110px each, and three rows
+                filled the screen. A table you cannot compare rows in has given
+                up the only thing it is for.
+                
+                `min-w-full` fills the container when there is room and lets the
+                table grow past it when there is not, which is what the
+                horizontal scroll around it already exists to handle.
+              */}
+              <table className="text-ui min-w-full text-left">
                 <caption className="sr-only">
                   Extractions, one row per paper, one column per protocol field
                 </caption>
@@ -359,7 +373,11 @@ function SortableHeader({
     <th
       scope="col"
       aria-sort={active ? (query.dir === "asc" ? "ascending" : "descending") : "none"}
-      className={`px-4 py-3 font-medium ${sticky ? "bg-canvas sm:sticky sm:left-0" : ""}`}
+      className={`px-4 py-3 font-medium ${
+        // The title column: wide enough for two lines of a real paper title,
+        // capped so one long title cannot push every other column off screen.
+        sticky ? "bg-canvas sticky left-0 max-w-[26rem] min-w-[20rem]" : ""
+      }`}
     >
       <Link
         href={`/projects/${projectId}/evidence${search}`}
@@ -406,7 +424,10 @@ function Row({
         </tr>
       )}
       <tr data-evidence-item>
-        <td className="bg-canvas px-4 py-3 sm:sticky sm:left-0">
+        {/* Sticky without the `sm:` prefix it used to carry. The whole table
+            is `hidden md:block`, so a breakpoint below that could never fire —
+            it read as narrow-screen behaviour that does not exist. */}
+        <td className="bg-canvas sticky left-0 max-w-[26rem] min-w-[20rem] px-4 py-3">
           <Link
             href={`/projects/${projectId}/read/${row.project_work_id}`}
             className="text-ink font-medium underline-offset-2 hover:underline"

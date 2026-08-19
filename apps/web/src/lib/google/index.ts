@@ -35,6 +35,16 @@ export async function getGoogleEmail(accessToken: string): Promise<string | null
   }
 }
 
+/**
+ * Unused since the Sheets export was removed.
+ *
+ * Kept because the removal was of a broken ROUTE, not of the idea: that export
+ * failed because it read `session.provider_token`, which Supabase only
+ * populates in the moments after a Google OAuth sign-in, so it 403'd for
+ * everybody who signed in with an emailed code. A version built on the stored
+ * refresh token — the one the Drive integration already uses — would work, and
+ * would start from this function.
+ */
 export function getSheetsClient(accessToken: string) {
   const auth = new google.auth.OAuth2();
   auth.setCredentials({ access_token: accessToken });

@@ -32,6 +32,7 @@ export function EvidenceControls({
   groupKey,
   onlyIncomplete,
   columns,
+  children,
 }: {
   projectId: string;
   fields: Array<{ key: string; label: string }>;
@@ -42,6 +43,17 @@ export function EvidenceControls({
   groupKey: string | null;
   onlyIncomplete: boolean;
   columns: string[] | null;
+  /**
+   * The column chooser, rendered beside the export buttons.
+   *
+   * Passed in rather than imported here because it is a client component with
+   * its own popover, and this file is deliberately server-rendered with no
+   * JavaScript. A slot keeps that true while letting the two of them share a
+   * row — they were stacked, and the filters, the exports and the chooser
+   * between them pushed the first row of actual data 610px down a 1000px
+   * screen. More than half the page was chrome.
+   */
+  children?: React.ReactNode;
 }) {
   // The current sort rides along as hidden inputs, or filtering would silently
   // throw away the column someone had just sorted by.
@@ -74,31 +86,41 @@ export function EvidenceControls({
         <Hidden name="sort" value={sort} />
         <Hidden name="dir" value={dir} />
 
-        <Field label="Filter column" id="fk">
-          <Select id="fk" name="fk" defaultValue={filterKey ?? ""}>
-            <option value="">Any column</option>
-            {fields.map((f) => (
-              <option key={f.key} value={f.key}>
-                {f.label}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        {/* `flex-1 basis-44` on each field, so the three of them are the same
+            width instead of sizing to their own contents — "Contains" was
+            visibly narrower than the two selects beside it, which reads as an
+            alignment bug rather than a choice. */}
+        <div className="flex-1 basis-44">
+          <Field label="Filter column" id="fk">
+            <Select id="fk" name="fk" defaultValue={filterKey ?? ""}>
+              <option value="">Any column</option>
+              {fields.map((f) => (
+                <option key={f.key} value={f.key}>
+                  {f.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
 
-        <Field label="Contains" id="q">
-          <Input id="q" name="q" type="search" defaultValue={filterText ?? ""} />
-        </Field>
+        <div className="flex-1 basis-44">
+          <Field label="Contains" id="q">
+            <Input id="q" name="q" type="search" defaultValue={filterText ?? ""} />
+          </Field>
+        </div>
 
-        <Field label="Group by" id="group">
-          <Select id="group" name="group" defaultValue={groupKey ?? ""}>
-            <option value="">Nothing</option>
-            {fields.map((f) => (
-              <option key={f.key} value={f.key}>
-                {f.label}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        <div className="flex-1 basis-44">
+          <Field label="Group by" id="group">
+            <Select id="group" name="group" defaultValue={groupKey ?? ""}>
+              <option value="">Nothing</option>
+              {fields.map((f) => (
+                <option key={f.key} value={f.key}>
+                  {f.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
 
         <label className="text-ui text-ink-soft flex min-h-11 items-center gap-2">
           <Checkbox name="incomplete" value="1" defaultChecked={onlyIncomplete} />
@@ -117,15 +139,20 @@ export function EvidenceControls({
         )}
       </form>
 
-      <div className="flex flex-wrap gap-2">
+      {/*
+        CSV and Excel, and no "Export to Sheets".
+        
+        That button existed and did not work. It POSTed to a route that reads
+        `session.provider_token`, which Supabase populates only in the moments
+        after a Google OAuth sign-in and never persists — so for anybody who
+        signed in with an emailed code, which is the default and the documented
+        path, it returned a plain-text 403 with no styling and no way back.
+        A button that fails for most people is worse than an absent one.
+      */}
+      <div className="flex flex-wrap items-center gap-2">
         <ButtonLink href={exportHref("csv")}>Export CSV</ButtonLink>
         <ButtonLink href={exportHref("xlsx")}>Export Excel</ButtonLink>
-        <form action={`/projects/${projectId}/evidence/export-sheets`} method="post">
-          <Hidden name="search" value={exportParams.toString()} />
-          <Button type="submit" variant="ghost">
-            Export to Sheets
-          </Button>
-        </form>
+        {children}
       </div>
     </div>
   );

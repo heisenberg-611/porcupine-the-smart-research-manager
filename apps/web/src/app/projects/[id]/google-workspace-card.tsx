@@ -271,7 +271,7 @@ export function GoogleWorkspaceCard({
           <h3 className="text-ink text-heading font-medium">Connect Google Workspace</h3>
           <p className="text-muted text-ui">
             Connect your Google account to create a central Google Drive folder for this
-            project. Extracted data can be directly exported to Google Sheets here.
+            project, for the documents your team writes alongside the review.
           </p>
           {hasToken && (
             <p className="text-muted text-fine mt-2">
