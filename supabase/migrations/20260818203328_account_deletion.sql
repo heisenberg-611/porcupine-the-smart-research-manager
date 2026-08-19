@@ -168,3 +168,48 @@ revoke execute on function public.enforce_project_keeps_an_owner_on_delete() fro
 create trigger project_members_keep_an_owner_on_delete
   before delete on public.project_members
   for each row execute function public.enforce_project_keeps_an_owner_on_delete();
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Which accounts are due to be purged.
+--
+-- The scheduled purge has nobody to act as. Every other write in this codebase
+-- runs inside `withUserContext`, whose claim decides what RLS lets through —
+-- and there is no claim for a cron.
+--
+-- The obvious answer, reading `users` with the service key, does not work and
+-- should not: `service_role` holds no SELECT, INSERT, UPDATE or DELETE on
+-- `public.users` in this database. Those grants were deliberately revoked, and
+-- adding them back would re-open the bypass-everything role on the one table
+-- that carries every identity. The purge route tried it and got "permission
+-- denied for table users", which was the right answer to the wrong question.
+--
+-- So the cron asks this function for a list of ids and nothing else, then does
+-- the actual work as each account in turn, under that account's own claim,
+-- through exactly the same code path a person deleting their own account uses.
+-- SECURITY DEFINER for the listing only, returning ids and no other column.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+create or replace function public.due_account_deletions()
+returns setof uuid
+language sql
+stable
+security definer
+set search_path = pg_catalog, public
+as $$
+  select u.id
+  from public.users u
+  where u.deletion_scheduled_at is not null
+    and u.deletion_scheduled_at <= now()
+    and u.deleted_at is null
+  order by u.deletion_scheduled_at
+  -- Bounded, because a cron invocation runs under a function timeout and a
+  -- half-finished batch is fine: what it does not reach today it reaches
+  -- tomorrow, and each account's purge is its own transaction.
+  limit 200;
+$$;
+
+comment on function public.due_account_deletions() is
+  'Ids of accounts whose deletion grace period has expired. Ids only: the caller needs nothing else, and this runs as definer.';
+
+revoke execute on function public.due_account_deletions() from public;
+grant execute on function public.due_account_deletions() to Porcupine_app;

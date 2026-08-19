@@ -188,14 +188,20 @@ Deleting an account waits 30 days before it is carried out, and **this app has
 no background worker** — so something has to call the endpoint that does it:
 
 ```bash
-curl -X POST https://your-instance/tasks/purge-accounts \
-     -H "Authorization: Bearer $PURGE_TASK_SECRET"
+curl https://your-instance/tasks/purge-accounts \
+     -H "Authorization: Bearer $CRON_SECRET"
 ```
 
 On the hosted service that is a daily Vercel Cron. On your own copy it is your
 cron, or you, and until it runs an account that asked to be deleted is still
-waiting. Set `PURGE_TASK_SECRET` or the endpoint refuses every request — which
-is the right failure, but it is a failure.
+waiting.
+
+Generate the secret with `openssl rand -base64 32`. It **must** be called
+`CRON_SECRET`: Vercel attaches the `Authorization` header to a cron invocation
+automatically, and only for a variable with that exact name — `vercel.json`
+cannot set a header itself, so any other name means every scheduled run fails
+with a 401 nobody sees. Leave it unset and the endpoint refuses everything,
+which is the right failure but is still a failure.
 
 Somebody who wants their account gone immediately can tick the box on the
 account page, which skips the wait entirely and needs no cron at all.

@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { createAdminClient, deleteAuthUser } from "@/server/admin";
+import { deleteAuthUser } from "@/server/admin";
+import { withUserContext } from "@/server/db";
 
-import { scrubbedFields } from "../../account/deletion";
+import { scrub } from "../../account/actions";
 
 /**
  * Carry out the deletions whose grace period has run out.
@@ -16,27 +17,47 @@ import { scrubbedFields } from "../../account/deletion";
  * be deleted sits waiting. Saying that plainly is better than implying a
  * background worker that does not exist.
  *
- * ─ Why it does not use a session ───────────────────────────────────────────
+ * ─ Who it acts as ─────────────────────────────────────────────────────────
  *
- * There is nobody here. The account being purged asked for this days ago and
- * is not making the request, so the work runs with the secret key — one of the
- * two moments in this codebase where that is the right tool rather than a
- * shortcut past RLS. See `src/server/admin.ts`.
+ * There is nobody here: the account asked for this days ago and is not making
+ * the request. The obvious answer — read and write with the secret key — does
+ * not work in this database and should not. `service_role` holds no SELECT or
+ * UPDATE on `public.users`; those grants were deliberately revoked, and adding
+ * them back would re-open the bypass-everything role on the one table carrying
+ * every identity. The first version of this route did exactly that and got
+ * "permission denied for table users", which was the right answer.
  *
- * ─ Authentication ─────────────────────────────────────────────────────────
+ * So the listing comes from `due_account_deletions()`, a SECURITY DEFINER
+ * function that returns ids and nothing else, and the work then runs for each
+ * account UNDER THAT ACCOUNT'S OWN CLAIM through `withUserContext` — the same
+ * `scrub()` a person deleting their own account calls, under the same
+ * policies. The two paths cannot drift apart because there is only one.
+ *
+ * The secret key survives for exactly one step: removing the `auth.users` row,
+ * which goes through GoTrue's admin API rather than PostgREST and so needs no
+ * table grants at all.
+ *
+ * ─ Authentication, and why the variable has that name ─────────────────────
  *
  * A shared secret in a header, compared in constant time. Not a session,
  * because a cron has none; not an IP allowlist, because Vercel's egress
- * addresses are not fixed. If `PURGE_TASK_SECRET` is unset the endpoint
- * refuses every request rather than running open — an unconfigured secret is
- * the state a self-hosted instance starts in, and the failure has to be
- * "closed".
+ * addresses are not fixed.
+ *
+ * `CRON_SECRET` is not a name chosen here. Vercel attaches
+ * `Authorization: Bearer <value>` to a cron invocation automatically, and only
+ * for a variable spelled exactly that — `vercel.json` cannot set a header of
+ * its own, so any other name means the header never arrives and every run 401s
+ * forever, silently, because Vercel does not retry and reports it only in the
+ * function logs. Self-hosters set the same variable and get the same check.
+ *
+ * Unset, the endpoint refuses everything rather than running open. That is the
+ * state a fresh install starts in, so the failure has to be closed.
  */
-export async function POST(request: NextRequest) {
-  const secret = process.env.PURGE_TASK_SECRET;
+async function purgeDue(request: NextRequest) {
+  const secret = process.env.CRON_SECRET;
   if (!secret) {
     return NextResponse.json(
-      { error: "PURGE_TASK_SECRET is not configured." },
+      { error: "CRON_SECRET is not configured, so this endpoint is closed." },
       { status: 503 },
     );
   }
@@ -48,29 +69,33 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
-  const admin = createAdminClient();
-
-  const { data: due, error } = await admin
-    .from("users")
-    .select("id")
-    .lte("deletion_scheduled_at", new Date().toISOString())
-    .is("deleted_at", null);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  let due: string[];
+  try {
+    due = await listDueAccounts();
+  } catch {
+    return NextResponse.json({ error: "Could not list due accounts." }, { status: 500 });
   }
 
   const purged: string[] = [];
   const failed: string[] = [];
 
-  for (const { id } of due ?? []) {
+  for (const userId of due) {
     try {
-      await purgeOne(admin, id);
-      purged.push(id);
+      // As the account itself. Everything RLS would allow that person to do to
+      // their own row, and nothing else.
+      await withUserContext({ sub: userId }, async (tx) => {
+        await scrub(tx, userId);
+      });
+
+      // Last, and outside the transaction: it lives in another schema behind
+      // another service. See the note in account/actions.ts on which
+      // half-finished state is the survivable one.
+      await deleteAuthUser(userId);
+      purged.push(userId);
     } catch {
       // One bad row must not stop the rest. The id is reported so an operator
       // can look at it; nothing about the person is.
-      failed.push(id);
+      failed.push(userId);
     }
   }
 
@@ -82,78 +107,29 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * The same scrub the immediate path performs, without a user session.
+ * The ids whose grace period has run out.
  *
- * Deliberately NOT sharing `scrub()` from the account actions: that one runs
- * inside `withUserContext` under the deleted account's own claims, which do
- * not exist here. What IS shared is `scrubbedFields`, because the list of
- * things that must be erased is the part that would do real damage if the two
- * paths drifted apart.
+ * Through the SECURITY DEFINER function rather than a query, because a cron
+ * has no claim and an ordinary read would be filtered to nothing by RLS —
+ * fail-closed, correctly, and useless here. The function returns ids only.
+ *
+ * `withUserContext` needs a claim even for this, and there is no user yet; the
+ * NIL uuid is used deliberately. It matches nobody, so every policy this
+ * transaction touches evaluates false, and the only thing it can reach is the
+ * definer function itself.
  */
-async function purgeOne(
-  admin: ReturnType<typeof createAdminClient>,
-  userId: string,
-): Promise<void> {
-  // Projects nobody else is in go with the account. Ones with other members
-  // cannot be here — `requestAccountDeletion` refuses to schedule while the
-  // account is the sole owner of a shared project, and the database trigger
-  // refuses the removal besides.
-  // `error` captured, and thrown. A bare destructure here would read a failed
-  // query as "they own nothing", skip the project deletions, and then scrub the
-  // account anyway — leaving projects nobody can reach behind an account that
-  // no longer exists. The caller catches per-user and reports the id.
-  const { data: owned, error: ownedError } = await admin
-    .from("project_members")
-    .select("project_id")
-    .eq("user_id", userId)
-    .eq("access_role", "OWNER")
-    .is("removed_at", null);
+async function listDueAccounts(): Promise<string[]> {
+  const NOBODY = "00000000-0000-0000-0000-000000000000";
 
-  if (ownedError) throw new Error(ownedError.message);
+  const rows = await withUserContext(
+    { sub: NOBODY },
+    (tx) =>
+      tx.$queryRaw<Array<{ due_account_deletions: string }>>`
+      select * from public.due_account_deletions()
+    `,
+  );
 
-  for (const row of owned ?? []) {
-    const { count } = await admin
-      .from("project_members")
-      .select("id", { count: "exact", head: true })
-      .eq("project_id", row.project_id)
-      .is("removed_at", null)
-      .neq("user_id", userId);
-
-    if ((count ?? 0) === 0) {
-      await admin.from("projects").delete().eq("id", row.project_id);
-    }
-  }
-
-  await admin
-    .from("project_members")
-    .update({ removed_at: new Date().toISOString() })
-    .eq("user_id", userId)
-    .is("removed_at", null);
-
-  await admin.from("devices").delete().eq("user_id", userId);
-  await admin.from("project_keys").delete().eq("user_id", userId);
-
-  const fields = scrubbedFields(userId);
-  await admin
-    .from("users")
-    .update({
-      email: fields.email,
-      display_name: fields.displayName,
-      avatar_url: null,
-      orcid: null,
-      affiliation: null,
-      identity_pub_key: null,
-      signing_pub_key: null,
-      wrapped_bundle: null,
-      kdf_salt: null,
-      deleted_at: fields.deletedAt.toISOString(),
-      deletion_scheduled_at: null,
-    })
-    .eq("id", userId);
-
-  // Last, and outside everything else. See the note in account/actions.ts on
-  // which half-finished state is the survivable one.
-  await deleteAuthUser(userId);
+  return rows.map((row) => row.due_account_deletions);
 }
 
 /**
@@ -172,7 +148,24 @@ function timingSafeEqual(a: string, b: string): boolean {
   return difference === 0;
 }
 
-/** GET is refused: this changes things, and a cron that gets prefetched is a bug. */
-export function GET() {
-  return NextResponse.json({ error: "Use POST." }, { status: 405 });
-}
+/*
+ * GET as well as POST, and GET is the one that matters.
+ *
+ * A route that changes things on GET is normally a mistake — a prefetch or a
+ * link preview fires it. Here it is what Vercel does: cron invocations are GET
+ * requests, every example in their documentation is a GET handler, and no
+ * setting changes it. The mitigation is that nothing reaches the work without
+ * the bearer token above, so a prefetch by something that does not hold the
+ * secret gets a 401 and nothing else.
+ *
+ * POST is kept for the self-hosted case, where the caller is a person or their
+ * own cron and can use the verb the action deserves.
+ *
+ * Duplicate delivery is expected rather than defended against: Vercel states a
+ * scheduled run may be invoked more than once. Every step is idempotent — the
+ * scrub writes fixed values, the membership update is bounded by
+ * `removed_at is null`, and deleting an already-deleted auth row is not an
+ * error — so a second run finds nothing left to do.
+ */
+export const GET = purgeDue;
+export const POST = purgeDue;

@@ -20,7 +20,7 @@
 -- count of zero against an empty table proves nothing.
 
 begin;
-select plan(17);
+select plan(20);
 
 set local role postgres;
 
@@ -152,6 +152,48 @@ select is(
   'Second',
   'MUTATION: that account was there to be scrubbed, and was not'
 );
+
+-- ── 3b · Which accounts the purge job will pick up ─────────────────────────
+--
+-- `due_account_deletions()` is SECURITY DEFINER — it is how a cron with no
+-- session finds work, and it is therefore the one function in this schema that
+-- deliberately sees past RLS. What it returns is asserted here because the
+-- three conditions in it are each a way to purge the wrong account: too early,
+-- never asked, or already done.
+
+set local role postgres;
+
+update users set deletion_scheduled_at = now() - interval '1 day'
+ where id = 'ad000000-0000-0000-0000-000000000002';
+update users set deletion_scheduled_at = now() + interval '30 days'
+ where id = 'ad000000-0000-0000-0000-000000000003';
+
+select set_eq(
+  'select * from public.due_account_deletions()',
+  array['ad000000-0000-0000-0000-000000000002']::uuid[],
+  'only the account whose window has actually expired is due'
+);
+
+-- Already scrubbed, so not due again however its schedule reads. Without this
+-- clause a purge that failed halfway would keep picking the same row up.
+update users set deleted_at = now()
+ where id = 'ad000000-0000-0000-0000-000000000002';
+
+select is(
+  (select count(*)::int from public.due_account_deletions()),
+  0,
+  'an account already scrubbed is not picked up a second time'
+);
+
+select ok(
+  not has_function_privilege('public', 'due_account_deletions()', 'execute'),
+  'and PUBLIC cannot call it — the definer function is not open to everyone'
+);
+
+-- Put the fixture back for the sections below.
+update users set deletion_scheduled_at = null, deleted_at = null
+ where id in ('ad000000-0000-0000-0000-000000000002',
+              'ad000000-0000-0000-0000-000000000003');
 
 -- ── 4 · A project keeps an owner ───────────────────────────────────────────
 --
