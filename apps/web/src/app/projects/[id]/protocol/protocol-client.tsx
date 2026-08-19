@@ -5,6 +5,8 @@ import {
   fieldTypeLabel,
   needsOptions,
   PROTOCOL_TEMPLATES,
+  TEMPLATE_GROUPS,
+  templatesInGroup,
   type FieldType,
 } from "@Porcupine/shared";
 import { useState, useTransition } from "react";
@@ -113,36 +115,56 @@ function NewProtocol({ projectId }: { projectId: string }) {
         />
       </Field>
 
-      <fieldset className="space-y-2">
+      <fieldset className="space-y-4">
         <legend className="text-ink text-ui font-medium">Start from</legend>
-        {/* Radio buttons rather than a select: there are five choices and the
-            description matters as much as the name, so hiding four of them
-            behind a closed dropdown costs more than the space it saves. */}
-        {PROTOCOL_TEMPLATES.map((t) => (
-          <label
-            key={t.id}
-            className="border-border hover:bg-surface flex cursor-pointer items-start gap-3 rounded-lg border p-3"
-          >
-            <Radio
-              name="template"
-              value={t.id}
-              checked={templateId === t.id}
-              onChange={() => setTemplateId(t.id)}
-              className="mt-1"
-            />
-            <span className="min-w-0">
-              <span className="text-ink text-ui block font-medium">{t.name}</span>
-              <span className="text-muted text-fine block text-pretty">
-                {t.description}
-              </span>
-              <span className="text-muted text-fine mt-1 block">
-                {t.fields.length === 0
-                  ? "No questions — you add them"
-                  : `${t.fields.length} questions`}
-              </span>
-            </span>
-          </label>
-        ))}
+        {/*
+          Radio buttons rather than a select, still: the description matters as
+          much as the name, so hiding sixteen of them behind a closed dropdown
+          costs more than the space it saves.
+
+          Grouped, though, which they were not when there were six. Seventeen
+          in one list reads as seventeen alternatives, and they are not: RoB 2
+          is not an alternative to PICO, it is the thing you do as well. The
+          headings say which question each shelf answers so that somebody
+          setting up their first review does not pick an appraisal instrument
+          and then find they have nowhere to record a sample size.
+        */}
+        {TEMPLATE_GROUPS.map((group) => {
+          const inGroup = templatesInGroup(group.id);
+          if (inGroup.length === 0) return null;
+
+          return (
+            <div key={group.id} className="space-y-2">
+              <p className="text-ink text-fine font-medium">{group.label}</p>
+              <p className="text-muted text-fine text-pretty">{group.hint}</p>
+              {inGroup.map((t) => (
+                <label
+                  key={t.id}
+                  className="border-border hover:bg-surface flex cursor-pointer items-start gap-3 rounded-lg border p-3"
+                >
+                  <Radio
+                    name="template"
+                    value={t.id}
+                    checked={templateId === t.id}
+                    onChange={() => setTemplateId(t.id)}
+                    className="mt-1"
+                  />
+                  <span className="min-w-0">
+                    <span className="text-ink text-ui block font-medium">{t.name}</span>
+                    <span className="text-muted text-fine block text-pretty">
+                      {t.description}
+                    </span>
+                    <span className="text-muted text-fine mt-1 block">
+                      {t.fields.length === 0
+                        ? "No questions — you add them"
+                        : `${t.fields.length} questions`}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          );
+        })}
       </fieldset>
 
       {template && template.fields.length > 0 && (

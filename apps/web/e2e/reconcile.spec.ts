@@ -192,7 +192,22 @@ test.describe("Phase 2b — dual extraction", () => {
     await alice.getByLabel(/protocol name/i).fill("Data extraction");
     await alice.getByRole("radio", { name: /machine learning benchmarks/i }).check();
     await alice.getByRole("button", { name: /create protocol/i }).click();
-    await expect(alice.getByText(/10 questions/)).toBeVisible();
+
+    /*
+     * Assert the QUESTIONS, not the picker's summary line.
+     *
+     * This used to wait for the text "10 questions", which is the count the
+     * template chooser prints beside each option. That was unambiguous while
+     * six templates existed and no two had ten fields; it broke the moment the
+     * library grew to seventeen and three of them did, with a strict-mode
+     * violation naming three identical spans.
+     *
+     * Naming a field the template actually creates is both narrower and a
+     * better test: it fails if the protocol was not created, and it fails if
+     * the wrong template was applied. The old one only failed if some template
+     * somewhere had ten questions.
+     */
+    await expect(alice.getByText("Parameters (millions)")).toBeVisible();
   });
 
   test("two people extract the same paper independently", async () => {
