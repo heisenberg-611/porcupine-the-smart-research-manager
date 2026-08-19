@@ -54,20 +54,28 @@ REVOKE EXECUTE ON FUNCTION public.enforce_exclusion_reason() FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.enforce_reconciliation_provenance() FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.handle_auth_user_email_change() FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.handle_new_auth_user() FROM PUBLIC;
--- `public.rls_auto_enable()` is deliberately absent from this list.
+-- `public.rls_auto_enable()` is deliberately absent from this list, and the
+-- reason is more interesting than it first looked.
 --
--- It has never existed. No migration in this repository creates it, and the
--- name appears nowhere else in the project — it came from a linter report read
--- against a database that had one, or from a guess. Postgres raises
--- `function public.rls_auto_enable() does not exist` on the REVOKE, which
--- aborts the whole migration, which aborts `supabase db reset`, which is the
--- first step of `pnpm verify --e2e`. So this one line took out the migrations,
--- the RLS suite and the browser suite together, on a clean checkout, from the
--- commit that introduced it.
+-- It exists on HOSTED Supabase and not locally. The platform installs it along
+-- with an `ensure_rls` event trigger that enables row-level security on any
+-- table created in `public` — a belt-and-braces backstop for people who forget.
+-- `supabase start` does not, so a migration that revokes on it succeeds against
+-- the production database and raises `function public.rls_auto_enable() does
+-- not exist` against every developer machine and against CI.
 --
--- If a function by that name is added later, revoke it in the migration that
--- creates it rather than here. A REVOKE separated from its CREATE is a
--- statement that can only be wrong in this exact way.
+-- That is the worst shape a migration can have: it works where it was written
+-- and aborts everywhere else. It aborted `supabase db reset`, which is the
+-- first step of `pnpm verify --e2e`, so one line took out the migrations, the
+-- RLS suite and the browser suite together on a clean checkout.
+--
+-- Not restored, because this repository's own rule is stronger than the
+-- backstop: every table gets `enable` AND `force` in the migration that
+-- creates it, and `scripts/assert-rls.sh` fails the build otherwise. A revoke
+-- on a platform-owned function would also be reverted by the platform.
+--
+-- The general rule stands: a REVOKE separated from the CREATE it refers to can
+-- only be wrong in exactly this way. Revoke where you create.
 
 -- These helpers are used by authenticated users, so we revoke them from PUBLIC
 -- and ensure they are only granted to authenticated (and the app role).
