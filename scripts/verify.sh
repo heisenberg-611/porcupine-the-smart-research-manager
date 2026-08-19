@@ -58,7 +58,15 @@ if [ "${1:-}" = "--e2e" ]; then
   run "schema drift"     pnpm db:diff
   run "build"            pnpm --filter @Porcupine/web build
   # A port of its own, so a dev server on 3000 does not have to be killed.
-  E2E_PORT="${E2E_PORT:-3100}" run "e2e + axe" pnpm --filter @Porcupine/web test:e2e
+  #
+  # CRON_SECRET is supplied here rather than left to .env. Both /tasks routes
+  # refuse everything without one — correctly, since an unconfigured secret must
+  # fail closed — but that means their specs skip on a machine that has never
+  # set it, and a skipped test is how a scheduled job rots unnoticed. A fixed
+  # local value is not a secret: nothing outside this run can reach the server
+  # it is passed to.
+  CRON_SECRET="${CRON_SECRET:-verify-local-cron-secret}" \
+    E2E_PORT="${E2E_PORT:-3100}" run "e2e + axe" pnpm --filter @Porcupine/web test:e2e
 else
   printf '\n\033[33mSkipped: build and e2e. Run `pnpm verify --e2e` before pushing UI changes.\033[0m\n'
 fi

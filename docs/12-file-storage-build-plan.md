@@ -193,7 +193,7 @@ Each policy was dropped in turn and the suite watched to go red: `select` costs
 
 ---
 
-## 5. Stage 2 — upload
+## 5. Stage 2 — upload — **done**
 
 Client uploads directly to Supabase Storage with the user's own JWT. Bytes
 never pass through a Vercel function, which sidesteps body-size and duration
@@ -212,6 +212,62 @@ its second consumer, and adding one is a route plus a cron entry.
 **Validation at the boundary**: size cap, MIME allow-list, and magic bytes
 (`%PDF-`). The extension and the declared content type are both
 attacker-controlled; the first bytes are not.
+
+### What the stage actually found
+
+**The magic-byte check has nowhere obvious to run, and the obvious answers are
+both wrong.** The bytes never reach a server action, so there is no request to
+inspect. Checking in the browser is worth doing — it refuses a Word document in
+20 ms instead of after fifty megabytes — but it is a courtesy, not a control:
+an upload that skips the form skips the check. Downloading the object in the
+confirming action to look at it would pull up to 50 MB into a serverless
+function to read five bytes.
+
+The answer is a signed URL and a `Range: bytes=0-4` request: 206 Partial
+Content, five bytes, nothing else transferred. Measured against local storage
+before it was written into the code. This is also the check that the bucket's
+`allowed_mime_types` cannot make — that setting refuses a declared `image/png`,
+but a PNG *declared* `application/pdf` satisfies the extension, the header and
+the bucket, and fails only here.
+
+**The two policies disagreed about who may upload.** Stage 1 gated the object
+on OWNER/ADMIN/CONTRIBUTOR; `file_objects_insert_own` asked only for
+membership. A REVIEWER sat in that gap — allowed the metadata row, refused the
+bytes, leaving a PENDING record that could never complete and would be swept to
+ORPHANED an hour later with nothing explaining why. Aligned in this stage's
+migration, and asserted from both sides.
+
+**The reconciler is an anti-join, which is the backend decision paying off
+again.** Finding objects no row claims would have meant paginating a bucket
+listing and joining it in application memory under R2. `storage.objects` is a
+table, so it is `not exists (select 1 from file_objects ...)`. Both listings
+need a grace period, and that is correctness rather than politeness: an upload
+in flight writes its object before the confirming action runs, so without the
+window the sweeper deletes files out from under people watching a progress bar.
+
+**A skipped test is how a scheduled job rots.** Both `/tasks` routes are closed
+without `CRON_SECRET`, correctly, but that meant their specs skipped on any
+machine that had never set one — and `/tasks/purge-accounts` has had no e2e
+coverage at all since it shipped for exactly this reason. `scripts/verify.sh`
+now supplies a fixed local value for the e2e run.
+
+### Delivered
+
+- `supabase/migrations/20260819141500_file_upload_reconciliation.sql` — the
+  aligned insert policy, `stale_pending_uploads()` and
+  `orphaned_paper_objects()`.
+- `packages/shared/src/files.ts` — size, MIME, the PDF signature and the
+  storage path, in one place because three enforcement points must agree.
+- `apps/web/src/server/paper-files.ts` — one judgement of what an acceptable
+  object is, called by the upload action with the user's JWT and by the cron
+  with the secret key.
+- The upload form on the reader, the two server actions behind it, and a
+  `FileInput` primitive (the repo's own guard asked for it).
+- `apps/web/src/app/tasks/reconcile-uploads/route.ts` plus its `vercel.json`
+  entry.
+- `packages/db/test/19_file_uploads.sql` (14 assertions) and
+  `apps/web/e2e/file-upload.spec.ts` (7), including a planted non-PDF that
+  never went past a browser and a non-member asking for the object by path.
 
 ---
 

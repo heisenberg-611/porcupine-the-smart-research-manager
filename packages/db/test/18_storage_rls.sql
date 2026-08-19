@@ -80,6 +80,10 @@ select is((select count(*) from storage.objects)::int, 0,
 select set_config('request.jwt.claims',
   '{"sub":"11111111-1111-1111-1111-111111111111"}', true);
 
+-- Unscoped is correct HERE, and only here: the claim is precisely that this
+-- user sees one object in the whole bucket. Objects an e2e run left behind
+-- belong to other projects and are invisible to her, so a leftover row that
+-- made this fail would be a policy failure and should fail.
 select is((select count(*) from storage.objects)::int, 1,
   'a member reads their own project''s object');
 select is((select name from storage.objects),
@@ -108,8 +112,20 @@ select is((select count(*) from storage.objects)::int, 1,
 -- ═══════════════ MUTATION: the zeros above are the policy ═══════════════════
 
 set local role postgres;
-select is((select count(*) from storage.objects)::int, 3,
-  'MUTATION: there were three objects the whole time');
+
+-- Scoped to the fixtures, NOT `count(*)` over the table.
+--
+-- storage.objects is not controlled by this transaction: an e2e run uploads
+-- real files to the papers bucket and they are still there. An absolute count
+-- passes only on a database that happens to be untouched, which is luck rather
+-- than a property — the same trap 02_corpus_rls.sql documents for `works`, and
+-- this suite fell into it.
+select is((select count(*) from storage.objects
+           where name in (
+             'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/f1.pdf',
+             'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/f2.pdf',
+             'not-a-uuid/f3.pdf'))::int, 3,
+  'MUTATION: all three fixture objects were there the whole time');
 select is((select count(*) from storage.objects where name like 'bbbbbbbb%')::int, 1,
   'MUTATION: the object Alice could not see does exist');
 

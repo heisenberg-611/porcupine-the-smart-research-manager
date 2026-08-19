@@ -2,7 +2,7 @@ import { resolveAnchor } from "@Porcupine/anchoring";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
-import { Banner, PageHeader } from "@/components/ui";
+import { Banner, Card, PageHeader } from "@/components/ui";
 import { AccessHelp } from "@/components/access-route";
 import { getProject } from "@/lib/project";
 import { SourceLinks } from "@/components/source-links";
@@ -10,6 +10,7 @@ import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 import { ReaderClient, type RenderedAnnotation } from "./reader-client";
+import { AttachedPaper, UploadPaperForm } from "./upload-paper-form";
 
 export const metadata: Metadata = { title: "Read" };
 
@@ -51,7 +52,7 @@ export default async function ReadPage({
     supabase
       .from("project_works")
       .select(
-        "id, project_id, screen_status, projects(title), works(title, abstract, doi, arxiv_id, pmid, oa_pdf_url, venue, published_year)",
+        "id, project_id, work_id, screen_status, projects(title), works(title, abstract, doi, arxiv_id, pmid, oa_pdf_url, venue, published_year)",
       )
       .eq("id", workId)
       .eq("project_id", id)
@@ -79,14 +80,35 @@ export default async function ReadPage({
     (projectWork as unknown as { projects: { title: string } | null }).projects?.title ??
     "Project";
 
+  /*
+   * The attached PDF, if there is one.
+   *
+   * COMPLETE only. A PENDING row is an upload the app has lost track of — the
+   * bytes may or may not be there — and showing it as attached would tell
+   * somebody their paper is available to the team when it may not be. They
+   * are swept by /tasks/reconcile-uploads within the hour.
+   */
+  const paperFile = await must(
+    supabase
+      .from("file_objects")
+      .select("id, size_bytes, created_at")
+      .eq("project_id", id)
+      .eq("work_id", (projectWork as unknown as { work_id: string }).work_id)
+      .eq("upload_state", "COMPLETE")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    "the attached file",
+  );
+
   /**
    * The passage under annotation.
    *
-   * For now this is the abstract. Full PDF text needs the file pipeline —
-   * presigned upload to R2 and text extraction — which is not built yet, so
-   * rendering a PDF here would be a shell with nothing in it. The anchoring
-   * engine does not care which text it is given, so this path does not change
-   * when the PDF arrives; only the source of `text` does.
+   * Still the abstract, even once a PDF is attached. Upload landed in stage 2
+   * of the file pipeline; extracting a text layer from the PDF and handing it
+   * to the anchoring engine is stage 3. The anchoring engine does not care
+   * which text it is given, so this path does not change when that happens —
+   * only the source of `text` does.
    */
   const text = work?.abstract ?? "";
 
@@ -265,6 +287,19 @@ export default async function ReadPage({
         <Banner>
           Showing the passage this evidence came from: “{focusAnchor?.quote}”
         </Banner>
+      )}
+
+      {/* Stage 2 of the file pipeline: the paper's own bytes, held for the
+          project. Reading them in the app is stage 3. */}
+      {paperFile ? (
+        <AttachedPaper
+          sizeBytes={(paperFile as unknown as { size_bytes: number }).size_bytes}
+          uploadedAt={(paperFile as unknown as { created_at: string }).created_at}
+        />
+      ) : (
+        <Card className="p-6">
+          <UploadPaperForm projectId={id} projectWorkId={workId} />
+        </Card>
       )}
 
       {!text && (
