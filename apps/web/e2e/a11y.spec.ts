@@ -102,6 +102,47 @@ test("the landing page offers a way in", async ({ page }) => {
   await expect(page).toHaveURL(/\/sign-in/);
 });
 
+/**
+ * The cookie notice, on a context that has NOT been seeded.
+ *
+ * `goto()` dismisses it before every other test in this suite, which is right —
+ * a returning visitor has already seen it — and would otherwise leave the one
+ * component every first-time visitor meets with no coverage at all. So this
+ * navigates with `page.goto` directly.
+ */
+test("the cookie notice appears once, says what happens if you refuse, and goes away", async ({
+  page,
+}) => {
+  await page.goto("/");
+
+  const notice = page.getByRole("region", { name: /about cookies/i });
+  await expect(notice).toBeVisible();
+
+  // The part the notice exists for. Not "we value your privacy".
+  await expect(notice).toContainText(/no analytics, no advertising/i);
+  await expect(notice).toContainText(/signing in will not/i);
+
+  // No Reject button, deliberately — see components/cookie-notice.tsx. A
+  // regression that adds one that does nothing is the pattern this avoids.
+  await expect(notice.getByRole("button")).toHaveCount(1);
+
+  // It must not fail the same accessibility bar as the pages it sits on.
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+    .analyze();
+  if (results.violations.length > 0) {
+    console.error(results.violations.map((v) => `${v.id}: ${v.help}`).join("\n"));
+  }
+  expect(results.violations).toEqual([]);
+
+  await notice.getByRole("button", { name: /got it/i }).click();
+  await expect(notice).toBeHidden();
+
+  // And it stays gone, which is the whole point of dismissing it.
+  await page.goto("/pricing");
+  await expect(page.getByRole("region", { name: /about cookies/i })).toBeHidden();
+});
+
 test("skip link is reachable by keyboard and moves focus to main", async ({ page }) => {
   await goto(page, "/");
   await page.keyboard.press("Tab");

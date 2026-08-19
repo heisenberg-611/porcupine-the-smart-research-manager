@@ -32,14 +32,33 @@ export default function CookiesPage() {
       />
 
       <div className="longform">
-        <h2>Why there is no consent banner</h2>
+        <h2>Why the notice has no Reject button</h2>
         <p>
-          Consent is required for cookies that are not strictly necessary — analytics,
-          advertising, personalisation, anything that profiles a visitor. This app sets
-          none of those, so there is nothing to ask about. Under the ePrivacy Directive
-          and the UK PECR, cookies strictly necessary to deliver a service the user asked
-          for are exempt, and a banner offering a choice that does not exist would be
-          theatre.
+          You will have met a notice at the bottom of the screen on your first visit. It
+          has one button, and that is deliberate rather than unfinished.
+        </p>
+        <p>
+          Consent is required for cookies that are <em>not</em> strictly necessary —
+          analytics, advertising, personalisation, anything that profiles a visitor. This
+          app sets none of those. Under the ePrivacy Directive and the UK PECR, cookies
+          strictly necessary to deliver a service the user asked for are exempt, so there
+          is nothing here to consent to.
+        </p>
+        <p>
+          Which leaves a Reject button two possibilities, and both are worse than not
+          having one. It could do nothing — the pattern regulators actually pursue,
+          because it manufactures the appearance of a choice. Or it could refuse the
+          session cookie, which would sign you out of the site you are trying to use and
+          call that a preference. So the notice says what is stored and what happens if
+          you block it yourself, and then gets out of the way.
+        </p>
+        <p>
+          <strong>If you do block them</strong> — in your browser settings, or by refusing
+          cookies from this domain — every page you can read without an account still
+          works, including this one and everything linked from the footer. Signing in will
+          not, because the session cookie <em>is</em> what a signed-in request is made of;
+          there is no version of being logged in that does not involve one. Nothing is
+          lost. You stay signed out.
         </p>
         <p>
           The public pages — the one you are reading, and the twelve linked from the
@@ -88,13 +107,18 @@ export default function CookiesPage() {
           </li>
         </ul>
 
-        <h2>Blocking them</h2>
+        <h2>Clearing what is already there</h2>
         <p>
-          Your browser can refuse cookies from this site. The public pages will be
-          unaffected; signing in will not work, since the session cookie is what a
-          signed-in request consists of. Clearing site data signs you out and resets your
-          theme to follow your system — and, if you had registered the browser for
-          encryption, requires you to unlock with your recovery passphrase again.
+          Clearing site data signs you out, resets your theme to follow your system, and
+          brings the notice back on your next visit — its dismissal is remembered in{" "}
+          <code>localStorage</code> rather than in a cookie, because a cookie banner that
+          stores its own answer in a cookie is a joke that writes itself.
+        </p>
+        <p>
+          One thing worth knowing first: if you had registered this browser so that
+          unlocking your encrypted messages did not need the passphrase every time, that
+          key material goes with it. You will need your recovery passphrase again, and
+          nobody can reissue it. See <Link href="/security">security</Link>.
         </p>
 
         <h2>Changes</h2>

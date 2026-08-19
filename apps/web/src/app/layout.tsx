@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 
 import { AppHeader } from "@/components/app-header";
+import { CookieNotice } from "@/components/cookie-notice";
 import { CryptoSessionProvider } from "@/lib/crypto/session";
 import { THEME_SCRIPT } from "@/lib/theme";
 
@@ -52,6 +53,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <AppHeader />
           </AppHeaderVisibility>
           {children}
+          {/* Last in the document, deliberately: the skip link has to stay the
+              first thing a keyboard reaches, and this is fixed to the bottom of
+              the viewport anyway. */}
+          <CookieNotice />
         </CryptoSessionProvider>
       </body>
     </html>
