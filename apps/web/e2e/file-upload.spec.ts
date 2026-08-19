@@ -683,4 +683,70 @@ test.describe("file storage — attaching a paper's PDF", () => {
     });
     expect(mine.status, "the project's own member must be served the bytes").toBe(200);
   });
+
+  /*
+   * Last, and deliberately: this dismantles the fixture every test above
+   * depends on. Ordering it earlier made the sweeper test fail for a reason
+   * that had nothing to do with the sweeper.
+   */
+  test("the PDF can be removed, from the database and from storage", async () => {
+    await goto(owner, readUrl);
+
+    const before = await objectsIn(projectId);
+    expect(before, "the paper should still be attached").toHaveLength(1);
+
+    /*
+     * The attached file specifically, not "every file row in the project".
+     * An earlier test plants a second, ORPHANED row on purpose, so a
+     * project-wide count would never reach zero and would be asserting
+     * something this test does not mean.
+     */
+    const attachedId = query(
+      `select id from file_objects
+        where project_id = '${projectId}' and upload_state = 'COMPLETE'`,
+    );
+    expect(attachedId).toMatch(/^[0-9a-f-]{36}$/);
+
+    // Two steps, and the second one states the consequence.
+    await owner.getByRole("button", { name: /remove the PDF/i }).click();
+    await expect(
+      owner.getByText(/highlights and quotes taken from its pages are kept/i),
+    ).toBeVisible();
+    await owner.getByRole("button", { name: /yes, remove it/i }).click();
+
+    // Back to the upload form, which is the page saying the file is gone.
+    await expect(owner.locator("#paper-pdf")).toBeVisible({ timeout: 30_000 });
+    await expect(owner.getByText(/the PDF is attached/i)).toHaveCount(0);
+
+    // The bytes are gone from storage too — the point of the request.
+    expect(await objectsIn(projectId)).toHaveLength(0);
+
+    // The record went with them, and its page text by cascade.
+    expect(query(`select count(*) from file_objects where id = '${attachedId}'`)).toBe(
+      "0",
+    );
+    expect(query(`select count(*) from file_pages where file_id = '${attachedId}'`)).toBe(
+      "0",
+    );
+  });
+
+  test("but the evidence taken from it survives, and says it cannot be found", async () => {
+    /*
+     * A quote recorded against page 2 is a claim somebody made about this
+     * paper. Removing the file does not unmake it, so the anchor stays and
+     * reports honestly — which is the anchoring engine doing its job rather
+     * than the file taking the record down with it.
+     */
+    expect(
+      query(`select count(*) from anchors where project_id = '${projectId}'`),
+    ).not.toBe("0");
+
+    const anchorId = query(
+      `select id from anchors where project_id = '${projectId}' order by created_at desc limit 1`,
+    );
+    await goto(owner, `/projects/${projectId}/read/${projectWorkId}?anchor=${anchorId}`);
+    await expect(
+      owner.getByText(/could not be found in the current text/i),
+    ).toBeVisible();
+  });
 });

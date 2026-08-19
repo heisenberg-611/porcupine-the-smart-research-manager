@@ -21,6 +21,7 @@ import {
   completeUpload,
   finishPaperText,
   markPaperTextFailed,
+  removePaperFile,
   storePaperTextChunk,
 } from "./file-actions";
 
@@ -277,17 +278,98 @@ export function UploadPaperForm({
 
 /** Shown once a file is attached, in place of the form. */
 export function AttachedPaper({
+  projectId,
+  projectWorkId,
+  fileId,
   sizeBytes,
   uploadedAt,
+  hasText,
 }: {
+  projectId: string;
+  projectWorkId: string;
+  fileId: string;
   sizeBytes: number;
   uploadedAt: string;
+  hasText: boolean;
 }) {
+  const router = useRouter();
+  const [confirming, setConfirming] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function remove() {
+    setRemoving(true);
+    setError(null);
+
+    const result = await removePaperFile({ projectId, projectWorkId, fileId });
+
+    if (!result.ok) {
+      setRemoving(false);
+      setConfirming(false);
+      setError(result.error);
+      return;
+    }
+
+    // Left pending: this component is about to be replaced by the upload form,
+    // and flipping it back to "Remove" first shows the old state for a frame.
+    startTransition(() => router.refresh());
+  }
+
   return (
     <Banner>
-      <strong>The PDF is attached.</strong> {(sizeBytes / 1_048_576).toFixed(1)} MB, added{" "}
-      {new Date(uploadedAt).toLocaleDateString()}. Reading it in the app arrives with the
-      next stage; for now this is the copy your project shares.
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <strong>The PDF is attached.</strong> {(sizeBytes / 1_048_576).toFixed(1)} MB,
+          added {new Date(uploadedAt).toLocaleDateString()}.
+          {hasText
+            ? " Its pages are below."
+            : " Its text is not available, so the pages cannot be shown."}
+        </div>
+
+        {/*
+          Two steps, inline, no modal — the same shape as removing a protocol
+          question. The second step is where the consequence is stated, because
+          that is the moment somebody is deciding.
+        */}
+        {confirming ? (
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <Button variant="danger" onClick={remove} disabled={removing}>
+              {removing ? "Removing…" : "Yes, remove it"}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => setConfirming(false)}
+              disabled={removing}
+            >
+              Cancel
+            </Button>
+          </div>
+        ) : (
+          <Button
+            variant="ghost"
+            onClick={() => setConfirming(true)}
+            className="shrink-0"
+          >
+            Remove the PDF
+          </Button>
+        )}
+      </div>
+
+      {confirming && (
+        <p className="text-fine mt-3">
+          The file and its extracted text are deleted from storage.{" "}
+          <strong>Highlights and quotes taken from its pages are kept</strong> — they are
+          evidence somebody recorded, so removing the file does not unmake them. They will
+          report that their passage can no longer be found until you attach the paper
+          again.
+        </p>
+      )}
+
+      {error && (
+        <p role="alert" className="text-danger text-fine mt-2">
+          {error}
+        </p>
+      )}
     </Banner>
   );
 }

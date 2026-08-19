@@ -419,3 +419,88 @@ export async function markPaperTextFailed(
   revalidatePath(`/projects/${projectId}/read/${projectWorkId}`);
   return { ok: true };
 }
+
+/**
+ * Detach a paper's PDF: the record, its text, and the bytes.
+ *
+ * ─ The order, which is the only interesting part ───────────────────────────
+ *
+ * Row first, bytes second — and that is the opposite of what feels safe.
+ *
+ * Deleting the bytes first and then failing to delete the row leaves a record
+ * claiming an attachment that is not there: the reader says "the PDF is
+ * attached", the download 404s, and NOTHING in the system will ever notice or
+ * repair it.
+ *
+ * Deleting the row first and then failing on the bytes leaves an object no row
+ * claims — which is precisely what `orphaned_paper_objects()` looks for, and
+ * `/tasks/reconcile-uploads` deletes within the hour. One failure mode is
+ * self-healing and the other is permanent, so the order is chosen to fail into
+ * the self-healing one.
+ *
+ * ─ What is deliberately NOT deleted ───────────────────────────────────────
+ *
+ * Anchors, annotations and extraction quotes stay. They are evidence: a quote
+ * recorded against page 14 is a claim somebody made about this paper, and
+ * removing the file does not unmake it. They will resolve as BROKEN against
+ * whatever text remains, which is the anchoring engine reporting the truth
+ * rather than the file taking the record down with it. The UI says so before
+ * the click.
+ *
+ * `file_pages` DOES go, by cascade — it is a copy of the file's contents, not
+ * a claim about them.
+ */
+export async function removePaperFile(
+  input: z.input<typeof CompleteInput>,
+): Promise<ActionResult> {
+  const parsed = CompleteInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid file." };
+  }
+
+  const claims = await getUserClaims();
+  if (!claims) return { ok: false, error: "Not signed in." };
+
+  const { projectId, projectWorkId, fileId } = parsed.data;
+
+  let storagePath: string | null = null;
+
+  try {
+    storagePath = await withUserContext(claims, async (tx) => {
+      const file = await tx.fileObject.findFirst({
+        where: { id: fileId, projectId },
+        select: { storagePath: true },
+      });
+      if (!file) return null;
+
+      // Cascades to file_pages. The delete policy is the same
+      // OWNER/ADMIN/CONTRIBUTOR rule as the object's own.
+      await tx.fileObject.delete({ where: { id: fileId } });
+      return file.storagePath;
+    });
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : String(cause);
+    const refused = message.includes("42501") || /row-level security/i.test(message);
+    if (!refused) {
+      // eslint-disable-next-line no-console -- otherwise the browser sees only
+      // the sentence below and the reason is gone.
+      console.error("removePaperFile failed", cause);
+    }
+    return {
+      ok: false,
+      error: refused
+        ? "You do not have permission to remove this file."
+        : "Could not remove the file. The server log has the detail.",
+    };
+  }
+
+  if (!storagePath) return { ok: false, error: "That file is not in this project." };
+
+  // Best effort, and safe to fail: the row is already gone, so the object is
+  // now an orphan and the reconciler owns it.
+  const supabase = await createClient();
+  await discardPaperObject(supabase, storagePath);
+
+  revalidatePath(`/projects/${projectId}/read/${projectWorkId}`);
+  return { ok: true };
+}

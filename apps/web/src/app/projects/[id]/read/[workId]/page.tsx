@@ -6,7 +6,7 @@ import { AccessHelp } from "@/components/access-route";
 import { getProject } from "@/lib/project";
 import { SourceLinks } from "@/components/source-links";
 import { must } from "@/lib/supabase/query";
-import { resolveInSections } from "@/lib/reader-document";
+import { describeReading, resolveInSections } from "@/lib/reader-document";
 import { loadPaperDocument } from "@/server/paper-text";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -98,6 +98,13 @@ export default async function ReadPage({
   );
 
   const { sections, fullText: readingFullText } = paper;
+
+  const notice = describeReading({
+    hasFile: paper.file !== null,
+    textStatus: paper.textStatus,
+    pageCount: readingFullText ? sections.length : 0,
+    hasAbstract: Boolean(work?.abstract),
+  });
 
   // No embed of the author here: `annotations.author_id` has no foreign key
   // to `users`, so PostgREST cannot join it — asking for one makes the WHOLE
@@ -283,25 +290,14 @@ export default async function ReadPage({
 
       {/* Stage 2 of the file pipeline: the paper's own bytes, held for the
           project. Reading them in the app is stage 3. */}
-      {/*
-        Reported from stored state, not from the form.
-        `text_status` outlives the upload: the form that knew the extraction
-        had failed is unmounted the moment the file is attached, so a message
-        held in its state is a message nobody sees twice. This is also what a
-        colleague opening the paper next week sees.
-      */}
-      {paper.textStatus === "FAILED" && (
-        <Banner tone="danger">
-          <strong>This PDF has no text we could read.</strong> That usually means it is a
-          scan rather than a digital document. The file is attached and can be downloaded;
-          the abstract is shown below for annotation.
-        </Banner>
-      )}
-
       {paper.file ? (
         <AttachedPaper
+          projectId={id}
+          projectWorkId={workId}
+          fileId={paper.file.id}
           sizeBytes={paper.file.sizeBytes}
           uploadedAt={paper.file.createdAt}
+          hasText={readingFullText}
         />
       ) : (
         <Card className="p-6">
@@ -309,22 +305,25 @@ export default async function ReadPage({
         </Card>
       )}
 
-      {sections.length === 0 && (
+      {/*
+        ONE notice, derived from the whole situation.
+        Three independent messages used to live here and they contradicted each
+        other: the "no text we could read" banner promised the abstract was
+        shown below, the empty state claimed no PDF was attached, and a scanned
+        PDF on a record with no abstract triggered both. `describeReading` makes
+        that combination unwriteable rather than merely fixed, and it is unit
+        tested on the cases that used to collide.
+      */}
+      {notice.tone === "danger" ? (
+        <Banner tone="danger">
+          {notice.headline && <strong>{notice.headline}</strong>} {notice.body}
+        </Banner>
+      ) : notice.headline ? (
         <p className="border-border text-muted text-ui rounded-lg border border-dashed p-6 text-center">
-          This record has no abstract and no attached PDF, so there is nothing to read
-          here yet. Attach the paper above and its pages appear.
+          <strong className="text-ink">{notice.headline}</strong> {notice.body}
         </p>
-      )}
-
-      {/* Which document you are reading, said once. Without it, a highlight
-          that resolves against the abstract and one that resolves against
-          page 4 look identical, and only one of them is the paper. */}
-      {sections.length > 0 && (
-        <p className="text-muted text-fine">
-          {readingFullText
-            ? `Reading the full text — ${sections.length} ${sections.length === 1 ? "page" : "pages"} from the attached PDF.`
-            : "Reading the abstract. Attach the PDF to read and annotate the whole paper."}
-        </p>
+      ) : (
+        <p className="text-muted text-fine">{notice.body}</p>
       )}
 
       {/* The reader renders whenever there is text OR existing annotations.
