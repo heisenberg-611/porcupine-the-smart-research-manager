@@ -192,9 +192,15 @@ curl https://your-instance/tasks/purge-accounts \
      -H "Authorization: Bearer $CRON_SECRET"
 ```
 
-On the hosted service that is a daily Vercel Cron. On your own copy it is your
-cron, or you, and until it runs an account that asked to be deleted is still
-waiting.
+On the hosted service that is a daily Vercel Cron, declared in
+`apps/web/vercel.json`. That path is not incidental: this project's Vercel
+**Root Directory is `apps/web`**, and Vercel reads `vercel.json` from the root
+directory of the deployment rather than from the repository root — put it at
+the top of the repo in a monorepo like this one and it is silently ignored, no
+cron appears, and nothing says why.
+
+On your own copy it is your cron, or you, and until it runs an account that
+asked to be deleted is still waiting.
 
 Generate the secret with `openssl rand -base64 32`. It **must** be called
 `CRON_SECRET`: Vercel attaches the `Authorization` header to a cron invocation
