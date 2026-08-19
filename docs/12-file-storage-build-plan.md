@@ -271,7 +271,7 @@ now supplies a fixed local value for the e2e run.
 
 ---
 
-## 6. Stage 3 — the reader
+## 6. Stage 3 — the reader — **done**
 
 pdf.js with `isEvalSupported: false` and scripting disabled, per
 `docs/02-security-and-e2ee.md` §7. Extract the text layer per page and hand it
@@ -282,6 +282,73 @@ works for a long time. The reader gains a source, it does not swap one.
 
 **Watch the CSP.** pdf.js may want `wasm-unsafe-eval`; the security document
 already requires that it be scoped to the worker rather than the document.
+
+### What the stage actually found
+
+**`isEvalSupported: false` no longer exists, and neither does the CSP.** The
+option was removed upstream in pdf.js v5 along with the thing it guarded: the
+built library at 6.2.108 contains no `eval(` and no `new Function(` in either
+`pdf.mjs` or `pdf.worker.mjs`. Passing the option today would be a comforting
+no-op. The requirement is now met by the library version rather than by
+anything we write, so `apps/web/src/lib/pdf-text.test.ts` asserts the property
+directly and turns red on an upgrade that reintroduces one. The wasm question
+does not arise either: v6 uses WebAssembly only for JPEG 2000 and JBIG2 image
+decoding, only when handed a `wasmUrl`, and the package ships no `.wasm` files.
+And `apps/web/next.config.ts` sets no `Content-Security-Policy` header at all —
+so there is nothing to scope. **That gap is real and is not this stage's to
+close**, but it should be recorded rather than discovered again.
+
+**There was nowhere to put the text.** `file_objects` has carried `text_status`
+and `page_count` since Phase 1 with no table to hold the words, which is a
+large part of why the reader still showed abstracts. `file_pages` is one row
+per page — the unit `AnchorSelector.page` has always named and the unit a
+reader cites — and it is insert-only. A re-extraction producing different text
+is a different file, and every anchor into the old text needs to drift-check
+against the new; making that an UPDATE would hide exactly what the anchoring
+engine exists to report.
+
+**Extraction runs in the browser.** The file is already in the uploading tab's
+memory, so this costs no server time and never meets a function's duration
+limit; the result is stored once and every other member reads it. It goes back
+in chunks because a server action's body is capped at 1 MB and a 300-page
+document clears that on its own — which would have worked in testing on short
+papers and failed on precisely the long ones that need full-text reading.
+
+**The upload said "done" before it was.** `completeUpload` called
+`revalidatePath`, which re-rendered the reader, replaced the upload form with
+"The PDF is attached", and unmounted the component that was still extracting
+and storing text. Pages landed in the database while `text_status` stayed
+PENDING forever, and anyone who navigated on seeing "attached" cut the
+remaining work off mid-flight. The screen now changes once, at the end, when
+the form asks for it — and a failed extraction is reported from stored state
+rather than from component state that the refresh destroys.
+
+**Attaching a PDF must not appear to destroy existing annotations.** Every
+anchor made before this stage was captured against the abstract and carries no
+page. Resolving those only against the new page text would turn a colleague's
+highlights into a wall of "lost in this document" — so `resolveInSections`
+looks for an exact match anywhere before it accepts a drifted one anywhere,
+and an abstract quote lands on the paper's first page where it is usually
+reproduced.
+
+### Delivered
+
+- `supabase/migrations/20260819160000_file_page_text.sql` — `file_pages`,
+  insert-only, read by members, written by OWNER/ADMIN/CONTRIBUTOR.
+- `apps/web/src/lib/pdf-text.ts` — extraction in a worker, text layer only, no
+  canvas, no fonts, no wasm.
+- `apps/web/src/lib/reader-document.ts` — placing a stored anchor in a
+  paginated document, with unit tests for the migration case.
+- The reader renders pages, labels them, and records the page a highlight was
+  made on; the abstract remains the fallback.
+- `packages/db/test/20_file_pages.sql` (9 assertions) and two more e2e tests:
+  the paper's own pages become what you read, and a highlight on page two is
+  recorded as being on page two.
+
+**Not done here:** a visual PDF viewer. The reader annotates text, the
+anchoring engine resolves against text, and a page image would add a canvas, a
+font loader and the CSP argument above to buy something nothing in the product
+needs yet.
 
 ---
 

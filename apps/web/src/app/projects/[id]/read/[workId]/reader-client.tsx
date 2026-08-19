@@ -4,6 +4,7 @@ import { createSelector, type AnchorSelector } from "@Porcupine/anchoring";
 import { useCallback, useRef, useState, useTransition } from "react";
 
 import { Button, Checkbox, Textarea } from "@/components/ui";
+import type { ReaderSection } from "@/lib/reader-document";
 
 import { createAnnotation, deleteAnnotation } from "./actions";
 
@@ -16,6 +17,10 @@ export interface RenderedAnnotation {
   isMine: boolean;
   /** Resolved against the CURRENT text on the server. */
   status: "OK" | "DRIFTED" | "BROKEN";
+  /** Which section it resolved in; null when it resolved nowhere. */
+  sectionIndex: number | null;
+  /** The page it was captured on, for display. Null for an abstract. */
+  page: number | null;
   start: number | null;
   end: number | null;
   quote: string;
@@ -35,12 +40,18 @@ export interface RenderedAnnotation {
 export function ReaderClient({
   projectId,
   projectWorkId,
-  text,
+  sections,
   annotations,
 }: {
   projectId: string;
   projectWorkId: string;
-  text: string;
+  /**
+   * The document, in the pieces it is read in: one section for an abstract,
+   * one per page for an extracted PDF. Offsets are per-section, which is why
+   * an anchor carries a page — a character offset into a 300-page document
+   * would be meaningless the moment the extractor changed a ligature.
+   */
+  sections: ReaderSection[];
   annotations: RenderedAnnotation[];
 }) {
   const [selection, setSelection] = useState<AnchorSelector | null>(null);
@@ -49,34 +60,55 @@ export function ReaderClient({
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const textRef = useRef<HTMLDivElement>(null);
+  const documentRef = useRef<HTMLDivElement>(null);
 
   const captureSelection = useCallback(() => {
     const active = window.getSelection();
-    if (!active || active.isCollapsed || !textRef.current) {
+    if (!active || active.isCollapsed || !documentRef.current) {
       setSelection(null);
       return;
     }
 
     const range = active.getRangeAt(0);
-    if (!textRef.current.contains(range.commonAncestorContainer)) return;
+    if (!documentRef.current.contains(range.commonAncestorContainer)) return;
 
-    // Offset within the whole passage, not within a text node: the passage is
+    /*
+     * Which page the selection is on, asked of the DOM rather than tracked.
+     *
+     * A selection can begin in one section and end in another, and character
+     * offsets only mean anything within one page's text. Climbing to the
+     * nearest section element from where the selection STARTS gives both the
+     * page and the string those offsets belong to; a selection dragged across
+     * a page boundary is truncated to the page it started on, which is the
+     * only interpretation that produces a resolvable anchor.
+     */
+    const origin =
+      range.startContainer.nodeType === Node.ELEMENT_NODE
+        ? (range.startContainer as Element)
+        : range.startContainer.parentElement;
+    const host = origin?.closest<HTMLElement>("[data-section-index]");
+    if (!host) return;
+
+    const index = Number(host.dataset.sectionIndex);
+    const section = sections[index];
+    if (!section) return;
+
+    // Offset within the whole section, not within a text node: the passage is
     // rendered as several nodes once highlights are interleaved, and a
     // node-local offset would be meaningless the moment they change.
     const before = range.cloneRange();
-    before.selectNodeContents(textRef.current);
+    before.selectNodeContents(host);
     before.setEnd(range.startContainer, range.startOffset);
     const start = before.toString().length;
-    const end = start + range.toString().length;
+    const end = Math.min(start + range.toString().length, section.text.length);
 
     if (end - start < 3) {
       setSelection(null);
       return;
     }
 
-    setSelection(createSelector(text, start, end));
-  }, [text]);
+    setSelection(createSelector(section.text, start, end, section.page ?? undefined));
+  }, [sections]);
 
   function save(kind: "HIGHLIGHT" | "NOTE") {
     if (!selection) return;
@@ -96,6 +128,7 @@ export function ReaderClient({
           suffix: selection.suffix ?? null,
           startOff: selection.startOff ?? null,
           endOff: selection.endOff ?? null,
+          page: selection.page ?? null,
         },
       });
 
@@ -119,14 +152,32 @@ export function ReaderClient({
 
   return (
     <div className="space-y-6">
-      <div
-        ref={textRef}
-        data-testid="reader-text"
-        onMouseUp={captureSelection}
-        onKeyUp={captureSelection}
-        className="prose-body border-rule border-t py-6"
-      >
-        {renderWithHighlights(text, annotations)}
+      <div ref={documentRef} onMouseUp={captureSelection} onKeyUp={captureSelection}>
+        {sections.map((section, index) => (
+          <div key={section.page ?? "abstract"}>
+            {/* Only when there is more than one. A lone "Page 1" above an
+                abstract is a label for a distinction nobody is making. */}
+            {sections.length > 1 && section.page !== null && (
+              <p className="text-muted text-fine border-rule mt-6 border-t pt-4">
+                Page {section.page}
+              </p>
+            )}
+            <div
+              data-testid="reader-text"
+              data-section-index={index}
+              className={
+                sections.length > 1
+                  ? "prose-body py-2"
+                  : "prose-body border-rule border-t py-6"
+              }
+            >
+              {renderWithHighlights(
+                section.text,
+                annotations.filter((a) => a.sectionIndex === index),
+              )}
+            </div>
+          </div>
+        ))}
       </div>
 
       {selection && (
@@ -221,6 +272,12 @@ export function ReaderClient({
                   <span>{annotation.authorName}</span>
                   <span>·</span>
                   <span>{annotation.kind.toLowerCase()}</span>
+                  {annotation.page !== null && (
+                    <>
+                      <span>·</span>
+                      <span>page {annotation.page}</span>
+                    </>
+                  )}
                   {annotation.visibility === "PRIVATE" && (
                     <>
                       <span>·</span>

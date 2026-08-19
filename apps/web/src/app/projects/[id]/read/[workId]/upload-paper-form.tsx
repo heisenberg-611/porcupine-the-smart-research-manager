@@ -4,6 +4,7 @@ import {
   MAX_PAPER_BYTES,
   PAPER_MIME,
   PDF_MAGIC_BYTES,
+  TEXT_CHUNK_PAGES,
   describeFileRefusal,
   looksLikePdf,
 } from "@Porcupine/shared";
@@ -13,7 +14,15 @@ import { startTransition, useRef, useState } from "react";
 import { Banner, Button, Field, FileInput } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 
-import { beginUpload, completeUpload } from "./file-actions";
+import { extractPdfText } from "@/lib/pdf-text";
+
+import {
+  beginUpload,
+  completeUpload,
+  finishPaperText,
+  markPaperTextFailed,
+  storePaperTextChunk,
+} from "./file-actions";
 
 /**
  * Attach the PDF.
@@ -29,13 +38,16 @@ import { beginUpload, completeUpload } from "./file-actions";
  */
 
 /** The stages, in the order they happen. Each one is shown on the button. */
-type Stage = "idle" | "checking" | "uploading" | "finishing";
+type Stage = "idle" | "checking" | "uploading" | "finishing" | "reading";
 
 const LABEL: Record<Stage, string> = {
   idle: "Attach this PDF",
   checking: "Checking the file…",
   uploading: "Uploading…",
   finishing: "Finishing up…",
+  // Named for what the user gets, not for what the machine does. "Extracting
+  // text layer" is accurate and means nothing to a researcher.
+  reading: "Reading the pages…",
 };
 
 export function UploadPaperForm({
@@ -49,6 +61,10 @@ export function UploadPaperForm({
   const inputRef = useRef<HTMLInputElement>(null);
   const [stage, setStage] = useState<Stage>("idle");
   const [error, setError] = useState<string | null>(null);
+  // Distinct from `error`: the upload SUCCEEDED and something after it did
+  // not. Showing that as a field error would say the attachment failed, which
+  // is both wrong and the opposite of reassuring.
+  const [notice, setNotice] = useState<string | null>(null);
 
   const busy = stage !== "idle";
 
@@ -65,6 +81,7 @@ export function UploadPaperForm({
     const file = inputRef.current?.files?.[0];
 
     setError(null);
+    setNotice(null);
 
     if (!file) {
       setError("Choose a PDF first.");
@@ -142,10 +159,74 @@ export function UploadPaperForm({
       fileId: begun.data.fileId,
     });
 
+    if (!finished.ok) {
+      setStage("idle");
+      setError(finished.error);
+      return;
+    }
+
+    /*
+     * The text layer, extracted here rather than on a server.
+     *
+     * The file is already in this tab's memory — it was just hashed and
+     * uploaded from it — so this costs a server nothing and never meets a
+     * function's duration limit. It happens once, by the uploader; every other
+     * member of the project reads the stored result.
+     *
+     * A failure here does NOT fail the upload. The PDF is attached and
+     * downloadable whatever happens next; a scanned paper with no text layer
+     * is a real and ordinary thing, and it is recorded as FAILED so the reader
+     * can say so instead of promising text that is never coming.
+     */
+    setStage("reading");
+    const extracted = await extractPdfText(file);
+
+    if (!extracted.ok) {
+      await markPaperTextFailed({ projectId, projectWorkId, fileId: begun.data.fileId });
+      setStage("idle");
+      setNotice(
+        `${extracted.error} The PDF is attached and can be downloaded; only in-app reading is unavailable.`,
+      );
+      if (inputRef.current) inputRef.current.value = "";
+      startTransition(() => router.refresh());
+      return;
+    }
+
+    for (let i = 0; i < extracted.pages.length; i += TEXT_CHUNK_PAGES) {
+      const chunk = extracted.pages.slice(i, i + TEXT_CHUNK_PAGES);
+      const sent = await storePaperTextChunk({
+        projectId,
+        fileId: begun.data.fileId,
+        pages: chunk,
+      });
+      if (!sent.ok) {
+        // Stop at the first failure rather than sending the rest: the
+        // finishing step counts rows and would refuse anyway, and carrying on
+        // just spends the user's bandwidth on a result already lost.
+        await markPaperTextFailed({
+          projectId,
+          projectWorkId,
+          fileId: begun.data.fileId,
+        });
+        setStage("idle");
+        setNotice(`${sent.error} The PDF is attached; its text is not.`);
+        startTransition(() => router.refresh());
+        return;
+      }
+    }
+
+    const done = await finishPaperText({
+      projectId,
+      projectWorkId,
+      fileId: begun.data.fileId,
+      pageCount: extracted.pages.length,
+    });
+
     setStage("idle");
 
-    if (!finished.ok) {
-      setError(finished.error);
+    if (!done.ok) {
+      setNotice(`${done.error} The PDF is attached; its text is not.`);
+      startTransition(() => router.refresh());
       return;
     }
 
@@ -169,6 +250,8 @@ export function UploadPaperForm({
           disabled={busy}
         />
       </Field>
+
+      {notice && <Banner>{notice}</Banner>}
 
       {/* Stated plainly rather than implied. docs/02-security-and-e2ee.md §7:
           do not claim files are scanned until scanning exists. */}

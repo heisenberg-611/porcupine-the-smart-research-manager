@@ -27,6 +27,35 @@ export const MAX_PAPER_BYTES = 52_428_800;
 export const PAPER_MIME = "application/pdf";
 
 /**
+ * The page cap, which docs/02-security-and-e2ee.md §7 asks for alongside size
+ * and type — and which is a different control from the size cap rather than a
+ * restatement of it.
+ *
+ * A PDF's page count is not proportional to its bytes: the page tree can
+ * declare an enormous number of pages that cost almost nothing to store and a
+ * great deal to walk, so a file comfortably under 50 MB can still take the
+ * extractor away for minutes. 2,000 is absurd for a paper and generous for a
+ * thesis or a bound volume, which is where the line belongs — a cap that
+ * refuses real documents gets removed, and then there is no cap.
+ */
+export const MAX_PAPER_PAGES = 2000;
+
+/**
+ * Pages of extracted text per server-action call.
+ *
+ * A server action's request body is limited to 1 MB by default, and a
+ * 300-page document at a few kilobytes a page clears that on its own — so the
+ * text is sent in chunks. Sending it whole works on the short papers anyone
+ * tests with and fails on exactly the long documents that most need full-text
+ * reading.
+ *
+ * Lives here rather than beside the action because a `"use server"` module may
+ * only export async functions, and because the client needs the same number to
+ * slice by.
+ */
+export const TEXT_CHUNK_PAGES = 25;
+
+/**
  * The first five bytes of every PDF, per ISO 32000-1 §7.5.2.
  *
  * This is the only check of the three that the caller cannot simply assert.

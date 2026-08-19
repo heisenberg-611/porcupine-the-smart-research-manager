@@ -26,9 +26,64 @@ const SERVICE_KEY = process.env.SUPABASE_SECRET_KEY ?? "";
  * signature the server reads back over a Range request, which is the one
  * property an uploader cannot assert about itself.
  */
-const PDF_BYTES = Buffer.from(
-  "%PDF-1.7\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n",
-);
+const PDF_BYTES = buildPdf([
+  "Sleep restriction impaired vigilance in every cohort we examined.",
+  "Effect sizes on the second page were smaller but consistently negative.",
+]);
+
+/**
+ * A real, parseable PDF with one line of text per page.
+ *
+ * Built by hand because nothing in the tree ships one, and stage 3 needs a
+ * file pdf.js will actually extract text from — a stub with a `%PDF-` header
+ * satisfies the magic-byte check and yields no pages, which would let the
+ * whole text pipeline pass while doing nothing.
+ */
+function buildPdf(pageTexts: string[]): Buffer {
+  const objs: string[] = [];
+  const pageIds = pageTexts.map((_, i) => 4 + i * 2);
+  objs[1] = "<</Type/Catalog/Pages 2 0 R>>";
+  objs[2] = `<</Type/Pages/Kids[${pageIds.map((i) => `${i} 0 R`).join(" ")}]/Count ${pageTexts.length}>>`;
+  objs[3] = "<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>";
+
+  pageTexts.forEach((text, i) => {
+    const id = pageIds[i]!;
+    /*
+     * 9pt starting at x=40, which is not a style choice.
+     *
+     * At 18pt from x=72 the longer of these lines runs past the right edge of
+     * a 612pt page, and pdf.js drops the glyphs that fall outside the
+     * MediaBox — so `getTextContent` returned "...consistently negat" and the
+     * assertion below failed against a truncation this fixture had caused.
+     * A test fixture that silently loses text is worse than no fixture: it
+     * would mask exactly the extraction bug it exists to catch.
+     */
+    const stream = `BT /F1 9 Tf 40 700 Td (${text.replace(/([()\\])/g, "\\$1")}) Tj ET`;
+    objs[id] =
+      `<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents ${id + 1} 0 R` +
+      "/Resources<</Font<</F1 3 0 R>>>>>>";
+    objs[id + 1] = `<</Length ${stream.length}>>\nstream\n${stream}\nendstream`;
+  });
+
+  let out = "%PDF-1.4\n";
+  const offsets: number[] = [];
+  for (let i = 1; i < objs.length; i++) {
+    if (!objs[i]) continue;
+    offsets[i] = out.length;
+    out += `${i} 0 obj\n${objs[i]}\nendobj\n`;
+  }
+
+  const xref = out.length;
+  out += `xref\n0 ${objs.length}\n0000000000 65535 f \n`;
+  for (let i = 1; i < objs.length; i++) {
+    out +=
+      offsets[i] === undefined
+        ? "0000000000 65535 f \n"
+        : `${String(offsets[i]).padStart(10, "0")} 00000 n \n`;
+  }
+  out += `trailer\n<</Size ${objs.length}/Root 1 0 R>>\nstartxref\n${xref}\n%%EOF\n`;
+  return Buffer.from(out, "latin1");
+}
 
 /** A PNG signature. The point is that it will be offered as `paper.pdf`. */
 const PNG_BYTES = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -191,6 +246,13 @@ test.describe("file storage — attaching a paper's PDF", () => {
     test.setTimeout(180_000);
     await createConfirmedUser(strangerEmail);
     owner = await signInAndEnroll(browser, ownerEmail);
+    if (process.env.UPLOAD_DEBUG) {
+      owner.on("console", (m) => console.warn(`[console.${m.type()}] ${m.text()}`));
+      owner.on("pageerror", (e) => console.warn(`[pageerror] ${e.message}`));
+      owner.on("requestfailed", (r) =>
+        console.warn(`[requestfailed] ${r.url()} ${r.failure()?.errorText}`),
+      );
+    }
   });
 
   test.afterAll(async () => {
@@ -256,9 +318,20 @@ test.describe("file storage — attaching a paper's PDF", () => {
     });
     await owner.getByRole("button", { name: /attach this pdf/i }).click();
 
-    await expect(owner.getByText(/the PDF is attached/i)).toBeVisible({
-      timeout: 30_000,
+    /*
+     * Waits for the END of the job, not the middle of it.
+     *
+     * An earlier version waited for "The PDF is attached" — which the page
+     * showed as soon as the bytes landed, while the text extraction was still
+     * running. The next test then navigated and cut the remaining work off
+     * mid-flight, leaving pages in the database and `text_status` stuck at
+     * PENDING. The bug was real and in the product, not the test; the test's
+     * share of it was asserting on an intermediate state.
+     */
+    await expect(owner.getByText(/reading the full text/i)).toBeVisible({
+      timeout: 60_000,
     });
+    await expect(owner.getByText(/the PDF is attached/i)).toBeVisible();
 
     // The object is really there, at the path the policy reads.
     const objects = await objectsIn(projectId);
@@ -281,6 +354,57 @@ test.describe("file storage — attaching a paper's PDF", () => {
    *
    *     CRON_SECRET=test-secret pnpm --filter @Porcupine/web test:e2e
    */
+  /*
+   * Stage 3. docs/12-file-storage-build-plan.md §6 and §10: the reader gains a
+   * source, and a quote resolves to a page of the actual paper rather than to
+   * a sentence in an abstract.
+   */
+  test("the paper's own pages become the thing you read", async () => {
+    await goto(owner, readUrl);
+
+    // Survives a reload: the text is stored, not held in the uploader's tab.
+    await expect(owner.getByText(/2 pages from the attached PDF/i)).toBeVisible();
+
+    // Both pages, and labelled — a quote's page is the citable part.
+    await expect(owner.getByText(/impaired vigilance in every cohort/i)).toBeVisible();
+    await expect(owner.getByText(/smaller but consistently negative/i)).toBeVisible();
+    await expect(owner.getByText(/^Page 2$/)).toBeVisible();
+  });
+
+  test("and a highlight on page two is recorded as being on page two", async () => {
+    /*
+     * The payoff of the whole file pipeline. `enforce_value_anchor` has
+     * refused un-sourced quotes since Phase 2 and the reader has resolved
+     * anchors since Phase 1, but the passage has always been a sentence in an
+     * abstract. This is the first anchor into a page of a real document, and
+     * the page number is the part that was never available before.
+     */
+    const quote = await owner.evaluate(() => {
+      const blocks = document.querySelectorAll("[data-section-index]");
+      const second = blocks[1];
+      if (!second?.firstChild) return null;
+      const range = document.createRange();
+      range.setStart(second.firstChild, 0);
+      range.setEnd(second.firstChild, 24);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      second.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+      return range.toString();
+    });
+
+    expect(quote, "a selection should have been captured on page 2").toBeTruthy();
+
+    await owner.getByRole("button", { name: /^highlight$/i }).click();
+    await expect(owner.getByText(/highlight saved/i)).toBeVisible();
+
+    // Re-resolved server-side on the next render, against the page it came
+    // from — so this is the round trip, not just the optimistic UI.
+    await goto(owner, readUrl);
+    await expect(owner.getByText(/page 2/i).last()).toBeVisible();
+    await expect(owner.getByText(/lost in this document/i)).toHaveCount(0);
+  });
+
   test("the sweeper deletes bytes that no record claims", async () => {
     const secret = process.env.CRON_SECRET;
     test.skip(!secret, "no CRON_SECRET, so the endpoint is closed");
@@ -298,7 +422,7 @@ test.describe("file storage — attaching a paper's PDF", () => {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/pdf",
       },
-      body: PDF_BYTES,
+      body: new Uint8Array(PDF_BYTES),
     });
     expect(planted.ok, "the plant itself must succeed").toBe(true);
 
@@ -363,7 +487,7 @@ test.describe("file storage — attaching a paper's PDF", () => {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/pdf",
       },
-      body: PNG_BYTES,
+      body: new Uint8Array(PNG_BYTES),
     });
     expect(
       planted.ok,

@@ -1,4 +1,3 @@
-import { resolveAnchor } from "@Porcupine/anchoring";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
@@ -7,6 +6,7 @@ import { AccessHelp } from "@/components/access-route";
 import { getProject } from "@/lib/project";
 import { SourceLinks } from "@/components/source-links";
 import { must } from "@/lib/supabase/query";
+import { resolveInSections, type ReaderSection } from "@/lib/reader-document";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 import { ReaderClient, type RenderedAnnotation } from "./reader-client";
@@ -91,7 +91,7 @@ export default async function ReadPage({
   const paperFile = await must(
     supabase
       .from("file_objects")
-      .select("id, size_bytes, created_at")
+      .select("id, size_bytes, created_at, page_count, text_status")
       .eq("project_id", id)
       .eq("work_id", (projectWork as unknown as { work_id: string }).work_id)
       .eq("upload_state", "COMPLETE")
@@ -101,16 +101,46 @@ export default async function ReadPage({
     "the attached file",
   );
 
-  /**
-   * The passage under annotation.
+  /*
+   * The document under annotation: the paper's own pages when the PDF's text
+   * has been extracted, and the abstract when it has not.
    *
-   * Still the abstract, even once a PDF is attached. Upload landed in stage 2
-   * of the file pipeline; extracting a text layer from the PDF and handing it
-   * to the anchoring engine is stage 3. The anchoring engine does not care
-   * which text it is given, so this path does not change when that happens —
-   * only the source of `text` does.
+   * The anchoring engine never cared which text it was given — that was the
+   * whole design — so this is the only place the arrival of full text changes
+   * anything. Ordered by page, because the reader shows them in order and an
+   * unordered document is not a document.
    */
-  const text = work?.abstract ?? "";
+  const fileMeta = paperFile as unknown as {
+    id: string;
+    size_bytes: number;
+    created_at: string;
+    page_count: number | null;
+    text_status: string;
+  } | null;
+
+  const pageRows =
+    fileMeta && fileMeta.text_status === "EXTRACTED"
+      ? ((await must(
+          supabase
+            .from("file_pages")
+            .select("page_number, text")
+            .eq("file_id", fileMeta.id)
+            .order("page_number", { ascending: true }),
+          "the paper's text",
+        )) ?? [])
+      : [];
+
+  const pages = pageRows as unknown as Array<{ page_number: number; text: string }>;
+
+  const abstract = work?.abstract ?? "";
+  const sections: ReaderSection[] =
+    pages.length > 0
+      ? pages.map((row) => ({ page: row.page_number, text: row.text }))
+      : abstract
+        ? [{ page: null, text: abstract }]
+        : [];
+
+  const readingFullText = pages.length > 0;
 
   // No embed of the author here: `annotations.author_id` has no foreign key
   // to `users`, so PostgREST cannot join it — asking for one makes the WHOLE
@@ -157,7 +187,7 @@ export default async function ReadPage({
     .filter((row) => row.anchors)
     .map((row) => {
       const anchor = row.anchors!;
-      const resolution = resolveAnchor(
+      const { sectionIndex, resolution } = resolveInSections(
         {
           quote: anchor.quote,
           prefix: anchor.prefix ?? undefined,
@@ -166,10 +196,12 @@ export default async function ReadPage({
           endOff: anchor.end_off ?? undefined,
           page: anchor.page ?? undefined,
         },
-        text,
+        sections,
       );
 
       return {
+        sectionIndex,
+        page: anchor.page ?? null,
         id: row.id,
         kind: row.kind,
         body: row.body,
@@ -209,8 +241,11 @@ export default async function ReadPage({
       )
     : null;
 
+  // Placed across the whole document, not against one string: an evidence
+  // cell quoting page 14 has to land on page 14, and before full text existed
+  // there was only ever one place it could land.
   const focus = focusAnchor
-    ? resolveAnchor(
+    ? resolveInSections(
         {
           quote: focusAnchor.quote,
           prefix: focusAnchor.prefix ?? undefined,
@@ -219,8 +254,8 @@ export default async function ReadPage({
           endOff: focusAnchor.end_off ?? undefined,
           page: focusAnchor.page ?? undefined,
         },
-        text,
-      )
+        sections,
+      ).resolution
     : null;
 
   return (
@@ -291,6 +326,21 @@ export default async function ReadPage({
 
       {/* Stage 2 of the file pipeline: the paper's own bytes, held for the
           project. Reading them in the app is stage 3. */}
+      {/*
+        Reported from stored state, not from the form.
+        `text_status` outlives the upload: the form that knew the extraction
+        had failed is unmounted the moment the file is attached, so a message
+        held in its state is a message nobody sees twice. This is also what a
+        colleague opening the paper next week sees.
+      */}
+      {fileMeta?.text_status === "FAILED" && (
+        <Banner tone="danger">
+          <strong>This PDF has no text we could read.</strong> That usually means it is a
+          scan rather than a digital document. The file is attached and can be downloaded;
+          the abstract is shown below for annotation.
+        </Banner>
+      )}
+
       {paperFile ? (
         <AttachedPaper
           sizeBytes={(paperFile as unknown as { size_bytes: number }).size_bytes}
@@ -302,10 +352,21 @@ export default async function ReadPage({
         </Card>
       )}
 
-      {!text && (
+      {sections.length === 0 && (
         <p className="border-border text-muted text-ui rounded-lg border border-dashed p-6 text-center">
-          This record has no abstract, so there is no text to annotate yet. Full-text
-          reading arrives with the file pipeline.
+          This record has no abstract and no attached PDF, so there is nothing to read
+          here yet. Attach the paper above and its pages appear.
+        </p>
+      )}
+
+      {/* Which document you are reading, said once. Without it, a highlight
+          that resolves against the abstract and one that resolves against
+          page 4 look identical, and only one of them is the paper. */}
+      {sections.length > 0 && (
+        <p className="text-muted text-fine">
+          {readingFullText
+            ? `Reading the full text — ${sections.length} ${sections.length === 1 ? "page" : "pages"} from the attached PDF.`
+            : "Reading the abstract. Attach the PDF to read and annotate the whole paper."}
         </p>
       )}
 
@@ -314,11 +375,11 @@ export default async function ReadPage({
           record vanish from the page — indistinguishable from having been
           deleted, when in fact the rows were there the whole time and every
           anchor had simply resolved to BROKEN against an empty document. */}
-      {(text || annotations.length > 0) && (
+      {(sections.length > 0 || annotations.length > 0) && (
         <ReaderClient
           projectId={id}
           projectWorkId={workId}
-          text={text}
+          sections={sections}
           annotations={annotations}
         />
       )}

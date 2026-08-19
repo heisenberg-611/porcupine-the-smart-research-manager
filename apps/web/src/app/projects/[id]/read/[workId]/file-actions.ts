@@ -2,8 +2,10 @@
 
 import {
   MAX_PAPER_BYTES,
+  MAX_PAPER_PAGES,
   PAPER_BUCKET,
   PAPER_MIME,
+  TEXT_CHUNK_PAGES,
   paperStoragePath,
 } from "@Porcupine/shared";
 import { revalidatePath } from "next/cache";
@@ -156,7 +158,7 @@ export async function completeUpload(
   const claims = await getUserClaims();
   if (!claims) return { ok: false, error: "Not signed in." };
 
-  const { projectId, projectWorkId, fileId } = parsed.data;
+  const { projectId, fileId } = parsed.data;
   const path = paperStoragePath(projectId, fileId);
 
   // The user's own client throughout, so every read below is one this person
@@ -211,6 +213,185 @@ export async function completeUpload(
     return { ok: false, error: "The file uploaded, but its record could not be saved." };
   }
 
-  revalidatePath(`/projects/${projectId}/read/${projectWorkId}`);
+  /*
+   * Deliberately no revalidatePath here, and this cost an afternoon.
+   *
+   * Revalidating makes the reader re-render immediately, which swaps the
+   * upload form for "The PDF is attached" — while the form is still running.
+   * The text extraction that follows is a closure on an unmounted component:
+   * its calls still reach the server, but nothing is left to receive the
+   * replies, and anyone who navigates on seeing "attached" cuts the remaining
+   * chunks off mid-flight. The symptom was a file whose pages were stored but
+   * whose `text_status` never left PENDING.
+   *
+   * So the record is written and the caller is told; the screen changes once,
+   * at the end, when the form itself asks for it.
+   */
   return { ok: true, data: { sizeBytes: object.sizeBytes } };
+}
+
+/*
+ * ── The text layer ──────────────────────────────────────────────────────────
+ *
+ * Extracted in the browser (see src/lib/pdf-text.ts) and stored here once, by
+ * whoever uploads the file. Every other member of the project reads the stored
+ * result, so the cost is paid a single time and never by the server.
+ *
+ * It arrives in CHUNKS, which is not premature caution: a server action's
+ * request body is limited to 1 MB by default, and a 300-page document at a
+ * few kilobytes a page clears that on its own. Sending it whole would work in
+ * testing on short papers and fail on exactly the long documents that most
+ * need full-text reading.
+ */
+
+const PageInput = z.object({
+  pageNumber: z.number().int().min(1).max(MAX_PAPER_PAGES),
+  // A dense A4 page of prose is about 4,000 characters. The cap is for a
+  // pathological page, not a long one, and truncating quietly would put text
+  // in the database that no anchor could ever resolve against.
+  text: z.string().max(200_000),
+});
+
+const StoreTextInput = z.object({
+  projectId: z.uuid(),
+  fileId: z.uuid(),
+  pages: z.array(PageInput).min(1).max(TEXT_CHUNK_PAGES),
+});
+
+/**
+ * Store one chunk of extracted page text.
+ *
+ * Idempotent by construction: `file_pages` is unique on (file_id, page_number)
+ * and this skips duplicates, so a retried chunk after a dropped connection
+ * costs nothing and a double-submitted one changes nothing.
+ */
+export async function storePaperTextChunk(
+  input: z.input<typeof StoreTextInput>,
+): Promise<ActionResult> {
+  const parsed = StoreTextInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid page text." };
+  }
+
+  const claims = await getUserClaims();
+  if (!claims) return { ok: false, error: "Not signed in." };
+
+  const { projectId, fileId, pages } = parsed.data;
+
+  try {
+    const stored = await withUserContext(claims, async (tx) => {
+      // The file must be in this project and actually finished. Text for a
+      // PENDING upload would outlive the sweep that removes it.
+      const file = await tx.fileObject.findFirst({
+        where: { id: fileId, projectId, uploadState: "COMPLETE" },
+        select: { id: true },
+      });
+      if (!file) return false;
+
+      await tx.filePage.createMany({
+        data: pages.map((page) => ({
+          projectId,
+          fileId,
+          pageNumber: page.pageNumber,
+          text: page.text,
+        })),
+        skipDuplicates: true,
+      });
+      return true;
+    });
+
+    if (!stored) return { ok: false, error: "That file is not ready for text." };
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Could not save the text of that page." };
+  }
+}
+
+const FinishTextInput = z.object({
+  projectId: z.uuid(),
+  projectWorkId: z.uuid(),
+  fileId: z.uuid(),
+  pageCount: z.number().int().min(1).max(MAX_PAPER_PAGES),
+});
+
+/**
+ * Mark the text layer complete — but only if all of it is actually there.
+ *
+ * The count is verified against the rows rather than taken from the caller.
+ * Chunks can fail independently, and a file marked EXTRACTED with page 47
+ * missing is worse than one marked PENDING: the reader would show the
+ * document with a silent hole in it, and an anchor into that page would
+ * resolve as BROKEN with no explanation available anywhere.
+ */
+export async function finishPaperText(
+  input: z.input<typeof FinishTextInput>,
+): Promise<ActionResult<{ pageCount: number }>> {
+  const parsed = FinishTextInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid page count." };
+  }
+
+  const claims = await getUserClaims();
+  if (!claims) return { ok: false, error: "Not signed in." };
+
+  const { projectId, projectWorkId, fileId, pageCount } = parsed.data;
+
+  try {
+    const result = await withUserContext(claims, async (tx) => {
+      const stored = await tx.filePage.count({ where: { fileId, projectId } });
+      if (stored !== pageCount) return { complete: false, stored };
+
+      await tx.fileObject.updateMany({
+        where: { id: fileId, projectId },
+        data: { pageCount, textStatus: "EXTRACTED" },
+      });
+      return { complete: true, stored };
+    });
+
+    if (!result.complete) {
+      return {
+        ok: false,
+        error: `Only ${result.stored} of ${pageCount} pages were saved. The text was not marked complete.`,
+      };
+    }
+  } catch {
+    return { ok: false, error: "Could not finish saving the text." };
+  }
+
+  revalidatePath(`/projects/${projectId}/read/${projectWorkId}`);
+  return { ok: true, data: { pageCount } };
+}
+
+/**
+ * Record that extraction was attempted and did not work.
+ *
+ * FAILED rather than left PENDING, because the two mean different things to
+ * the reader: PENDING is "the text is on its way", FAILED is "this PDF has no
+ * text layer we can read — it is probably a scan". Only the second one is
+ * worth telling somebody, and only if it is recorded.
+ */
+export async function markPaperTextFailed(
+  input: z.input<typeof CompleteInput>,
+): Promise<ActionResult> {
+  const parsed = CompleteInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid file." };
+
+  const claims = await getUserClaims();
+  if (!claims) return { ok: false, error: "Not signed in." };
+
+  const { projectId, projectWorkId, fileId } = parsed.data;
+
+  try {
+    await withUserContext(claims, (tx) =>
+      tx.fileObject.updateMany({
+        where: { id: fileId, projectId },
+        data: { textStatus: "FAILED" },
+      }),
+    );
+  } catch {
+    return { ok: false, error: "Could not record the extraction failure." };
+  }
+
+  revalidatePath(`/projects/${projectId}/read/${projectWorkId}`);
+  return { ok: true };
 }

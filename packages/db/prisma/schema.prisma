@@ -398,6 +398,7 @@ model Project {
   savedSearches      SavedSearch[]
   projectWorks       ProjectWork[]
   files              FileObject[]
+  filePages          FilePage[]
   anchors            Anchor[]
   screeningDecisions ScreeningDecision[]
   importBatches      ImportBatch[]
@@ -815,11 +816,41 @@ model FileObject {
   project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
   owner   User     @relation("FileOwner", fields: [ownerId], references: [id])
   anchors Anchor[]
+  pages   FilePage[]
 
   @@index([ownerId])
   @@index([projectId])
   @@index([contentHash])
   @@map("file_objects")
+}
+
+/// The text layer of one page of an uploaded PDF.
+///
+/// One row per page rather than one blob per file, because `AnchorSelector`
+/// has always carried a page number and a quote resolved against a whole
+/// document could only ever report "page 1 of 1". A page is the unit a reader
+/// cites, so it is the unit the text is stored in.
+///
+/// Written once, at upload, and never edited — there is no update policy. A
+/// re-extraction that produced different text would be a different file, and
+/// every anchor into the old text would need to drift-check against the new,
+/// which is exactly what the anchoring engine reports rather than silently
+/// repointing.
+model FilePage {
+  id         String   @id @default(uuid()) @db.Uuid
+  projectId  String   @map("project_id") @db.Uuid
+  fileId     String   @map("file_id") @db.Uuid
+  /// 1-based, matching AnchorSelector.page.
+  pageNumber Int      @map("page_number")
+  text       String
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  file    FileObject @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  project Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([fileId, pageNumber])
+  @@index([projectId])
+  @@map("file_pages")
 }
 
 // ═══════════════════════ Corpus pipeline ═══════════════════════
