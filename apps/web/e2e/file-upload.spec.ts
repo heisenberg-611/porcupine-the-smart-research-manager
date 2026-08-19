@@ -42,7 +42,7 @@ const PDF_BYTES = buildPdf([
 function buildPdf(pageTexts: string[]): Buffer {
   const objs: string[] = [];
   const pageIds = pageTexts.map((_, i) => 4 + i * 2);
-  objs[1] = "<</Type/Catalog/Pages 2 0 R>>";
+  objs[1] = "<</Type/Catalog/Pages 2 0 R/MarkInfo<</Marked true>>>>";
   objs[2] = `<</Type/Pages/Kids[${pageIds.map((i) => `${i} 0 R`).join(" ")}]/Count ${pageTexts.length}>>`;
   objs[3] = "<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>";
 
@@ -58,7 +58,22 @@ function buildPdf(pageTexts: string[]): Buffer {
      * A test fixture that silently loses text is worse than no fixture: it
      * would mask exactly the extraction bug it exists to catch.
      */
-    const stream = `BT /F1 9 Tf 40 700 Td (${text.replace(/([()\\])/g, "\\$1")}) Tj ET`;
+    /*
+     * Wrapped in BDC/EMC, so the fixture is TAGGED.
+     *
+     * Not decoration. A tagged PDF is what publishers produce, and it changes
+     * both halves of the pipeline: `getTextContent()` returns marked-content
+     * markers that carry no `str` (which a naive join turns into the literal
+     * "undefined"), and pdf.js's text layer nests the runs inside
+     * `<span class="markedContent">` with the line-break `<br>` INSIDE that
+     * nesting (which a walk of direct children never counts).
+     *
+     * An untagged fixture cannot see either fault, so it passed while real
+     * uploads came out wrong.
+     */
+    const stream =
+      `/P <</MCID ${i}>> BDC BT /F1 9 Tf 40 700 Td ` +
+      `(${text.replace(/([()\\])/g, "\\$1")}) Tj ET EMC`;
     objs[id] =
       `<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents ${id + 1} 0 R` +
       "/Resources<</Font<</F1 3 0 R>>>>>>";
@@ -582,6 +597,81 @@ test.describe("file storage — attaching a paper's PDF", () => {
 
     // In reading order, not shuffled between absolutely positioned runs.
     expect(selected).toContain("Sleep restriction impaired vigilance");
+  });
+
+  test("the selectable text sits exactly on the drawn glyphs", async () => {
+    /*
+     * Reported from real use: "the selection should be more precise."
+     *
+     * `setLayerDimensions` CONSUMES `--total-scale-factor` — it writes
+     * `width: round(down, var(--total-scale-factor) * 612px, …)` — but does
+     * not set it. pdf.js's own viewer sets it on the page container, and this
+     * component is not that viewer, so nothing did.
+     *
+     * Unset, every dependent calc() collapsed: each run's
+     * `font-size: calc(var(--text-scale-factor) * var(--font-height))` fell
+     * back to the browser's default 16px, so the invisible text was half again
+     * as wide as the glyphs drawn beneath it. Pointing at a word selected an
+     * earlier one, and the error grew along the line.
+     *
+     * Asserted on the geometry, because that is the fault, and then on the
+     * behaviour, because that is the symptom.
+     */
+    await goto(owner, readUrl);
+    await expect(owner.locator('[data-page="1"] canvas')).toBeVisible({
+      timeout: 60_000,
+    });
+    await expect(owner.locator('[data-page="1"] [data-section-index]')).toContainText(
+      /impaired vigilance/i,
+      { timeout: 30_000 },
+    );
+
+    const geometry = await owner.evaluate(() => {
+      const layer = document.querySelector(
+        '[data-page="1"] [data-section-index]',
+      ) as HTMLElement;
+      const run = layer.querySelector("span") as HTMLElement;
+      const canvas = document.querySelector('[data-page="1"] canvas') as HTMLElement;
+      return {
+        scale: getComputedStyle(layer).getPropertyValue("--total-scale-factor").trim(),
+        fontSize: parseFloat(getComputedStyle(run).fontSize),
+        fontHeight: parseFloat(run.style.getPropertyValue("--font-height")),
+        canvasWidth: canvas.getBoundingClientRect().width,
+      };
+    });
+
+    expect(geometry.scale, "--total-scale-factor must be set by us").not.toBe("");
+
+    // The layer is expressed in the same scale the canvas was drawn at.
+    expect(Number(geometry.scale)).toBeCloseTo(geometry.canvasWidth / 612, 2);
+
+    /*
+     * The run's font size resolves from the PDF's own font height, rather than
+     * falling back to 16px. This is the assertion that fails with the bug: the
+     * fallback is a round 16 and has nothing to do with --font-height.
+     */
+    expect(geometry.fontSize).toBeCloseTo(
+      geometry.fontHeight * Number(geometry.scale),
+      1,
+    );
+
+    /*
+     * And the symptom: double-clicking a word selects THAT word. Real browser
+     * word selection, not a synthetic drag — Playwright's mouse events do not
+     * reliably drive selection across absolutely positioned, transformed runs,
+     * so a drag here would be testing Playwright.
+     */
+    const run = owner.locator('[data-page="1"] [data-section-index] span').first();
+    const box = (await run.boundingBox())!;
+    await owner.mouse.dblclick(box.x + box.width * 0.2, box.y + box.height / 2);
+
+    // 20% into "Sleep restriction impaired vigilance in every cohort we
+    // examined." lands inside "restriction". With the layer mis-scaled it
+    // landed several words earlier.
+    expect(await owner.evaluate(() => window.getSelection()?.toString())).toBe(
+      "restriction",
+    );
+    await expect(owner.locator("blockquote").first()).toHaveText("restriction");
   });
 
   test("and a highlight on page two is recorded as being on page two", async () => {

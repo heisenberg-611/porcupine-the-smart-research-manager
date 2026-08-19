@@ -53,3 +53,32 @@ describe("the page text join rule", () => {
     );
   });
 });
+
+describe("structure markers, which carry no text", () => {
+  /*
+   * `getTextContent()` does not return only text. A TAGGED PDF — which most
+   * publisher PDFs are — also yields beginMarkedContent/endMarkedContent
+   * entries, and those have no `str` at all.
+   *
+   * `text += item.str` on one of those appends the literal string "undefined":
+   * nine characters of garbage in the middle of the paper, shifting every
+   * offset after it and landing inside any quote that spans it. It corrupts
+   * only tagged documents, so a simple hand-built fixture never sees it.
+   */
+  it("skips a marked-content marker instead of stringifying it", () => {
+    const text = joinPageText([
+      { str: "Sleep restriction " },
+      { type: "beginMarkedContent", id: "p0" } as never,
+      { str: "impaired vigilance", hasEOL: true },
+      { type: "endMarkedContent" } as never,
+      { str: "in every cohort" },
+    ]);
+
+    expect(text).not.toContain("undefined");
+    expect(text).toBe("Sleep restriction impaired vigilance\nin every cohort");
+  });
+
+  it("survives a page that is nothing but markers", () => {
+    expect(joinPageText([{ type: "beginMarkedContent" } as never])).toBe("");
+  });
+});

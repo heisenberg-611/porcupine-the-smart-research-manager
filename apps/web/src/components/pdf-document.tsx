@@ -302,9 +302,31 @@ export function PdfDocument({
         }).promise;
 
         slot.layer.replaceChildren();
-        // Sets the layer's size and --total-scale-factor, which the vendored
-        // CSS multiplies every run's font size by. Skipped, the text renders
-        // at 1px and the highlight rectangles are meaningless.
+
+        /*
+         * The scale the whole text layer is expressed in.
+         *
+         * `setLayerDimensions` CONSUMES `--total-scale-factor` — it writes
+         * `width: round(down, var(--total-scale-factor) * 612px, …)` — but it
+         * does not set it. pdf.js's own viewer sets it on the page container,
+         * and this component is not that viewer, so nothing did.
+         *
+         * Unset, every calc() that depends on it collapses: the layer's width
+         * and height become invalid, and each run's
+         * `font-size: calc(var(--text-scale-factor) * var(--font-height))`
+         * falls back to the browser's default 16px. Measured on a 9pt line:
+         * the invisible text came out 460px wide over a canvas 720px wide,
+         * so the selectable characters sat nowhere near the glyphs drawn
+         * under them — and the error grew along the line, which is what
+         * "the selection is not precise" and "not in a straight line" were.
+         *
+         * `--scale-round-x/y` are the rounding step that `round()` needs; they
+         * are set by the viewer too, and 1px is what it uses.
+         */
+        slot.container.style.setProperty("--total-scale-factor", String(scale));
+        slot.container.style.setProperty("--scale-round-x", "1px");
+        slot.container.style.setProperty("--scale-round-y", "1px");
+
         pdfjs.setLayerDimensions(slot.layer, viewport as never);
 
         const textLayer = new pdfjs.TextLayer({

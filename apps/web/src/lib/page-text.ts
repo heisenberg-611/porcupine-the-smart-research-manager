@@ -31,10 +31,17 @@
  * call it.
  */
 
-/** The minimum of a pdf.js text item this module needs. Not imported from
- * pdfjs-dist, so nothing that only joins strings pulls in a megabyte. */
+/**
+ * The minimum of a pdf.js text item this module needs. Not imported from
+ * pdfjs-dist, so nothing that only joins strings pulls in a megabyte.
+ *
+ * `str` is optional because `getTextContent()` does NOT return only text.
+ * A tagged PDF — which most publisher PDFs are — also yields
+ * `beginMarkedContent` / `endMarkedContent` markers, and those have no `str`
+ * at all.
+ */
 export interface TextRun {
-  str: string;
+  str?: string | undefined;
   hasEOL?: boolean | undefined;
 }
 
@@ -48,6 +55,17 @@ export interface TextRun {
 export function joinPageText(items: readonly TextRun[]): string {
   let text = "";
   for (const item of items) {
+    /*
+     * Skip the structure markers.
+     *
+     * `+= item.str` on a marked-content marker appends the LITERAL STRING
+     * "undefined" — nine characters of garbage in the middle of the paper,
+     * shifting every offset after it and putting nonsense inside any quote
+     * that spans it. It corrupts only tagged PDFs, which is most real ones and
+     * none of the simple fixtures, so it survives exactly the tests that would
+     * be written for it.
+     */
+    if (typeof item.str !== "string") continue;
     text += item.str;
     if (item.hasEOL) text += "\n";
   }
@@ -70,29 +88,52 @@ export function offsetInPageText(
   node: Node,
   offset: number,
 ): number | null {
-  let total = 0;
+  if (!layer.contains(node)) return null;
 
-  for (const child of Array.from(layer.childNodes)) {
-    if (isLineBreak(child)) {
-      // A <br> cannot contain the selection point, so it is always passed
-      // over — but it is worth one character, because the string has one.
-      total += 1;
-      continue;
-    }
-
-    if (child === node || child.contains(node)) {
-      const before = layer.ownerDocument.createRange();
-      before.selectNodeContents(child);
-      before.setEnd(node, offset);
-      // Safe to use Range.toString() here and nowhere else: within a single
-      // text run there are no <br>s for it to skip.
-      return total + before.toString().length;
-    }
-
-    total += child.textContent?.length ?? 0;
+  /*
+   * Measured over a CLONE of everything before the point, not by walking the
+   * layer's direct children.
+   *
+   * pdf.js nests: a tagged PDF puts its runs inside
+   * `<span class="markedContent">` wrappers and appends the line-break `<br>`
+   * INSIDE that nesting. Counting only `layer.childNodes` therefore missed
+   * every nested break — one character of drift per line on exactly the
+   * documents people actually upload.
+   *
+   * Cloning also makes the container type irrelevant: a selection boundary can
+   * land on an element with a child index rather than on a text node, and
+   * `setEnd` handles both.
+   */
+  const range = layer.ownerDocument.createRange();
+  range.selectNodeContents(layer);
+  try {
+    range.setEnd(node, offset);
+  } catch {
+    // A boundary the layer cannot express is not a position in this page.
+    return null;
   }
 
-  return null;
+  return measure(range.cloneContents());
+}
+
+/** Characters in a fragment, counting a `<br>` as the newline it stands for. */
+function measure(fragment: DocumentFragment): number {
+  let total = 0;
+  const walker = fragment.ownerDocument.createTreeWalker(
+    fragment,
+    NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+  );
+
+  let node = walker.nextNode();
+  while (node) {
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      if (isLineBreak(node)) total += 1;
+    } else {
+      total += (node as Text).length;
+    }
+    node = walker.nextNode();
+  }
+  return total;
 }
 
 /**
@@ -114,71 +155,59 @@ export function rangeForPageText(
 ): Range | null {
   if (start < 0 || end <= start) return null;
 
-  const startPoint = pointAt(layer, start);
-  const endPoint = pointAt(layer, end);
-  if (!startPoint || !endPoint) return null;
+  const from = pointAt(layer, start);
+  const to = pointAt(layer, end);
+  if (!from || !to) return null;
 
   const range = layer.ownerDocument.createRange();
-  range.setStart(startPoint.node, startPoint.offset);
-  range.setEnd(endPoint.node, endPoint.offset);
+  range.setStart(from.node, from.offset);
+  range.setEnd(to.node, to.offset);
   return range;
 }
 
-/** The text node and offset that a page-string position lands on. */
+/**
+ * The text node and offset a page-string position lands on.
+ *
+ * Walks the whole subtree for the same reason `offsetInPageText` clones one:
+ * the runs are nested on tagged PDFs, and a walk of direct children would
+ * place a highlight by counting the wrong things.
+ */
 function pointAt(
   layer: HTMLElement,
   target: number,
 ): { node: Node; offset: number } | null {
+  const walker = layer.ownerDocument.createTreeWalker(
+    layer,
+    NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+  );
+
   let total = 0;
-
-  for (const child of Array.from(layer.childNodes)) {
-    if (isLineBreak(child)) {
-      // The newline itself is not addressable — there is no text node holding
-      // it. A position landing exactly on it belongs at the end of the run
-      // before it, which `total` already points at.
-      total += 1;
-      continue;
-    }
-
-    const length = child.textContent?.length ?? 0;
-
-    if (target <= total + length) {
-      const within = target - total;
-      const node = firstTextNode(child);
-      if (!node) return null;
-      return descendTo(child, within) ?? { node, offset: Math.min(within, node.length) };
-    }
-
-    total += length;
-  }
-
-  return null;
-}
-
-/** Walk a run's text nodes to place an offset that spans several of them. */
-function descendTo(root: Node, within: number): { node: Node; offset: number } | null {
-  let remaining = within;
-  const walker = root.ownerDocument!.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-
-  let node = walker.nextNode() as Text | null;
-  if (!node && root.nodeType === Node.TEXT_NODE) {
-    return { node: root, offset: Math.min(within, (root as Text).length) };
-  }
+  let lastText: Text | null = null;
+  let node = walker.nextNode();
 
   while (node) {
-    if (remaining <= node.length) return { node, offset: remaining };
-    remaining -= node.length;
-    node = walker.nextNode() as Text | null;
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      if (isLineBreak(node)) {
+        // The newline has no text node of its own. A position landing exactly
+        // on it belongs at the end of the run before it.
+        if (target === total && lastText) {
+          return { node: lastText, offset: lastText.length };
+        }
+        total += 1;
+      }
+    } else {
+      const text = node as Text;
+      if (target <= total + text.length) return { node: text, offset: target - total };
+      total += text.length;
+      lastText = text;
+    }
+    node = walker.nextNode();
   }
 
+  // One past the end is a legitimate endpoint for a range that runs to the
+  // final character.
+  if (lastText && target === total) return { node: lastText, offset: lastText.length };
   return null;
-}
-
-function firstTextNode(root: Node): Text | null {
-  if (root.nodeType === Node.TEXT_NODE) return root as Text;
-  return root
-    .ownerDocument!.createTreeWalker(root, NodeFilter.SHOW_TEXT)
-    .nextNode() as Text | null;
 }
 
 function isLineBreak(node: Node): boolean {
