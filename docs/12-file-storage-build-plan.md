@@ -92,7 +92,7 @@ phase.
 
 ---
 
-## 3. Rename the enum before writing a single row
+## 3. Rename the enum before writing a single row — **done**
 
 `Residency` is `R2_SHARED | R2_USER | DEVICE_ONLY`
 (`packages/db/prisma/schema.prisma:118`). Two of those three name a vendor that
@@ -105,9 +105,14 @@ data migration plus every call site later.
 
 Do it in the first migration of Stage 1, before anything can insert.
 
+**Done** in `supabase/migrations/20260819132216_file_storage_boundary.sql`.
+`ALTER TYPE ... RENAME VALUE` keeps each label's OID, so the column default
+followed the rename rather than dangling — checked, not assumed. There were no
+code call sites, only comments and docs.
+
 ---
 
-## 4. Stage 1 — the boundary, before any interface
+## 4. Stage 1 — the boundary, before any interface — **done**
 
 Nothing else starts until this stage's tests are green. This is the stage that
 justifies the choice of backend, so it is also the stage that proves it.
@@ -139,6 +144,52 @@ add or remove papers rather than on membership alone.
 `where n.nspname = 'public'` — `storage.objects` is invisible to it. The guard
 that has caught every unprotected table so far would not catch an unprotected
 bucket. Extend it in this stage, not later.
+
+### What the stage actually found
+
+Three things the plan above had wrong or did not know.
+
+**The cast has to be total.** `((storage.foldername(name))[1])::uuid`, written
+exactly as it appears above, raises `22P02` on any object whose first path
+segment is not a UUID. A policy that raises does not deny one row — it fails
+the whole query, for every user, until somebody finds the object. One malformed
+key from `service_role` or a restore would take the bucket down. The migration
+uses `public.storage_project_id(text)`, which checks the shape before casting
+and yields NULL — which `is_project_member()` answers false to. There is an
+object literally named `not-a-uuid/f3.pdf` in the suite to keep it that way.
+
+**FORCE does not apply here, so the guard asks a different question.**
+`storage.objects` is owned by `supabase_storage_admin` and is deliberately not
+`FORCE`d; requiring it would fail against a correctly configured project. RLS
+is already enabled, so a table-level check would pass while the real mistake —
+adding a bucket and forgetting its policies — went unnoticed. `assert-rls.sh`
+now refuses any bucket that is public, and any bucket no policy names.
+`quote_literal` does the matching, so a bucket called `paper` is not covered by
+the `'papers'` policy.
+
+**Deletes are already guarded, and not by us.**
+`storage.protect_objects_delete` is a statement-level BEFORE DELETE trigger
+that refuses every direct SQL delete unless `storage.allow_delete_query` is
+set — which is how the Storage API marks its own, so a row cannot vanish while
+its bytes stay behind as an orphan. It fires before any row is filtered, so it
+raises for everyone. The first version of the OBSERVER delete assertion passed
+against *that* and would have gone on passing with the delete policy dropped
+entirely. Both halves are now asserted separately.
+
+### Delivered
+
+- `supabase/migrations/20260819132216_file_storage_boundary.sql` — the enum
+  rename, `storage_project_id()`, the private `papers` bucket (50 MiB,
+  `application/pdf`), and four policies mirroring `project_works`: read is
+  membership, write is OWNER/ADMIN/CONTRIBUTOR.
+- `packages/db/test/18_storage_rls.sql` — 21 assertions. Runs as
+  `authenticated` rather than `porcupine_app`, which is the role the Storage
+  API actually connects as and the only one with grants on `storage.objects`.
+  Every zero is paired with the same count taken as `postgres`.
+- `scripts/assert-rls.sh` — extended to the `storage` schema.
+
+Each policy was dropped in turn and the suite watched to go red: `select` costs
+5 assertions, each of the other three costs 1.
 
 ---
 

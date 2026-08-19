@@ -1037,15 +1037,17 @@ model GitCommit {
 
 Client-side, the IndexedDB Yjs provider is keyed `"<docId>:<docEpoch>"`. This is what makes a stale op _unreachable_ rather than merely rejected.
 
-**R-04 — storage residency.** OA-verified files dedupe; paywalled files never reach R2.
+**R-04 — storage residency.** OA-verified files dedupe; paywalled files are never shared between users.
+
+Renamed from `R2_SHARED`/`R2_USER` in `20260819132216_file_storage_boundary.sql`, while `file_objects` still had zero rows. The backend is Supabase Storage rather than R2 (`docs/12-file-storage-build-plan.md` §2); the residency rule is R-04's and survives the change of vendor, but the labels named the vendor. R-04 and the BUILD-LOG keep the old names, because they record what was decided at the time.
 
 ```prisma
-enum Residency { R2_SHARED  R2_USER  DEVICE_ONLY }
+enum Residency { SHARED  PRIVATE  DEVICE_ONLY }
 
 model FileObject {
   // ...
-  residency     Residency @default(R2_USER)
-  contentHash   String?   // SHA-256; the dedupe key for R2_SHARED only
+  residency     Residency @default(PRIVATE)
+  contentHash   String?   // SHA-256; the dedupe key for SHARED only
   oaVerified    Boolean   @default(false)  // Unpaywall confirmed redistributable
   @@index([contentHash])
 }
