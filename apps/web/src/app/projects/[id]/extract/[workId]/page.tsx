@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
-import { EmptyState, ButtonLink, PageHeader } from "@/components/ui";
+import { Banner, EmptyState, ButtonLink, PageHeader } from "@/components/ui";
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -140,10 +140,44 @@ export default async function ExtractPage({
 
   const extraction = mine as { id: string; status: string } | null;
 
+  /*
+   * Your OTHER extractions of this paper, under other protocols.
+   *
+   * This screen shows exactly one protocol — the active one with the highest
+   * version — so an extraction made under an earlier or a parallel protocol
+   * becomes unreachable the moment a second protocol exists. Nothing is
+   * deleted: `extractions` is unique on (paper, protocol, extractor), so the
+   * row is still there, still in the database, still counted. It simply has no
+   * screen any more.
+   *
+   * That is indistinguishable from data loss to the person who made it, and it
+   * was reported as exactly that. Naming the other extractions is the smallest
+   * honest fix; letting somebody switch protocols here is a larger feature and
+   * is not this.
+   */
+  const others = (await must(
+    supabase
+      .from("extractions")
+      .select("id, status, protocol_id, protocols(name, version)")
+      .eq("project_work_id", workId)
+      .eq("extractor_id", user.id)
+      .neq("protocol_id", protocol.id),
+    "your other extractions of this paper",
+  )) as unknown as Array<{
+    id: string;
+    status: string;
+    protocols: { name: string | null; version: number | null } | null;
+  }>;
+
+  const otherProtocols = (others ?? []).map(
+    (o) => `${o.protocols?.name ?? "another protocol"} v${o.protocols?.version ?? "?"}`,
+  );
+
   if (!extraction) {
     return (
       <main id="main" className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-12">
         {header}
+        <OtherProtocolNotice protocols={otherProtocols} />
         <StartExtraction
           projectId={id}
           projectWorkId={workId}
@@ -183,7 +217,12 @@ export default async function ExtractPage({
       className="mx-auto flex w-full max-w-5xl flex-col px-6 pb-12 lg:h-[calc(100dvh-var(--app-header-h)-4rem)] lg:pb-0"
     >
       <ExtractClient
-        pageHeader={header}
+        pageHeader={
+          <>
+            {header}
+            <OtherProtocolNotice protocols={otherProtocols} />
+          </>
+        }
         projectId={id}
         projectWorkId={workId}
         extractionId={extraction.id}
@@ -193,5 +232,31 @@ export default async function ExtractPage({
         existing={existing}
       />
     </main>
+  );
+}
+
+/**
+ * "You have already extracted this paper, under something else."
+ *
+ * Shown when the same person has extractions of this paper against other
+ * protocols. Those rows are not reachable from this screen — it renders one
+ * protocol, the active one with the highest version — so without this the
+ * earlier work looks deleted. It is not: the unique key on `extractions` is
+ * (paper, protocol, extractor), so a second protocol makes a second row and
+ * leaves the first alone.
+ *
+ * Deliberately not a `danger` banner. Nothing has gone wrong; two protocols is
+ * a legitimate thing to have, and the second extraction is usually the point.
+ */
+function OtherProtocolNotice({ protocols }: { protocols: string[] }) {
+  if (protocols.length === 0) return null;
+
+  return (
+    <Banner>
+      You have also extracted this paper against <strong>{protocols.join(", ")}</strong>.
+      Those answers still exist and still appear in the evidence table for their own
+      protocol — this screen shows one protocol at a time, so they are not editable from
+      here.
+    </Banner>
   );
 }

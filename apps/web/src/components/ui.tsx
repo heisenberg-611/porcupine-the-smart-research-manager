@@ -267,7 +267,28 @@ export function TableScroll({
       aria-label={label}
       tabIndex={0}
       className={cx(
-        "border-border overflow-x-auto rounded-lg border",
+        /*
+         * `relative` is load-bearing, not decoration.
+         *
+         * `overflow-x: auto` only clips an absolutely positioned descendant
+         * when this element is that descendant's CONTAINING BLOCK — which it
+         * is not unless it is positioned. Tailwind's `sr-only` is
+         * `position: absolute`, and the evidence table has one inside every
+         * sortable column header and every unanswered cell. Their static
+         * positions are spread across a 3,700px-wide table, so they escaped
+         * this clip, were laid out against the initial containing block, and
+         * stretched `documentElement.scrollWidth` to 3,783px on a 1,280px
+         * viewport.
+         *
+         * The symptom was the whole page scrolling sideways when the table
+         * was scrolled — with `body.scrollWidth` still a correct 1,280, which
+         * is the tell that something is positioned against the viewport rather
+         * than flowing in the document.
+         *
+         * Measured: `window.scrollTo(600, 0)` moved the page before this line
+         * and does nothing after it.
+         */
+        "border-border relative overflow-x-auto rounded-lg border",
         "focus-visible:ring-accent focus-visible:ring-2 focus-visible:outline-none",
         className,
       )}

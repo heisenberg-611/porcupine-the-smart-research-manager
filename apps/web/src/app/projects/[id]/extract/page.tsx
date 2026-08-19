@@ -71,7 +71,9 @@ export default async function ExtractDashboardPage({
     getProjectRole(id, user.id),
     supabase
       .from("extractions")
-      .select("id, status, extractor_id, project_work_id")
+      .select(
+        "id, status, extractor_id, project_work_id, protocol_id, protocols(name, version)",
+      )
       .eq("project_id", id),
     supabase
       .from("project_works")
@@ -136,11 +138,37 @@ export default async function ExtractDashboardPage({
   const inCorpus = new Set(works.map((w) => w.id));
   const relevant = extractions.filter((e) => inCorpus.has(e.project_work_id));
 
+  /*
+   * Count PAPERS, not extractions.
+   *
+   * One paper can carry several extractions and both of the ways that happens
+   * are legitimate: two people extracting it independently for reconciliation,
+   * and one person extracting it again under a different protocol. Counting
+   * rows meant a project of three papers with one of them extracted twice
+   * reported four of three complete, and the progress bar sat at 100% with a
+   * paper still untouched.
+   *
+   * A distinct set of paper ids is the only denominator that can be compared
+   * with `works.length` at all. The number of extractions is still worth
+   * showing — it is how you notice that a paper has been done twice — so it is
+   * reported separately below rather than folded into progress.
+   */
+  const papersDone = new Set(
+    relevant.filter((e) => e.status !== "DRAFT").map((e) => e.project_work_id),
+  );
+  const papersDrafting = new Set(
+    relevant
+      .filter((e) => e.status === "DRAFT" && !papersDone.has(e.project_work_id))
+      .map((e) => e.project_work_id),
+  );
+
   const totals = {
     corpus: works.length,
-    done: relevant.filter((e) => e.status !== "DRAFT").length,
-    drafting: relevant.filter((e) => e.status === "DRAFT").length,
+    done: papersDone.size,
+    drafting: papersDrafting.size,
     unassigned: board.unassigned.length,
+    /** Extractions beyond one per paper — dual extraction, or a second protocol. */
+    extraPasses: relevant.filter((e) => e.status !== "DRAFT").length - papersDone.size,
   };
 
   /*
@@ -197,6 +225,13 @@ export default async function ExtractDashboardPage({
           name="unstarted"
           label="Nobody has started"
           value={String(totals.unassigned)}
+          {...(totals.extraPasses > 0
+            ? {
+                hint: `${totals.extraPasses} paper${
+                  totals.extraPasses === 1 ? " has" : "s have"
+                } been extracted more than once`,
+              }
+            : {})}
         />
       </dl>
 
@@ -259,7 +294,10 @@ export default async function ExtractDashboardPage({
         {members.map((member) => {
           const papers = board.byMember.get(member.user_id) ?? [];
           const visible = papers.filter((p) => matches(p.title));
-          const done = papers.filter((p) => p.state === "done").length;
+          // Distinct papers again, for the same reason as `totals.done`: one
+          // member extracting one paper under two protocols is one paper done.
+          const done = new Set(papers.filter((p) => p.state === "done").map((p) => p.id))
+            .size;
 
           // Somebody with nothing assigned and nothing extracted is not part
           // of this screen's story yet — unless a target exists, in which case
@@ -453,6 +491,13 @@ function PaperRow({ projectId, paper }: { projectId: string; paper: Paper }) {
           : paper.state === "draft"
             ? "In draft"
             : "Not started"}
+        {/* Which protocol this answered. Without it, one paper appearing twice
+            in the same person's list looks like a duplicate row rather than
+            two different sets of questions. */}
+        {paper.protocol ? ` · ${paper.protocol}` : ""}
+        {paper.passes && paper.passes > 1
+          ? ` · ${paper.passes} extractions of this paper`
+          : ""}
       </span>
 
       <Link
@@ -470,6 +515,8 @@ interface Extraction {
   status: string;
   extractor_id: string;
   project_work_id: string;
+  protocol_id: string;
+  protocols: { name: string | null; version: number | null } | null;
 }
 
 interface WorkRow {
@@ -488,6 +535,10 @@ interface Paper {
   title: string;
   year: number | null;
   state: "done" | "draft" | "todo";
+  /** Which protocol this particular extraction answered. */
+  protocol?: string;
+  /** How many extractions this paper has in total, across everybody. */
+  passes?: number;
 }
 
 /**
@@ -524,9 +575,17 @@ function buildBoard({
 
     for (const extraction of mine) {
       const state = extraction.status === "DRAFT" ? "draft" : "done";
+      const protocol = extraction.protocols
+        ? `${extraction.protocols.name} v${extraction.protocols.version}`
+        : undefined;
       const list = byMember.get(extraction.extractor_id);
       if (list) {
-        list.push({ ...paper, state });
+        list.push({
+          ...paper,
+          state,
+          passes: mine.length,
+          ...(protocol ? { protocol } : {}),
+        });
       } else {
         /*
          * Extracted by somebody who has since left the project.
@@ -539,7 +598,12 @@ function buildBoard({
          *
          * Its own group, named for what it is.
          */
-        departed.push({ ...paper, state });
+        departed.push({
+          ...paper,
+          state,
+          passes: mine.length,
+          ...(protocol ? { protocol } : {}),
+        });
       }
     }
 
