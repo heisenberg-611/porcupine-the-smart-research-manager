@@ -223,6 +223,26 @@ model User {
   kdfSalt        Bytes? @map("kdf_salt") // Argon2id salt, distinct from auth's
   keyBundleVer   Int    @default(0) @map("key_bundle_ver")
 
+  /// Requested deletion, not yet carried out.
+  ///
+  /// The account is unusable from the moment this is set — middleware turns
+  /// every request away — but the row is untouched, so signing in during the
+  /// window can still cancel it. That window is the whole point: deleting an
+  /// account is the one action in this product with no undo, and the people
+  /// most likely to take it are the ones having a bad day.
+  deletionScheduledAt DateTime? @map("deletion_scheduled_at") @db.Timestamptz(3)
+
+  /// The scrub has run. Email, name, avatar, ORCID, affiliation and every key
+  /// column are gone; the row itself is not.
+  ///
+  /// It cannot be, and saying why is more useful than a comment about foreign
+  /// keys: `screening_decisions.decided_by` points here, and "who excluded
+  /// these forty papers, and when" has to keep having an answer a year later.
+  /// That is the entire argument for the PRISMA diagram being defensible. So
+  /// this is pseudonymisation rather than erasure, and the DPA page says so in
+  /// those words rather than claiming the stronger thing.
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
   memberships ProjectMember[]
   devices     Device[]
   decisions   ScreeningDecision[]
@@ -231,6 +251,32 @@ model User {
   projectKeys ProjectKey[]
   channels    Channel[]
   messages    Message[]
+
+  /// The ten relations below existed as bare uuid columns with NO foreign key
+  /// at all until account deletion was built.
+  ///
+  /// That is worse than it sounds. A `delete from users` did not fail on
+  /// them — it succeeded, and left `annotations.author_id`,
+  /// `extractions.extractor_id`, `projects.created_by` and seven more pointing
+  /// at a row that no longer existed. Nothing would have reported it; the
+  /// screens that join through them would simply have started returning
+  /// nothing, which reads as "no annotations yet".
+  ///
+  /// They are RESTRICT (Prisma's default for a required relation), which is
+  /// the correct answer for every one of them: none of this content should
+  /// vanish because its author closed their account, and the deletion path
+  /// anonymises the row rather than removing it. The constraint is what stops
+  /// the next person reaching for `DELETE`.
+  invitedMembers  ProjectMember[] @relation("MemberInvitedBy")
+  createdProjects Project[]       @relation("ProjectCreatedBy")
+  addedWorks      ProjectWork[]   @relation("WorkAddedBy")
+  assignedWorks   ProjectWork[]   @relation("WorkAssignee")
+  annotations     Annotation[]    @relation("AnnotationAuthor")
+  extractions     Extraction[]    @relation("ExtractionExtractor")
+  verifications   Extraction[]    @relation("ExtractionVerifiedBy")
+  wrappedKeys     ProjectKey[]    @relation("KeyWrappedBy")
+  ownedFiles      FileObject[]    @relation("FileOwner")
+  savedSearches   SavedSearch[]   @relation("SearchCreatedBy")
 
   @@map("users")
 }
@@ -336,6 +382,7 @@ model Project {
   createdBy       String    @map("created_by") @db.Uuid
 
   org      Organization?   @relation(fields: [orgId], references: [id])
+  creator  User            @relation("ProjectCreatedBy", fields: [createdBy], references: [id])
   members  ProjectMember[]
   keys     ProjectKey[]
   channels Channel[]
@@ -402,6 +449,7 @@ model ProjectMember {
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inviter User?   @relation("MemberInvitedBy", fields: [invitedBy], references: [id])
 
   @@unique([projectId, userId])
   @@index([userId])
@@ -423,6 +471,7 @@ model ProjectKey {
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wrapper User    @relation("KeyWrappedBy", fields: [wrappedBy], references: [id])
 
   @@unique([projectId, userId, epoch])
   @@index([userId])
@@ -651,6 +700,7 @@ model SavedSearch {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator User    @relation("SearchCreatedBy", fields: [createdBy], references: [id])
 
   @@index([projectId])
   @@map("saved_searches")
@@ -693,6 +743,7 @@ model FileObject {
 
   work    Work?    @relation(fields: [workId], references: [id])
   project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  owner   User     @relation("FileOwner", fields: [ownerId], references: [id])
   anchors Anchor[]
 
   @@index([ownerId])
@@ -733,6 +784,8 @@ model ProjectWork {
 
   project     Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
   work        Work                  @relation(fields: [workId], references: [id])
+  adder       User                  @relation("WorkAddedBy", fields: [addedBy], references: [id])
+  assignee    User?                 @relation("WorkAssignee", fields: [assigneeId], references: [id])
   questions   ProjectWorkQuestion[]
   annotations Annotation[]
   decisions   ScreeningDecision[]
@@ -863,6 +916,8 @@ model Extraction {
   project     Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
   projectWork ProjectWork       @relation(fields: [projectWorkId], references: [id], onDelete: Cascade)
   protocol    Protocol          @relation(fields: [protocolId], references: [id])
+  extractor   User              @relation("ExtractionExtractor", fields: [extractorId], references: [id])
+  verifier    User?             @relation("ExtractionVerifiedBy", fields: [verifiedBy], references: [id])
   values      ExtractionValue[]
 
   /// One extraction per person per paper per protocol. Dual extraction is two
@@ -964,6 +1019,7 @@ model Annotation {
 
   projectWork ProjectWork @relation(fields: [projectWorkId], references: [id], onDelete: Cascade)
   anchor      Anchor      @relation(fields: [anchorId], references: [id], onDelete: Cascade)
+  author      User        @relation("AnnotationAuthor", fields: [authorId], references: [id])
 
   @@index([projectWorkId])
   @@index([projectId, authorId])

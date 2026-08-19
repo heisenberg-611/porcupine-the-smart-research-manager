@@ -150,10 +150,23 @@ export default function DataProcessingPage() {
 
         <h2>Rights, retention and deletion</h2>
         <p>
-          The app has project deletion and account deletion, and export to CSV and Excel,
-          so access, rectification and erasure requests can be satisfied through the
+          The app has project deletion, account deletion and export to CSV and Excel, so
+          access, rectification and erasure requests can be satisfied through the
           interface on either deployment. Self-hosted, you hold the database and SQL
           covers whatever the app does not.
+        </p>
+        <p>
+          <strong>
+            Account deletion anonymises rather than erases, and the difference matters to
+            an assessment.
+          </strong>{" "}
+          Email address, display name, avatar, ORCID, affiliation and every encryption key
+          are destroyed; the user record itself survives, carrying the person&rsquo;s
+          screening decisions, extractions and annotations under the label &ldquo;Former
+          member&rdquo;. It has to: a review must be able to answer &ldquo;who excluded
+          these forty papers, and when&rdquo; a year later, and that answer cannot be
+          removable by one of the people who gave it. Treat it as pseudonymisation under
+          Article 4(5), not erasure under Article 17.
         </p>
         <p>
           No retention period is imposed by this software: nothing expires, nothing is
@@ -164,8 +177,11 @@ export default function DataProcessingPage() {
         <p>
           One exception is worth stating because it surprises people: deleting a user does
           not make previously sent encrypted messages readable or unreadable to anyone
-          else. Removing a member does rotate the project key, so they cannot read what is
-          said after they leave.
+          else. Removing a member — or a member deleting their own account — flags the
+          project key for rotation rather than rotating it there and then: the rotation
+          happens in a browser, when one of that project&rsquo;s admins next unlocks it,
+          because the server holds no key to rotate with. There is a window, and it is as
+          long as it takes an admin to visit.
         </p>
 
         <h2>If you need a signed agreement</h2>

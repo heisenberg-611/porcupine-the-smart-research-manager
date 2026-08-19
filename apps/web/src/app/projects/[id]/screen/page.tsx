@@ -110,7 +110,8 @@ export default async function ScreenPage({
   const memberData = await must(
     supabase
       .from("project_members")
-      .select("user_id, users(display_name)")
+      // Constraint named: `project_members.invited_by` also points at users.
+      .select("user_id, users!project_members_user_id_fkey(display_name)")
       .eq("project_id", id)
       .is("removed_at", null),
     "project members",

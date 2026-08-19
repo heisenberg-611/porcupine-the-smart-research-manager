@@ -102,7 +102,7 @@ const NOTES: ReadonlyArray<{
     body: [
       "A test that asserts a query returns no rows passes just as happily when the rule works, when the rule was never applied, and when the query was wrong. Three very different situations, one green tick. Row-level security is especially good at this: a policy with a typo in its condition denies everything, which looks exactly like a policy that is working.",
       "So every check that expects to find nothing is paired with a mutation: the same query with the rule switched off, which must fail. Drop the trigger, watch the suite go red, put it back. If it stays green without the rule, the test was measuring nothing.",
-      "This caught a real one in the encryption work. Removing a member from a project was supposed to rotate the project key to a new epoch, so that someone removed cannot read what is said afterwards. The rotation was implemented, reviewed and covered by a passing test. It was triggered by nothing — no code path called it. The test passed because it called the rotation itself.",
+      "This caught a real one in the encryption work. Removing a member from a project was supposed to rotate the project key to a new epoch, so that someone removed cannot read what is said afterwards. The rotation was implemented, reviewed and covered by a passing test. It was triggered by nothing — no code path called it. The test passed because it called the rotation itself. What replaced it is honest rather than automatic: removal marks the project as needing rotation, and an admin performs it in a browser, because the key exists nowhere else. The window between those two moments is real, and every page that mentions removal now says so.",
     ],
   },
   {

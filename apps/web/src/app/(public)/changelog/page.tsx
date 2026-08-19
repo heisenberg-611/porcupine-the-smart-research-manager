@@ -93,7 +93,7 @@ const ENTRIES: ReadonlyArray<{
     items: [
       "A recovery passphrase, shown once at enrolment, and a key hierarchy that lets a browser be registered and later revoked without it.",
       "Per-project keys sealed to each member, and end-to-end encrypted project messages and direct messages.",
-      "Member removal rotates the project key to a new epoch, so someone removed cannot read what is said after they leave.",
+      "Member removal flags the project key for rotation to a new epoch. The rotation itself happens in a browser, because the server holds no key — so there is a window between somebody leaving and an admin next unlocking, and the app now says so rather than implying the key changes on the way out.",
       "The rotation was written, believed, and found to be triggered by nothing. It is now tested by dropping the trigger and watching the suite go red.",
     ],
   },
