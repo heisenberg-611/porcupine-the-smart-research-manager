@@ -2,6 +2,7 @@ import { SCREEN_STATUSES, screenStatusLabel } from "@Porcupine/shared";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
+import { LiveRefresh } from "@/components/live-refresh";
 import { ButtonLink, EmptyState, PageHeader } from "@/components/ui";
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
@@ -156,6 +157,11 @@ export default async function ProgressPage({
         backLabel={project.title}
         title="Progress"
       />
+
+      {/* Live, because this is the screen a supervisor leaves open while four
+          people screen. Every number on it comes from server props, so a
+          refresh is the whole of the update. */}
+      <LiveRefresh projectId={id} kind="screening" />
 
       {total === 0 ? (
         <EmptyState

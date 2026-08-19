@@ -2,374 +2,545 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
-import { PageHeader, Banner } from "@/components/ui";
+import { LiveRefresh } from "@/components/live-refresh";
+import { Banner, EmptyState, Input, PageHeader } from "@/components/ui";
+import { getProjectRole } from "@/lib/project";
+import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
+
+import { TargetForm } from "./target-form";
 
 export const metadata: Metadata = { title: "Extract papers" };
 
+/**
+ * Who has extracted what, and how far off the target the team is.
+ *
+ * The counts, the per-member progress and the search all live here rather
+ * than in three screens, because the question this page answers is a single
+ * one — "are we going to finish, and who is stuck" — and answering it used to
+ * mean opening the dashboard for the names, /progress for the totals, and the
+ * evidence table to see whether the answers were actually in.
+ *
+ * ─ Done means NOT DRAFT ───────────────────────────────────────────────────
+ *
+ * Every count below treats an extraction as complete when its status is
+ * anything other than DRAFT, which is the same rule `evidence_rows` applies.
+ * The version this replaces tested `status === "SUBMITTED"` and so reported a
+ * RECONCILED or VERIFIED extraction — one that has been through dual
+ * extraction and had its disagreements resolved, the most finished thing in
+ * the product — as still drafting. Two screens disagreeing about whether a
+ * paper is done is worse than either being wrong on its own.
+ *
+ * ─ The search is a URL, not state ─────────────────────────────────────────
+ *
+ * `?q=` rather than a client filter, so this page stays a server component
+ * and a filtered view is a link somebody can send. Same choice the evidence
+ * table makes, for the same reason.
+ */
 export default async function ExtractDashboardPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ q?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/sign-in");
 
   const { id } = await params;
+  const { q } = await searchParams;
+  const query = (q ?? "").trim();
   const supabase = await createClient();
 
-  const { data: project, error: pErr } = await supabase
-    .from("projects")
-    .select("title")
-    .eq("id", id)
-    .single();
+  const project = await must(
+    supabase
+      .from("projects")
+      .select("title, extraction_target")
+      .eq("id", id)
+      .maybeSingle(),
+    "the project",
+  );
+  if (!project) notFound();
 
-  if (pErr || !project) notFound();
+  const { title: projectTitle, extraction_target: target } = project as {
+    title: string;
+    extraction_target: number | null;
+  };
 
-  // Fetch extractions
-  const { data: extractions, error: extErr } = await supabase
-    .from("extractions")
-    .select(
-      `
-      id,
-      status,
-      extractor_id,
-      project_work_id
-    `,
-    )
-    .eq("project_id", id);
+  const [role, extractionsResult, worksResult, membersResult] = await Promise.all([
+    getProjectRole(id, user.id),
+    supabase
+      .from("extractions")
+      .select("id, status, extractor_id, project_work_id")
+      .eq("project_id", id),
+    supabase
+      .from("project_works")
+      .select("id, assignee_id, works ( title, published_year )")
+      .eq("project_id", id)
+      .in("screen_status", ["INCLUDED", "READING", "EXTRACTED", "SYNTHESIZED"]),
+    supabase
+      .from("project_members")
+      .select("user_id, users ( display_name )")
+      .eq("project_id", id)
+      .is("removed_at", null),
+  ]);
 
-  /*
-   * `error` captured, not discarded.
-   *
-   * These two were bare `const { data: x }` destructures, which is the shape
-   * CI's guard exists to catch: when the query fails, `data` is null and the
-   * page renders an empty extraction dashboard. "No papers ready to extract"
-   * and "the query is broken" then look identical — to the reader, who
-   * concludes the screening did not save, and to us. The project query three
-   * lines above already handled its error; these two did not, on the same
-   * page.
-   */
-  const { data: projectWorks, error: worksErr } = await supabase
-    .from("project_works")
-    .select(
-      `
-      id,
-      assignee_id,
-      works ( title, published_year )
-    `,
-    )
-    .eq("project_id", id)
-    .in("screen_status", ["INCLUDED", "READING", "EXTRACTED", "SYNTHESIZED"]);
-
-  const { data: members, error: membersErr } = await supabase
-    .from("project_members")
-    .select(
-      `
-      user_id,
-      users ( display_name )
-    `,
-    )
-    .eq("project_id", id);
-
-  if (extErr || worksErr || membersErr) {
+  // `error` captured, not discarded. A bare `const { data }` renders an empty
+  // dashboard when the query fails, so "nobody has extracted anything" and
+  // "the query is broken" look identical — to the reader, who concludes the
+  // screening did not save, and to us.
+  if (extractionsResult.error || worksResult.error || membersResult.error) {
     return (
       <main id="main" className="mx-auto flex max-w-3xl flex-col gap-8 px-6 py-12">
         <PageHeader
           backHref={`/projects/${id}`}
-          backLabel={project.title}
-          title="Extract papers"
+          backLabel={projectTitle}
+          title="Extract"
         />
         <Banner tone="danger">Could not load this project&rsquo;s extractions.</Banner>
       </main>
     );
   }
 
-  // Organize papers by member
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const memberPapers = new Map<string, Array<{ pw: any; ext: any }>>();
-  members?.forEach((m) => memberPapers.set(m.user_id, []));
+  const extractions = (extractionsResult.data ?? []) as unknown as Extraction[];
+  const works = (worksResult.data ?? []) as unknown as WorkRow[];
+  const members = (membersResult.data ?? []) as unknown as MemberRow[];
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const unassignedWorks: any[] = [];
+  const board = buildBoard({ works, extractions, members });
 
-  for (const pw of projectWorks || []) {
-    const exts = extractions?.filter((e) => e.project_work_id === pw.id) || [];
+  /*
+   * All four numbers describe the SAME set of papers.
+   *
+   * `works` is filtered to the papers screening has let through, and the
+   * counts below are filtered to extractions of those papers rather than to
+   * every extraction in the project. Without that they are answers to two
+   * different questions printed side by side: an extraction started from the
+   * library before the paper was screened in counted as complete against a
+   * corpus that did not contain it, and the page cheerfully rendered "1
+   * complete" above "0 papers to extract".
+   *
+   * Found by the e2e fixture, which imports a paper and extracts it without
+   * screening it — an order the app allows.
+   */
+  const inCorpus = new Set(works.map((w) => w.id));
+  const relevant = extractions.filter((e) => inCorpus.has(e.project_work_id));
 
-    // Everyone who has an extraction gets the paper in their accordion
-    if (exts.length > 0) {
-      for (const ext of exts) {
-        const arr = memberPapers.get(ext.extractor_id) || [];
-        if (!arr.some((a) => a.pw.id === pw.id)) {
-          arr.push({ pw, ext });
-        }
-        memberPapers.set(ext.extractor_id, arr);
-      }
-    }
+  const totals = {
+    corpus: works.length,
+    done: relevant.filter((e) => e.status !== "DRAFT").length,
+    drafting: relevant.filter((e) => e.status === "DRAFT").length,
+    unassigned: board.unassigned.length,
+  };
 
-    // AND if it's assigned to someone, they should ALSO have it in their accordion
-    // (unless they already have an extraction, which is handled above)
-    if (pw.assignee_id) {
-      const hasExtracted = exts.some((e) => e.extractor_id === pw.assignee_id);
-      if (!hasExtracted) {
-        const arr = memberPapers.get(pw.assignee_id) || [];
-        if (!arr.some((a) => a.pw.id === pw.id)) {
-          arr.push({ pw, ext: null });
-        }
-        memberPapers.set(pw.assignee_id, arr);
-      }
-    } else if (exts.length === 0) {
-      // Only completely unassigned and unextracted papers go to the queue
-      unassignedWorks.push(pw);
-    }
-  }
+  /*
+   * Progress against the target if there is one, against the corpus if not.
+   *
+   * With four members and a target of 25, the denominator is 100 — the work
+   * the team agreed to — not the number of papers that happen to be in the
+   * library today. Those are different numbers and the difference is the
+   * point: a bar that moves because somebody imported more papers is not
+   * measuring progress.
+   */
+  const denominator = target ? target * members.length : totals.corpus;
+  // Clamped, because `done` legitimately exceeds the target the moment somebody
+  // takes more than their share — which is the behaviour a target is supposed
+  // to encourage, and not a reason to render a bar wider than its track.
+  const percent =
+    denominator > 0 ? Math.min(100, Math.round((totals.done / denominator) * 100)) : 0;
+
+  const needle = query.toLowerCase();
+  const matches = (paperTitle: string) =>
+    needle === "" || paperTitle.toLowerCase().includes(needle);
 
   return (
-    <main
-      id="main"
-      className="animate-in fade-in slide-in-from-bottom-4 mx-auto flex max-w-4xl flex-col gap-8 px-6 py-12 duration-500"
-    >
+    <main id="main" className="mx-auto flex max-w-4xl flex-col gap-8 px-6 py-12">
       <PageHeader
         backHref={`/projects/${id}`}
-        backLabel={project.title}
-        title="Extraction Dashboard"
-        description="Track how many papers each member has extracted. Click on a member to see the exact papers."
+        backLabel={projectTitle}
+        title="Extract"
+        description="Who has extracted what, and how much is left. Open a member to see their papers."
       />
 
-      <div className="flex flex-col gap-6">
-        {members?.map((member) => {
-          const papers = memberPapers.get(member.user_id) || [];
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const displayName = (member.users as any)?.display_name || "Unknown member";
+      <LiveRefresh projectId={id} kind="extraction" />
 
-          if (papers.length === 0) return null;
+      {/*
+        A description list, because that is what these are — three labelled
+        values — and `dt`/`dd` say so where two stacked paragraphs say nothing.
+        Each pair carries a `data-stat` handle for the same reason the evidence
+        table's rows carry `data-evidence-item`: the numbers are the contract,
+        and a test that finds them by reading the prose beside them breaks the
+        next time the prose is reworded.
+      */}
+      <dl aria-label="Totals" className="grid gap-3 sm:grid-cols-3">
+        <Stat name="corpus" label="Papers to extract" value={String(totals.corpus)} />
+        {/* The hint prop is spread rather than passed as `undefined`:
+            `exactOptionalPropertyTypes` treats "absent" and "explicitly
+            undefined" as different things, correctly. */}
+        <Stat
+          name="complete"
+          label="Extractions complete"
+          value={target ? `${totals.done} of ${denominator}` : String(totals.done)}
+          {...(totals.drafting > 0 ? { hint: `${totals.drafting} still in draft` } : {})}
+        />
+        <Stat
+          name="unstarted"
+          label="Nobody has started"
+          value={String(totals.unassigned)}
+        />
+      </dl>
+
+      {/*
+        One bar, and only when there is something for it to mean. A progress
+        bar on an empty project is a bar at 0% that says nothing except that
+        the project is empty, which the counts above already said.
+      */}
+      {denominator > 0 && (
+        <section aria-label="Overall progress" className="flex flex-col gap-2">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-ink text-heading font-medium">Overall</h2>
+            <p className="text-muted text-ui">
+              <span className="text-ink font-medium">{percent}%</span> of{" "}
+              {target ? "the agreed workload" : "the library"}
+            </p>
+          </div>
+          <Meter percent={percent} />
+        </section>
+      )}
+
+      {(role === "OWNER" || role === "ADMIN") && (
+        <section
+          aria-label="Target"
+          className="border-rule bg-surface/50 rounded-[--radius-card] border p-5"
+        >
+          <TargetForm projectId={id} target={target} />
+        </section>
+      )}
+
+      {/* The search only earns its space once the list is long enough to need
+          it. Below that it is a control that answers a question nobody has. */}
+      {totals.corpus > 8 && (
+        <form method="get" role="search" className="flex flex-wrap items-end gap-2">
+          <div className="min-w-0 flex-1">
+            <label htmlFor="q" className="text-muted text-fine block">
+              Find a paper
+            </label>
+            <Input
+              id="q"
+              name="q"
+              type="search"
+              defaultValue={query}
+              placeholder="Title contains…"
+              className="mt-1"
+            />
+          </div>
+          {query && (
+            <Link
+              href={`/projects/${id}/extract`}
+              className="text-muted hover:text-ink text-ui focus-visible:ring-accent inline-flex min-h-12 items-center rounded-lg px-3 focus-visible:ring-2 focus-visible:outline-none"
+            >
+              Clear
+            </Link>
+          )}
+        </form>
+      )}
+
+      <div className="flex flex-col gap-4">
+        {members.map((member) => {
+          const papers = board.byMember.get(member.user_id) ?? [];
+          const visible = papers.filter((p) => matches(p.title));
+          const done = papers.filter((p) => p.state === "done").length;
+
+          // Somebody with nothing assigned and nothing extracted is not part
+          // of this screen's story yet — unless a target exists, in which case
+          // their nought is exactly what a supervisor came here to see.
+          if (papers.length === 0 && !target) return null;
 
           return (
             <details
               key={member.user_id}
-              className="group border-border bg-surface open:ring-border/50 rounded-xl border shadow-sm transition-all open:ring-1"
+              open={query !== "" && visible.length > 0}
+              className="border-rule bg-surface/50 rounded-[--radius-card] border"
             >
-              <summary className="hover:bg-canvas/50 group-open:bg-canvas/30 flex cursor-pointer items-center justify-between rounded-xl p-5 transition-colors select-none group-open:rounded-b-none">
-                <div className="flex items-center gap-4">
-                  <div className="bg-accent/10 text-accent ring-accent/20 flex h-10 w-10 items-center justify-center rounded-full text-base font-bold ring-1">
-                    {displayName.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <h2 className="text-ink text-lg font-semibold">{displayName}</h2>
-                    <p className="text-muted mt-0.5 text-sm">Team Member</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-ink bg-canvas border-border/80 flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold shadow-sm">
-                    <span className="bg-accent h-2 w-2 animate-pulse rounded-full" />
-                    {papers.length} {papers.length === 1 ? "paper" : "papers"}
+              <summary className="hover:bg-surface flex cursor-pointer flex-wrap items-center gap-x-4 gap-y-2 rounded-[--radius-card] p-5">
+                <span className="text-ink min-w-0 flex-1 font-medium">
+                  {member.users?.display_name ?? "Unknown member"}
+                </span>
+
+                <span
+                  data-member-progress
+                  className="text-muted text-ui shrink-0 font-mono"
+                >
+                  {target ? `${done} / ${target}` : `${done} done`}
+                </span>
+
+                {target ? (
+                  <span className="w-full sm:w-40">
+                    <Meter percent={Math.min(100, Math.round((done / target) * 100))} />
                   </span>
-                  <svg
-                    className="text-muted h-5 w-5 transition-transform duration-300 group-open:rotate-180"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </div>
+                ) : null}
               </summary>
 
-              <div className="border-border bg-canvas/30 rounded-b-xl border-t px-5 py-5">
-                <ul className="flex flex-col gap-3">
-                  {papers.map(({ pw, ext }) => {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const work = pw.works as any;
-                    const title = work?.title || "Unknown paper";
-                    const year = work?.published_year || "";
-
-                    return (
-                      <li
-                        key={pw.id}
-                        className="bg-surface border-border/60 hover:border-accent/40 flex flex-col justify-between gap-4 rounded-xl border p-4 transition-all duration-200 hover:shadow-sm sm:flex-row sm:items-center"
-                      >
-                        <div className="flex-1 pr-4">
-                          <p className="text-ink leading-snug font-medium text-pretty">
-                            {title}
-                          </p>
-                          <div className="mt-2 flex items-center gap-3">
-                            {year && (
-                              <span className="bg-canvas border-border/60 text-muted rounded border px-2 py-0.5 font-mono text-xs">
-                                {year}
-                              </span>
-                            )}
-                            {ext ? (
-                              <span
-                                className={`flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium ${ext.status === "SUBMITTED" ? "bg-accent/10 text-accent border-accent/20 border" : "bg-surface border-border text-ui border"}`}
-                              >
-                                <span
-                                  className={`h-1.5 w-1.5 rounded-full ${ext.status === "SUBMITTED" ? "bg-accent" : "bg-muted/50"}`}
-                                />
-                                {ext.status === "SUBMITTED" ? "Completed" : "Drafting"}
-                              </span>
-                            ) : (
-                              <span className="bg-canvas border-border text-muted flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-medium">
-                                <span className="bg-muted/30 h-1.5 w-1.5 rounded-full" />
-                                Assigned, Not Started
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        {ext ? (
-                          ext.status === "SUBMITTED" ? (
-                            <Link
-                              href={`/projects/${id}/evidence?q=${encodeURIComponent(title)}`}
-                              className="bg-surface border-border text-ink hover:bg-canvas focus-visible:ring-accent inline-flex min-h-9 shrink-0 items-center justify-center rounded-lg border px-4 text-sm font-medium shadow-sm transition-all outline-none hover:-translate-y-0.5 focus-visible:ring-2"
-                            >
-                              View in Evidence
-                            </Link>
-                          ) : (
-                            <Link
-                              href={`/projects/${id}/extract/${pw.id}`}
-                              className="bg-surface border-border text-ink hover:bg-canvas focus-visible:ring-accent inline-flex min-h-9 shrink-0 items-center justify-center rounded-lg border px-4 text-sm font-medium shadow-sm transition-all outline-none hover:-translate-y-0.5 focus-visible:ring-2"
-                            >
-                              Continue Drafting
-                            </Link>
-                          )
-                        ) : (
-                          <Link
-                            href={`/projects/${id}/extract/${pw.id}`}
-                            className="bg-surface border-border text-ink hover:bg-canvas focus-visible:ring-accent inline-flex min-h-9 shrink-0 items-center justify-center rounded-lg border px-4 text-sm font-medium shadow-sm transition-all outline-none hover:-translate-y-0.5 focus-visible:ring-2"
-                          >
-                            Start Extraction
-                          </Link>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
+              <div className="border-rule border-t px-5 py-4">
+                {visible.length === 0 ? (
+                  <p className="text-muted text-ui">
+                    {papers.length === 0
+                      ? "Nothing assigned yet."
+                      : "No paper here matches that search."}
+                  </p>
+                ) : (
+                  <ul className="flex flex-col gap-2">
+                    {visible.map((paper, index) => (
+                      <PaperRow
+                        key={`${paper.id}-${index}`}
+                        projectId={id}
+                        paper={paper}
+                      />
+                    ))}
+                  </ul>
+                )}
               </div>
             </details>
           );
         })}
 
-        {unassignedWorks.length > 0 && (
-          <details className="group border-border bg-surface open:ring-border/50 rounded-xl border shadow-sm transition-all open:ring-1">
-            <summary className="hover:bg-canvas/50 group-open:bg-canvas/30 flex cursor-pointer items-center justify-between rounded-xl p-5 transition-colors select-none group-open:rounded-b-none">
-              <div className="flex items-center gap-4">
-                <div className="bg-muted/10 text-muted ring-muted/20 flex h-10 w-10 items-center justify-center rounded-full text-base font-bold ring-1">
-                  <svg
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <h2 className="text-ink text-lg font-semibold">Unassigned Papers</h2>
-                  <p className="text-muted mt-0.5 text-sm">Available for extraction</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="text-muted bg-canvas border-border/80 flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold shadow-sm">
-                  {unassignedWorks.length} pending
-                </span>
-                <svg
-                  className="text-muted h-5 w-5 transition-transform duration-300 group-open:rotate-180"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </div>
+        {board.unassigned.length > 0 && (
+          <details
+            open={query !== ""}
+            className="border-rule rounded-[--radius-card] border border-dashed"
+          >
+            <summary className="hover:bg-surface flex cursor-pointer items-center gap-4 rounded-[--radius-card] p-5">
+              <span className="text-ink flex-1 font-medium">Nobody has started</span>
+              <span className="text-muted text-ui font-mono">
+                {board.unassigned.length}
+              </span>
             </summary>
-
-            <div className="border-border bg-canvas/30 rounded-b-xl border-t px-5 py-5">
-              <ul className="flex flex-col gap-3">
-                {unassignedWorks.map((pw) => {
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  const work = pw.works as any;
-                  const title = work?.title || "Unknown paper";
-                  const year = work?.published_year || "";
-
-                  return (
-                    <li
-                      key={pw.id}
-                      className="bg-surface border-border/60 hover:border-accent/40 flex flex-col justify-between gap-4 rounded-xl border p-4 transition-all duration-200 hover:shadow-sm sm:flex-row sm:items-center"
-                    >
-                      <div className="flex-1 pr-4">
-                        <p className="text-ink leading-snug font-medium text-pretty">
-                          {title}
-                        </p>
-                        {year && (
-                          <div className="mt-2">
-                            <span className="bg-canvas border-border/60 text-muted rounded border px-2 py-0.5 font-mono text-xs">
-                              {year}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <Link
-                        href={`/projects/${id}/extract/${pw.id}`}
-                        className="bg-accent text-accent-ink focus-visible:ring-accent inline-flex min-h-9 shrink-0 items-center justify-center rounded-lg px-4 text-sm font-medium shadow-sm transition-all outline-none hover:-translate-y-0.5 hover:brightness-110 focus-visible:ring-2"
-                      >
-                        Start Extraction
-                      </Link>
-                    </li>
-                  );
-                })}
+            <div className="border-rule border-t px-5 py-4">
+              <ul className="flex flex-col gap-2">
+                {board.unassigned
+                  .filter((paper) => matches(paper.title))
+                  .map((paper, index) => (
+                    <PaperRow key={`${paper.id}-${index}`} projectId={id} paper={paper} />
+                  ))}
               </ul>
             </div>
           </details>
         )}
 
-        {members?.every((m) => (memberPapers.get(m.user_id) || []).length === 0) &&
-          unassignedWorks.length === 0 && (
-            <div className="border-rule flex flex-col items-center rounded-xl border border-dashed p-10 text-center">
-              <div className="bg-muted/10 text-muted mb-4 flex h-12 w-12 items-center justify-center rounded-full">
-                <svg
-                  className="h-6 w-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
-              </div>
-              <h2 className="text-ink mb-2 text-lg font-semibold">
-                No papers to extract yet
-              </h2>
-              <p className="text-muted text-ui max-w-sm">
-                Papers will appear here once they have been screened and marked as
-                "Included" in the screening phase.
+        {board.departed.length > 0 && (
+          <details className="border-rule rounded-[--radius-card] border border-dashed">
+            <summary className="hover:bg-surface flex cursor-pointer items-center gap-4 rounded-[--radius-card] p-5">
+              <span className="text-ink flex-1 font-medium">
+                Extracted by former members
+              </span>
+              <span className="text-muted text-ui font-mono">
+                {board.departed.length}
+              </span>
+            </summary>
+            <div className="border-rule border-t px-5 py-4">
+              <p className="text-muted text-ui mb-3 text-pretty">
+                Still counted above and still in the evidence table — removing somebody
+                from a project does not remove their work from the review.
               </p>
+              <ul className="flex flex-col gap-2">
+                {/* Index in the key: dual extraction puts the same paper in
+                    this pile twice, once per extractor, and both belong. */}
+                {board.departed
+                  .filter((paper) => matches(paper.title))
+                  .map((paper, index) => (
+                    <PaperRow key={`${paper.id}-${index}`} projectId={id} paper={paper} />
+                  ))}
+              </ul>
+            </div>
+          </details>
+        )}
+
+        {totals.corpus === 0 && (
+          <EmptyState
+            title="No papers to extract yet"
+            description="Papers arrive here once they have been included during screening."
+            action={
               <Link
                 href={`/projects/${id}/screen`}
-                className="bg-surface border-border text-ink hover:bg-canvas focus-visible:ring-accent mt-6 inline-flex min-h-11 items-center justify-center rounded-full border px-6 font-medium transition-colors outline-none focus-visible:ring-2"
+                className="border-border text-ink hover:bg-surface focus-visible:ring-accent text-ui inline-flex min-h-11 items-center rounded-lg border px-4 font-medium focus-visible:ring-2 focus-visible:outline-none"
               >
-                Go to Screening
+                Go to screening
               </Link>
-            </div>
-          )}
+            }
+          />
+        )}
       </div>
     </main>
   );
+}
+
+/** One number, said once. */
+function Stat({
+  name,
+  label,
+  value,
+  hint,
+}: {
+  name: string;
+  label: string;
+  value: string;
+  hint?: string;
+}) {
+  return (
+    <div
+      data-stat={name}
+      className="border-rule bg-surface/50 rounded-[--radius-card] border p-5"
+    >
+      <dt className="text-muted text-fine">{label}</dt>
+      <dd className="text-ink text-title mt-1 font-serif">{value}</dd>
+      {hint && <dd className="text-muted text-fine mt-1">{hint}</dd>}
+    </div>
+  );
+}
+
+/**
+ * A bar, and a number for the people the bar does not reach.
+ *
+ * `aria-hidden` on the track: the percentage is already in the text beside
+ * every one of these, so announcing it twice is noise. A `<progress>` element
+ * would announce it a third time and cannot be styled consistently across
+ * browsers.
+ */
+function Meter({ percent }: { percent: number }) {
+  return (
+    <span aria-hidden className="bg-surface block h-1.5 w-full rounded-full">
+      <span
+        className="bg-accent block h-1.5 rounded-full transition-[width] duration-500"
+        style={{ width: `${percent}%` }}
+      />
+    </span>
+  );
+}
+
+function PaperRow({ projectId, paper }: { projectId: string; paper: Paper }) {
+  const label =
+    paper.state === "done"
+      ? "View in the evidence table"
+      : paper.state === "draft"
+        ? "Continue"
+        : "Start";
+
+  const href =
+    paper.state === "done"
+      ? `/projects/${projectId}/evidence?q=${encodeURIComponent(paper.title)}`
+      : `/projects/${projectId}/extract/${paper.id}`;
+
+  return (
+    <li className="border-rule bg-raised flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border p-3">
+      <span className="text-ink text-ui min-w-0 flex-1 text-pretty">
+        {paper.title}
+        {paper.year ? <span className="text-muted"> · {paper.year}</span> : null}
+      </span>
+
+      <span className="meta shrink-0">
+        {paper.state === "done"
+          ? "Complete"
+          : paper.state === "draft"
+            ? "In draft"
+            : "Not started"}
+      </span>
+
+      <Link
+        href={href}
+        className="border-border text-ink hover:bg-surface focus-visible:ring-accent text-ui inline-flex min-h-9 shrink-0 items-center rounded-lg border px-3 font-medium focus-visible:ring-2 focus-visible:outline-none"
+      >
+        {label}
+      </Link>
+    </li>
+  );
+}
+
+interface Extraction {
+  id: string;
+  status: string;
+  extractor_id: string;
+  project_work_id: string;
+}
+
+interface WorkRow {
+  id: string;
+  assignee_id: string | null;
+  works: { title: string | null; published_year: number | null } | null;
+}
+
+interface MemberRow {
+  user_id: string;
+  users: { display_name: string | null } | null;
+}
+
+interface Paper {
+  id: string;
+  title: string;
+  year: number | null;
+  state: "done" | "draft" | "todo";
+}
+
+/**
+ * Papers to people.
+ *
+ * A paper appears under everyone who has extracted it — which is two people
+ * in a systematic review doing dual extraction, and that is the point rather
+ * than a duplicate — plus its assignee, if they have not started. It falls
+ * through to "nobody has started" only when it has neither.
+ */
+function buildBoard({
+  works,
+  extractions,
+  members,
+}: {
+  works: WorkRow[];
+  extractions: Extraction[];
+  members: MemberRow[];
+}) {
+  const byMember = new Map<string, Paper[]>();
+  for (const member of members) byMember.set(member.user_id, []);
+
+  const unassigned: Paper[] = [];
+  const departed: Paper[] = [];
+
+  for (const work of works) {
+    const paper = {
+      id: work.id,
+      title: work.works?.title ?? "Untitled paper",
+      year: work.works?.published_year ?? null,
+    };
+
+    const mine = extractions.filter((e) => e.project_work_id === work.id);
+
+    for (const extraction of mine) {
+      const state = extraction.status === "DRAFT" ? "draft" : "done";
+      const list = byMember.get(extraction.extractor_id);
+      if (list) {
+        list.push({ ...paper, state });
+      } else {
+        /*
+         * Extracted by somebody who has since left the project.
+         *
+         * Their work is still in the evidence table and still counted in the
+         * totals above, so dropping it here would make this page disagree with
+         * both. It cannot go in the "nobody has started" pile either — a
+         * completed extraction filed under "not started" is worse than not
+         * showing it, because it is a statement and the statement is false.
+         *
+         * Its own group, named for what it is.
+         */
+        departed.push({ ...paper, state });
+      }
+    }
+
+    if (work.assignee_id) {
+      const startedItAlready = mine.some((e) => e.extractor_id === work.assignee_id);
+      if (!startedItAlready) {
+        byMember.get(work.assignee_id)?.push({ ...paper, state: "todo" });
+      }
+    } else if (mine.length === 0) {
+      unassigned.push({ ...paper, state: "todo" });
+    }
+  }
+
+  return { byMember, unassigned, departed };
 }

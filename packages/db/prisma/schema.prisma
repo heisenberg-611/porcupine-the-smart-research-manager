@@ -316,6 +316,18 @@ model Project {
   /// Used to grant access to collaborators asynchronously.
   googleRefreshToken String? @map("google_refresh_token")
 
+  /// How many papers each member is expected to extract, or null for no
+  /// target. One number for the whole project rather than a per-member quota:
+  /// the case this exists for is "100 papers, four of us, 25 each", and a
+  /// per-member table would be four rows of the same number plus a screen to
+  /// maintain them.
+  ///
+  /// It is a TARGET, not a limit. Nothing refuses an extraction past it — the
+  /// dashboard just stops saying you are behind. A quota the software enforced
+  /// would be a quota that blocks the person who volunteered to take the last
+  /// twelve papers.
+  extractionTarget Int? @map("extraction_target")
+
   currentKeyEpoch Int       @default(0) @map("current_key_epoch")
   archivedAt      DateTime? @map("archived_at") @db.Timestamptz(3)
   deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(3)
@@ -329,6 +341,7 @@ model Project {
   channels Channel[]
   messages Message[]
 
+  activity           ProjectActivity[]
   questions          Question[]
   savedSearches      SavedSearch[]
   projectWorks       ProjectWork[]
@@ -342,6 +355,29 @@ model Project {
   @@unique([orgId, slug])
   @@index([createdBy])
   @@map("projects")
+}
+
+/// A content-free "something changed here" marker, one row per project per
+/// kind, bumped by database triggers.
+///
+/// Nothing in the application reads this through Prisma, and nothing should:
+/// it exists to reach the write-ahead log so Supabase Realtime can tell a
+/// browser to refetch. It is modelled here only because `pnpm db:diff`
+/// compares the live database against this file, and a table missing from it
+/// reads as drift to be dropped.
+///
+/// See supabase/migrations/20260818160000_project_activity_signal.sql for why
+/// it holds no content and why it is the only table in the realtime
+/// publication.
+model ProjectActivity {
+  projectId String   @map("project_id") @db.Uuid
+  kind      String
+  at        DateTime @default(now()) @db.Timestamptz(6)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, kind])
+  @@map("project_activity")
 }
 
 model ProjectMember {

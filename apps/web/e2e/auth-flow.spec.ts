@@ -783,7 +783,19 @@ test.describe("Phase 0 exit criterion", () => {
   test("signs out and blocks the project list", async () => {
     await goto(page, "/projects");
     await page.getByRole("button", { name: /sign out/i }).click();
-    await expect(page).toHaveURL(/\/sign-in/);
+
+    /*
+     * The landing page, not the sign-in form.
+     *
+     * `auth/sign-out/route.ts` redirects to `/`, which is now a public page
+     * that says what the product is rather than a redirect to /dashboard. That
+     * is the better place to land: somebody who has just signed out has not
+     * asked to sign in again, and putting the form in front of them implies
+     * they have.
+     *
+     * The assertion that matters is the one below, and it is unchanged.
+     */
+    await expect(page).toHaveURL(/\/$/);
 
     // Middleware gates it, RLS backs that up.
     await goto(page, "/projects");

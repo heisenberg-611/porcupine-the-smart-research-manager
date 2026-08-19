@@ -216,6 +216,98 @@ test.describe("the extraction form's spine", () => {
     await page.getByRole("button", { name: /^submit$/i }).click();
     await expect(page.getByText(/submitted/i).first()).toBeVisible();
   });
+
+  /*
+   * The dashboard, on the state the tests above just produced: one paper in
+   * the corpus, one submitted extraction.
+   *
+   * The counts are asserted through `data-stat` rather than by reading the
+   * label beside them. Three numbers on one screen, all of them small
+   * integers, and "1" appears in half a dozen other places — a text locator
+   * here would pass for the wrong reason for as long as it happened to work.
+   */
+  test("the dashboard counts what has actually been extracted", async () => {
+    /*
+     * Screen the paper in first.
+     *
+     * The tests above extract it straight from the library, which the app
+     * allows and which leaves it at IDENTIFIED — outside the set the
+     * dashboard calls the corpus, because that set is "what screening let
+     * through". Asserting against that state would be asserting against a
+     * shortcut nobody takes on a real review.
+     */
+    await goto(page, `/projects/${projectId}/screen`);
+
+    /*
+     * `waitFor`, not `isVisible`, and unconditional.
+     *
+     * The first version guarded this with `if (await remaining.isVisible())`,
+     * which answers IMMEDIATELY — and the page streams, so under a full
+     * parallel run it answered "no" about a queue that was on its way, skipped
+     * the screening entirely, and failed four assertions later with a corpus
+     * of nought. That is the third time this exact trap has been hit in this
+     * suite; there is a comment about it eighty lines up.
+     *
+     * There is exactly one unscreened paper here, so nothing about this needs
+     * to be conditional.
+     */
+    await expect(page.getByText(/\d+ left/)).toBeVisible({ timeout: 15_000 });
+
+    // From the keyboard, the way the queue is meant to be driven. The click
+    // lands on the heading rather than a control, because that is where focus
+    // is while somebody is reading an abstract.
+    await page.locator("article h2").click();
+    await page.keyboard.press("i");
+    await expect(page.getByText(/that is everything for now/i)).toBeVisible();
+
+    /*
+     * Retried through the navigation, not asserted once after it.
+     *
+     * "That is everything for now" above is the OPTIMISTIC state: the screen
+     * applies a decision immediately and does not wait for the server, which
+     * is the whole point of that screen and is what makes three hundred papers
+     * bearable. So the moment that text appears, the write may still be in
+     * flight — and this test then loaded a dashboard that had not seen it and
+     * failed on a corpus of nought, intermittently, only under a full parallel
+     * run.
+     *
+     * `toPass` re-runs the navigation as well as the assertions, which is what
+     * "eventually consistent across a server render" actually needs.
+     */
+    await expect(async () => {
+      await goto(page, `/projects/${projectId}/extract`);
+      await expect(page.locator("[data-stat=corpus] dd")).toHaveText("1");
+      await expect(page.locator("[data-stat=complete] dd").first()).toHaveText("1");
+
+      // Nobody has started: the one paper HAS been started, so this is zero.
+      // Asserted because it is the number most likely to double-count — the
+      // paper is both extracted and, before screening, unassigned.
+      await expect(page.locator("[data-stat=unstarted] dd")).toHaveText("0");
+    }).toPass({ timeout: 20_000 });
+  });
+
+  test("a target turns those counts into a progress report", async () => {
+    await goto(page, `/projects/${projectId}/extract`);
+
+    // Before: a bare count, because a target that has not been set must not
+    // invent a denominator.
+    await expect(page.locator("[data-stat=complete] dd").first()).toHaveText("1");
+    await expect(page.locator("[data-member-progress]")).toHaveText(/1 done/);
+
+    await page.getByLabel(/papers per member/i).fill("2");
+    await page.getByRole("button", { name: /set target/i }).click();
+
+    // One member, target of two, so the denominator is two and not the size
+    // of the library.
+    await expect(page.locator("[data-stat=complete] dd").first()).toHaveText("1 of 2");
+    await expect(page.locator("[data-member-progress]")).toHaveText("1 / 2");
+
+    // Empty clears it. Nought would otherwise be stored as a target of zero
+    // papers, which every member exceeds before reading anything.
+    await page.getByLabel(/papers per member/i).fill("");
+    await page.getByRole("button", { name: /set target/i }).click();
+    await expect(page.locator("[data-stat=complete] dd").first()).toHaveText("1");
+  });
 });
 
 test.describe("the queue can be acted on", () => {
