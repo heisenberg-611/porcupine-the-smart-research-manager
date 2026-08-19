@@ -114,12 +114,36 @@ export async function beginUpload(
 
     if (!result) return { ok: false, error: "That paper is not in this project." };
     return { ok: true, data: { ...result, bucket: PAPER_BUCKET } };
-  } catch {
-    // The RLS policy refuses a REVIEWER or an OBSERVER here, matching the
-    // storage policy that would refuse the bytes a moment later.
+  } catch (cause) {
+    /*
+     * Say what happened, not what we assume happened.
+     *
+     * This used to return "You do not have permission to attach a file to this
+     * project" for EVERY exception. An RLS refusal is one thing that lands
+     * here — a REVIEWER hits it, matching the storage policy that would refuse
+     * the bytes a moment later — but so does a connection failure, a schema
+     * mismatch, or a constraint nobody anticipated. Reporting all of them as a
+     * permission problem sent the reader looking at roles and memberships that
+     * were never wrong, and the actual error was discarded before anyone could
+     * see it.
+     *
+     * 42501 is the code RLS raises; anything else gets an honest "went wrong"
+     * and the detail goes to the server log where an operator can find it.
+     */
+    const message = cause instanceof Error ? cause.message : String(cause);
+    const refused = message.includes("42501") || /row-level security/i.test(message);
+
+    if (!refused) {
+      // eslint-disable-next-line no-console -- an unexplained failure here is
+      // invisible otherwise: the browser only ever sees the sentence below.
+      console.error("beginUpload failed", cause);
+    }
+
     return {
       ok: false,
-      error: "You do not have permission to attach a file to this project.",
+      error: refused
+        ? "You do not have permission to attach a file to this project."
+        : "Could not start the upload. The server log has the detail.",
     };
   }
 }
