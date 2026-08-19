@@ -1,9 +1,11 @@
 "use client";
 
 import { createSelector, type AnchorSelector } from "@Porcupine/anchoring";
-import { useCallback, useRef, useState, useTransition } from "react";
+import { useCallback, useMemo, useRef, useState, useTransition } from "react";
 
 import { Button, Checkbox, Textarea } from "@/components/ui";
+import { PdfDocument, type PdfHighlight } from "@/components/pdf-document";
+import { offsetInPageText } from "@/lib/page-text";
 import type { ReaderSection } from "@/lib/reader-document";
 
 import { createAnnotation, deleteAnnotation } from "./actions";
@@ -42,6 +44,8 @@ export function ReaderClient({
   projectWorkId,
   sections,
   annotations,
+  pdfPath,
+  focusPage,
 }: {
   projectId: string;
   projectWorkId: string;
@@ -53,6 +57,17 @@ export function ReaderClient({
    */
   sections: ReaderSection[];
   annotations: RenderedAnnotation[];
+  /**
+   * The attached PDF's object path, when its text has been extracted.
+   *
+   * Present, the paper is rendered as the paper: canvas pages with pdf.js's
+   * text layer over them. Absent — no file, a scan, an interrupted
+   * extraction — the same sections are rendered as plain text, which is the
+   * only thing there is to render.
+   */
+  pdfPath: string | null;
+  /** Page to open at, when arriving from an evidence cell. */
+  focusPage: number | null;
 }) {
   const [selection, setSelection] = useState<AnchorSelector | null>(null);
   const [note, setNote] = useState("");
@@ -61,6 +76,34 @@ export function ReaderClient({
   const [status, setStatus] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const documentRef = useRef<HTMLDivElement>(null);
+
+  /*
+   * Derived once per annotation change, not once per render.
+   *
+   * Built inline, this array had a new identity on every render — and the
+   * reader re-renders on every selection change — so the viewer repainted, and
+   * previously rebuilt, the whole document while somebody was dragging over a
+   * word.
+   */
+  const pdfHighlights = useMemo<PdfHighlight[]>(
+    () =>
+      annotations
+        .filter(
+          (a): a is RenderedAnnotation & { start: number; end: number } =>
+            a.sectionIndex !== null &&
+            a.start !== null &&
+            a.end !== null &&
+            a.status !== "BROKEN",
+        )
+        .map((a) => ({
+          id: a.id,
+          page: sections[a.sectionIndex!]?.page ?? 1,
+          start: a.start,
+          end: a.end,
+          drifted: a.status === "DRIFTED",
+        })),
+    [annotations, sections],
+  );
 
   const captureSelection = useCallback(() => {
     const active = window.getSelection();
@@ -93,14 +136,24 @@ export function ReaderClient({
     const section = sections[index];
     if (!section) return;
 
-    // Offset within the whole section, not within a text node: the passage is
-    // rendered as several nodes once highlights are interleaved, and a
-    // node-local offset would be meaningless the moment they change.
-    const before = range.cloneRange();
-    before.selectNodeContents(host);
-    before.setEnd(range.startContainer, range.startOffset);
-    const start = before.toString().length;
-    const end = Math.min(start + range.toString().length, section.text.length);
+    /*
+     * Offsets through the shared walker, for both renderings.
+     *
+     * `Range.toString()` was fine while a section was one text node, and is
+     * wrong the moment the section is pdf.js's text layer: that layer marks
+     * line breaks with `<br>`, which contributes nothing to `toString()` while
+     * the stored page string has a "\n" there. The drift is one character per
+     * line, and it would not raise anything — `resolveAnchor` would simply
+     * stop hitting its fast path and start guessing between repeated phrases.
+     *
+     * `offsetInPageText` mirrors `joinPageText`, so both renderings measure
+     * against the string the anchor is stored in.
+     */
+    const start = offsetInPageText(host, range.startContainer, range.startOffset);
+    const finish = offsetInPageText(host, range.endContainer, range.endOffset);
+    if (start === null || finish === null) return;
+
+    const end = Math.min(finish, section.text.length);
 
     if (end - start < 3) {
       setSelection(null);
@@ -153,31 +206,41 @@ export function ReaderClient({
   return (
     <div className="space-y-6">
       <div ref={documentRef} onMouseUp={captureSelection} onKeyUp={captureSelection}>
-        {sections.map((section, index) => (
-          <div key={section.page ?? "abstract"}>
-            {/* Only when there is more than one. A lone "Page 1" above an
-                abstract is a label for a distinction nobody is making. */}
-            {sections.length > 1 && section.page !== null && (
-              <p className="text-muted text-fine border-rule mt-6 border-t pt-4">
-                Page {section.page}
-              </p>
-            )}
-            <div
-              data-testid="reader-text"
-              data-section-index={index}
-              className={
-                sections.length > 1
-                  ? "prose-body py-2"
-                  : "prose-body border-rule border-t py-6"
-              }
-            >
-              {renderWithHighlights(
-                section.text,
-                annotations.filter((a) => a.sectionIndex === index),
+        {pdfPath ? (
+          <PdfDocument
+            storagePath={pdfPath}
+            pageTexts={sections.map((section) => section.text)}
+            highlights={pdfHighlights}
+            onSelection={captureSelection}
+            focusPage={focusPage}
+          />
+        ) : (
+          sections.map((section, index) => (
+            <div key={section.page ?? "abstract"}>
+              {/* Only when there is more than one. A lone "Page 1" above an
+                  abstract is a label for a distinction nobody is making. */}
+              {sections.length > 1 && section.page !== null && (
+                <p className="text-muted text-fine border-rule mt-6 border-t pt-4">
+                  Page {section.page}
+                </p>
               )}
+              <div
+                data-testid="reader-text"
+                data-section-index={index}
+                className={
+                  sections.length > 1
+                    ? "prose-body py-2"
+                    : "prose-body border-rule border-t py-6"
+                }
+              >
+                {renderWithHighlights(
+                  section.text,
+                  annotations.filter((a) => a.sectionIndex === index),
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       {selection && (

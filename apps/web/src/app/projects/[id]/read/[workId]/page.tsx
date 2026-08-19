@@ -337,6 +337,11 @@ export default async function ReadPage({
           projectWorkId={workId}
           sections={sections}
           annotations={annotations}
+          // Only with a text layer to select from. A scanned PDF has pages
+          // nobody can quote, and rendering it would offer a reading surface
+          // that silently cannot be annotated.
+          pdfPath={readingFullText ? (paper.file?.storagePath ?? null) : null}
+          focusPage={focusAnchor?.page ?? null}
         />
       )}
     </main>

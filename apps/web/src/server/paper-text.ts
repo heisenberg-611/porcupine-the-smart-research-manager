@@ -24,7 +24,13 @@ export interface PaperDocument {
   fullText: boolean;
   /** EXTRACTED, FAILED, PENDING — or null when no file is attached. */
   textStatus: string | null;
-  file: { id: string; sizeBytes: number; createdAt: string } | null;
+  file: {
+    id: string;
+    sizeBytes: number;
+    createdAt: string;
+    /** Where the bytes are, for the viewer to download with the reader's JWT. */
+    storagePath: string;
+  } | null;
 }
 
 export async function loadPaperDocument(
@@ -36,7 +42,7 @@ export async function loadPaperDocument(
   const file = (await must(
     supabase
       .from("file_objects")
-      .select("id, size_bytes, created_at, text_status")
+      .select("id, size_bytes, created_at, text_status, storage_path")
       .eq("project_id", projectId)
       .eq("work_id", workId)
       // COMPLETE only. A PENDING row is an upload the app has lost track of;
@@ -52,6 +58,7 @@ export async function loadPaperDocument(
     size_bytes: number;
     created_at: string;
     text_status: string;
+    storage_path: string;
   } | null;
 
   const pages =
@@ -78,7 +85,12 @@ export async function loadPaperDocument(
     fullText: pages.length > 0,
     textStatus: file?.text_status ?? null,
     file: file
-      ? { id: file.id, sizeBytes: file.size_bytes, createdAt: file.created_at }
+      ? {
+          id: file.id,
+          sizeBytes: file.size_bytes,
+          createdAt: file.created_at,
+          storagePath: file.storage_path,
+        }
       : null,
   };
 }

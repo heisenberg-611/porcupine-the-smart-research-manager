@@ -113,6 +113,45 @@ function backdate(sql: string) {
   );
 }
 
+/**
+ * Select `length` characters inside a page's text layer.
+ *
+ * Playwright cannot drag-select across the layer's absolutely-positioned runs,
+ * so the selection is made through the DOM and the same mouseup the component
+ * listens for is dispatched.
+ *
+ * Walks to a TEXT NODE rather than using `firstChild`: in the plain-text
+ * reader the layer's first child is the text itself, but in the rendered PDF
+ * it is a `<span>` holding a run, and `setEnd(span, 24)` addresses child
+ * NODES, not characters. The earlier version of this helper did exactly that
+ * and captured nothing.
+ */
+async function selectInLayer(page: Page, pageNumber: number, length: number) {
+  return page.evaluate(
+    ({ pageNumber, length }) => {
+      const layer = document.querySelector(
+        `[data-page="${pageNumber}"] [data-section-index], [data-section-index]`,
+      );
+      if (!layer) return null;
+
+      const walker = document.createTreeWalker(layer, NodeFilter.SHOW_TEXT);
+      let node = walker.nextNode() as Text | null;
+      while (node && node.length < length) node = walker.nextNode() as Text | null;
+      if (!node) return null;
+
+      const range = document.createRange();
+      range.setStart(node, 0);
+      range.setEnd(node, length);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      layer.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+      return range.toString();
+    },
+    { pageNumber, length },
+  );
+}
+
 /** One value out of the database, for assertions no API exposes. */
 function query(sql: string): string {
   return execFileSync(
@@ -375,10 +414,174 @@ test.describe("file storage — attaching a paper's PDF", () => {
     // Survives a reload: the text is stored, not held in the uploader's tab.
     await expect(owner.getByText(/2 pages from the attached PDF/i)).toBeVisible();
 
-    // Both pages, and labelled — a quote's page is the citable part.
-    await expect(owner.getByText(/impaired vigilance in every cohort/i)).toBeVisible();
-    await expect(owner.getByText(/smaller but consistently negative/i)).toBeVisible();
+    // Labelled, because a quote's page is the citable part.
     await expect(owner.getByText(/^Page 2$/)).toBeVisible();
+    await expect(owner.getByText(/impaired vigilance in every cohort/i)).toBeVisible();
+
+    /*
+     * Page two is drawn when it is reached, not before.
+     *
+     * The document is virtualized: a 300-page paper rendered all at once is
+     * hundreds of megabytes of canvas and a tab that dies. So this scrolls, as
+     * a reader would, and waits for the page to arrive.
+     */
+    await owner.locator('[data-page="2"]').scrollIntoViewIfNeeded();
+    await expect(owner.locator('[data-page="2"] [data-section-index]')).toContainText(
+      /smaller but consistently negative/i,
+      { timeout: 30_000 },
+    );
+  });
+
+  /*
+   * The viewer. docs/13-pdf-viewer-plan.md.
+   *
+   * The claim is not "a canvas appeared" — it is that the page is drawn AND
+   * that a selection taken from the layer over it measures against the same
+   * string the anchor is stored in. The second half is the one that would rot
+   * silently, so it is asserted directly.
+   */
+  test("the page is drawn, not transcribed", async () => {
+    await goto(owner, readUrl);
+
+    const pages = owner.locator('[data-testid="pdf-document"] [data-page]');
+    await expect(pages).toHaveCount(2, { timeout: 60_000 });
+
+    // A canvas with actual pixels in it, at the page's own aspect ratio.
+    const drawn = await owner.locator('[data-page="1"] canvas').evaluate((el) => {
+      const canvas = el as HTMLCanvasElement;
+      return { width: canvas.width, height: canvas.height };
+    });
+    expect(drawn.width).toBeGreaterThan(100);
+    expect(drawn.height).toBeGreaterThan(drawn.width); // portrait, as built
+
+    // The text layer is over it and is selectable — transparent, not absent.
+    const layer = owner.locator('[data-page="1"] [data-section-index]');
+    await expect(layer).toContainText(/impaired vigilance/i);
+  });
+
+  test("an offset taken from the rendered layer matches the stored text", async () => {
+    /*
+     * The join rule, checked where it actually matters.
+     *
+     * pdf.js marks line breaks with `<br>`, which `Range.toString()` skips
+     * while the stored page string has a "\n" there. If the two disagree the
+     * anchoring engine stops hitting its fast path and starts guessing between
+     * repeated phrases — no error, just a slow loss of precision. This asserts
+     * they agree on a page that actually has a line break in it.
+     */
+    const stored = query(
+      `select text from file_pages fp
+         join file_objects fo on fo.id = fp.file_id
+        where fo.project_id = '${projectId}' and fp.page_number = 1`,
+    );
+
+    const fromLayer = await owner
+      .locator('[data-page="1"] [data-section-index]')
+      .evaluate((el) => {
+        // Mirrors joinPageText: runs contribute their text, <br> contributes
+        // the newline the stored string has.
+        let text = "";
+        for (const child of Array.from(el.childNodes)) {
+          if (
+            child.nodeType === Node.ELEMENT_NODE &&
+            (child as Element).tagName === "BR"
+          ) {
+            text += "\n";
+            continue;
+          }
+          text += child.textContent ?? "";
+        }
+        return text;
+      });
+
+    expect(fromLayer.trim()).toBe(stored.trim());
+  });
+
+  test("selecting does not move the page under you", async () => {
+    /*
+     * Reported from real use: "when I select text, the page drifts away".
+     *
+     * The viewer's highlight list was derived inline in the parent, so it had
+     * a new identity on every render — and the reader re-renders on every
+     * selection change. The effect that built the document listed it as a
+     * dependency, so each drag tore down and rebuilt every page, and the
+     * scroll position belonged to nodes that no longer existed.
+     *
+     * Asserted on the scroll position across a selection, and on the canvas
+     * surviving: a rebuild replaces the element, so holding a reference to it
+     * is how we can tell the difference between a repaint and a reconstruction.
+     */
+    await goto(owner, readUrl);
+    await expect(owner.locator('[data-page="1"] canvas')).toBeVisible({
+      timeout: 60_000,
+    });
+
+    await owner.locator('[data-page="2"]').scrollIntoViewIfNeeded();
+    await expect(owner.locator('[data-page="2"] [data-section-index]')).toContainText(
+      /consistently negative/i,
+      { timeout: 30_000 },
+    );
+
+    const before = await owner.evaluate(() => window.scrollY);
+    const marked = await owner.evaluate(() => {
+      const canvas = document.querySelector('[data-page="1"] canvas');
+      if (canvas) (canvas as HTMLElement).dataset.witness = "1";
+      return Boolean(canvas);
+    });
+    expect(marked).toBe(true);
+
+    await selectInLayer(owner, 2, 20);
+
+    // Give React every chance to do the wrong thing before measuring.
+    await expect(owner.getByRole("button", { name: /^highlight$/i })).toBeVisible();
+
+    expect(await owner.evaluate(() => window.scrollY)).toBe(before);
+    expect(
+      await owner.evaluate(
+        () => document.querySelector('[data-page="1"] canvas[data-witness]') !== null,
+      ),
+      "the page was rebuilt rather than repainted",
+    ).toBe(true);
+  });
+
+  test("a selection runs through the text rather than scattering", async () => {
+    /*
+     * Also reported: the selection "is not in a straight line, it's gibberish".
+     *
+     * pdf.js positions every run absolutely, so a native selection between two
+     * of them has nothing in between to travel through and the browser picks
+     * its own path. pdf.js's answer is a full-height blocker appended after the
+     * runs — `.endOfContent` — revealed while `.selecting` is set. Both the
+     * element and the class live in pdf.js's VIEWER, which this component does
+     * not use, so the vendored CSS was matching nothing.
+     *
+     * The check is that a selection dragged across a page yields the page's
+     * text in order, rather than a jumble of runs.
+     */
+    await owner.locator('[data-page="1"]').scrollIntoViewIfNeeded();
+
+    const layer = owner.locator('[data-page="1"] [data-section-index]');
+    await expect(layer).toContainText(/impaired vigilance/i, { timeout: 30_000 });
+
+    expect(
+      await owner.evaluate(
+        () => document.querySelectorAll('[data-page="1"] .endOfContent').length,
+      ),
+      "the blocker pdf.js selection depends on must exist",
+    ).toBe(1);
+
+    const selected = await owner.evaluate(() => {
+      const target = document.querySelector('[data-page="1"] [data-section-index]')!;
+      const range = document.createRange();
+      range.selectNodeContents(target);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      return selection?.toString() ?? "";
+    });
+
+    // In reading order, not shuffled between absolutely positioned runs.
+    expect(selected).toContain("Sleep restriction impaired vigilance");
   });
 
   test("and a highlight on page two is recorded as being on page two", async () => {
@@ -389,19 +592,13 @@ test.describe("file storage — attaching a paper's PDF", () => {
      * abstract. This is the first anchor into a page of a real document, and
      * the page number is the part that was never available before.
      */
-    const quote = await owner.evaluate(() => {
-      const blocks = document.querySelectorAll("[data-section-index]");
-      const second = blocks[1];
-      if (!second?.firstChild) return null;
-      const range = document.createRange();
-      range.setStart(second.firstChild, 0);
-      range.setEnd(second.firstChild, 24);
-      const selection = window.getSelection();
-      selection?.removeAllRanges();
-      selection?.addRange(range);
-      second.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
-      return range.toString();
-    });
+    await owner.locator('[data-page="2"]').scrollIntoViewIfNeeded();
+    await expect(owner.locator('[data-page="2"] [data-section-index]')).toContainText(
+      /consistently negative/i,
+      { timeout: 30_000 },
+    );
+
+    const quote = await selectInLayer(owner, 2, 24);
 
     expect(quote, "a selection should have been captured on page 2").toBeTruthy();
 

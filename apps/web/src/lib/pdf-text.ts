@@ -2,6 +2,8 @@
 
 import { MAX_PAPER_PAGES } from "@Porcupine/shared";
 
+import { joinPageText, type TextRun } from "./page-text";
+
 /**
  * Read the text layer out of a PDF, in the browser.
  *
@@ -124,25 +126,21 @@ export async function extractPdfText(file: Blob): Promise<ExtractionResult> {
       const content = await page.getTextContent();
 
       /*
-       * Items joined with their own spacing, not with a blind separator.
+       * Joined by the shared rule, not here.
        *
        * pdf.js emits one item per run of glyphs, and a run ends wherever the
-       * PDF's text matrix moves — which is mid-word as often as between words,
-       * because that is how kerning and ligatures are encoded. Joining on " "
-       * turns "efficiency" into "ef ficiency"; joining on "" runs the last
-       * word of a line into the first of the next. `hasEOL` is pdf.js's own
-       * answer to where the line actually broke.
+       * text matrix moves — mid-word as often as between words, because that
+       * is how kerning and ligatures are encoded. Joining on " " turns
+       * "efficiency" into "ef ficiency"; joining on "" runs the last word of a
+       * line into the first of the next.
        *
-       * The anchoring engine normalises whitespace anyway, which is the safety
-       * net — but a quote captured from mangled text is mangled in the
-       * database forever, so it is worth getting right here.
+       * `joinPageText` is that rule, and the viewer's selection walker is its
+       * mirror image. They have to agree exactly: a quote captured from the
+       * rendered page is measured against the string written here, and a
+       * one-character disagreement per line is a silent loss of precision
+       * rather than an error. That is why the rule is not written twice.
        */
-      const text = content.items
-        .map((item) => {
-          if (!("str" in item)) return "";
-          return item.str + (item.hasEOL ? "\n" : "");
-        })
-        .join("");
+      const text = joinPageText(content.items as TextRun[]);
 
       pages.push({ pageNumber, text });
 
