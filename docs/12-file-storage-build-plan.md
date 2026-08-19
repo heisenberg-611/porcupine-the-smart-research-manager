@@ -352,7 +352,7 @@ needs yet.
 
 ---
 
-## 7. Stage 4 — the payoff
+## 7. Stage 4 — the payoff — **done**
 
 Quote-typed protocol fields anchor into the PDF text layer with a page number.
 
@@ -361,6 +361,38 @@ has refused un-sourced quotes since Phase 2, and the evidence table's
 dotted-underlined cells have opened "the passage" since the same phase — but
 the passage has always been a sentence in an abstract. This is the first time
 clicking a cell lands on a page of the actual paper.
+
+### What the stage actually found
+
+**The page was being dropped on the floor.** `AnchorSelector` has carried
+`page` since Phase 1 and `anchors.page` has been a column for just as long,
+but the extraction action's Zod schema did not accept the field and the anchor
+was created without it. Nothing was broken by that until now — the only
+quotable text was an abstract, which is not a page of anything — so it had sat
+there as a column that was always NULL. Three lines, and the reason the rest of
+the design needed no changes at all.
+
+**One loader, or the provenance rots silently.** The extraction form and the
+reader must show byte-identical text: a quote is captured against one and
+resolved against the other every time somebody follows an evidence cell back
+to its source. Two independently written queries would drift eventually — a
+different `order by`, one of them joining the abstract in — and the symptom
+would not be an error. It would be every historical citation quietly
+downgrading to "possibly moved", months later, with nothing to point at. So
+`loadPaperDocument()` is called by both, and the e2e test asserts OK rather
+than merely "not broken".
+
+### Delivered
+
+- `apps/web/src/server/paper-text.ts` — the one loader.
+- The extraction source panel renders the paper page by page, labelled, and
+  `createSelector` records which page a quote came from.
+- `page` accepted and stored by the extraction action.
+- A `data-field-key` hook on each question, so one field of twenty can be
+  addressed without depending on the DOM around it.
+- Three e2e tests: a quote captured from page two, the stored anchor asserted
+  in the database to carry page 2, and following it landing on that page with
+  status OK.
 
 ---
 
@@ -388,7 +420,7 @@ not cover. The upload screen states this rather than implying more.
 
 ---
 
-## 10. Acceptance
+## 10. Acceptance — **met**
 
 The phase is done when a member can upload a PDF to a paper, another member of
 the same project can read it and highlight it, a member of a different project
@@ -396,3 +428,32 @@ receives nothing from the storage API when asking for it by path, an extraction
 quote resolves to a page of that PDF, and `pnpm verify --e2e` is green with the
 storage policies asserted in pgTAP and `assert-rls.sh` covering the `storage`
 schema.
+
+Every clause has a test behind it, and they are named so a reader can check
+rather than take this on trust:
+
+| Clause | Where it is asserted |
+| --- | --- |
+| A member can upload a PDF | `file-upload.spec.ts` — "a member attaches the PDF" |
+| Another member can read and highlight it | `file-upload.spec.ts` — "the paper's own pages become the thing you read", "a highlight on page two" |
+| A different project gets nothing by path | `file-upload.spec.ts` — "gets nothing when asking by path" (non-200 for a stranger, 200 for the owner) |
+| A quote resolves to a page of the PDF | `file-upload.spec.ts` — "the stored anchor carries the page", "following it opens the paper at that page" |
+| Storage policies in pgTAP | `18_storage_rls.sql` (21), `19_file_uploads.sql` (14), `20_file_pages.sql` (9) |
+| `assert-rls.sh` covers `storage` | Refuses a public bucket and a bucket no policy names; both sabotage-tested |
+
+`pnpm verify --e2e`: 201 passed.
+
+### What is still open
+
+- **§9 is undecided and is not a code question.** The hosted project's
+  file-size limit must match the 50 MiB baked into the bucket, and the free
+  tier's 1 GB holds roughly one 300-paper review.
+- **`CRON_SECRET` must be set in Vercel** or `/tasks/reconcile-uploads` stays
+  closed and abandoned uploads bill forever.
+- **There is no `Content-Security-Policy` header at all** (`next.config.ts`).
+  Unrelated to files, discovered here, and larger than this phase.
+- **Deferred by §8 and still deferred:** virus scanning, `DEVICE_ONLY`, and
+  cross-user OA dedupe by content hash. The `sha256` recorded at upload is
+  client-asserted and must be re-derived server-side before it is ever used to
+  decide that two users may share bytes.
+- **No visual PDF viewer.** See §6.

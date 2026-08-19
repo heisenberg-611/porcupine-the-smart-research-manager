@@ -6,7 +6,8 @@ import { AccessHelp } from "@/components/access-route";
 import { getProject } from "@/lib/project";
 import { SourceLinks } from "@/components/source-links";
 import { must } from "@/lib/supabase/query";
-import { resolveInSections, type ReaderSection } from "@/lib/reader-document";
+import { resolveInSections } from "@/lib/reader-document";
+import { loadPaperDocument } from "@/server/paper-text";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 import { ReaderClient, type RenderedAnnotation } from "./reader-client";
@@ -81,66 +82,22 @@ export default async function ReadPage({
     "Project";
 
   /*
-   * The attached PDF, if there is one.
-   *
-   * COMPLETE only. A PENDING row is an upload the app has lost track of — the
-   * bytes may or may not be there — and showing it as attached would tell
-   * somebody their paper is available to the team when it may not be. They
-   * are swept by /tasks/reconcile-uploads within the hour.
-   */
-  const paperFile = await must(
-    supabase
-      .from("file_objects")
-      .select("id, size_bytes, created_at, page_count, text_status")
-      .eq("project_id", id)
-      .eq("work_id", (projectWork as unknown as { work_id: string }).work_id)
-      .eq("upload_state", "COMPLETE")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    "the attached file",
-  );
-
-  /*
    * The document under annotation: the paper's own pages when the PDF's text
    * has been extracted, and the abstract when it has not.
    *
-   * The anchoring engine never cared which text it was given — that was the
-   * whole design — so this is the only place the arrival of full text changes
-   * anything. Ordered by page, because the reader shows them in order and an
-   * unordered document is not a document.
+   * Loaded through the shared helper because the extraction form loads the
+   * same thing — a quote captured there is resolved against this every time
+   * somebody follows an evidence cell back to its source, and two copies that
+   * could disagree would rot the provenance chain silently.
    */
-  const fileMeta = paperFile as unknown as {
-    id: string;
-    size_bytes: number;
-    created_at: string;
-    page_count: number | null;
-    text_status: string;
-  } | null;
+  const paper = await loadPaperDocument(
+    supabase,
+    id,
+    (projectWork as unknown as { work_id: string }).work_id,
+    work?.abstract ?? null,
+  );
 
-  const pageRows =
-    fileMeta && fileMeta.text_status === "EXTRACTED"
-      ? ((await must(
-          supabase
-            .from("file_pages")
-            .select("page_number, text")
-            .eq("file_id", fileMeta.id)
-            .order("page_number", { ascending: true }),
-          "the paper's text",
-        )) ?? [])
-      : [];
-
-  const pages = pageRows as unknown as Array<{ page_number: number; text: string }>;
-
-  const abstract = work?.abstract ?? "";
-  const sections: ReaderSection[] =
-    pages.length > 0
-      ? pages.map((row) => ({ page: row.page_number, text: row.text }))
-      : abstract
-        ? [{ page: null, text: abstract }]
-        : [];
-
-  const readingFullText = pages.length > 0;
+  const { sections, fullText: readingFullText } = paper;
 
   // No embed of the author here: `annotations.author_id` has no foreign key
   // to `users`, so PostgREST cannot join it — asking for one makes the WHOLE
@@ -333,7 +290,7 @@ export default async function ReadPage({
         held in its state is a message nobody sees twice. This is also what a
         colleague opening the paper next week sees.
       */}
-      {fileMeta?.text_status === "FAILED" && (
+      {paper.textStatus === "FAILED" && (
         <Banner tone="danger">
           <strong>This PDF has no text we could read.</strong> That usually means it is a
           scan rather than a digital document. The file is attached and can be downloaded;
@@ -341,10 +298,10 @@ export default async function ReadPage({
         </Banner>
       )}
 
-      {paperFile ? (
+      {paper.file ? (
         <AttachedPaper
-          sizeBytes={(paperFile as unknown as { size_bytes: number }).size_bytes}
-          uploadedAt={(paperFile as unknown as { created_at: string }).created_at}
+          sizeBytes={paper.file.sizeBytes}
+          uploadedAt={paper.file.createdAt}
         />
       ) : (
         <Card className="p-6">

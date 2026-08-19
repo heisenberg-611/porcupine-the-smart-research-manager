@@ -113,6 +113,15 @@ function backdate(sql: string) {
   );
 }
 
+/** One value out of the database, for assertions no API exposes. */
+function query(sql: string): string {
+  return execFileSync(
+    "psql",
+    ["postgresql://postgres:postgres@127.0.0.1:54322/postgres", "-tAc", sql],
+    { encoding: "utf8" },
+  ).trim();
+}
+
 function uniqueEmail(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@test.dev`;
 }
@@ -240,6 +249,7 @@ test.describe("file storage — attaching a paper's PDF", () => {
 
   let owner: Page;
   let projectId = "";
+  let projectWorkId = "";
   let readUrl = "";
 
   test.beforeAll(async ({ browser }) => {
@@ -403,6 +413,117 @@ test.describe("file storage — attaching a paper's PDF", () => {
     await goto(owner, readUrl);
     await expect(owner.getByText(/page 2/i).last()).toBeVisible();
     await expect(owner.getByText(/lost in this document/i)).toHaveCount(0);
+  });
+
+  /*
+   * Stage 4 — the payoff, and the acceptance criterion of the whole phase.
+   *
+   * `enforce_value_anchor` has refused un-sourced quotes since Phase 2, and
+   * the evidence table's cells have opened "the passage" since then too — but
+   * the passage was always a sentence in an abstract. This is the first time
+   * an extraction quote points at a page of the actual paper, and the page
+   * number is the part that could not exist before.
+   */
+  test("an extraction quotes page two of the real paper", async () => {
+    await goto(owner, `/projects/${projectId}/protocol`);
+    await owner.getByLabel(/protocol name/i).fill("Data extraction");
+    await owner.getByRole("button", { name: /create protocol/i }).click();
+
+    await owner.getByRole("button", { name: /add a question/i }).click();
+    await owner.getByLabel(/^label$/i).fill("Key finding");
+    await owner.getByLabel(/^type$/i).selectOption("QUOTE");
+    await owner.getByRole("button", { name: /^add question$/i }).click();
+    await expect(owner.getByText("Key finding")).toBeVisible();
+
+    await goto(owner, `/projects/${projectId}/library`);
+    await owner
+      .getByRole("row", { name: /mathematical theory/i })
+      .getByRole("link", { name: /^extract$/i })
+      .click();
+    await owner.waitForURL(/\/extract\/[0-9a-f-]{36}/);
+    projectWorkId = owner.url().split("/").pop()!;
+    await owner.getByRole("button", { name: /start extracting/i }).click();
+
+    // The source panel is the paper now, page by page — not its abstract.
+    await expect(owner.getByText(/^Page 2$/)).toBeVisible();
+
+    /*
+     * Scoped to this field's own button.
+     *
+     * The default template arrives with quote-typed fields of its own, so
+     * there are three "Quote from the paper" buttons on the page and an
+     * unscoped match is a strict-mode violation — correctly, since clicking
+     * the wrong one would put the answer in the wrong question.
+     */
+    await owner
+      .locator('[data-field-key="key_finding"]')
+      .getByRole("button", { name: /quote from the paper/i })
+      .click();
+
+    const quote = await owner.evaluate(() => {
+      const blocks = document.querySelectorAll('[data-testid="extract-source"]');
+      const second = blocks[1];
+      if (!second?.firstChild) return null;
+      const range = document.createRange();
+      range.setStart(second.firstChild, 0);
+      range.setEnd(second.firstChild, 30);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      second.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+      return range.toString();
+    });
+
+    expect(quote, "a quote should have been captured from page 2").toContain("Effect");
+
+    /*
+     * A DRAFT, not a submission.
+     *
+     * Submitting requires every required field of the template answered, which
+     * is a lot of typing to prove nothing this test is about. Saving is what
+     * writes the anchor, and the anchor is the claim: its page number could not
+     * have existed before the file pipeline.
+     */
+    await owner.getByRole("button", { name: /save draft/i }).click();
+    await expect(owner.getByText(/^Saved /)).toBeVisible();
+  });
+
+  test("and the stored anchor carries the page it came from", async () => {
+    const row = query(
+      `select coalesce(page::text, 'NULL') || '|' || left(quote, 6)
+         from anchors
+        where project_id = '${projectId}'
+        order by created_at desc limit 1`,
+    );
+
+    // Page 2, from the second page's text — not NULL, which is what every
+    // anchor in this product carried until now.
+    expect(row).toBe("2|Effect");
+  });
+
+  test("and following it opens the paper at that page", async () => {
+    const anchorId = query(
+      `select id from anchors where project_id = '${projectId}'
+        order by created_at desc limit 1`,
+    );
+
+    await goto(owner, `/projects/${projectId}/read/${projectWorkId}?anchor=${anchorId}`);
+
+    /*
+     * OK, not DRIFTED and not BROKEN.
+     *
+     * The extraction form and the reader load the paper through the same
+     * helper, so the text a quote was captured against is character-for-
+     * character the text it is resolved against. If those two ever loaded the
+     * document differently, this is the assertion that would say so — quietly
+     * degrading to "possibly moved" is exactly the failure the anchoring
+     * engine exists to make visible.
+     */
+    await expect(
+      owner.getByText(/showing the passage this evidence came from/i),
+    ).toBeVisible();
+    await expect(owner.getByText(/could not be found/i)).toHaveCount(0);
+    await expect(owner.getByText(/wording here has changed/i)).toHaveCount(0);
   });
 
   test("the sweeper deletes bytes that no record claims", async () => {

@@ -117,6 +117,16 @@ const ValueInput = z.object({
       suffix: z.string().max(CONTEXT_LENGTH).nullish(),
       startOff: z.number().int().min(0).nullish(),
       endOff: z.number().int().min(0).nullish(),
+      /*
+       * The page the quote came from.
+       *
+       * Dropped on the floor until now — the schema did not accept it and the
+       * anchor was created without it — because until the file pipeline the
+       * only quotable text was an abstract, which is not a page of anything.
+       * With a PDF attached this is what makes an evidence cell open the
+       * actual page it was taken from.
+       */
+      page: z.number().int().min(1).nullish(),
     })
     .nullish(),
 });
@@ -177,6 +187,7 @@ export async function saveDraft(
               suffix: entry.selector.suffix ?? null,
               startOff: entry.selector.startOff ?? null,
               endOff: entry.selector.endOff ?? null,
+              page: entry.selector.page ?? null,
             },
             select: { id: true },
           });

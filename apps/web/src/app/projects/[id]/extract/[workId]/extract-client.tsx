@@ -1,6 +1,8 @@
 "use client";
 
 import { createSelector, type AnchorSelector } from "@Porcupine/anchoring";
+
+import type { ReaderSection } from "@/lib/reader-document";
 import { fieldTypeLabel, needsOptions } from "@Porcupine/shared";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
@@ -46,7 +48,7 @@ export function ExtractClient({
   projectWorkId,
   extractionId,
   status,
-  text,
+  sections,
   fields,
   existing,
   pageHeader,
@@ -55,7 +57,13 @@ export function ExtractClient({
   projectWorkId: string;
   extractionId: string;
   status: string;
-  text: string;
+  /**
+   * The paper, in the pieces it is quoted from: one section per page of the
+   * attached PDF, or a single pageless section for the abstract. Loaded by the
+   * same helper the reader uses, so a quote captured here resolves against
+   * exactly the text somebody following the evidence cell will see.
+   */
+  sections: ReaderSection[];
   fields: ExtractField[];
   existing: ExistingValue[];
   pageHeader: React.ReactNode;
@@ -141,18 +149,34 @@ export function ExtractClient({
     const range = selection.getRangeAt(0);
     if (!textRef.current.contains(range.commonAncestorContainer)) return;
 
+    /*
+     * Which page the quote is from, asked of the DOM where the selection
+     * STARTS. Offsets only mean anything within one page's text, so a
+     * selection dragged across a page break is truncated to the page it began
+     * on — the only reading that produces an anchor that can be resolved.
+     */
+    const origin =
+      range.startContainer.nodeType === Node.ELEMENT_NODE
+        ? (range.startContainer as Element)
+        : range.startContainer.parentElement;
+    const host = origin?.closest<HTMLElement>("[data-section-index]");
+    if (!host) return;
+
+    const section = sections[Number(host.dataset.sectionIndex)];
+    if (!section) return;
+
     const before = range.cloneRange();
-    before.selectNodeContents(textRef.current);
+    before.selectNodeContents(host);
     before.setEnd(range.startContainer, range.startOffset);
     const start = before.toString().length;
-    const end = start + range.toString().length;
+    const end = Math.min(start + range.toString().length, section.text.length);
     if (end - start < 3) return;
 
-    const selector = createSelector(text, start, end);
+    const selector = createSelector(section.text, start, end, section.page ?? undefined);
     setAnswer(capturing, { value: selector.quote, text: selector.quote, selector });
     setCapturing(null);
     selection.removeAllRanges();
-  }, [capturing, setAnswer, text]);
+  }, [capturing, setAnswer, sections]);
 
   function save() {
     setError(null);
@@ -178,6 +202,7 @@ export function ExtractClient({
                     suffix: answer.selector.suffix ?? null,
                     startOff: answer.selector.startOff ?? null,
                     endOff: answer.selector.endOff ?? null,
+                    page: answer.selector.page ?? null,
                   }
                 : null,
           };
@@ -232,6 +257,7 @@ export function ExtractClient({
                     suffix: answer.selector.suffix ?? null,
                     startOff: answer.selector.startOff ?? null,
                     endOff: answer.selector.endOff ?? null,
+                    page: answer.selector.page ?? null,
                   }
                 : null,
           };
@@ -271,21 +297,36 @@ export function ExtractClient({
 
       <div className="grid gap-8 lg:min-h-0 lg:flex-1 lg:grid-cols-[1fr_1fr]">
         <section className="lg:overflow-y-auto lg:pr-2 lg:pb-8">
-          {text ? (
+          {sections.length > 0 ? (
             <div
               ref={textRef}
-              data-testid="extract-source"
               onMouseUp={capture}
               onKeyUp={capture}
-              className={`prose-body border-rule py-4 ${
+              className={
                 capturing ? "ring-accent bg-accent-soft/40 rounded px-3 ring-2" : ""
-              }`}
+              }
             >
-              {text}
+              {sections.map((section, index) => (
+                <div key={section.page ?? "abstract"}>
+                  {sections.length > 1 && section.page !== null && (
+                    <p className="text-muted text-fine border-rule mt-4 border-t pt-3">
+                      Page {section.page}
+                    </p>
+                  )}
+                  <div
+                    data-testid="extract-source"
+                    data-section-index={index}
+                    className="prose-body border-rule py-4"
+                  >
+                    {section.text}
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <p className="text-muted text-ui mt-3">
-              This record has no abstract, so there is no text to quote from yet.
+              This record has no abstract and no attached PDF, so there is no text to
+              quote from yet. Attach the paper from the reader and its pages appear here.
             </p>
           )}
 
@@ -341,6 +382,10 @@ export function ExtractClient({
                 <div
                   key={field.id}
                   id={`field-${field.id}`}
+                  // The field's stable key, so a test — or anything else —
+                  // can address one question on a twenty-question form
+                  // without depending on the surrounding DOM shape.
+                  data-field-key={field.key}
                   className={`border-rule scroll-mt-32 border-b pb-5 last:border-b-0 ${
                     missing.some((m) => m.id === field.id)
                       ? "border-danger -ml-3 border-l-2 pl-3"
@@ -385,7 +430,7 @@ export function ExtractClient({
                               type="button"
                               variant="ghost"
                               onClick={() => setCapturing(field.id)}
-                              disabled={pending || !text}
+                              disabled={pending || sections.length === 0}
                             >
                               {answer?.text
                                 ? "Quote a different passage"
