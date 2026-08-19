@@ -267,16 +267,17 @@ model User {
   /// vanish because its author closed their account, and the deletion path
   /// anonymises the row rather than removing it. The constraint is what stops
   /// the next person reaching for `DELETE`.
-  invitedMembers  ProjectMember[] @relation("MemberInvitedBy")
-  createdProjects Project[]       @relation("ProjectCreatedBy")
-  addedWorks      ProjectWork[]   @relation("WorkAddedBy")
-  assignedWorks   ProjectWork[]   @relation("WorkAssignee")
-  annotations     Annotation[]    @relation("AnnotationAuthor")
-  extractions     Extraction[]    @relation("ExtractionExtractor")
-  verifications   Extraction[]    @relation("ExtractionVerifiedBy")
-  wrappedKeys     ProjectKey[]    @relation("KeyWrappedBy")
-  ownedFiles      FileObject[]    @relation("FileOwner")
-  savedSearches   SavedSearch[]   @relation("SearchCreatedBy")
+  invitedMembers   ProjectMember[]      @relation("MemberInvitedBy")
+  createdProjects  Project[]            @relation("ProjectCreatedBy")
+  addedWorks       ProjectWork[]        @relation("WorkAddedBy")
+  assignedWorks    ProjectWork[]        @relation("WorkAssignee")
+  annotations      Annotation[]         @relation("AnnotationAuthor")
+  extractions      Extraction[]         @relation("ExtractionExtractor")
+  verifications    Extraction[]         @relation("ExtractionVerifiedBy")
+  wrappedKeys      ProjectKey[]         @relation("KeyWrappedBy")
+  ownedFiles       FileObject[]         @relation("FileOwner")
+  savedSearches    SavedSearch[]        @relation("SearchCreatedBy")
+  prismaCountEdits PrismaManualCounts[] @relation("PrismaCountsEditor")
 
   @@map("users")
 }
@@ -389,6 +390,7 @@ model Project {
   messages Message[]
 
   activity           ProjectActivity[]
+  prismaCounts       PrismaManualCounts?
   questions          Question[]
   savedSearches      SavedSearch[]
   projectWorks       ProjectWork[]
@@ -425,6 +427,65 @@ model ProjectActivity {
 
   @@id([projectId, kind])
   @@map("project_activity")
+}
+
+/// The PRISMA 2020 numbers this application cannot count for itself.
+///
+/// The flow diagram has boxes for things no amount of instrumentation here
+/// would know: how many records an automation tool marked ineligible, how many
+/// reports were sought from a library and never arrived, how many studies were
+/// found by chasing citations rather than by searching. Those happen outside
+/// the app, in a librarian's inbox and a reference list.
+///
+/// They are still required. A diagram with those boxes blank is not
+/// submittable, and a diagram with them silently zeroed asserts that no report
+/// failed retrieval — a claim nobody checked. So they are entered by a person,
+/// stored here, and rendered in the same figure as the counted ones, with the
+/// page saying plainly which is which.
+///
+/// Nullable throughout, and that is the whole design. Null means "we have not
+/// said", and renders as a dash; zero means "we checked, and it was none".
+/// Collapsing those two is exactly the error this table exists to avoid.
+model PrismaManualCounts {
+  projectId String @id @map("project_id") @db.Uuid
+
+  /// Identification — the split the app cannot make. `records_identified` in
+  /// v_prisma_flow counts everything that arrived; PRISMA wants databases and
+  /// trial registers separately, and registers are searched by hand.
+  registersIdentified Int? @map("registers_identified")
+
+  /// Removed before screening, beyond the duplicates the importer merged.
+  automationIneligible Int? @map("automation_ineligible")
+  otherRemovedBefore   Int? @map("other_removed_before")
+
+  /// Full-text retrieval. Nothing in this app touches a PDF, so both of these
+  /// are somebody reporting what their library did.
+  reportsSought       Int? @map("reports_sought")
+  reportsNotRetrieved Int? @map("reports_not_retrieved")
+
+  /// The right-hand column of the 2020 diagram: everything found by a route
+  /// other than the database search.
+  otherWebsites            Int? @map("other_websites")
+  otherOrganisations       Int? @map("other_organisations")
+  otherCitationSearching   Int? @map("other_citation_searching")
+  otherReportsSought       Int? @map("other_reports_sought")
+  otherReportsNotRetrieved Int? @map("other_reports_not_retrieved")
+  otherReportsAssessed     Int? @map("other_reports_assessed")
+  otherReportsExcluded     Int? @map("other_reports_excluded")
+  otherStudiesIncluded     Int? @map("other_studies_included")
+
+  /// Studies versus reports. One study can be published several times, and
+  /// PRISMA counts both — the app has no way to know two records describe one
+  /// study unless somebody says so.
+  reportsOfIncludedStudies Int? @map("reports_of_included_studies")
+
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String   @map("updated_by") @db.Uuid
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  editor  User    @relation("PrismaCountsEditor", fields: [updatedBy], references: [id])
+
+  @@map("prisma_manual_counts")
 }
 
 model ProjectMember {

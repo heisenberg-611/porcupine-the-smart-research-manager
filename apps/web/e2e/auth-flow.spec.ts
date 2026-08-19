@@ -465,9 +465,28 @@ test.describe("Phase 0 exit criterion", () => {
     // snapshot be mistaken for a final count.
     await expect(page.getByRole("status")).toContainText(/still to be screened/i);
 
-    // And it names what it cannot report instead of drawing a zero.
-    await expect(page.getByText(/not tracked yet/i)).toBeVisible();
-    await expect(page.getByText(/reports not retrieved/i)).toBeVisible();
+    /*
+     * The boxes this app cannot count are now DRAWN, not omitted.
+     *
+     * They used to be left out with a note explaining why, which was honest
+     * and left the figure unsubmittable. They are drawn now and fed by numbers
+     * a person enters — and the distinction the whole feature rests on is that
+     * an unentered box shows a dash rather than a zero, because a zero is a
+     * claim and a dash is a question.
+     */
+    await expect(
+      page.getByRole("heading", { name: /figures nobody here can count/i }),
+    ).toBeVisible();
+
+    // Nobody has entered anything, so the retrieval box is a dash. Scoped to
+    // the figure: "Reports sought for retrieval" is also a label on the form
+    // underneath it.
+    const figure = page.getByRole("img", { name: /prisma 2020 flow diagram/i });
+    await expect(figure).toContainText("Reports sought for retrieval");
+    await expect(figure).toContainText("n = —");
+
+    // And an owner can supply them.
+    await expect(page.getByRole("button", { name: /save counts/i })).toBeVisible();
   });
 
   test("the app shell reaches every area without the back button", async () => {

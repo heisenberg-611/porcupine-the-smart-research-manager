@@ -3,11 +3,18 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { ButtonLink, EmptyState, PageHeader, TableScroll } from "@/components/ui";
+import { getProjectRole } from "@/lib/project";
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 import { CopyNumbers } from "./copy-numbers";
-import { PrismaDiagram, type ExclusionRow, type PrismaCounts } from "./prisma-diagram";
+import { PrismaCountsForm } from "./counts-form";
+import {
+  PrismaDiagram,
+  type ExclusionRow,
+  type PrismaCounts,
+  type PrismaManualCounts,
+} from "./prisma-diagram";
 
 export const metadata: Metadata = { title: "PRISMA" };
 
@@ -48,6 +55,50 @@ export default async function PrismaPage({
   );
 
   const flow = ((flowRows ?? []) as unknown as FlowRow[])[0];
+
+  /*
+   * The figures nobody can count for us.
+   *
+   * `maybeSingle`, because a project that has never had them entered has no
+   * row — which is not an error and not an empty review, it is a review whose
+   * team has not got to this yet. Every field then reads as null and the
+   * diagram draws a dash.
+   */
+  const manualRow = await must(
+    supabase
+      .from("prisma_manual_counts")
+      .select(
+        "registers_identified, automation_ineligible, other_removed_before, " +
+          "reports_sought, reports_not_retrieved, other_websites, other_organisations, " +
+          "other_citation_searching, other_reports_sought, other_reports_not_retrieved, " +
+          "other_reports_assessed, other_reports_excluded, other_studies_included, " +
+          "reports_of_included_studies",
+      )
+      .eq("project_id", id)
+      .maybeSingle(),
+    "the entered PRISMA counts",
+  );
+
+  const role = await getProjectRole(id, user.id);
+  const canEditCounts = role === "OWNER" || role === "ADMIN";
+
+  const raw = (manualRow ?? {}) as Record<string, number | null>;
+  const manual: PrismaManualCounts = {
+    registersIdentified: raw.registers_identified ?? null,
+    automationIneligible: raw.automation_ineligible ?? null,
+    otherRemovedBefore: raw.other_removed_before ?? null,
+    reportsSought: raw.reports_sought ?? null,
+    reportsNotRetrieved: raw.reports_not_retrieved ?? null,
+    otherWebsites: raw.other_websites ?? null,
+    otherOrganisations: raw.other_organisations ?? null,
+    otherCitationSearching: raw.other_citation_searching ?? null,
+    otherReportsSought: raw.other_reports_sought ?? null,
+    otherReportsNotRetrieved: raw.other_reports_not_retrieved ?? null,
+    otherReportsAssessed: raw.other_reports_assessed ?? null,
+    otherReportsExcluded: raw.other_reports_excluded ?? null,
+    otherStudiesIncluded: raw.other_studies_included ?? null,
+    reportsOfIncludedStudies: raw.reports_of_included_studies ?? null,
+  };
 
   const exclusionRows = await must(
     supabase.from("v_prisma_exclusions").select("reason, count").eq("project_id", id),
@@ -112,6 +163,7 @@ export default async function PrismaPage({
           <section className="border-border bg-surface rounded-lg border p-4">
             <PrismaDiagram
               counts={counts}
+              manual={manual}
               exclusions={exclusions}
               projectTitle={project.title}
             />
@@ -142,7 +194,13 @@ export default async function PrismaPage({
                   ...exclusions.map(
                     (e) => `  ${exclusionReasonLabel(e.reason)}: ${e.count}`,
                   ),
+                  // The entered figures go in too. Copying half the diagram and
+                  // retyping the rest is exactly the step where a methods
+                  // section starts disagreeing with its own figure.
+                  `Reports sought for retrieval: ${manual.reportsSought ?? "not stated"}`,
+                  `Reports not retrieved: ${manual.reportsNotRetrieved ?? "not stated"}`,
                   `Studies included: ${counts.studiesIncluded}`,
+                  `Reports of included studies: ${manual.reportsOfIncludedStudies ?? "not stated"}`,
                 ]}
               />
             </div>
@@ -172,17 +230,38 @@ export default async function PrismaPage({
           </section>
 
           <section className="border-border rounded-lg border border-dashed p-4">
-            <h2 className="text-ink text-ui font-medium">Not tracked yet</h2>
-            {/* Naming the gap rather than drawing a zero. A box reading
-                "Reports not retrieved: 0" asserts that none failed retrieval,
-                which is a claim this system cannot support. */}
-            <p className="text-muted text-ui mt-1">
-              PRISMA also asks for <em>reports sought for retrieval</em> and{" "}
-              <em>reports not retrieved</em>. Both describe full-text retrieval, which
-              needs the file pipeline. They are omitted rather than shown as zero, because
-              a zero there would assert that no report failed retrieval — add them by hand
-              if your review needs them.
+            <h2 className="text-ink text-heading font-medium">
+              The figures nobody here can count
+            </h2>
+            {/* This section used to say these boxes were omitted, which was
+                honest and left the figure unsubmittable. They are drawn now,
+                fed by what somebody typed — and a box nobody has typed into
+                still shows a dash rather than a zero, because "0 reports not
+                retrieved" is a claim and a dash is a question. */}
+            <p className="text-muted measure text-ui mt-1 text-pretty">
+              Full-text retrieval happens in a library&rsquo;s document supply, a hand
+              search of a trial register happens in a browser tab, and citation chasing
+              happens in a reference list. None of it passes through this app, so none of
+              it can be counted here — but PRISMA 2020 asks for all of it, and a diagram
+              missing those boxes is not one a journal will take.
             </p>
+            <p className="text-muted measure text-ui mt-3 text-pretty">
+              So they are entered below and drawn in the same figure. Anything left empty
+              shows as an em dash in the diagram, which reads as an open question rather
+              than as an assertion that the number was nought.
+            </p>
+
+            {canEditCounts ? (
+              <div className="mt-6">
+                <PrismaCountsForm projectId={id} initial={manual} />
+              </div>
+            ) : (
+              <p className="text-muted text-ui mt-4">
+                An owner or admin can fill these in. They go into a published figure, so
+                the roles that can change what the review asserts are the ones that can
+                edit them.
+              </p>
+            )}
           </section>
         </>
       )}

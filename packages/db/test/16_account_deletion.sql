@@ -75,13 +75,21 @@ select throws_ok($$
 $$, '23503', null,
  'a user with a screening decision cannot be deleted — the audit trail holds the row');
 
--- The ten columns that had NO constraint before this migration. Each one is a
--- separate way the delete above could have silently succeeded.
+-- A canary, and deliberately a brittle one.
+--
+-- Ten of these columns had NO constraint before 20260818203328, and each was a
+-- separate way `delete from users` could silently succeed and leave a dangling
+-- reference. A count fails the moment somebody adds an eleventh user-id column
+-- WITHOUT a foreign key — and it also fails, harmlessly, when they add one
+-- with a foreign key, which is the prompt to come and read this comment.
+--
+-- If you are here because you added a column: check yours is in the list below
+-- and bump the number.
 select is(
   (select count(*)::int from pg_constraint c
     where c.contype = 'f' and c.confrelid = 'public.users'::regclass),
-  18,
-  'every column that holds a user id now has a foreign key to users'
+  19,
+  'every column that holds a user id has a foreign key to users'
 );
 
 select ok(
