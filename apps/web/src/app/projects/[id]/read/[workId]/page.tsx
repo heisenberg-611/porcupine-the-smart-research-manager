@@ -170,6 +170,7 @@ export default async function ReadPage({
         kind: row.kind,
         body: row.body,
         visibility: row.visibility,
+        authorId: row.author_id,
         authorName: authorNames.get(row.author_id) ?? "Unknown",
         isMine: row.author_id === user.id,
         status: resolution.status,

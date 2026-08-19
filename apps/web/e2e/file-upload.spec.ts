@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
+import { colourFor } from "../src/lib/annotation-colour";
 import { goto } from "./ready";
 
 /**
@@ -300,8 +301,10 @@ test.describe("file storage — attaching a paper's PDF", () => {
 
   const ownerEmail = uniqueEmail("filer");
   const strangerEmail = uniqueEmail("stranger");
+  const colleagueEmail = uniqueEmail("colleague");
 
   let owner: Page;
+  let colleague: Page;
   let projectId = "";
   let projectWorkId = "";
   let readUrl = "";
@@ -309,6 +312,7 @@ test.describe("file storage — attaching a paper's PDF", () => {
   test.beforeAll(async ({ browser }) => {
     test.setTimeout(180_000);
     await createConfirmedUser(strangerEmail);
+    await createConfirmedUser(colleagueEmail);
     owner = await signInAndEnroll(browser, ownerEmail);
     if (process.env.UPLOAD_DEBUG) {
       owner.on("console", (m) => console.warn(`[console.${m.type()}] ${m.text()}`));
@@ -321,6 +325,7 @@ test.describe("file storage — attaching a paper's PDF", () => {
 
   test.afterAll(async () => {
     await owner?.context().close();
+    await colleague?.context().close();
   });
 
   test("a project with one paper in it", async () => {
@@ -711,6 +716,165 @@ test.describe("file storage — attaching a paper's PDF", () => {
    * an extraction quote points at a page of the actual paper, and the page
    * number is the part that could not exist before.
    */
+  test("a second member's marks are their own colour, with their name", async () => {
+    /*
+     * Two people marking the same paper is the normal case in a review, and
+     * one colour for everybody turns an overlap into a single darker smear
+     * that names nobody. Colour separates; the label identifies.
+     */
+    // The owner marks page one first, so the page carries two people's marks
+    // rather than one. Both are on page 1 because only rendered pages paint,
+    // and asserting across a virtualized document would be asserting on which
+    // pages happened to be near the viewport.
+    await goto(owner, readUrl);
+    await expect(owner.locator('[data-page="1"] [data-section-index]')).toContainText(
+      /impaired vigilance/i,
+      { timeout: 60_000 },
+    );
+    const ownRun = owner.locator('[data-page="1"] [data-section-index] span').first();
+    const ownBox = (await ownRun.boundingBox())!;
+    await owner.mouse.dblclick(
+      ownBox.x + ownBox.width * 0.1,
+      ownBox.y + ownBox.height / 2,
+    );
+    await owner.getByRole("button", { name: /^highlight$/i }).click();
+    await expect(owner.getByText(/highlight saved/i)).toBeVisible();
+
+    await goto(owner, `/projects/${projectId}`);
+    await owner.getByLabel("Email").fill(colleagueEmail);
+    await owner.getByLabel("Role", { exact: true }).selectOption("CONTRIBUTOR");
+    await owner.getByRole("button", { name: /add member/i }).click();
+    await expect(owner.getByText(/members\s*\(2\)/i)).toBeVisible();
+
+    colleague = await signInAndEnroll(owner.context().browser()!, colleagueEmail);
+    await goto(colleague, readUrl);
+    await expect(colleague.locator('[data-page="1"] canvas')).toBeVisible({
+      timeout: 60_000,
+    });
+    await expect(colleague.locator('[data-page="1"] [data-section-index]')).toContainText(
+      /impaired vigilance/i,
+      { timeout: 30_000 },
+    );
+
+    const run = colleague.locator('[data-page="1"] [data-section-index] span').first();
+    const box = (await run.boundingBox())!;
+    await colleague.mouse.dblclick(box.x + box.width * 0.45, box.y + box.height / 2);
+    await colleague.getByRole("button", { name: /^highlight$/i }).click();
+    await expect(colleague.getByText(/highlight saved/i)).toBeVisible();
+
+    // The owner now sees two people's marks, in two colours, each named.
+    await goto(owner, readUrl);
+    await expect(owner.locator('[data-page="1"] canvas')).toBeVisible({
+      timeout: 60_000,
+    });
+    // Marks are painted after the text layer renders, which is after the
+    // canvas appears. Waiting for the canvas alone raced the paint.
+    await expect(owner.locator('[data-page="1"] [data-highlight]').first()).toBeVisible({
+      timeout: 30_000,
+    });
+
+    const authors = await owner.evaluate(
+      () =>
+        new Set(
+          Array.from(
+            document.querySelectorAll('[data-page="1"] [data-highlight][data-author]'),
+          ).map((el) => (el as HTMLElement).dataset.author),
+        ).size,
+    );
+    expect(authors, "both members' marks should be on the page").toBe(2);
+
+    /*
+     * Each mark carries the colour its author's id prescribes.
+     *
+     * NOT "the two members have different colours" — eight hues cannot
+     * separate every pair, and two arbitrary accounts collide about one time
+     * in eight. A test asserting they differ would pass on the draw and fail
+     * on a Tuesday. The contract is the mapping, and the NAME is what
+     * disambiguates a collision, which is asserted below.
+     */
+    const painted = await owner.evaluate(() =>
+      Array.from(
+        document.querySelectorAll('[data-page="1"] [data-highlight][data-author]'),
+      ).map((el) => ({
+        author: (el as HTMLElement).dataset.author!,
+        background: (el as HTMLElement).style.background,
+      })),
+    );
+
+    expect(painted.length).toBeGreaterThanOrEqual(2);
+    for (const mark of painted) {
+      // Spaces normalised: the browser re-serialises the colour it was given.
+      const asWritten = (c: string) => c.replace(/\s+/g, "");
+      expect(asWritten(mark.background), `colour for ${mark.author}`).toBe(
+        asWritten(colourFor(mark.author).fill),
+      );
+    }
+
+    // And one author never gets two colours on the same page.
+    const perAuthor = new Map<string, Set<string>>();
+    for (const mark of painted) {
+      const seen = perAuthor.get(mark.author) ?? new Set();
+      seen.add(mark.background);
+      perAuthor.set(mark.author, seen);
+    }
+    for (const [author, seen] of perAuthor) {
+      expect(seen.size, `${author} should have one colour`).toBe(1);
+    }
+
+    // And the name is beside the mark, not only in the list.
+    const labels = await owner.evaluate(() =>
+      Array.from(
+        document.querySelectorAll('[data-page="1"] [data-highlight-author]'),
+      ).map((el) => el.textContent),
+    );
+    /*
+     * One label per highlight, whatever else the suite has left on this page.
+     * Counting an exact number here made the test depend on how many marks
+     * earlier tests happened to save, which is not the claim.
+     */
+    const distinctHighlights = new Set(
+      painted.map((mark) => mark.author + mark.background),
+    );
+    expect(labels.length).toBeGreaterThanOrEqual(distinctHighlights.size);
+    expect(labels.join(" "), "the colleague is named beside their mark").toMatch(
+      /colleague-/,
+    );
+    expect(labels.join(" "), "and so is the owner").toMatch(/filer-/);
+  });
+
+  test("a private note reaches nobody else's browser", async () => {
+    /*
+     * Enforced by RLS, not by the UI: `annotations_select_visible` requires
+     * `visibility = 'PROJECT' OR author_id = current_user_id()`, so another
+     * member's private note is never sent at all.
+     *
+     * Asserted on what the colleague's page RECEIVED rather than on what it
+     * displays — a check that only looked at rendering would pass just as well
+     * against a note that arrived and was hidden with CSS.
+     */
+    await goto(owner, readUrl);
+    const run = owner.locator('[data-page="1"] [data-section-index] span').first();
+    const box = (await run.boundingBox())!;
+    await owner.mouse.dblclick(box.x + box.width * 0.75, box.y + box.height / 2);
+
+    await owner.getByRole("checkbox", { name: /private to me/i }).check();
+    await owner.getByLabel(/note \(optional\)/i).fill("my own half-formed thought");
+    await owner.getByRole("button", { name: /save note/i }).click();
+    await expect(owner.getByText(/note saved/i)).toBeVisible();
+
+    await goto(owner, readUrl);
+    await expect(owner.getByText(/half-formed thought/i)).toBeVisible();
+
+    await goto(colleague, readUrl);
+    await expect(colleague.locator('[data-page="1"] canvas')).toBeVisible({
+      timeout: 60_000,
+    });
+    // Present for its author, absent for everyone else — including from the
+    // page source, not merely from view.
+    await expect(colleague.getByText(/half-formed thought/i)).toHaveCount(0);
+    expect(await colleague.content()).not.toContain("half-formed thought");
+  });
+
   test("an extraction quotes page two of the real paper", async () => {
     await goto(owner, `/projects/${projectId}/protocol`);
     await owner.getByLabel(/protocol name/i).fill("Data extraction");

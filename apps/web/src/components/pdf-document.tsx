@@ -3,6 +3,7 @@
 import { PAPER_BUCKET } from "@Porcupine/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { colourFor } from "@/lib/annotation-colour";
 import { createClient } from "@/lib/supabase/client";
 import { rangeForPageText } from "@/lib/page-text";
 
@@ -45,6 +46,20 @@ export interface PdfHighlight {
   start: number;
   end: number;
   drifted: boolean;
+  /** Whose mark this is — the colour is derived from it, not stored. */
+  authorId: string;
+  authorName: string;
+  /**
+   * Only ever true for the reader's own marks.
+   *
+   * A private annotation is filtered out by RLS before it leaves the database
+   * — `annotations_select_visible` requires `visibility = 'PROJECT' OR
+   * author_id = current_user_id()` — so another member's private note never
+   * reaches this component at all. The flag is here to LABEL your own, not to
+   * hide anybody else's, and nothing here may be allowed to become the thing
+   * that enforces it.
+   */
+  isPrivate: boolean;
 }
 
 export function PdfDocument({
@@ -87,7 +102,9 @@ export function PdfDocument({
   const highlightsRef = useRef(highlights);
 
   const paintPage = useCallback((number: number, slot: PageSlot) => {
-    for (const mark of slot.container.querySelectorAll("[data-highlight]")) {
+    for (const mark of slot.container.querySelectorAll(
+      "[data-highlight], [data-highlight-author]",
+    )) {
       mark.remove();
     }
     if (!slot.rendered) return;
@@ -107,18 +124,67 @@ export function PdfDocument({
       const range = rangeForPageText(slot.layer, highlight.start, highlight.end);
       if (!range) continue;
 
-      for (const rect of Array.from(range.getClientRects())) {
+      const colour = colourFor(highlight.authorId);
+      const rects = Array.from(range.getClientRects());
+
+      for (const rect of rects) {
         const mark = document.createElement("div");
         mark.dataset.highlight = highlight.id;
-        mark.className = `pointer-events-none absolute ${
-          highlight.drifted ? "bg-danger/30" : "bg-accent/30"
-        }`;
+        mark.dataset.author = highlight.authorId;
+        mark.className = "pointer-events-none absolute";
         mark.style.left = `${rect.left - box.left}px`;
         mark.style.top = `${rect.top - box.top}px`;
         mark.style.width = `${rect.width}px`;
         mark.style.height = `${rect.height}px`;
+
+        /*
+         * Translucent fill, so an overlap reads as an overlap.
+         *
+         * Two people marking the same sentence is the interesting case in a
+         * review, and an opaque fill would show only whichever was painted
+         * last. Two translucent fills of different hues darken into a third,
+         * which is the signal.
+         */
+        mark.style.background = colour.fill;
+
+        // Drift keeps its own signal, and it has to survive being coloured by
+        // author: a dotted underline rather than a different fill.
+        if (highlight.drifted) {
+          mark.style.borderBottom = `2px dotted ${colour.ink}`;
+        }
+        // Your own private notes, marked as such for you alone. Nobody else
+        // receives them, so this is a reminder rather than a control.
+        if (highlight.isPrivate) {
+          mark.style.outline = `1px dashed ${colour.ink}`;
+          mark.style.outlineOffset = "1px";
+        }
+
         slot.container.append(mark);
       }
+
+      /*
+       * The name, once per highlight, beside its last line.
+       *
+       * Once rather than per rectangle: a passage wrapping three lines
+       * produces three rects and would otherwise carry three copies of the
+       * same name. The last one, because that is where the passage ends and
+       * where there is usually room.
+       */
+      const last = rects.at(-1);
+      if (!last) continue;
+
+      const tag = document.createElement("span");
+      tag.dataset.highlightAuthor = highlight.id;
+      tag.textContent = highlight.isPrivate
+        ? `${highlight.authorName} · private`
+        : highlight.authorName;
+      tag.className =
+        "pointer-events-none absolute whitespace-nowrap rounded px-1 py-px text-[10px] font-medium leading-tight";
+      tag.style.color = colour.ink;
+      tag.style.background = colour.fill;
+      tag.style.left = `${last.right - box.left + 4}px`;
+      tag.style.top = `${last.top - box.top}px`;
+      slot.container.append(tag);
     }
   }, []);
 

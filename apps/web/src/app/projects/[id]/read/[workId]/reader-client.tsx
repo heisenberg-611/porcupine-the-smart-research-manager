@@ -5,6 +5,7 @@ import { useCallback, useMemo, useRef, useState, useTransition } from "react";
 
 import { Button, Checkbox, Textarea } from "@/components/ui";
 import { PdfDocument, type PdfHighlight } from "@/components/pdf-document";
+import { colourFor } from "@/lib/annotation-colour";
 import { offsetInPageText } from "@/lib/page-text";
 import type { ReaderSection } from "@/lib/reader-document";
 
@@ -15,6 +16,7 @@ export interface RenderedAnnotation {
   kind: string;
   body: string | null;
   visibility: string;
+  authorId: string;
   authorName: string;
   isMine: boolean;
   /** Resolved against the CURRENT text on the server. */
@@ -101,6 +103,9 @@ export function ReaderClient({
           start: a.start,
           end: a.end,
           drifted: a.status === "DRIFTED",
+          authorId: a.authorId,
+          authorName: a.authorName,
+          isPrivate: a.visibility === "PRIVATE",
         })),
     [annotations, sections],
   );
@@ -332,6 +337,13 @@ export function ReaderClient({
                 )}
 
                 <p className="text-muted text-fine mt-2 flex flex-wrap items-center gap-2">
+                  {/* The same colour the mark is drawn in, so the list and the
+                      page identify people the same way. */}
+                  <span
+                    aria-hidden="true"
+                    className="inline-block size-2.5 shrink-0 rounded-full"
+                    style={{ background: colourFor(annotation.authorId).ink }}
+                  />
                   <span>{annotation.authorName}</span>
                   <span>·</span>
                   <span>{annotation.kind.toLowerCase()}</span>
