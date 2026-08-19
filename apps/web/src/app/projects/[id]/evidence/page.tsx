@@ -5,6 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import { ButtonLink, EmptyState, PageHeader, TableScroll } from "@/components/ui";
 import {
   evidenceSearchParams,
+  resolveProtocol,
   fetchEvidenceRows,
   parseEvidenceQuery,
   PAGE_SIZE,
@@ -57,17 +58,46 @@ export default async function EvidencePage({
   );
   if (!project) notFound();
 
-  const protocol = await must(
+  const query = parseEvidenceQuery(sp);
+
+  /*
+   * EVERY protocol, not just the newest active one.
+   *
+   * This query used to be `.eq("is_active", true).order(version desc).limit(1)`,
+   * which meant an extraction made against any other protocol had no screen. It
+   * was still in the database and still counted in the extraction totals; it
+   * simply could not be looked at, and that is indistinguishable from having
+   * been deleted by the person who made it.
+   *
+   * Which one this request means is decided by `resolveProtocol`, shared with
+   * the export route so a link and its CSV cannot disagree about the columns.
+   */
+  const protocols = ((await must(
     supabase
       .from("protocols")
-      .select("id, name, version, protocol_fields(id, key, label, type, order)")
+      .select(
+        "id, name, version, is_active, protocol_fields(id, key, label, type, order)",
+      )
       .eq("project_id", id)
-      .eq("is_active", true)
-      .order("version", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    "the protocol",
-  );
+      .order("version", { ascending: false }),
+    "the protocols",
+  )) ?? []) as unknown as Array<{
+    id: string;
+    name: string;
+    version: number;
+    is_active: boolean;
+    protocol_fields: FieldRow[];
+  }>;
+
+  const choices = protocols.map((p) => ({
+    id: p.id,
+    name: p.name,
+    version: p.version,
+    isActive: p.is_active,
+  }));
+
+  const chosen = resolveProtocol(choices, query.protocolId);
+  const protocol = chosen ? protocols.find((p) => p.id === chosen.id)! : null;
 
   // No protocol is not an error, it is a stage of the work. Say what to do.
   if (!protocol) {
@@ -91,11 +121,32 @@ export default async function EvidencePage({
     );
   }
 
-  const allFields = [
-    ...((protocol as unknown as { protocol_fields: FieldRow[] }).protocol_fields ?? []),
-  ].sort((a, b) => a.order - b.order);
+  const allFields = [...(protocol.protocol_fields ?? [])].sort(
+    (a, b) => a.order - b.order,
+  );
 
-  const query = parseEvidenceQuery(sp);
+  /*
+   * How much work sits under each protocol.
+   *
+   * Shown in the picker, because the question somebody arrives with is "where
+   * did my extraction go" and a list of names cannot answer it. A count can.
+   */
+  const perProtocol = ((await must(
+    supabase
+      .from("extractions")
+      .select("protocol_id")
+      .eq("project_id", id)
+      .neq("status", "DRAFT"),
+    "extraction counts per protocol",
+  )) ?? []) as unknown as Array<{ protocol_id: string }>;
+
+  const countsByProtocol = new Map<string, number>();
+  for (const row of perProtocol) {
+    countsByProtocol.set(
+      row.protocol_id,
+      (countsByProtocol.get(row.protocol_id) ?? 0) + 1,
+    );
+  }
 
   // Shared with the export, so "export what I am looking at" includes the
   // columns. See visibleFields() for why order comes from the protocol.
@@ -168,6 +219,11 @@ export default async function EvidencePage({
         groupKey={query.groupKey}
         onlyIncomplete={query.onlyIncomplete}
         columns={query.columns}
+        protocolId={protocol.id}
+        protocols={choices.map((c) => ({
+          ...c,
+          extractions: countsByProtocol.get(c.id) ?? 0,
+        }))}
       >
         {/* Hidden below `sm`, which is both a design call and a containment.
 

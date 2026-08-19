@@ -37,6 +37,20 @@ export interface EvidenceRow {
 }
 
 export interface EvidenceQuery {
+  /**
+   * Which protocol's extractions to show. `null` means "the default one".
+   *
+   * A project can hold several protocols at once — a v2 that supersedes a v1,
+   * or two running in parallel — and an extraction belongs to exactly one of
+   * them. Until this existed, both this page and the export silently rendered
+   * whichever was active with the highest version, so an extraction made
+   * against any other protocol had no screen at all. It was still in the
+   * database and still counted in the totals; it simply could not be looked
+   * at, which is indistinguishable from having been deleted.
+   *
+   * In the URL like everything else here, so "the v1 table" is a link.
+   */
+  protocolId: string | null;
   sort: string;
   dir: "asc" | "desc";
   filterKey: string | null;
@@ -88,6 +102,7 @@ export function parseEvidenceQuery(
   const page = Math.max(1, Number.parseInt(one("page") ?? "1", 10) || 1);
 
   return {
+    protocolId: one("protocol"),
     sort: one("sort") ?? "title",
     dir: one("dir") === "desc" ? "desc" : "asc",
     filterKey: one("fk"),
@@ -118,6 +133,7 @@ export function parseEvidenceQuery(
 
 export function evidenceSearchParams(query: EvidenceQuery, page: number): string {
   const params = new URLSearchParams();
+  if (query.protocolId) params.set("protocol", query.protocolId);
   if (query.sort !== "title") params.set("sort", query.sort);
   if (query.dir !== "asc") params.set("dir", query.dir);
   if (query.filterKey) params.set("fk", query.filterKey);
@@ -203,4 +219,43 @@ export function exportValue(cell: EvidenceCell | undefined): string | number | n
   // A NUMBER field whose stored value is not a number — 'not reported' and the
   // like — falls through to text rather than becoming NaN or an empty cell.
   return cell.text ?? null;
+}
+
+export interface ProtocolChoice {
+  id: string;
+  name: string;
+  version: number;
+  isActive: boolean;
+}
+
+/**
+ * Which protocol a query is asking for.
+ *
+ * Shared by the page and the export for the same reason `fetchEvidenceRows` is:
+ * an export that resolved the protocol differently from the screen would hand
+ * back a table of different columns for the same URL, and nobody would notice
+ * until the numbers were already in a manuscript.
+ *
+ * An unknown or deleted id falls back to the default rather than erroring. A
+ * protocol id in a URL is exactly the kind of thing that gets shared, kept in a
+ * bookmark, and then outlives the protocol.
+ */
+export function resolveProtocol<T extends ProtocolChoice>(
+  protocols: T[],
+  requested: string | null,
+): T | null {
+  if (protocols.length === 0) return null;
+
+  if (requested) {
+    const match = protocols.find((p) => p.id === requested);
+    if (match) return match;
+  }
+
+  // The default, and the behaviour everything had before this parameter
+  // existed: the active protocol with the highest version. Falls through to
+  // the newest of any kind when none is active, so a project whose protocols
+  // have all been retired still renders its evidence rather than an empty page.
+  const active = protocols.filter((p) => p.isActive);
+  const pool = active.length > 0 ? active : protocols;
+  return pool.reduce((best, p) => (p.version > best.version ? p : best), pool[0]!);
 }

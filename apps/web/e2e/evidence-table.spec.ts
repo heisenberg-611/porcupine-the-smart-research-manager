@@ -246,6 +246,91 @@ test.describe("the evidence table at scale", () => {
     expect(header).not.toContain("risk_of_bias");
   });
 
+  /*
+   * The protocol picker.
+   *
+   * The seed carries a retired "Pilot form" alongside the live one for these
+   * three tests: a project with one protocol cannot exercise a picker, and the
+   * bug this feature exists to fix — extractions made under an older protocol
+   * being invisible, which reads as "my work was overwritten" — only appears
+   * once there are two.
+   */
+  test("offers every protocol, and defaults to the live one", async () => {
+    await goto(page, evidence);
+
+    const live = page.getByRole("link", { name: /Data extraction form v1/ });
+    const pilot = page.getByRole("link", { name: /Pilot form v1/ });
+    await expect(live).toBeVisible();
+    await expect(pilot).toBeVisible();
+
+    // Which one you are looking at has to be on the page, not just in the URL.
+    await expect(live).toHaveAttribute("aria-current", "true");
+    await expect(pilot).not.toHaveAttribute("aria-current", "true");
+
+    // The retired one says so. Otherwise the only difference between a form
+    // still in use and one abandoned after eight papers is the count.
+    await expect(pilot).toContainText("retired");
+    await expect(pilot).toContainText("8");
+
+    // And the default resolution is unchanged by the picker existing.
+    await expect(page.locator("thead th")).toHaveCount(23);
+  });
+
+  test("switching protocol shows that protocol's work, not an empty table", async () => {
+    await goto(page, evidence);
+    await page.getByRole("link", { name: /Pilot form v1/ }).click();
+    await page.waitForURL(/protocol=/);
+
+    // 4 pilot fields + Paper, Year, Done.
+    await expect(page.locator("thead th")).toHaveCount(7);
+    // The eight papers the pilot covered — the whole point. Before this
+    // existed they were reachable only by editing SQL.
+    await expect(page.locator("tbody tr")).toHaveCount(8);
+  });
+
+  test("switching protocol drops column choices made against the other one", async () => {
+    /*
+     * `cols` names FIELD KEYS, and the keys of one protocol mean nothing in
+     * another. Carrying them across is not a cosmetic bug: two protocols can
+     * legitimately share a key, so the column would keep its header and
+     * silently start showing a different question's answers.
+     */
+    await goto(page, `${evidence}?cols=sample_size,design&sort=field:design`);
+    await expect(page.locator("thead th")).toHaveCount(5);
+
+    await page.getByRole("link", { name: /Pilot form v1/ }).click();
+    await page.waitForURL(/protocol=/);
+
+    const params = new URL(page.url()).searchParams;
+    expect(params.get("cols")).toBeNull();
+    expect(params.get("sort")).toBeNull();
+    await expect(page.locator("thead th")).toHaveCount(7);
+  });
+
+  test("the export follows the protocol on screen", async () => {
+    // Same failure as the columns one above, one level up: an export that
+    // resolved a different protocol would hand back a table of different
+    // columns for the same URL, and nobody would notice until the numbers
+    // were in a manuscript.
+    await goto(page, evidence);
+    await page.getByRole("link", { name: /Pilot form v1/ }).click();
+    await page.waitForURL(/protocol=/);
+
+    const href = await page
+      .getByRole("link", { name: /export csv/i })
+      .getAttribute("href");
+    expect(href, "the export link should carry the protocol").toContain("protocol=");
+
+    const response = await page.request.get(href!);
+    expect(response.ok()).toBe(true);
+
+    const header = (await response.text()).split("\r\n")[0]!;
+    expect(header).toContain("sample_size");
+    // A field that only exists on the live form. Its presence would mean the
+    // export ignored the picker.
+    expect(header).not.toContain("risk_of_bias");
+  });
+
   test("no accessibility violations, with the column chooser open", async () => {
     await goto(page, evidence);
     await page.getByRole("button", { name: /columns/i }).click();

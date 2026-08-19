@@ -32,6 +32,8 @@ export function EvidenceControls({
   groupKey,
   onlyIncomplete,
   columns,
+  protocols,
+  protocolId,
   children,
 }: {
   projectId: string;
@@ -43,6 +45,16 @@ export function EvidenceControls({
   groupKey: string | null;
   onlyIncomplete: boolean;
   columns: string[] | null;
+  /** Every protocol in this project, with how much has been extracted against it. */
+  protocols: Array<{
+    id: string;
+    name: string;
+    version: number;
+    isActive: boolean;
+    extractions: number;
+  }>;
+  /** The one being shown. */
+  protocolId: string;
   /**
    * The column chooser, rendered beside the export buttons.
    *
@@ -58,6 +70,9 @@ export function EvidenceControls({
   // The current sort rides along as hidden inputs, or filtering would silently
   // throw away the column someone had just sorted by.
   const exportParams = new URLSearchParams();
+  // The export is the table. If it resolved a different protocol it would hand
+  // back different columns for the same URL.
+  exportParams.set("protocol", protocolId);
   if (sort !== "title") exportParams.set("sort", sort);
   if (dir !== "asc") exportParams.set("dir", dir);
   if (filterKey) exportParams.set("fk", filterKey);
@@ -76,6 +91,24 @@ export function EvidenceControls({
     return `/projects/${projectId}/evidence/export?${params.toString()}`;
   };
 
+  /*
+   * Switching protocol drops every field-keyed parameter.
+   *
+   * `cols`, `fk`, `group` and a `field:` sort all name protocol FIELD KEYS, and
+   * the keys of one protocol mean nothing in another — at best they are
+   * dropped and the table looks arbitrarily narrowed, at worst two protocols
+   * share a key and the column silently shows a different question's answers.
+   * Sort direction, paging and the incomplete filter carry over, because those
+   * are about rows rather than columns.
+   */
+  const protocolHref = (id: string) => {
+    const params = new URLSearchParams();
+    params.set("protocol", id);
+    if (dir !== "asc") params.set("dir", dir);
+    if (onlyIncomplete) params.set("incomplete", "1");
+    return `/projects/${projectId}/evidence?${params.toString()}`;
+  };
+
   return (
     <div className="flex flex-wrap items-end justify-between gap-4">
       <form
@@ -85,6 +118,8 @@ export function EvidenceControls({
       >
         <Hidden name="sort" value={sort} />
         <Hidden name="dir" value={dir} />
+        {/* Filtering must not silently move you back to the default protocol. */}
+        <Hidden name="protocol" value={protocolId} />
 
         {/* `flex-1 basis-44` on each field, so the three of them are the same
             width instead of sizing to their own contents — "Contains" was
@@ -149,6 +184,49 @@ export function EvidenceControls({
         path, it returned a plain-text 403 with no styling and no way back.
         A button that fails for most people is worse than an absent one.
       */}
+      {/*
+        Only when there is more than one. A picker offering a single option is
+        a control that answers a question nobody has, and it would appear on
+        every project in the product.
+      */}
+      {protocols.length > 1 && (
+        <fieldset className="basis-full">
+          <legend className="text-muted text-fine">Protocol</legend>
+          <div className="mt-1 flex flex-wrap gap-2">
+            {protocols.map((p) => {
+              const current = p.id === protocolId;
+              return (
+                <Link
+                  key={p.id}
+                  href={protocolHref(p.id)}
+                  aria-current={current ? "true" : undefined}
+                  className={`text-ui focus-visible:ring-accent inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 focus-visible:ring-2 focus-visible:outline-none ${
+                    current
+                      ? "border-accent bg-accent-soft text-ink"
+                      : "border-border text-muted hover:bg-surface hover:text-ink"
+                  }`}
+                >
+                  <span>
+                    {p.name} v{p.version}
+                  </span>
+                  {/*
+                    The count needs a word attached to it. Visually the gap
+                    between the spans says "137 of them"; to a screen reader
+                    the two run together as "Data extraction form v1137",
+                    which reads as a version number nobody has.
+                  */}
+                  <span className="text-fine text-muted font-mono">
+                    {p.extractions}
+                    <span className="sr-only"> extractions</span>
+                  </span>
+                  {!p.isActive && <span className="text-fine text-muted">retired</span>}
+                </Link>
+              );
+            })}
+          </div>
+        </fieldset>
+      )}
+
       <div className="flex flex-wrap items-center gap-2">
         <ButtonLink href={exportHref("csv")}>Export CSV</ButtonLink>
         <ButtonLink href={exportHref("xlsx")}>Export Excel</ButtonLink>

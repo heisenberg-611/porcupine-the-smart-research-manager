@@ -592,6 +592,56 @@ async function main() {
       ],
     );
 
+    /*
+     * A retired pilot form, so the protocol picker has something to pick.
+     *
+     * Real reviews revise their extraction form, and the answers collected
+     * under the old one do not disappear when they do — they are the reason
+     * the evidence table needs a protocol picker at all. Seeding only one
+     * protocol meant the picker could never render, and the only way to see it
+     * was to hand-write SQL.
+     *
+     * Deliberately `is_active = false` and a DIFFERENT NAME rather than a
+     * lower version of the same one. `resolveProtocol` prefers active
+     * protocols, so this cannot become the default and cannot quietly change
+     * what the seeded evidence table shows — the specs that count 23 columns
+     * are counting the live form, and they still are.
+     */
+    const pilotId = randomUUID();
+    await client.query(
+      `insert into protocols (id, project_id, name, version, is_active, created_at, updated_at)
+       values ($1, $2, 'Pilot form', 1, false, now(), now())`,
+      [pilotId, srId],
+    );
+
+    const pilotSpecs = FIELD_SPECS.slice(0, 4);
+    const pilotFields = pilotSpecs.map((spec, i) => ({
+      id: randomUUID(),
+      key: spec[0],
+      label: spec[1],
+      type: spec[2],
+      options: spec[3] ? JSON.stringify(spec[3]) : null,
+      order: i,
+      requiresAnchor: false,
+    }));
+
+    await insertMany(
+      client,
+      `insert into protocol_fields (id, protocol_id, key, label, type, options, required, requires_anchor, "order")`,
+      pilotFields,
+      [
+        "id",
+        () => pilotId,
+        "key",
+        "label",
+        "type",
+        "options",
+        () => false,
+        "requiresAnchor",
+        "order",
+      ],
+    );
+
     // ── Extractions ─────────────────────────────────────────────────────────
     const extractable = projectWorks.filter((pw) => pw.status === "EXTRACTED");
 
@@ -609,6 +659,7 @@ async function main() {
         extractions.push({
           id: extractionId,
           pw: pw.id,
+          protocol: protocolId,
           extractor,
           status: "SUBMITTED",
         });
@@ -636,6 +687,33 @@ async function main() {
       }
     }
 
+    // The pilot only ever covered the first handful of papers before it was
+    // revised. That is what makes the picker's per-protocol counts worth
+    // showing: 8 against the pilot, everything against the live form.
+    for (const pw of extractable.slice(0, 8)) {
+      const extractionId = randomUUID();
+      extractions.push({
+        id: extractionId,
+        pw: pw.id,
+        protocol: pilotId,
+        extractor: ownerId,
+        status: "SUBMITTED",
+      });
+
+      for (const field of pilotFields) {
+        const answer = answerFor(pilotSpecs[field.order], 1);
+        if (answer === null) continue;
+        values.push({
+          id: randomUUID(),
+          extraction: extractionId,
+          field: field.id,
+          value: JSON.stringify(answer),
+          text: Array.isArray(answer) ? answer.join(", ") : String(answer),
+          anchor: null,
+        });
+      }
+    }
+
     await insertMany(
       client,
       `insert into anchors (id, project_id, quote, status, created_at, updated_at)`,
@@ -654,7 +732,7 @@ async function main() {
         "id",
         () => srId,
         "pw",
-        () => protocolId,
+        "protocol",
         "extractor",
         () => "DRAFT",
         () => new Date(),

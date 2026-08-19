@@ -6,6 +6,7 @@ import {
   exportValue,
   fetchEvidenceRows,
   parseEvidenceQuery,
+  resolveProtocol,
   visibleFields,
   type EvidenceRow,
 } from "@/lib/evidence";
@@ -45,26 +46,49 @@ export async function GET(
 
   const supabase = await createClient();
 
-  const protocol = await must(
+  const query = parseEvidenceQuery(Object.fromEntries(url.searchParams));
+
+  const protocols = ((await must(
     supabase
       .from("protocols")
-      .select("id, name, version, protocol_fields(key, label, order)")
+      .select("id, name, version, is_active, protocol_fields(key, label, order)")
       .eq("project_id", id)
-      .eq("is_active", true)
-      .order("version", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    "the protocol",
+      .order("version", { ascending: false }),
+    "the protocols",
+  )) ?? []) as unknown as Array<{
+    id: string;
+    name: string;
+    version: number;
+    is_active: boolean;
+    protocol_fields: FieldRow[];
+  }>;
+
+  /*
+   * The same resolution the page performs, from the same function.
+   *
+   * `?protocol=` reaches here because the export links carry it. If this route
+   * resolved differently — say by keeping the old "newest active" rule — then
+   * the same URL would produce a table on screen and a CSV of different
+   * columns, and the disagreement would only surface once the numbers were in
+   * a manuscript.
+   */
+  const chosen = resolveProtocol(
+    protocols.map((p) => ({
+      id: p.id,
+      name: p.name,
+      version: p.version,
+      isActive: p.is_active,
+    })),
+    query.protocolId,
   );
+  const protocol = chosen ? protocols.find((p) => p.id === chosen.id)! : null;
 
   if (!protocol)
-    return new Response("This project has no active protocol", { status: 404 });
+    return new Response("This project has no protocol to export", { status: 404 });
 
-  const allFields = [
-    ...((protocol as unknown as { protocol_fields: FieldRow[] }).protocol_fields ?? []),
-  ].sort((a, b) => a.order - b.order);
-
-  const query = parseEvidenceQuery(Object.fromEntries(url.searchParams));
+  const allFields = [...(protocol.protocol_fields ?? [])].sort(
+    (a, b) => a.order - b.order,
+  );
 
   // The columns too, not just the rows. Someone who narrows the table to five
   // fields and clicks Export means five fields; handing them twenty is the
