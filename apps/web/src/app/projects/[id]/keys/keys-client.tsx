@@ -14,12 +14,15 @@ import { useCallback, useEffect, useState } from "react";
 
 import { Banner, Button, Card } from "@/components/ui";
 import { useCryptoSession } from "@/lib/crypto/session";
+import { useProjectKeys } from "@/lib/crypto/use-project-keys";
 
 import {
   getKeyState,
   getMemberKeys,
   provisionProjectKey,
   removeMember,
+  shareProjectKey,
+  type KeylessMember,
   type MemberKey,
 } from "./actions";
 
@@ -39,6 +42,10 @@ export function KeysClient({ projectId }: { projectId: string }) {
   const { identity, unlocked } = useCryptoSession();
   const pathname = usePathname();
 
+  // Every key this browser can open, so an existing one can be handed on
+  // rather than a new one minted.
+  const keys = useProjectKeys(projectId);
+  const [keyless, setKeyless] = useState<KeylessMember[]>([]);
   const [members, setMembers] = useState<MemberKey[] | null>(null);
   const [epoch, setEpoch] = useState<number>(0);
   const [status, setStatus] = useState<string | null>(null);
@@ -63,6 +70,7 @@ export function KeysClient({ projectId }: { projectId: string }) {
     if (state.ok) {
       setEpoch(state.data.currentEpoch);
       setRotationNeeded(state.data.rotationNeeded);
+      setKeyless(state.data.keyless);
     }
   }, [projectId]);
 
@@ -181,6 +189,96 @@ export function KeysClient({ projectId }: { projectId: string }) {
     } catch {
       setError("Could not create the project key.");
       return false;
+    }
+  }
+
+  /**
+   * Hand an existing key to a member who does not hold it.
+   *
+   * The counterpart to rotation, and the operation the product was missing.
+   * Rotation is for DEPARTURE — a former member must not read what comes next.
+   * Arrival is the opposite: nothing needs to be kept from the newcomer, and
+   * minting a new key to admit them throws away everyone's history and splits
+   * the project between people holding different epochs.
+   *
+   * So this seals the keys ALREADY HELD to the newcomer's public key. How many
+   * of them is `history_access`, which the schema has carried since Phase 0
+   * and nothing consulted until now.
+   */
+  async function share(userId: string, name: string) {
+    if (!identity) {
+      setStatus("Unlock first — the key is sealed to you, not to the server.");
+      return;
+    }
+
+    setPending(true);
+    setStatus(null);
+
+    try {
+      const [membersNow, stateNow] = await Promise.all([
+        getMemberKeys(projectId),
+        getKeyState(projectId),
+      ]);
+      if (!membersNow.ok || !stateNow.ok) {
+        setStatus("Could not read the key state.");
+        return;
+      }
+
+      const target = membersNow.data.find((m) => m.userId === userId);
+      if (!target || target.identityPubKey === "") {
+        setStatus(`${name} has not finished setting up their keys yet.`);
+        return;
+      }
+
+      const keyless = stateNow.data.keyless.find((k) => k.userId === userId);
+      const fromJoinOnly = keyless?.historyAccess === "FROM_JOIN";
+      const targetPub = await fromBase64(target.identityPubKey);
+
+      // Only epochs this browser can actually open, which is the same set the
+      // server will accept.
+      const epochs = [...keys.byEpoch.keys()]
+        .filter((epoch) => !fromJoinOnly || epoch === stateNow.data.currentEpoch)
+        .sort((a, b) => a - b);
+
+      if (epochs.length === 0) {
+        setStatus("You do not hold a key to share.");
+        return;
+      }
+
+      const wraps = await Promise.all(
+        epochs.map(async (epoch) => {
+          const wrap = await wrapProjectKeyFor(
+            keys.byEpoch.get(epoch)!,
+            targetPub,
+            identity.signingPrivKey,
+            { projectId, userId, epoch },
+          );
+          return {
+            epoch,
+            wrappedKey: await toBase64(wrap.wrappedKey),
+            signature: await toBase64(wrap.signature),
+          };
+        }),
+      );
+
+      const result = await shareProjectKey({ projectId, userId, wraps });
+      if (!result.ok) {
+        setStatus(result.error);
+        return;
+      }
+
+      setStatus(
+        `${name} now holds the key${
+          fromJoinOnly
+            ? " for the current epoch — they joined with access from their join date."
+            : `, for ${result.data.epochs === 1 ? "1 epoch" : `${result.data.epochs} epochs`}.`
+        }`,
+      );
+      await load();
+    } catch {
+      setStatus("Could not share the key.");
+    } finally {
+      setPending(false);
     }
   }
 
@@ -377,6 +475,24 @@ export function KeysClient({ projectId }: { projectId: string }) {
                       </span>
                     )}
                   </span>
+
+                  {/*
+                    The repair, offered where the problem is visible.
+                    A member who holds no wrap cannot read a word of the
+                    conversation, and until now the only thing anyone could do
+                    about it was rotate the project — which fixed their access
+                    by breaking everybody's history.
+                  */}
+                  {!member.isMe &&
+                    keyless.some((k) => k.userId === member.userId) &&
+                    member.identityPubKey !== "" && (
+                      <Button
+                        disabled={pending || keys.byEpoch.size === 0}
+                        onClick={() => void share(member.userId, member.displayName)}
+                      >
+                        Give {member.displayName} the key
+                      </Button>
+                    )}
 
                   {!member.isMe &&
                     canRemove &&

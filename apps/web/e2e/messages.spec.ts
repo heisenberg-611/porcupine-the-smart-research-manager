@@ -489,3 +489,164 @@ test.describe("two people, one encrypted conversation", () => {
     expect(Number(wrapsAtEpochTwo)).toBe(1);
   });
 });
+
+/**
+ * A member added AFTER the key exists.
+ *
+ * The describe above invites Bob before anyone provisions a key, so Bob is
+ * included in epoch 1's wraps and everything works. That is not how a project
+ * grows: people join a conversation that already has one.
+ *
+ * Reported from real use — "the member put his key for the project and the
+ * epoch also changed, but sending keeps both of us locked out and we cannot
+ * see each other's chat." The cause is that a member holding no wrap was shown
+ * "This project has no content key yet" and a button that MINTS A NEW ONE:
+ * the condition was "I hold no key" while the words and the button said "the
+ * project has none". Clicking it advanced the epoch, orphaning the history and
+ * leaving whoever still had the old epoch cached writing messages the other
+ * could not read.
+ */
+test.describe("a member who joins after the key exists", () => {
+  test.describe.configure({ mode: "serial", timeout: 120_000 });
+  test.skip(({ isMobile }) => !!isMobile, "one browser is enough for a key path");
+
+  let ownerEmail = "";
+  let joinerEmail = "";
+  let owner: Page;
+  let joiner: Page;
+  let ownerPhrase = "";
+  let joinerPhrase = "";
+  let projectId = "";
+
+  const FIRST = "Written before anyone else joined";
+
+  test.beforeAll(async ({ browser }, testInfo) => {
+    test.setTimeout(300_000);
+    ownerEmail = uniqueEmail(`k-owner-${testInfo.project.name}`);
+    joinerEmail = uniqueEmail(`k-joiner-${testInfo.project.name}`);
+    await createConfirmedUser(ownerEmail);
+    await createConfirmedUser(joinerEmail);
+
+    const o = await signUp(browser, ownerEmail);
+    owner = o.page;
+    ownerPhrase = o.passphrase;
+
+    const j = await signUp(browser, joinerEmail);
+    joiner = j.page;
+    joinerPhrase = j.passphrase;
+
+    await goto(owner, "/projects/new");
+    await owner.getByLabel("Title").fill(`Key sharing ${testInfo.project.name}`);
+    await owner
+      .getByRole("group", { name: /kind/i })
+      .getByRole("radio", { name: /thesis or dissertation/i })
+      .check();
+    await owner.getByRole("button", { name: /create project/i }).click();
+    await owner.waitForURL(/\/projects\/[0-9a-f-]+$/);
+    projectId = owner.url().split("/").pop()!;
+  });
+
+  test.afterAll(async () => {
+    await owner?.context().close();
+    await joiner?.context().close();
+  });
+
+  test("the owner sets up alone and says something", async () => {
+    await unlock(owner, ownerPhrase, `/projects/${projectId}/keys`);
+    await owner.getByRole("button", { name: /create the project key/i }).click();
+    await expect(owner.getByText(/epoch 1 sealed to 1 member/i)).toBeVisible({
+      timeout: 60_000,
+    });
+
+    await owner
+      .getByRole("navigation", { name: /sections/i })
+      .getByRole("link", { name: "Messages" })
+      .click();
+    await owner.getByLabel(/new channel/i).fill("planning");
+    await owner.getByRole("button", { name: /^create$/i }).click();
+    await expect(
+      owner.getByRole("navigation", { name: /channels/i }).getByText("planning"),
+    ).toBeVisible({ timeout: 60_000 });
+
+    await owner.getByLabel(/^message$/i).fill(FIRST);
+    await owner.getByRole("button", { name: /^send$/i }).click();
+    await expect(log(owner).getByText(FIRST)).toBeVisible({ timeout: 60_000 });
+  });
+
+  test("then adds somebody, who is told to ask rather than invited to mint a key", async () => {
+    await goto(owner, `/projects/${projectId}`);
+    await owner.getByLabel("Email").fill(joinerEmail);
+    await owner.getByLabel("Role", { exact: true }).selectOption("CONTRIBUTOR");
+    await owner.getByRole("button", { name: /add member/i }).click();
+    await expect(owner.getByText(/members \(2\)/i)).toBeVisible();
+
+    await unlock(joiner, joinerPhrase, `/projects/${projectId}/messages`);
+
+    /*
+     * The whole bug in one assertion. Holding no wrap is not the same as the
+     * project having no key, and offering to create one here is what advanced
+     * the epoch and locked both people out.
+     */
+    await expect(joiner.getByText(/waiting for the key/i)).toBeVisible({
+      timeout: 60_000,
+    });
+    await expect(
+      joiner.getByRole("button", { name: /create the project key/i }),
+    ).toHaveCount(0);
+  });
+
+  test("the owner shares the key, without a rotation", async () => {
+    // `unlock`, not `goto`: a full page load drops the in-memory identity, and
+    // without it there is no key to share — the button would be disabled and
+    // this would fail for the wrong reason.
+    await unlock(owner, ownerPhrase, `/projects/${projectId}/keys`);
+
+    await owner.getByRole("button", { name: /give .* the key/i }).click();
+    await expect(owner.getByText(/now holds the key/i)).toBeVisible({ timeout: 60_000 });
+
+    /*
+     * Still epoch 1 — asserted against the database, not the page.
+     *
+     * "Sharing is not rotating" is the whole point of the fix, and a rotation
+     * here would have thrown away the history it is meant to hand over. The
+     * epoch is a number in a column; reading it from the copy on screen would
+     * be testing the wording.
+     */
+    const epoch = execFileSync(
+      "psql",
+      [
+        "--no-psqlrc",
+        "-At",
+        process.env.DIRECT_URL ??
+          "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
+        "-c",
+        `select current_key_epoch from projects where id = '${projectId}'`,
+      ],
+      { encoding: "utf8" },
+    ).trim();
+    expect(epoch, "sharing must not advance the epoch").toBe("1");
+  });
+
+  test("and now both read each other, including what came before", async () => {
+    await unlock(joiner, joinerPhrase, `/projects/${projectId}/messages`);
+
+    // History, because this member joined with ALL_HISTORY access.
+    await expect(log(joiner).getByText(FIRST)).toBeVisible({ timeout: 60_000 });
+
+    const answer = "Reading it fine, thanks";
+    await joiner.getByLabel(/^message$/i).fill(answer);
+    await joiner.getByRole("button", { name: /^send$/i }).click();
+    await expect(log(joiner).getByText(answer)).toBeVisible({ timeout: 60_000 });
+
+    // The owner is on Keys after sharing; walk back by clicking, so the
+    // in-memory identity survives and the key stays open.
+    await owner
+      .getByRole("navigation", { name: /sections/i })
+      .getByRole("link", { name: "Messages" })
+      .click();
+    await expect(owner.getByRole("heading", { name: "Messages" })).toBeVisible();
+
+    await owner.getByRole("button", { name: /^refresh$/i }).click();
+    await expect(log(owner).getByText(answer)).toBeVisible({ timeout: 60_000 });
+  });
+});

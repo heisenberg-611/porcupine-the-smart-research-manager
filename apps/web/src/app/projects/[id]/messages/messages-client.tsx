@@ -520,7 +520,49 @@ export function MessagesClient({ projectId }: { projectId: string }) {
 
   if (keys.loading) return <p className="text-muted text-ui">Opening your keys…</p>;
 
+  /*
+   * Holding no key is not the same as the project having none.
+   *
+   * This branch used to say "This project has no content key yet" and offer a
+   * button that MINTED ONE — to anybody who happened to hold no wrap. A member
+   * who joined after the key existed was therefore invited to rotate the
+   * project: the history became unreadable to whoever was not wrapped at the
+   * older epochs, and anyone still holding the previous epoch kept writing
+   * messages the newcomer could not read. Both sides reported being locked
+   * out, and both were right.
+   *
+   * The two states are now distinct, and only one of them offers to create
+   * anything.
+   */
   if (keys.byEpoch.size === 0) {
+    if (keys.currentEpoch > 0) {
+      return (
+        <Card className="flex flex-col gap-3">
+          <p className="text-ink text-ui">
+            <strong>Waiting for the key.</strong> This project already has one, and it has
+            not been shared with you yet. Anyone in the project who holds it can hand it
+            over from{" "}
+            <Link
+              href={`/projects/${projectId}/keys`}
+              className="underline underline-offset-2"
+            >
+              Keys &amp; members
+            </Link>
+            .
+          </p>
+          <p className="text-muted text-fine">
+            Nobody can do this for you from the server — it cannot read the key either.
+            That is the point of the encryption, and the cost of it.
+          </p>
+          <div>
+            <Button variant="ghost" onClick={keys.reload} disabled={keys.loading}>
+              {keys.loading ? "Checking…" : "Check again"}
+            </Button>
+          </div>
+        </Card>
+      );
+    }
+
     return (
       <Card className="flex flex-col gap-3">
         <p className="text-ink text-ui">

@@ -167,6 +167,26 @@ export async function sendMessage(
 
   try {
     await withUserContext(claims, async (tx) => {
+      /*
+       * The epoch must be the CURRENT one.
+       *
+       * A tab left open across a rotation keeps sealing under the epoch it
+       * loaded with, and that quietly undoes the rotation: removal rotates
+       * precisely so a departed member cannot read what comes next, and they
+       * still hold the old key. Everyone remaining holds it too, so nothing
+       * looks wrong — the message is readable by every person who should read
+       * it, and by one who should not.
+       *
+       * Refused here rather than in the browser, because the browser is the
+       * thing that is out of date.
+       */
+      const project = await tx.project.findUnique({
+        where: { id: projectId },
+        select: { currentKeyEpoch: true },
+      });
+      if (!project) throw new Error("NO_PROJECT");
+      if (epoch !== project.currentKeyEpoch) throw new Error("STALE_EPOCH");
+
       await tx.message.create({
         data: {
           id: messageId,
@@ -182,7 +202,15 @@ export async function sendMessage(
       });
     });
     return { ok: true, data: { id: messageId } };
-  } catch {
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : "";
+    if (reason === "STALE_EPOCH") {
+      return {
+        ok: false,
+        error:
+          "The project key has changed since this page loaded. Reload to pick up the new one — the message was not sent.",
+      };
+    }
     return { ok: false, error: "Could not send the message." };
   }
 }
