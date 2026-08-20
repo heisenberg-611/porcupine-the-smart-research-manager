@@ -321,6 +321,60 @@ test.describe("two people, one encrypted conversation", () => {
     });
   });
 
+  test("the reaction picker can be closed without reacting", async () => {
+    /*
+     * Reported: "if I press react then I can't cancel it without reacting."
+     *
+     * Opening the picker replaced React and Reply with six emoji and nothing
+     * else, so the only way out was to choose one — and the picker appears on
+     * hover, which makes opening it by accident easy.
+     */
+    const target = log(alice)
+      .getByRole("listitem")
+      .filter({ hasText: /re-screen/i })
+      .first();
+
+    const before = await target.getByRole("button", { name: /from/i }).count();
+
+    await target.hover();
+    await target.getByRole("button", { name: /add a reaction/i }).click();
+    await expect(target.getByRole("button", { name: "React 🎉" })).toBeVisible();
+
+    // The explicit way out.
+    await target.getByRole("button", { name: /close the reaction picker/i }).click();
+    await expect(target.getByRole("button", { name: "React 🎉" })).toHaveCount(0);
+
+    // And Escape, which is what a keyboard reaches for.
+    await target.hover();
+    await target.getByRole("button", { name: /add a reaction/i }).click();
+    await expect(target.getByRole("button", { name: "React 🎉" })).toBeVisible();
+    await alice.keyboard.press("Escape");
+    await expect(target.getByRole("button", { name: "React 🎉" })).toHaveCount(0);
+
+    // Nothing was reacted to on the way through.
+    expect(await target.getByRole("button", { name: /from/i }).count()).toBe(before);
+  });
+
+  test("a link in a message is a link", async () => {
+    const withLink = "The preprint is at https://example.com/paper.pdf — worth a read.";
+
+    await alice.getByLabel(/^message$/i).fill(withLink);
+    await alice.getByRole("button", { name: /^send$/i }).click();
+
+    const anchor = log(alice).getByRole("link", {
+      name: "https://example.com/paper.pdf",
+    });
+    await expect(anchor).toBeVisible({ timeout: 60_000 });
+
+    // Opened away from the app, and without handing the destination a
+    // reference back to this window.
+    await expect(anchor).toHaveAttribute("target", "_blank");
+    await expect(anchor).toHaveAttribute("rel", /noopener/);
+
+    // The em dash after it belongs to the sentence, not to the URL.
+    await expect(anchor).toHaveAttribute("href", "https://example.com/paper.pdf");
+  });
+
   test("what the database holds is not the text", async () => {
     /*
      * The assertion the rest of this exists for.

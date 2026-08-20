@@ -6,6 +6,7 @@ import { decodeMessage, encodeMessage } from "@Porcupine/shared";
 // The same rule the PDF annotations use, so a person is one colour everywhere
 // in the product rather than one colour per feature.
 import { colourFor } from "@/lib/annotation-colour";
+import { linkify } from "@/lib/linkify";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -266,6 +267,34 @@ export function MessagesClient({ projectId }: { projectId: string }) {
     setReplyTo(null);
     void reload();
   }, [reload, selected]);
+
+  /*
+   * Escape closes the reaction picker, and so does clicking anywhere else.
+   *
+   * A menu you can only leave by choosing from it is a trap — and this one
+   * appears on hover, so it is easy to open without meaning to.
+   */
+  useEffect(() => {
+    if (!picking) return;
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPicking(null);
+    };
+    const onPointer = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null;
+      // Not when the click is on the picker itself, or the reaction lands and
+      // closes it in the same gesture.
+      if (target?.closest("[data-reaction-picker]")) return;
+      setPicking(null);
+    };
+
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPointer);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointer);
+    };
+  }, [picking]);
 
   /*
    * Stay at the newest message, unless the reader has gone looking.
@@ -651,7 +680,7 @@ export function MessagesClient({ projectId }: { projectId: string }) {
             optional — the container is not present in CI — so an explicit
             refetch has to stay reachable, not be assumed away.
           */}
-          <div className="border-border flex flex-wrap items-center justify-between gap-2 rounded-t-xl border border-b-0 px-4 py-2">
+          <div className="border-border bg-raised flex flex-wrap items-center justify-between gap-2 rounded-t-xl border border-b-0 px-4 py-2.5">
             <p className="text-ink text-ui font-medium">
               {channels.find((c) => c.id === selected)?.name ?? "Conversation"}
             </p>
@@ -700,7 +729,7 @@ export function MessagesClient({ projectId }: { projectId: string }) {
           <ul
             ref={logRef}
             data-testid="message-log"
-            className="bg-surface/50 border-border flex max-h-[min(60vh,640px)] flex-col overflow-y-auto rounded-b-xl border pb-2 shadow-sm"
+            className="bg-surface/40 border-border flex h-[min(62vh,680px)] flex-col overflow-y-auto border-x px-1 py-2 shadow-inner"
           >
             {messages.length === 0 && (
               <li className="text-muted text-ui p-6 text-center">
@@ -746,8 +775,8 @@ export function MessagesClient({ projectId }: { projectId: string }) {
               return (
                 <li
                   key={message.id}
-                  className={`group hover:bg-surface/60 relative px-4 transition-colors ${
-                    grouped ? "py-0.5" : "pt-3 pb-1"
+                  className={`group hover:bg-surface/70 relative rounded-lg px-3 transition-colors ${
+                    grouped ? "py-0.5" : "mt-1 pt-2 pb-1.5"
                   }`}
                 >
                   {!grouped && (
@@ -783,7 +812,7 @@ export function MessagesClient({ projectId }: { projectId: string }) {
                     to something unreadable.
                   */}
                   {message.replyTo && (
-                    <p className="text-muted text-fine border-border mb-1 ml-[1.125rem] truncate border-l-2 pl-2">
+                    <p className="text-muted text-fine border-border mb-1 ml-[1.125rem] truncate border-l-2 pl-2 italic">
                       {parent ? (
                         <>
                           <span className="font-medium">{parent.authorName}</span>{" "}
@@ -796,7 +825,30 @@ export function MessagesClient({ projectId }: { projectId: string }) {
                   )}
 
                   <p className="text-ink text-ui ml-[1.125rem] text-pretty break-words">
-                    {message.text ?? (
+                    {message.text !== null ? (
+                      /*
+                        Rendered as PARTS, never as markup. The message is
+                        written by a member and decrypted here, and the server
+                        cannot sanitise what it cannot read — so everything
+                        goes through React as text and only what `linkify`
+                        recognised becomes an anchor.
+                      */
+                      linkify(message.text).map((part, at) =>
+                        part.kind === "link" ? (
+                          <a
+                            key={at}
+                            href={part.href}
+                            target="_blank"
+                            rel="noopener noreferrer nofollow"
+                            className="text-accent underline underline-offset-2 hover:opacity-80"
+                          >
+                            {part.value}
+                          </a>
+                        ) : (
+                          <span key={at}>{part.value}</span>
+                        ),
+                      )
+                    ) : (
                       // Never rendered as an empty line: a blank message and an
                       // unreadable one look identical, and only one is a problem.
                       <span className="text-muted italic">
@@ -837,19 +889,42 @@ export function MessagesClient({ projectId }: { projectId: string }) {
                     Actions on hover, and on focus — a control that only appears
                     for a mouse is a control a keyboard cannot reach.
                   */}
-                  <div className="bg-raised border-border absolute -top-2 right-3 flex items-center gap-0.5 rounded-lg border p-0.5 opacity-0 shadow-sm transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+                  <div
+                    data-reaction-picker
+                    className={`bg-raised border-border absolute -top-2 right-3 flex items-center gap-0.5 rounded-lg border p-0.5 shadow-sm transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 ${
+                      picking === message.id ? "opacity-100" : "opacity-0"
+                    }`}
+                  >
                     {picking === message.id ? (
-                      QUICK_REACTIONS.map((emoji) => (
+                      <>
+                        {QUICK_REACTIONS.map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => void react(message.id, emoji)}
+                            aria-label={`React ${emoji}`}
+                            className="hover:bg-surface min-h-7 rounded px-1.5"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                        {/*
+                          A way out.
+                          Opening the picker replaced the React and Reply
+                          buttons with six emoji and nothing else, so the only
+                          way to leave was to react — which is the one thing
+                          somebody who opened it by accident does not want.
+                          Escape and a click elsewhere close it too.
+                        */}
                         <button
-                          key={emoji}
                           type="button"
-                          onClick={() => void react(message.id, emoji)}
-                          aria-label={`React ${emoji}`}
-                          className="hover:bg-surface min-h-7 rounded px-1.5"
+                          onClick={() => setPicking(null)}
+                          aria-label="Close the reaction picker"
+                          className="text-muted hover:bg-surface hover:text-ink border-border ml-0.5 min-h-7 rounded border-l pr-1 pl-1.5"
                         >
-                          {emoji}
+                          ✕
                         </button>
-                      ))
+                      </>
                     ) : (
                       <>
                         <button
@@ -876,7 +951,10 @@ export function MessagesClient({ projectId }: { projectId: string }) {
             })}
           </ul>
 
-          <form onSubmit={send} className="flex flex-col gap-2">
+          <form
+            onSubmit={send}
+            className="border-border bg-raised flex flex-col gap-2 rounded-b-xl border border-t-0 p-3 shadow-sm"
+          >
             {/*
               What you are answering, and a way out of it.
               Without this the reply is invisible until it is sent, and the
