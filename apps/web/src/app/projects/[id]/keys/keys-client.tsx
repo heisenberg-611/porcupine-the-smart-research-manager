@@ -61,7 +61,9 @@ export function KeysClient({ projectId }: { projectId: string }) {
    * "Open and verify my key" announce that it was working because somebody
    * pressed Rotate. The name is what makes the claim true.
    */
-  const [running, setRunning] = useState<null | "provision" | "remove" | "verify">(null);
+  const [running, setRunning] = useState<
+    null | "provision" | "remove" | "verify" | `share:${string}`
+  >(null);
   const pending = running !== null;
   const [fingerprints, setFingerprints] = useState<Record<string, string>>({});
 
@@ -221,7 +223,7 @@ export function KeysClient({ projectId }: { projectId: string }) {
       return;
     }
 
-    setPending(true);
+    setRunning(`share:${userId}`);
     setStatus(null);
 
     try {
@@ -288,7 +290,7 @@ export function KeysClient({ projectId }: { projectId: string }) {
     } catch {
       setStatus("Could not share the key.");
     } finally {
-      setPending(false);
+      setRunning(null);
     }
   }
 
@@ -509,6 +511,8 @@ export function KeysClient({ projectId }: { projectId: string }) {
                     member.identityPubKey !== "" && (
                       <Button
                         disabled={pending || keys.byEpoch.size === 0}
+                        busy={running === `share:${member.userId}`}
+                        busyLabel="Sharing…"
                         onClick={() => void share(member.userId, member.displayName)}
                       >
                         Give {member.displayName} the key
