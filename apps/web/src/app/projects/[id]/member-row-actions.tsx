@@ -13,23 +13,27 @@ export function MemberRowActions({
   userId: string;
   currentRole: string;
 }) {
-  const [pending, setPending] = useState(false);
+  // Named, because the Select and the button share this flag: a role change
+  // would otherwise have Remove announce "Removing…" while nothing of the sort
+  // was happening.
+  const [running, setRunning] = useState<null | "role" | "remove">(null);
+  const pending = running !== null;
 
   async function handleRoleChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const newRole = e.target.value as "ADMIN" | "CONTRIBUTOR" | "REVIEWER" | "OBSERVER";
     if (newRole === currentRole) return;
 
-    setPending(true);
+    setRunning("role");
     await updateMemberRole({ projectId, userId, accessRole: newRole });
-    setPending(false);
+    setRunning(null);
   }
 
   async function handleRemove() {
     if (!confirm("Are you sure you want to remove this member?")) return;
 
-    setPending(true);
+    setRunning("remove");
     await removeMember({ projectId, userId });
-    setPending(false);
+    setRunning(null);
   }
 
   return (
@@ -69,6 +73,8 @@ export function MemberRowActions({
         className="text-danger hover:bg-danger/10 h-auto px-2 py-1"
         onClick={handleRemove}
         disabled={pending}
+        busy={running === "remove"}
+        busyLabel="Removing…"
         title="Remove member"
       >
         Remove

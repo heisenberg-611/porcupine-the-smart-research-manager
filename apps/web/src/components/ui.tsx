@@ -19,19 +19,55 @@ function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
 }
 
+/*
+ * A button that says what it is doing.
+ *
+ * `busy` is the whole point. A press that starts a server round trip and
+ * changes nothing on screen reads as a press that did not register, and the
+ * second press is the user's reasonable response to that. So a busy button
+ * says the verb in progress — "Creating your project…" — and refuses further
+ * presses while it means it.
+ *
+ * Three things make that true rather than decorative:
+ *
+ *   - `busyLabel` replaces the label, so the claim is in the text, not only
+ *     in a spinner somebody may not notice.
+ *   - `aria-busy` says the same thing to a screen reader, which sees no
+ *     spinner at all.
+ *   - `disabled` follows `busy`, so the second press cannot happen.
+ *
+ * `disabled:opacity-40` is applied only when NOT busy: a busy button must
+ * stay readable, since its label is the message. Two `disabled:opacity-*`
+ * classes would not resolve by their order in this string — same specificity,
+ * so the stylesheet's order decides — which is why this branches instead of
+ * appending an override.
+ */
 export function Button({
   variant = "primary",
+  busy = false,
+  busyLabel,
   className,
+  children,
+  disabled,
   ...props
-}: ComponentProps<"button"> & { variant?: "primary" | "ghost" | "danger" }) {
+}: ComponentProps<"button"> & {
+  variant?: "primary" | "ghost" | "danger";
+  busy?: boolean;
+  busyLabel?: ReactNode;
+}) {
   return (
     <button
+      aria-busy={busy || undefined}
+      disabled={disabled || busy}
       className={cx(
         "inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5",
         "text-ui font-medium transition-all duration-200",
         "focus-visible:ring-accent focus-visible:ring-2 focus-visible:ring-offset-2",
         "focus-visible:ring-offset-canvas focus-visible:outline-none",
-        "disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none",
+        "disabled:hover:translate-y-0 disabled:hover:shadow-none",
+        busy
+          ? "cursor-wait opacity-90"
+          : "disabled:cursor-not-allowed disabled:opacity-40",
         variant === "primary" &&
           "bg-accent text-accent-ink shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:brightness-110",
         // Ghost is a text button with a hover ground, not an outlined box.
@@ -42,7 +78,41 @@ export function Button({
         className,
       )}
       {...props}
-    />
+    >
+      {busy && <Spinner />}
+      {busy && busyLabel !== undefined ? busyLabel : children}
+    </button>
+  );
+}
+
+/*
+ * Decorative by design: aria-hidden, because the button already carries the
+ * same fact in its label and in aria-busy. Announcing it a third time is
+ * noise.
+ */
+function Spinner() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 16 16"
+      className="h-4 w-4 shrink-0 animate-spin"
+      fill="none"
+    >
+      <circle
+        cx="8"
+        cy="8"
+        r="6.5"
+        stroke="currentColor"
+        strokeOpacity="0.25"
+        strokeWidth="2"
+      />
+      <path
+        d="M14.5 8a6.5 6.5 0 0 0-6.5-6.5"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
 

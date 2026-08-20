@@ -122,6 +122,11 @@ export function ReaderClient({
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  // Highlight, Save note and every row's Delete run through one transition,
+  // so the busy label needs the name of the action — and deletes need the id
+  // of the row, since each annotation has its own Delete.
+  const [running, setRunning] = useState<string | null>(null);
   const documentRef = useRef<HTMLDivElement>(null);
   /*
    * Where to put the compose panel: just under the selection, in VIEWPORT
@@ -275,6 +280,7 @@ export function ReaderClient({
     if (!selection) return;
     setError(null);
     setStatus(null);
+    setRunning(kind === "NOTE" ? "note" : "highlight");
 
     startTransition(async () => {
       const response = await createAnnotation({
@@ -305,6 +311,7 @@ export function ReaderClient({
 
   function remove(annotationId: string) {
     setError(null);
+    setRunning(`remove:${annotationId}`);
     startTransition(async () => {
       const response = await deleteAnnotation({ projectId, projectWorkId, annotationId });
       if (response.ok) setStatus("Annotation deleted.");
@@ -385,13 +392,20 @@ export function ReaderClient({
             </label>
 
             <div className="flex gap-2">
-              <Button onClick={() => save("HIGHLIGHT")} disabled={pending}>
+              <Button
+                onClick={() => save("HIGHLIGHT")}
+                disabled={pending}
+                busy={pending && running === "highlight"}
+                busyLabel="Saving…"
+              >
                 Highlight
               </Button>
               <Button
                 variant="ghost"
                 onClick={() => save("NOTE")}
                 disabled={pending || !note.trim()}
+                busy={pending && running === "note"}
+                busyLabel="Saving…"
               >
                 Save note
               </Button>
@@ -439,6 +453,8 @@ export function ReaderClient({
                       variant="ghost"
                       onClick={() => remove(annotation.id)}
                       disabled={pending}
+                      busy={pending && running === `remove:${annotation.id}`}
+                      busyLabel="Deleting…"
                       className="text-fine shrink-0"
                     >
                       Delete

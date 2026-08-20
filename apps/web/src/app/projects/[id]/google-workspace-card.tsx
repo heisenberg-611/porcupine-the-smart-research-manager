@@ -23,7 +23,11 @@ export function GoogleWorkspaceCard({
   userEmail?: string | null;
   accessRole?: string;
 }) {
-  const [pending, setPending] = useState(false);
+  // Connecting and disconnecting share this flag, and the confirmation panel
+  // can be on screen at the same time as the connect buttons — so the label
+  // has to be tied to the action, not merely to "something is happening".
+  const [running, setRunning] = useState<null | "connect" | "disconnect">(null);
+  const pending = running !== null;
   const [error, setError] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const searchParams = useSearchParams();
@@ -41,7 +45,7 @@ export function GoogleWorkspaceCard({
   }, [searchParams, canManage, driveFolderId, projectId, router]);
 
   async function connectAndCreate() {
-    setPending(true);
+    setRunning("connect");
     setError(null);
     const supabase = createClient();
 
@@ -95,7 +99,7 @@ export function GoogleWorkspaceCard({
         } else {
           setError(linkError.message);
         }
-        setPending(false);
+        setRunning(null);
       }
       return; // Browser redirects if successful
     }
@@ -108,14 +112,14 @@ export function GoogleWorkspaceCard({
         setError(res.error);
       }
     }
-    setPending(false);
+    setRunning(null);
   }
 
   async function handleDisconnect() {
-    setPending(true);
+    setRunning("disconnect");
     await disconnectGoogleAccount();
     router.refresh();
-    setPending(false);
+    setRunning(null);
     setShowConfirm(false);
   }
 
@@ -168,10 +172,11 @@ export function GoogleWorkspaceCard({
           <Button
             type="button"
             onClick={handleDisconnect}
-            disabled={pending}
             className="bg-danger hover:bg-danger/90 min-h-9 px-4 text-sm font-medium text-white shadow-none hover:brightness-100"
+            busy={running === "disconnect"}
+            busyLabel="Disconnecting…"
           >
-            {pending ? "Disconnecting..." : "Yes, Disconnect"}
+            Yes, Disconnect
           </Button>
           <Button
             type="button"
@@ -240,6 +245,8 @@ export function GoogleWorkspaceCard({
               variant="ghost"
               onClick={connectAndCreate}
               disabled={pending}
+              busy={running === "connect"}
+              busyLabel="Connecting…"
             >
               Connect your Google Account
             </Button>
@@ -250,6 +257,8 @@ export function GoogleWorkspaceCard({
               variant="ghost"
               onClick={connectAndCreate}
               disabled={pending}
+              busy={running === "connect"}
+              busyLabel="Connecting…"
               className="ring-warning text-warning hover:bg-warning/10 ring-1"
             >
               Reconnect with Drive permissions
@@ -299,12 +308,15 @@ export function GoogleWorkspaceCard({
       {renderConfirmation()}
 
       <div className="mt-3">
-        <Button type="button" onClick={connectAndCreate} disabled={pending}>
-          {pending
-            ? "Connecting..."
-            : hasToken && !hasFullAccess
-              ? "Reconnect & Create Folder"
-              : "Connect & Create Folder"}
+        <Button
+          type="button"
+          onClick={connectAndCreate}
+          busy={running === "connect"}
+          busyLabel="Connecting…"
+        >
+          {hasToken && !hasFullAccess
+            ? "Reconnect & Create Folder"
+            : "Connect & Create Folder"}
         </Button>
       </div>
     </Card>

@@ -52,7 +52,19 @@ export function KeysClient({ projectId }: { projectId: string }) {
   const [rotationNeeded, setRotationNeeded] = useState(false);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
+  /*
+   * Which action is running, not merely that one is.
+   *
+   * These buttons share a single flag, and as a disabled-only flag a boolean
+   * was enough: they all grey out together, which reads correctly. A busy
+   * LABEL is a claim about one specific action, so the boolean would have
+   * "Open and verify my key" announce that it was working because somebody
+   * pressed Rotate. The name is what makes the claim true.
+   */
+  const [running, setRunning] = useState<
+    null | "provision" | "remove" | "verify" | `share:${string}`
+  >(null);
+  const pending = running !== null;
   const [fingerprints, setFingerprints] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
@@ -120,14 +132,14 @@ export function KeysClient({ projectId }: { projectId: string }) {
    * rotation case cannot be the one nobody exercised.
    */
   async function provision() {
-    setPending(true);
+    setRunning("provision");
     setError(null);
     setStatus(null);
     // `rotate` sets the status it wants shown. An earlier version cleared it
     // again right here on success, which wiped the only confirmation the user
     // — and the test — had that anything happened.
     await rotate();
-    setPending(false);
+    setRunning(null);
   }
 
   /** Mint the next epoch and seal it to everyone who can hold one. */
@@ -211,7 +223,7 @@ export function KeysClient({ projectId }: { projectId: string }) {
       return;
     }
 
-    setPending(true);
+    setRunning(`share:${userId}`);
     setStatus(null);
 
     try {
@@ -278,7 +290,7 @@ export function KeysClient({ projectId }: { projectId: string }) {
     } catch {
       setStatus("Could not share the key.");
     } finally {
-      setPending(false);
+      setRunning(null);
     }
   }
 
@@ -298,7 +310,7 @@ export function KeysClient({ projectId }: { projectId: string }) {
    * they still hold is a fact the screen now states.
    */
   async function removeAndRotate(userId: string, name: string) {
-    setPending(true);
+    setRunning("remove");
     setError(null);
     setStatus(null);
     setConfirming(null);
@@ -318,14 +330,14 @@ export function KeysClient({ projectId }: { projectId: string }) {
           : `${name} was removed, but the key was NOT rotated — they can still read new messages until it is.`,
       );
     } finally {
-      setPending(false);
+      setRunning(null);
     }
   }
 
   /** Open my own wrap, verifying who made it — the check the design rests on. */
   async function verifyMine() {
     if (!identity || !members) return;
-    setPending(true);
+    setRunning("verify");
     setError(null);
     setStatus(null);
 
@@ -375,7 +387,7 @@ export function KeysClient({ projectId }: { projectId: string }) {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not open your key.");
     } finally {
-      setPending(false);
+      setRunning(null);
     }
   }
 
@@ -437,10 +449,21 @@ export function KeysClient({ projectId }: { projectId: string }) {
       </Card>
 
       <div className="flex flex-wrap gap-2">
-        <Button onClick={provision} disabled={pending || receivable === 0}>
+        <Button
+          onClick={provision}
+          disabled={pending || receivable === 0}
+          busy={running === "provision"}
+          busyLabel={epoch === 0 ? "Creating the project key…" : "Rotating…"}
+        >
           {epoch === 0 ? "Create the project key" : "Rotate to a new epoch"}
         </Button>
-        <Button variant="ghost" onClick={verifyMine} disabled={pending || epoch === 0}>
+        <Button
+          variant="ghost"
+          onClick={verifyMine}
+          disabled={pending || epoch === 0}
+          busy={running === "verify"}
+          busyLabel="Opening…"
+        >
           Open and verify my key
         </Button>
       </div>
@@ -488,6 +511,8 @@ export function KeysClient({ projectId }: { projectId: string }) {
                     member.identityPubKey !== "" && (
                       <Button
                         disabled={pending || keys.byEpoch.size === 0}
+                        busy={running === `share:${member.userId}`}
+                        busyLabel="Sharing…"
                         onClick={() => void share(member.userId, member.displayName)}
                       >
                         Give {member.displayName} the key
@@ -508,6 +533,8 @@ export function KeysClient({ projectId }: { projectId: string }) {
                           <Button
                             variant="danger"
                             disabled={pending}
+                            busy={running === "remove"}
+                            busyLabel="Removing and rotating…"
                             onClick={() =>
                               void removeAndRotate(member.userId, member.displayName)
                             }

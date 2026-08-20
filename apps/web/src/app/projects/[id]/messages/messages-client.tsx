@@ -96,7 +96,25 @@ export function MessagesClient({ projectId }: { projectId: string }) {
   const [draft, setDraft] = useState("");
   const [newChannel, setNewChannel] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
+  /*
+   * Which action is running, not merely that one is.
+   *
+   * Sending, creating a channel, deleting one and refreshing all share this
+   * flag. As a disabled-only flag a boolean was right — one thing at a time —
+   * but a busy LABEL is a claim about a specific action, and Send announcing
+   * "Sending…" because somebody pressed Refresh is a false one.
+   */
+  const [running, setRunning] = useState<null | "create" | "remove" | "send">(null);
+  const pending = running !== null;
+
+  /*
+   * Refresh gets its own flag rather than a name in `running`.
+   *
+   * `reload()` also runs from an effect, from the focus handler and after
+   * every send, so driving the button from it would have Refresh flicker
+   * "Refreshing…" at moments nobody pressed it. This is set only by the press.
+   */
+  const [refreshing, setRefreshing] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const logRef = useRef<HTMLUListElement>(null);
   /*
@@ -383,7 +401,7 @@ export function MessagesClient({ projectId }: { projectId: string }) {
       return;
     }
 
-    setPending(true);
+    setRunning("create");
     setError(null);
 
     try {
@@ -413,13 +431,13 @@ export function MessagesClient({ projectId }: { projectId: string }) {
     } catch {
       setError("Could not create the channel.");
     } finally {
-      setPending(false);
+      setRunning(null);
     }
   }
 
   async function removeChannel() {
     if (!selected) return;
-    setPending(true);
+    setRunning("remove");
     setError(null);
 
     try {
@@ -433,7 +451,7 @@ export function MessagesClient({ projectId }: { projectId: string }) {
     } catch {
       setError("Could not delete the channel.");
     } finally {
-      setPending(false);
+      setRunning(null);
       setConfirmDelete(false);
     }
   }
@@ -460,7 +478,7 @@ export function MessagesClient({ projectId }: { projectId: string }) {
       );
       return;
     }
-    setPending(true);
+    setRunning("send");
     setError(null);
 
     try {
@@ -493,7 +511,7 @@ export function MessagesClient({ projectId }: { projectId: string }) {
     } catch {
       setError("Could not send the message.");
     } finally {
-      setPending(false);
+      setRunning(null);
     }
   }
 
@@ -606,8 +624,13 @@ export function MessagesClient({ projectId }: { projectId: string }) {
             That is the point of the encryption, and the cost of it.
           </p>
           <div>
-            <Button variant="ghost" onClick={keys.reload} disabled={keys.loading}>
-              {keys.loading ? "Checking…" : "Check again"}
+            <Button
+              variant="ghost"
+              onClick={keys.reload}
+              busy={keys.loading}
+              busyLabel="Checking…"
+            >
+              Check again
             </Button>
           </div>
         </Card>
@@ -700,6 +723,8 @@ export function MessagesClient({ projectId }: { projectId: string }) {
               <Button
                 variant="primary"
                 disabled={pending}
+                busy={running === "create"}
+                busyLabel="Creating the channel…"
                 onClick={() => void createNamed("general")}
               >
                 Start with a #general channel
@@ -793,8 +818,17 @@ export function MessagesClient({ projectId }: { projectId: string }) {
                   type="button"
                   variant="ghost"
                   className="text-fine"
-                  onClick={() => void reload()}
+                  onClick={async () => {
+                    setRefreshing(true);
+                    try {
+                      await reload();
+                    } finally {
+                      setRefreshing(false);
+                    }
+                  }}
                   disabled={pending}
+                  busy={refreshing}
+                  busyLabel="Refreshing…"
                 >
                   Refresh
                 </Button>
@@ -805,7 +839,13 @@ export function MessagesClient({ projectId }: { projectId: string }) {
                       <span className="text-danger text-fine">
                         Delete this channel and every message in it?
                       </span>
-                      <Button variant="danger" disabled={pending} onClick={removeChannel}>
+                      <Button
+                        variant="danger"
+                        disabled={pending}
+                        busy={running === "remove"}
+                        busyLabel="Deleting…"
+                        onClick={removeChannel}
+                      >
                         Yes, delete
                       </Button>
                       <Button
@@ -1131,7 +1171,12 @@ export function MessagesClient({ projectId }: { projectId: string }) {
                   }}
                   className="max-h-40 min-h-11 flex-1 resize-y py-2.5"
                 />
-                <Button type="submit" disabled={pending || draft.trim() === ""}>
+                <Button
+                  type="submit"
+                  disabled={draft.trim() === "" || pending}
+                  busy={running === "send"}
+                  busyLabel="Sending…"
+                >
                   Send
                 </Button>
               </div>

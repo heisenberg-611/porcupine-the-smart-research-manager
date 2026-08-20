@@ -97,8 +97,8 @@ export function PrismaCountsForm({
       ))}
 
       <div>
-        <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Save counts"}
+        <Button type="submit" busy={pending} busyLabel="Saving…">
+          Save counts
         </Button>
       </div>
     </form>

@@ -239,8 +239,8 @@ export function ReconcileClient({
       </ol>
 
       <div className="flex flex-wrap items-center gap-4">
-        <Button variant="primary" onClick={submit} disabled={pending}>
-          {pending ? "Recording…" : "Record the reconciliation"}
+        <Button variant="primary" onClick={submit} busy={pending} busyLabel="Recording…">
+          Record the reconciliation
         </Button>
         {undecided.length > 0 && (
           <p className="text-muted text-ui">

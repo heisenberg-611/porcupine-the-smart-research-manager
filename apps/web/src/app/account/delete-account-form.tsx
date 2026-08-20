@@ -91,12 +91,14 @@ export function DeleteAccountForm({
       </label>
 
       <div>
-        <Button type="submit" variant="danger" disabled={pending || !matches || blocked}>
-          {pending
-            ? "Working…"
-            : immediate
-              ? "Delete permanently"
-              : `Schedule deletion in ${graceDays} days`}
+        <Button
+          type="submit"
+          variant="danger"
+          disabled={!matches || blocked}
+          busy={pending}
+          busyLabel="Working…"
+        >
+          {immediate ? "Delete permanently" : `Schedule deletion in ${graceDays} days`}
         </Button>
       </div>
 
@@ -125,7 +127,7 @@ export function CancelDeletionButton() {
       <div>
         <Button
           type="button"
-          disabled={pending}
+
           onClick={() =>
             startTransition(async () => {
               const response = await cancelAccountDeletion();
@@ -133,8 +135,10 @@ export function CancelDeletionButton() {
               else setError(response.error);
             })
           }
+          busy={pending}
+          busyLabel="Cancelling…"
         >
-          {pending ? "Cancelling…" : "Keep my account"}
+          Keep my account
         </Button>
       </div>
     </div>

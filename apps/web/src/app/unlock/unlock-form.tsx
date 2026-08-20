@@ -150,9 +150,11 @@ export function UnlockForm({ next }: { next: string }) {
 
       <Button
         type="submit"
-        disabled={pending || restoring || passphrase.trim().length === 0}
+        disabled={passphrase.trim().length === 0}
+        busy={pending || restoring}
+        busyLabel={restoring ? "Checking this browser…" : "Unlocking…"}
       >
-        {pending ? "Unlocking…" : restoring ? "Checking this browser…" : "Unlock"}
+        Unlock
       </Button>
 
       <p className="text-muted measure text-fine">
