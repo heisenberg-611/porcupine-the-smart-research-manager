@@ -94,6 +94,18 @@ async function unlock(page: Page, passphrase: string, next: string) {
   });
 }
 
+/**
+ * Scoped to the conversation, never the whole page.
+ *
+ * `page.getByText(sent)` looks right and is not: the composer is a
+ * `<textarea>`, and its draft sits in the DOM as text content — so the
+ * assertion passes on the message you FAILED to send. That is precisely what
+ * happened when the composer changed from an input to a textarea: sending was
+ * silently doing nothing, the draft stayed in the box, and this test went on
+ * reporting success against it while the database held one row.
+ */
+const log = (page: Page) => page.getByTestId("message-log");
+
 test.describe("two people, one encrypted conversation", () => {
   /*
    * 120 s per test, not the 30 s default.
@@ -211,13 +223,241 @@ test.describe("two people, one encrypted conversation", () => {
     const reply = "Agreed — I will re-screen the twelve borderline ones";
     await bob.getByLabel(/^message$/i).fill(reply);
     await bob.getByRole("button", { name: /^send$/i }).click();
-    await expect(bob.getByText(reply)).toBeVisible({ timeout: 60_000 });
+    await expect(log(bob).getByText(reply)).toBeVisible({ timeout: 60_000 });
 
     // Alice is still unlocked in her tab. Nothing pushes — there is no
     // subscription, deliberately — so she refreshes, which is the control the
     // UI actually offers.
     await alice.getByRole("button", { name: /^refresh$/i }).click();
-    await expect(alice.getByText(reply)).toBeVisible({ timeout: 60_000 });
+    await expect(log(alice).getByText(reply)).toBeVisible({ timeout: 60_000 });
+  });
+
+  test("Alice answers a particular message, and the quote resolves", async () => {
+    /*
+     * docs/14 §1: the reply link travels INSIDE the ciphertext, so the server
+     * never learns the reply graph. That it works is proved by the quote
+     * rendering — the client must decrypt every message in the channel and
+     * resolve the parent in memory, because nothing on the server can.
+     */
+    const answer = "Only the twelve where the abstract disagreed with the table";
+
+    const target = log(alice)
+      .getByRole("listitem")
+      .filter({ hasText: /re-screen/i })
+      .first();
+    await target.hover();
+    await target.getByRole("button", { name: /reply to this message/i }).click();
+    await expect(alice.getByText(/replying to/i)).toBeVisible();
+
+    await alice.getByLabel(/^message$/i).fill(answer);
+    await alice.getByRole("button", { name: /^send$/i }).click();
+
+    const sent = log(alice).getByRole("listitem").filter({ hasText: answer });
+    await expect(sent).toBeVisible({ timeout: 60_000 });
+    await expect(sent, "the quote carries who was answered").toContainText(/re-screen/i);
+
+    await bob.getByRole("button", { name: /^refresh$/i }).click();
+    const seen = log(bob).getByRole("listitem").filter({ hasText: answer });
+    await expect(seen).toBeVisible({ timeout: 60_000 });
+    await expect(seen).toContainText(/re-screen/i);
+  });
+
+  test("both react, and each sees the other's", async () => {
+    const target = log(bob)
+      .getByRole("listitem")
+      .filter({ hasText: /re-screen/i })
+      .first();
+
+    await target.hover();
+    await target.getByRole("button", { name: /add a reaction/i }).click();
+    await target.getByRole("button", { name: "React 👍" }).click();
+    await expect(target.getByRole("button", { name: /👍 from/i })).toBeVisible({
+      timeout: 60_000,
+    });
+
+    await alice.getByRole("button", { name: /^refresh$/i }).click();
+    const onAlice = log(alice)
+      .getByRole("listitem")
+      .filter({ hasText: /re-screen/i })
+      .first();
+    await expect(onAlice.getByRole("button", { name: /👍 from/i })).toBeVisible({
+      timeout: 60_000,
+    });
+
+    // Alice agrees too: one chip counted 2, not two chips.
+    await onAlice.hover();
+    await onAlice.getByRole("button", { name: /add a reaction/i }).click();
+    await onAlice.getByRole("button", { name: "React 👍" }).click();
+    await expect(onAlice.getByRole("button", { name: /👍 from/i })).toContainText("2", {
+      timeout: 60_000,
+    });
+  });
+
+  test("a second choice replaces the first, and choosing it again withdraws it", async () => {
+    /*
+     * One reaction per person per message — forced by the encryption, not a
+     * preference: the only uniqueness the server can enforce is
+     * (message, author), because a constraint including the emoji would
+     * require the server to see the emoji.
+     */
+    const target = log(alice)
+      .getByRole("listitem")
+      .filter({ hasText: /re-screen/i })
+      .first();
+
+    await target.hover();
+    await target.getByRole("button", { name: /add a reaction/i }).click();
+    await target.getByRole("button", { name: "React 🎯" }).click();
+
+    // Alice's 👍 became a 🎯, so 👍 is back to one — Bob's.
+    await expect(target.getByRole("button", { name: /🎯 from/i })).toBeVisible({
+      timeout: 60_000,
+    });
+    await expect(target.getByRole("button", { name: /👍 from/i })).toContainText("1");
+
+    await target.getByRole("button", { name: /🎯 from/i }).click();
+    await expect(target.getByRole("button", { name: /🎯 from/i })).toHaveCount(0, {
+      timeout: 60_000,
+    });
+  });
+
+  test("the reaction picker can be closed without reacting", async () => {
+    /*
+     * Reported: "if I press react then I can't cancel it without reacting."
+     *
+     * Opening the picker replaced React and Reply with six emoji and nothing
+     * else, so the only way out was to choose one — and the picker appears on
+     * hover, which makes opening it by accident easy.
+     */
+    const target = log(alice)
+      .getByRole("listitem")
+      .filter({ hasText: /re-screen/i })
+      .first();
+
+    const before = await target.getByRole("button", { name: /from/i }).count();
+
+    await target.hover();
+    await target.getByRole("button", { name: /add a reaction/i }).click();
+    await expect(target.getByRole("button", { name: "React 🎉" })).toBeVisible();
+
+    // The explicit way out.
+    await target.getByRole("button", { name: /close the reaction picker/i }).click();
+    await expect(target.getByRole("button", { name: "React 🎉" })).toHaveCount(0);
+
+    // And Escape, which is what a keyboard reaches for.
+    await target.hover();
+    await target.getByRole("button", { name: /add a reaction/i }).click();
+    await expect(target.getByRole("button", { name: "React 🎉" })).toBeVisible();
+    await alice.keyboard.press("Escape");
+    await expect(target.getByRole("button", { name: "React 🎉" })).toHaveCount(0);
+
+    // Nothing was reacted to on the way through.
+    expect(await target.getByRole("button", { name: /from/i }).count()).toBe(before);
+  });
+
+  test("a link in a message is a link", async () => {
+    const withLink = "The preprint is at https://example.com/paper.pdf — worth a read.";
+
+    await alice.getByLabel(/^message$/i).fill(withLink);
+    await alice.getByRole("button", { name: /^send$/i }).click();
+
+    const anchor = log(alice).getByRole("link", {
+      name: "https://example.com/paper.pdf",
+    });
+    await expect(anchor).toBeVisible({ timeout: 60_000 });
+
+    // Opened away from the app, and without handing the destination a
+    // reference back to this window.
+    await expect(anchor).toHaveAttribute("target", "_blank");
+    await expect(anchor).toHaveAttribute("rel", /noopener/);
+
+    // The em dash after it belongs to the sentence, not to the URL.
+    await expect(anchor).toHaveAttribute("href", "https://example.com/paper.pdf");
+  });
+
+  test("a long conversation scrolls the log, not the page", async ({ isMobile }) => {
+    /*
+     * Reported: "as the message list grows the whole page starts scrolling and
+     * the sidebar scrolls with it."
+     *
+     * The project shell gives the content column a definite height and its own
+     * scrollbar, with the sidebar outside it — so a conversation taller than
+     * that column scrolled the column, and on a narrow window the page,
+     * carrying the sidebar along. Asserted on the geometry: after enough
+     * messages to overflow, the log must be the thing that scrolls and the
+     * document must not.
+     */
+    // A boolean, not a predicate: the callback form of test.skip is only
+    // legal at describe level.
+    test.skip(!!isMobile, "the shell only fixes its height at lg and above");
+
+    await alice.setViewportSize({ width: 1400, height: 900 });
+
+    for (let i = 0; i < 14; i++) {
+      await alice.getByLabel(/^message$/i).fill(`Filling the log, line ${i}`);
+      await alice.getByRole("button", { name: /^send$/i }).click();
+      await expect(log(alice).getByText(`Filling the log, line ${i}`)).toBeVisible({
+        timeout: 60_000,
+      });
+    }
+
+    const geometry = await alice.evaluate(() => {
+      const scroller = document.querySelector(
+        '[data-testid="message-log"]',
+      ) as HTMLElement;
+
+      /*
+       * The CONTENT COLUMN, not the document.
+       *
+       * The project shell gives that column its own scrollbar and keeps the
+       * sidebar outside it, so on a wide screen the column absorbs any
+       * overflow and `document.scrollHeight` never grows. An assertion on the
+       * document therefore passes whatever the page does — checked by
+       * sabotage, and it did.
+       */
+      let column: HTMLElement | null = scroller.parentElement;
+      while (column && column !== document.body) {
+        const style = getComputedStyle(column);
+        if (style.overflowY === "auto" || style.overflowY === "scroll") break;
+        column = column.parentElement;
+      }
+
+      return {
+        logOverflows: scroller.scrollHeight > scroller.clientHeight + 1,
+        foundColumn: column !== null && column !== document.body,
+        columnOverflows: column
+          ? column.scrollHeight > column.clientHeight + 1
+          : document.documentElement.scrollHeight > window.innerHeight + 1,
+      };
+    });
+
+    /*
+     * The conversation must get most of the window.
+     *
+     * Reported as "the chat window is so small", and measuring said why: the
+     * page header, the new-channel form and the channel list were three
+     * full-width blocks stacked above the log, which left it 239px tall on a
+     * 900px screen. Chrome, not content.
+     *
+     * Asserted as a FRACTION rather than a pixel count, so it survives a
+     * different viewport, and generously — this is a guard against the log
+     * being crowded out again, not a pin on the current design.
+     */
+    const share = await alice.evaluate(() => {
+      const el = document.querySelector('[data-testid="message-log"]') as HTMLElement;
+      return el.getBoundingClientRect().height / window.innerHeight;
+    });
+    expect(
+      share,
+      "the message log should have most of the window, not a strip of it",
+    ).toBeGreaterThan(0.45);
+
+    expect(geometry.foundColumn, "the shell's scrolling column").toBe(true);
+    expect(geometry.logOverflows, "the conversation should scroll").toBe(true);
+    expect(
+      geometry.columnOverflows,
+      "nothing above the conversation should scroll — that is what moves the sidebar",
+    ).toBe(false);
   });
 
   test("what the database holds is not the text", async () => {
@@ -265,6 +505,42 @@ test.describe("two people, one encrypted conversation", () => {
       Number(rowCount),
       "the messages should be in the database at all",
     ).toBeGreaterThan(0);
+
+    /*
+     * The reactions too, the newer half of the same claim. The server is
+     * allowed to know somebody reacted — it stores the row — but not what they
+     * said with it.
+     */
+    const reactionDump = execFileSync(
+      "psql",
+      [
+        "--no-psqlrc",
+        "-At",
+        process.env.DIRECT_URL ??
+          "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
+        "-c",
+        "select coalesce(string_agg(encode(ciphertext, 'escape'), ' '), '') from message_reactions",
+      ],
+      { encoding: "utf8" },
+    );
+    const reactionCount = Number(
+      execFileSync(
+        "psql",
+        [
+          "--no-psqlrc",
+          "-At",
+          process.env.DIRECT_URL ??
+            "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
+          "-c",
+          "select count(*) from message_reactions",
+        ],
+        { encoding: "utf8" },
+      ).trim(),
+    );
+    // Otherwise "no emoji in the dump" is also true of an empty table.
+    expect(reactionCount, "a reaction should be stored at all").toBeGreaterThan(0);
+    expect(reactionDump).not.toContain("👍");
+    expect(reactionDump).not.toContain("🎯");
 
     expect(dump).not.toContain(SECRET);
     expect(dump).not.toContain("re-screen the twelve borderline");
@@ -350,5 +626,216 @@ test.describe("two people, one encrypted conversation", () => {
     ).trim();
 
     expect(Number(wrapsAtEpochTwo)).toBe(1);
+  });
+});
+
+/**
+ * A member added AFTER the key exists.
+ *
+ * The describe above invites Bob before anyone provisions a key, so Bob is
+ * included in epoch 1's wraps and everything works. That is not how a project
+ * grows: people join a conversation that already has one.
+ *
+ * Reported from real use — "the member put his key for the project and the
+ * epoch also changed, but sending keeps both of us locked out and we cannot
+ * see each other's chat." The cause is that a member holding no wrap was shown
+ * "This project has no content key yet" and a button that MINTS A NEW ONE:
+ * the condition was "I hold no key" while the words and the button said "the
+ * project has none". Clicking it advanced the epoch, orphaning the history and
+ * leaving whoever still had the old epoch cached writing messages the other
+ * could not read.
+ */
+test.describe("a member who joins after the key exists", () => {
+  test.describe.configure({ mode: "serial", timeout: 120_000 });
+  test.skip(({ isMobile }) => !!isMobile, "one browser is enough for a key path");
+
+  let ownerEmail = "";
+  let joinerEmail = "";
+  let owner: Page;
+  let joiner: Page;
+  let ownerPhrase = "";
+  let joinerPhrase = "";
+  let projectId = "";
+
+  const FIRST = "Written before anyone else joined";
+
+  test.beforeAll(async ({ browser }, testInfo) => {
+    test.setTimeout(300_000);
+    ownerEmail = uniqueEmail(`k-owner-${testInfo.project.name}`);
+    joinerEmail = uniqueEmail(`k-joiner-${testInfo.project.name}`);
+    await createConfirmedUser(ownerEmail);
+    await createConfirmedUser(joinerEmail);
+
+    const o = await signUp(browser, ownerEmail);
+    owner = o.page;
+    ownerPhrase = o.passphrase;
+
+    const j = await signUp(browser, joinerEmail);
+    joiner = j.page;
+    joinerPhrase = j.passphrase;
+
+    await goto(owner, "/projects/new");
+    await owner.getByLabel("Title").fill(`Key sharing ${testInfo.project.name}`);
+    await owner
+      .getByRole("group", { name: /kind/i })
+      .getByRole("radio", { name: /thesis or dissertation/i })
+      .check();
+    await owner.getByRole("button", { name: /create project/i }).click();
+    await owner.waitForURL(/\/projects\/[0-9a-f-]+$/);
+    projectId = owner.url().split("/").pop()!;
+  });
+
+  test.afterAll(async () => {
+    await owner?.context().close();
+    await joiner?.context().close();
+  });
+
+  test("the owner sets up alone and says something", async () => {
+    await unlock(owner, ownerPhrase, `/projects/${projectId}/keys`);
+    await owner.getByRole("button", { name: /create the project key/i }).click();
+    await expect(owner.getByText(/epoch 1 sealed to 1 member/i)).toBeVisible({
+      timeout: 60_000,
+    });
+
+    await owner
+      .getByRole("navigation", { name: /sections/i })
+      .getByRole("link", { name: "Messages" })
+      .click();
+    await owner.getByLabel(/new channel/i).fill("planning");
+    await owner.getByRole("button", { name: /^create$/i }).click();
+    await expect(
+      owner.getByRole("navigation", { name: /channels/i }).getByText("planning"),
+    ).toBeVisible({ timeout: 60_000 });
+
+    await owner.getByLabel(/^message$/i).fill(FIRST);
+    await owner.getByRole("button", { name: /^send$/i }).click();
+    await expect(log(owner).getByText(FIRST)).toBeVisible({ timeout: 60_000 });
+  });
+
+  test("then adds somebody, who is told to ask rather than invited to mint a key", async () => {
+    await goto(owner, `/projects/${projectId}`);
+    await owner.getByLabel("Email").fill(joinerEmail);
+    await owner.getByLabel("Role", { exact: true }).selectOption("CONTRIBUTOR");
+    await owner.getByRole("button", { name: /add member/i }).click();
+    await expect(owner.getByText(/members \(2\)/i)).toBeVisible();
+
+    await unlock(joiner, joinerPhrase, `/projects/${projectId}/messages`);
+
+    /*
+     * The whole bug in one assertion. Holding no wrap is not the same as the
+     * project having no key, and offering to create one here is what advanced
+     * the epoch and locked both people out.
+     */
+    await expect(joiner.getByText(/waiting for the key/i)).toBeVisible({
+      timeout: 60_000,
+    });
+    await expect(
+      joiner.getByRole("button", { name: /create the project key/i }),
+    ).toHaveCount(0);
+  });
+
+  test("the owner shares the key, without a rotation", async () => {
+    /*
+     * First: the owner is TOLD, on the page where they are writing.
+     *
+     * The split is otherwise invisible — the conversation looks fine to
+     * everyone in it, and the only symptom is somebody eventually saying they
+     * cannot see the messages.
+     */
+    await unlock(owner, ownerPhrase, `/projects/${projectId}/messages`);
+    await expect(owner.getByText(/cannot read this conversation/i)).toBeVisible({
+      timeout: 60_000,
+    });
+
+    // By CLICKING, so the in-memory identity survives — without it there is no
+    // key to share and the button would be disabled.
+    await owner
+      .getByRole("navigation", { name: /sections/i })
+      .getByRole("link", { name: "Keys & members" })
+      .click();
+    await expect(owner.getByRole("heading", { name: "Who holds a key" })).toBeVisible();
+
+    await owner.getByRole("button", { name: /give .* the key/i }).click();
+    await expect(owner.getByText(/now holds the key/i)).toBeVisible({ timeout: 60_000 });
+
+    /*
+     * Still epoch 1 — asserted against the database, not the page.
+     *
+     * "Sharing is not rotating" is the whole point of the fix, and a rotation
+     * here would have thrown away the history it is meant to hand over. The
+     * epoch is a number in a column; reading it from the copy on screen would
+     * be testing the wording.
+     */
+    const epoch = execFileSync(
+      "psql",
+      [
+        "--no-psqlrc",
+        "-At",
+        process.env.DIRECT_URL ??
+          "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
+        "-c",
+        `select current_key_epoch from projects where id = '${projectId}'`,
+      ],
+      { encoding: "utf8" },
+    ).trim();
+    expect(epoch, "sharing must not advance the epoch").toBe("1");
+  });
+
+  test("and now both read each other, including what came before", async () => {
+    await unlock(joiner, joinerPhrase, `/projects/${projectId}/messages`);
+
+    // History, because this member joined with ALL_HISTORY access.
+    await expect(log(joiner).getByText(FIRST)).toBeVisible({ timeout: 60_000 });
+
+    const answer = "Reading it fine, thanks";
+    await joiner.getByLabel(/^message$/i).fill(answer);
+    await joiner.getByRole("button", { name: /^send$/i }).click();
+    await expect(log(joiner).getByText(answer)).toBeVisible({ timeout: 60_000 });
+
+    // The owner is on Keys after sharing; walk back by clicking, so the
+    // in-memory identity survives and the key stays open.
+    await owner
+      .getByRole("navigation", { name: /sections/i })
+      .getByRole("link", { name: "Messages" })
+      .click();
+    await expect(owner.getByRole("heading", { name: "Messages" })).toBeVisible();
+
+    await owner.getByRole("button", { name: /^refresh$/i }).click();
+    await expect(log(owner).getByText(answer)).toBeVisible({ timeout: 60_000 });
+  });
+
+  test("and the warning clears once they hold it", async () => {
+    /*
+     * The silent split, made loud.
+     *
+     * A project divides into people holding the current key and people who do
+     * not, everyone sees a working conversation, and the only symptom is
+     * somebody eventually saying "I can't see your messages". This asserts the
+     * warning is shown to the person who can fix it, and that it goes away
+     * when they have.
+     */
+    await expect(owner.getByText(/cannot read this conversation/i)).toHaveCount(0);
+  });
+
+  test("and the owner's NEXT message reaches them too", async () => {
+    /*
+     * Reported after the sharing fix shipped: "when the owner sent a message,
+     * the member got locked out again."
+     *
+     * The test above only ever ran the exchange one way — the joiner sent and
+     * the owner read. This is the other direction, which is the one that was
+     * broken and the one anybody would try first.
+     */
+    const afterShare = "Now that you can read this, here is the plan";
+
+    await owner.getByLabel(/^message$/i).fill(afterShare);
+    await owner.getByRole("button", { name: /^send$/i }).click();
+    await expect(log(owner).getByText(afterShare)).toBeVisible({ timeout: 60_000 });
+
+    await joiner.getByRole("button", { name: /^refresh$/i }).click();
+    await expect(log(joiner).getByText(afterShare)).toBeVisible({ timeout: 60_000 });
+
+    // And nothing in the conversation became unreadable in the process.
+    await expect(log(joiner).getByText(/key you do not hold/i)).toHaveCount(0);
   });
 });

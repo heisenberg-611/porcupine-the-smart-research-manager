@@ -20,7 +20,7 @@
 -- count of zero against an empty table proves nothing.
 
 begin;
-select plan(20);
+select plan(21);
 
 set local role postgres;
 
@@ -88,7 +88,7 @@ $$, '23503', null,
 select is(
   (select count(*)::int from pg_constraint c
     where c.contype = 'f' and c.confrelid = 'public.users'::regclass),
-  19,
+  20,
   'every column that holds a user id has a foreign key to users'
 );
 
@@ -106,6 +106,24 @@ select ok(
   exists (select 1 from pg_constraint
            where conname = 'projects_created_by_fkey'),
   'projects.created_by is constrained'
+);
+
+/*
+ * message_reactions.author_id, added with the reaction table.
+ *
+ * CASCADE rather than the RESTRICT most of these use, and the difference is
+ * the point: the restricting constraints exist because the row is a record —
+ * a screening decision, an extraction — and losing it would put a hole in the
+ * audit trail. A reaction is a current opinion about a line in a conversation,
+ * not part of any trail, so a departing account may take theirs with them.
+ *
+ * The canary above still holds: `delete from users` is refused by the other
+ * constraints, so this does not open a quiet path around anonymisation.
+ */
+select ok(
+  exists (select 1 from pg_constraint
+           where conname = 'message_reactions_author_id_fkey'),
+  'message_reactions.author_id is constrained'
 );
 
 -- ── 2 · Anonymising is an UPDATE the account makes to its own row ───────────
