@@ -184,8 +184,8 @@ function NewProtocol({ projectId }: { projectId: string }) {
         </details>
       )}
 
-      <Button type="submit" disabled={pending || !name.trim()}>
-        {pending ? "Creating…" : "Create protocol"}
+      <Button type="submit" disabled={!name.trim()} busy={pending} busyLabel="Creating…">
+        Create protocol
       </Button>
 
       {error && (
@@ -214,9 +214,25 @@ function ProtocolEditor({
   const [confirming, setConfirming] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  function run(fn: () => Promise<{ ok: boolean; error?: string }>, done?: string) {
+  /*
+   * `name` identifies which control started this, so its button — and only
+   * its button — can say so. One transition serves the whole editor: version,
+   * both reorder arrows on every row, and every delete. Without the name, the
+   * first press would light all of them up.
+   *
+   * Never cleared: `pending` returning to false ends the busy state, which
+   * makes a stale name inert instead of wrong.
+   */
+  const [running, setRunning] = useState<string | null>(null);
+
+  function run(
+    name: string,
+    fn: () => Promise<{ ok: boolean; error?: string }>,
+    done?: string,
+  ) {
     setError(null);
     setStatus(null);
+    setRunning(name);
     startTransition(async () => {
       const response = await fn();
       if (response.ok) setStatus(done ?? null);
@@ -246,8 +262,11 @@ function ProtocolEditor({
           <Button
             variant="ghost"
             disabled={pending}
+            busy={pending && running === "version"}
+            busyLabel="Creating the new version…"
             onClick={() =>
               run(
+                "version",
                 () => createNewVersion({ projectId, protocolId: protocol.id }),
                 "New version created. The previous one is kept as it was.",
               )
@@ -302,8 +321,9 @@ function ProtocolEditor({
                     variant="ghost"
                     aria-label={`Move ${field.label} up`}
                     disabled={pending || index === 0}
+                    busy={pending && running === `up:${field.id}`}
                     onClick={() =>
-                      run(() =>
+                      run(`up:${field.id}`, () =>
                         moveField({ projectId, fieldId: field.id, direction: "up" }),
                       )
                     }
@@ -314,8 +334,9 @@ function ProtocolEditor({
                     variant="ghost"
                     aria-label={`Move ${field.label} down`}
                     disabled={pending || index === protocol.fields.length - 1}
+                    busy={pending && running === `down:${field.id}`}
                     onClick={() =>
-                      run(() =>
+                      run(`down:${field.id}`, () =>
                         moveField({ projectId, fieldId: field.id, direction: "down" }),
                       )
                     }
@@ -332,9 +353,12 @@ function ProtocolEditor({
                       <Button
                         variant="danger"
                         disabled={pending}
+                        busy={pending && running === `delete:${field.id}`}
+                        busyLabel="Removing…"
                         onClick={() => {
                           setConfirming(null);
                           run(
+                            `delete:${field.id}`,
                             () => deleteField({ projectId, fieldId: field.id }),
                             `Removed "${field.label}".`,
                           );
@@ -527,8 +551,8 @@ function AddField({
       </label>
 
       <div className="flex gap-2">
-        <Button type="submit" disabled={pending || !label.trim()}>
-          {pending ? "Adding…" : "Add question"}
+        <Button type="submit" disabled={!label.trim()} busy={pending} busyLabel="Adding…">
+          Add question
         </Button>
         <Button type="button" variant="ghost" onClick={onDone} disabled={pending}>
           Cancel

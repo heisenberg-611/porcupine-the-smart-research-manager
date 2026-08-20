@@ -103,9 +103,11 @@ export function InlineUnlock({ onUnlocked }: { onUnlocked?: () => void }) {
       <Button
         type="submit"
         variant="primary"
-        disabled={pending || passphrase.trim().length === 0}
+        disabled={passphrase.trim().length === 0}
+        busy={pending}
+        busyLabel="Unlocking…"
       >
-        {pending ? "Unlocking…" : "Unlock"}
+        Unlock
       </Button>
     </form>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { Button, ButtonLink } from "@/components/ui";
 
@@ -34,6 +34,8 @@ export function RouteError({
   backHref?: string;
   backLabel?: string;
 }) {
+  const [retrying, setRetrying] = useState(false);
+
   useEffect(() => {
     // The browser console is where a developer looks first, and the error
     // boundary swallows it otherwise.
@@ -62,7 +64,18 @@ export function RouteError({
       </p>
 
       <div className="flex flex-wrap gap-2">
-        <Button variant="primary" onClick={reset}>
+        {/* reset() re-renders the segment, which may go back to the server.
+            Nothing here clears `retrying`: a successful reset unmounts this
+            component, and a failed one re-throws into a fresh copy of it. */}
+        <Button
+          variant="primary"
+          busy={retrying}
+          busyLabel="Trying again…"
+          onClick={() => {
+            setRetrying(true);
+            reset();
+          }}
+        >
           Try again
         </Button>
         {backHref && backLabel && <ButtonLink href={backHref}>{backLabel}</ButtonLink>}

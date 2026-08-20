@@ -29,7 +29,13 @@ export function ImportClient({ projectId }: { projectId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  // Once a preview exists both buttons are on screen at once, so `pending`
+  // alone would have "Add 12 papers" announce "Adding…" because somebody
+  // re-ran the preview. The name is what keeps the label honest.
+  const [running, setRunning] = useState<null | "preview" | "commit">(null);
+
   function onPreview(event: React.FormEvent) {
+    setRunning("preview");
     event.preventDefault();
     setError(null);
     setOutcome(null);
@@ -45,6 +51,7 @@ export function ImportClient({ projectId }: { projectId: string }) {
   }
 
   function onCommit() {
+    setRunning("commit");
     setError(null);
     startTransition(async () => {
       const response = await commitImport({ projectId, source });
@@ -81,8 +88,13 @@ export function ImportClient({ projectId }: { projectId: string }) {
             />
           </Field>
 
-          <Button type="submit" disabled={pending || !source.trim()}>
-            {pending ? "Reading…" : "Preview"}
+          <Button
+            type="submit"
+            disabled={!source.trim()}
+            busy={pending && running === "preview"}
+            busyLabel="Reading…"
+          >
+            Preview
           </Button>
         </form>
       </div>
@@ -150,11 +162,11 @@ export function ImportClient({ projectId }: { projectId: string }) {
                   ))}
                 </ul>
 
-                <Button onClick={onCommit} disabled={pending}>
-                  {pending
-                    ? "Adding…"
-                    : `Add ${preview.works.length} ${preview.works.length === 1 ? "paper" : "papers"}`}
-                </Button>
+                <Button
+                  onClick={onCommit}
+                  busy={pending && running === "commit"}
+                  busyLabel="Adding…"
+                >{`Add ${preview.works.length} ${preview.works.length === 1 ? "paper" : "papers"}`}</Button>
               </>
             )}
           </div>

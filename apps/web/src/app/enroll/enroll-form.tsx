@@ -2,7 +2,7 @@
 
 import { createIdentity, toBase64 } from "@Porcupine/crypto";
 import { useRouter } from "next/navigation";
-import { startTransition, useState } from "react";
+import { useState, useTransition } from "react";
 
 import { Banner, Button, Card, Checkbox } from "@/components/ui";
 
@@ -28,6 +28,11 @@ type Stage =
  */
 export function EnrollForm({ next }: { next: string }) {
   const router = useRouter();
+  // Continue is a router.push plus a refresh — a real wait on a slow
+  // connection, and it was silent. The bare `startTransition` import gave no
+  // pending flag to hang that on, so this uses the hook.
+  const [continuing, startTransition] = useTransition();
+
   const [stage, setStage] = useState<Stage>({ name: "idle" });
   const [confirmed, setConfirmed] = useState(false);
 
@@ -103,6 +108,8 @@ export function EnrollForm({ next }: { next: string }) {
 
         <Button
           disabled={!confirmed}
+          busy={continuing}
+          busyLabel="Taking you in…"
           onClick={() => {
             startTransition(() => {
               router.push(next);
@@ -131,8 +138,12 @@ export function EnrollForm({ next }: { next: string }) {
         </ul>
       </Card>
 
-      <Button onClick={generate} disabled={stage.name === "generating"}>
-        {stage.name === "generating" ? "Generating keys…" : "Generate my keys"}
+      <Button
+        onClick={generate}
+        busy={stage.name === "generating"}
+        busyLabel="Generating keys…"
+      >
+        Generate my keys
       </Button>
     </div>
   );

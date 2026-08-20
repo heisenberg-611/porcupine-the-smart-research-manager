@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 
 import { Popover } from "@/components/overlay";
 import { Button, Checkbox } from "@/components/ui";
@@ -49,6 +49,11 @@ export function ColumnChooser({
   const router = useRouter();
   const [draft, setDraft] = useState<string[]>(selected);
 
+  // Applying columns is a router.push, which refetches the table. That wait is
+  // real and was silent — the popover simply sat there until new rows arrived.
+  const [applying, startApplying] = useTransition();
+  const [running, setRunning] = useState<null | "apply" | "all">(null);
+
   const allKeys = fields.map((f) => f.key);
   const showingAll = draft.length === fields.length;
 
@@ -62,7 +67,9 @@ export function ColumnChooser({
     if (keys.length === fields.length) next.delete("cols");
     else next.set("cols", keys.join(","));
 
-    router.push(`?${next.toString()}`, { scroll: false });
+    startApplying(() => {
+      router.push(`?${next.toString()}`, { scroll: false });
+    });
   }
 
   function toggle(key: string) {
@@ -114,16 +121,27 @@ export function ColumnChooser({
         </div>
 
         <div className="border-rule mt-3 flex flex-wrap gap-2 border-t pt-3">
-          <Button variant="primary" onClick={() => apply(draft)}>
+          <Button
+            variant="primary"
+            busy={applying && running === "apply"}
+            busyLabel="Applying…"
+            onClick={() => {
+              setRunning("apply");
+              apply(draft);
+            }}
+          >
             Apply
           </Button>
           <Button
             variant="ghost"
             onClick={() => {
+              setRunning("all");
               setDraft(allKeys);
               apply(allKeys);
             }}
             disabled={showingAll}
+            busy={applying && running === "all"}
+            busyLabel="Applying…"
           >
             Show all
           </Button>

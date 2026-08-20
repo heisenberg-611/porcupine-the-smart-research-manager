@@ -24,11 +24,15 @@ export function SignInForm() {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
+  // Named: the Google button and the email form are on screen together and
+  // share this flag. Without the name, starting the Google redirect makes
+  // "Email me a login code" announce "Sending…" while nothing is being sent.
+  const [running, setRunning] = useState<null | "google" | "code" | "verify">(null);
+  const pending = running !== null;
 
   async function requestCode(e: React.FormEvent) {
+    setRunning("code");
     e.preventDefault();
-    setPending(true);
     setError(null);
 
     const cleanEmail = email.trim().toLowerCase();
@@ -39,7 +43,7 @@ export function SignInForm() {
       options: { shouldCreateUser: true },
     });
 
-    setPending(false);
+    setRunning(null);
     if (error) {
       setError(error.message);
       return;
@@ -48,8 +52,8 @@ export function SignInForm() {
   }
 
   async function verifyCode(e: React.FormEvent) {
+    setRunning("verify");
     e.preventDefault();
-    setPending(true);
     setError(null);
 
     const cleanEmail = email.trim().toLowerCase();
@@ -82,7 +86,7 @@ export function SignInForm() {
     }
 
     if (error) {
-      setPending(false);
+      setRunning(null);
       setError(error.message);
       return;
     }
@@ -96,7 +100,7 @@ export function SignInForm() {
   }
 
   async function signInWithGoogle() {
-    setPending(true);
+    setRunning("google");
     setError(null);
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOAuth({
@@ -107,7 +111,7 @@ export function SignInForm() {
     });
     if (error) {
       setError(error.message);
-      setPending(false);
+      setRunning(null);
     }
   }
 
@@ -127,6 +131,8 @@ export function SignInForm() {
             variant="ghost"
             onClick={signInWithGoogle}
             disabled={pending}
+            busy={running === "google"}
+            busyLabel="Taking you to Google…"
             className="bg-surface border-border hover:bg-surface-hover mb-2 flex min-h-12 w-full items-center justify-center gap-3 border shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
           >
             <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24">
@@ -185,12 +191,8 @@ export function SignInForm() {
               placeholder="you@university.edu"
             />
           </Field>
-          <Button type="submit" disabled={pending}>
-            {pending
-              ? "Sending…"
-              : mode === "signin"
-                ? "Email me a login code"
-                : "Email me a signup code"}
+          <Button type="submit" busy={running === "code"} busyLabel="Sending…">
+            {mode === "signin" ? "Email me a login code" : "Email me a signup code"}
           </Button>
 
           <div className="text-ui text-muted mt-4 text-center">
@@ -261,8 +263,8 @@ export function SignInForm() {
             className="font-mono tracking-[0.4em]"
           />
         </Field>
-        <Button type="submit" disabled={pending}>
-          {pending ? "Verifying…" : mode === "signin" ? "Sign in" : "Create account"}
+        <Button type="submit" busy={running === "verify"} busyLabel="Verifying…">
+          {mode === "signin" ? "Sign in" : "Create account"}
         </Button>
         <Button
           type="button"

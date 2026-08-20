@@ -190,8 +190,13 @@ export function NewProjectForm() {
         <Textarea id="description" name="description" maxLength={2000} rows={3} />
       </Field>
 
-      <Button type="submit" disabled={pending} className="self-start">
-        {pending ? "Creating your project…" : "Create project"}
+      <Button
+        type="submit"
+        className="self-start"
+        busy={pending}
+        busyLabel="Creating your project…"
+      >
+        Create project
       </Button>
     </form>
   );

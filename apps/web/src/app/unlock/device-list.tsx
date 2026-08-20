@@ -21,7 +21,16 @@ import { listDevices, revokeDevice, type DeviceRow } from "./device-actions";
 export function DeviceList() {
   const [devices, setDevices] = useState<DeviceRow[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
+  /*
+   * The id of the row being revoked, not a bare boolean.
+   *
+   * Every row shares this state. Disabling them all together was right — one
+   * revoke at a time — but "Revoking…" on all of them at once would name the
+   * wrong browser, and the whole point of the label is to say which thing is
+   * happening.
+   */
+  const [revoking, setRevoking] = useState<string | null>(null);
+  const pending = revoking !== null;
 
   const load = useCallback(async () => {
     const result = await listDevices();
@@ -37,7 +46,7 @@ export function DeviceList() {
   }, [load]);
 
   async function revoke(id: string) {
-    setPending(true);
+    setRevoking(id);
     setError(null);
     try {
       const result = await revokeDevice(id);
@@ -49,7 +58,7 @@ export function DeviceList() {
       await forgetDeviceKey().catch(() => undefined);
       await load();
     } finally {
-      setPending(false);
+      setRevoking(null);
     }
   }
 
@@ -85,6 +94,8 @@ export function DeviceList() {
               variant="ghost"
               className="border-border border"
               disabled={pending}
+              busy={revoking === device.id}
+              busyLabel="Revoking…"
               onClick={() => void revoke(device.id)}
             >
               Revoke

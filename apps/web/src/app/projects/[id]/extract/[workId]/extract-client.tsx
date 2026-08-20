@@ -87,6 +87,11 @@ export function ExtractClient({
   const [missing, setMissing] = useState<ExtractField[]>([]);
   const [dirty, setDirty] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  // Save and Submit share the transition, so the busy label has to know which
+  // of the two was pressed — otherwise submitting makes "Save draft" claim to
+  // be saving. Cleared by `pending` falling, never by hand.
+  const [running, setRunning] = useState<null | "save" | "submit">(null);
   const textRef = useRef<HTMLDivElement>(null);
 
   const frozen = status !== "DRAFT";
@@ -181,6 +186,7 @@ export function ExtractClient({
   function save() {
     setError(null);
     setNotice(null);
+    setRunning("save");
     startTransition(async () => {
       const response = await saveDraft({
         projectId,
@@ -237,6 +243,7 @@ export function ExtractClient({
      * link to itself, rather than one name at a time on a twenty-field form.
      */
     setMissing(fields.filter((f) => f.required && !isAnswered(f.id)));
+    setRunning("submit");
 
     startTransition(async () => {
       const saved = await saveDraft({
@@ -487,17 +494,28 @@ export function ExtractClient({
 
           {!frozen ? (
             <div className="flex flex-wrap gap-2">
-              <Button onClick={save} disabled={pending}>
-                {pending ? "Saving…" : "Save draft"}
+              <Button
+                onClick={save}
+                busy={pending && running === "save"}
+                busyLabel="Saving…"
+              >
+                Save draft
               </Button>
-              <Button variant="ghost" onClick={submit} disabled={pending}>
+              <Button
+                variant="ghost"
+                onClick={submit}
+                disabled={pending}
+                busy={pending && running === "submit"}
+                busyLabel="Submitting…"
+              >
                 Submit
               </Button>
             </div>
           ) : (
             <Button
               variant="ghost"
-              disabled={pending}
+              busy={pending}
+              busyLabel="Reopening…"
               onClick={() =>
                 startTransition(async () => {
                   const response = await reopenExtraction({

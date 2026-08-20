@@ -130,10 +130,11 @@ export function SearchClient({
               <Button
                 type="submit"
                 variant="primary"
-                disabled={pending}
                 className="rounded-xl px-6 font-medium shadow-sm transition-all hover:shadow-md"
+                busy={pending}
+                busyLabel="Searching…"
               >
-                {pending ? "Searching…" : "Search"}
+                Search
               </Button>
             </div>
           </Field>
@@ -431,7 +432,9 @@ function ResultCard({
         <Button
           variant={added ? "ghost" : "primary"}
           onClick={onAdd}
-          disabled={added || pending}
+          disabled={added}
+          busy={pending}
+          busyLabel="Adding…"
           // "Add" alone repeats forty times down the page and tells a screen
           // reader nothing about which one it is on.
           aria-label={added ? `${work.title} is in your library` : `Add ${work.title}`}
@@ -440,7 +443,7 @@ function ResultCard({
             added ? "" : "shadow-sm hover:shadow-md",
           )}
         >
-          {added ? "In library" : pending ? "Adding…" : "Add to library"}
+          {added ? "In library" : "Add to library"}
         </Button>
       </div>
 

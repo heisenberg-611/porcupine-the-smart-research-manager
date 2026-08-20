@@ -58,8 +58,8 @@ export function TargetForm({
         />
       </div>
 
-      <Button type="submit" disabled={pending}>
-        {pending ? "Saving…" : "Set target"}
+      <Button type="submit" busy={pending} busyLabel="Saving…">
+        Set target
       </Button>
 
       {error ? (

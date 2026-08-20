@@ -36,9 +36,23 @@ export function QuestionsClient({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  /*
+   * Which action is in flight, paired with `pending`.
+   *
+   * One transition serves add, save and remove, so a busy label driven by
+   * `pending` alone would have "Add question" announce "Adding…" because a
+   * different question was being deleted. Removes are keyed by question id
+   * for the same reason — there is one Remove per row.
+   *
+   * Nothing clears this: `pending` going false is what ends the busy state,
+   * so a leftover name is inert rather than wrong.
+   */
+  const [running, setRunning] = useState<string | null>(null);
+
   function onAdd(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
+    setRunning("add");
 
     startTransition(async () => {
       const response = await addQuestion({
@@ -60,6 +74,7 @@ export function QuestionsClient({
 
   function onDelete(questionId: string) {
     setError(null);
+    setRunning(`remove:${questionId}`);
     startTransition(async () => {
       const response = await deleteQuestion({ projectId, questionId });
       if (!response.ok) {
@@ -72,6 +87,7 @@ export function QuestionsClient({
 
   function onSave(question: QuestionRow, nextText: string, nextKeywords: string) {
     setError(null);
+    setRunning("save");
     startTransition(async () => {
       const response = await updateQuestion({
         projectId,
@@ -117,6 +133,7 @@ export function QuestionsClient({
                   <EditForm
                     question={question}
                     pending={pending}
+                    saving={pending && running === "save"}
                     onCancel={() => setEditing(null)}
                     onSave={(t, k) => onSave(question, t, k)}
                   />
@@ -139,6 +156,8 @@ export function QuestionsClient({
                           <Button
                             variant="ghost"
                             disabled={pending}
+                            busy={pending && running === `remove:${question.id}`}
+                            busyLabel="Removing…"
                             onClick={() => onDelete(question.id)}
                             aria-label={`Remove question ${index + 1}`}
                           >
@@ -233,8 +252,14 @@ export function QuestionsClient({
               />
             </Field>
 
-            <Button type="submit" variant="primary" disabled={pending || !text.trim()}>
-              {pending ? "Adding…" : "Add question"}
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={!text.trim()}
+              busy={pending && running === "add"}
+              busyLabel="Adding…"
+            >
+              Add question
             </Button>
           </form>
         </div>
@@ -246,11 +271,13 @@ export function QuestionsClient({
 function EditForm({
   question,
   pending,
+  saving,
   onCancel,
   onSave,
 }: {
   question: QuestionRow;
   pending: boolean;
+  saving: boolean;
   onCancel: () => void;
   onSave: (text: string, keywords: string) => void;
 }) {
@@ -278,6 +305,8 @@ function EditForm({
         <Button
           variant="primary"
           disabled={pending || !text.trim()}
+          busy={saving}
+          busyLabel="Saving…"
           onClick={() => onSave(text, keywords)}
         >
           Save

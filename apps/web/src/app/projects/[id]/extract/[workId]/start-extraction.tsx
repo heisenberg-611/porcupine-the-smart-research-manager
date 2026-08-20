@@ -38,7 +38,6 @@ export function StartExtraction({
       </p>
 
       <Button
-        disabled={pending}
         onClick={() => {
           setError(null);
           startTransition(async () => {
@@ -50,8 +49,10 @@ export function StartExtraction({
             if (!response.ok) setError(response.error);
           });
         }}
+        busy={pending}
+        busyLabel="Starting…"
       >
-        {pending ? "Starting…" : "Start extracting"}
+        Start extracting
       </Button>
 
       {error && (

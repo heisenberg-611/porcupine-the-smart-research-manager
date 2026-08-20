@@ -142,22 +142,28 @@ export function FileList({
               onClick={() => handleCreate("doc")}
               disabled={pendingType !== null}
               className="h-10 bg-blue-600 px-4 text-white shadow-sm transition-all hover:bg-blue-700 active:scale-95"
+              busy={pendingType === "doc"}
+              busyLabel="Creating…"
             >
-              {pendingType === "doc" ? "Creating..." : "+ Create Doc"}
+              + Create Doc
             </Button>
             <Button
               onClick={() => handleCreate("sheet")}
               disabled={pendingType !== null}
               className="h-10 bg-emerald-600 px-4 text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-95"
+              busy={pendingType === "sheet"}
+              busyLabel="Creating…"
             >
-              {pendingType === "sheet" ? "Creating..." : "+ Create Sheet"}
+              + Create Sheet
             </Button>
             <Button
               onClick={() => handleCreate("slide")}
               disabled={pendingType !== null}
               className="h-10 bg-amber-500 px-4 text-white shadow-sm transition-all hover:bg-amber-600 active:scale-95"
+              busy={pendingType === "slide"}
+              busyLabel="Creating…"
             >
-              {pendingType === "slide" ? "Creating..." : "+ Create Slide"}
+              + Create Slide
             </Button>
           </div>
         </div>
@@ -276,9 +282,11 @@ export function FileList({
                       </div>
                       <Button
                         onClick={(e) => file.id && handleShare(e, file.id)}
-                        disabled={isSharing || !shareEmail}
+                        disabled={!shareEmail}
+                        busy={isSharing}
+                        busyLabel="Sharing…"
                       >
-                        {isSharing ? "Sharing..." : "Send Invite"}
+                        Send Invite
                       </Button>
                     </div>
                   )}

@@ -78,8 +78,8 @@ export function AccessForm({
       </Field>
 
       <div>
-        <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Save"}
+        <Button type="submit" busy={pending} busyLabel="Saving…">
+          Save
         </Button>
       </div>
 

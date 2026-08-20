@@ -263,7 +263,11 @@ export function UploadPaperForm({
       </p>
 
       <div>
-        <Button type="submit" disabled={busy}>
+        {/* No busyLabel: LABEL[stage] already names the phase — "Uploading…",
+            then "Reading the pages…" — which says more than one busy label
+            could. What was missing is the half a screen reader gets, so this
+            takes aria-busy and the spinner and leaves the wording alone. */}
+        <Button type="submit" busy={busy}>
           {LABEL[stage]}
         </Button>
       </div>
@@ -333,8 +337,13 @@ export function AttachedPaper({
         */}
         {confirming ? (
           <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <Button variant="danger" onClick={remove} disabled={removing}>
-              {removing ? "Removing…" : "Yes, remove it"}
+            <Button
+              variant="danger"
+              onClick={remove}
+              busy={removing}
+              busyLabel="Removing…"
+            >
+              Yes, remove it
             </Button>
             <Button
               variant="ghost"

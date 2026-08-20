@@ -120,8 +120,13 @@ export function InviteMemberForm({ projectId }: { projectId: string }) {
         </Field>
       )}
 
-      <Button type="submit" disabled={pending} className="self-start">
-        {pending ? "Adding the member…" : "Add member"}
+      <Button
+        type="submit"
+        className="self-start"
+        busy={pending}
+        busyLabel="Adding the member…"
+      >
+        Add member
       </Button>
     </form>
   );

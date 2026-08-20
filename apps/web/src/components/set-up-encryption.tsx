@@ -123,8 +123,8 @@ export function SetUpEncryption({
   return (
     <div className="flex flex-col gap-3">
       {error && <Banner tone="danger">{error}</Banner>}
-      <Button variant="primary" disabled={pending} onClick={setUp}>
-        {pending ? "Setting up…" : "Set up encryption for this project"}
+      <Button variant="primary" onClick={setUp} busy={pending} busyLabel="Setting up…">
+        Set up encryption for this project
       </Button>
     </div>
   );

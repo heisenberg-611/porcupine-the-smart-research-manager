@@ -137,8 +137,10 @@ export function DeleteProjectDialog({
               variant="danger"
               disabled={!canDelete || isDeleting}
               onClick={handleDelete}
+              busy={isDeleting}
+              busyLabel="Deleting…"
             >
-              {isDeleting ? "Deleting..." : "Delete Project"}
+              Delete Project
             </Button>
           </div>
         </div>
