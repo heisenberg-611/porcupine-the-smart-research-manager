@@ -30,7 +30,20 @@ export default async function MessagesPage({
      * times, reaction chips and a margin for replies. At 768px all of that
      * competes for the same space and the result reads as cramped.
      */
-    <main id="main" className="mx-auto flex max-w-5xl flex-col gap-6 px-6 py-10">
+    /*
+     * Fills the column instead of growing past it.
+     *
+     * The project shell already gives the content column a definite height and
+     * its own scrollbar, with the sidebar outside it. A conversation taller
+     * than that column therefore scrolled the column — and below `lg`, where
+     * the shell has no fixed height, the whole page — carrying the sidebar
+     * with it. `h-full` plus `min-h-0` on the children hands the leftover
+     * space to the message log, which is the only thing that should scroll.
+     */
+    <main
+      id="main"
+      className="mx-auto flex max-w-5xl flex-col gap-4 px-6 py-6 lg:h-full lg:min-h-0"
+    >
       <PageHeader
         backHref={`/projects/${id}`}
         backLabel={project.title}

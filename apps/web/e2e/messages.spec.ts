@@ -375,6 +375,70 @@ test.describe("two people, one encrypted conversation", () => {
     await expect(anchor).toHaveAttribute("href", "https://example.com/paper.pdf");
   });
 
+  test("a long conversation scrolls the log, not the page", async ({ isMobile }) => {
+    /*
+     * Reported: "as the message list grows the whole page starts scrolling and
+     * the sidebar scrolls with it."
+     *
+     * The project shell gives the content column a definite height and its own
+     * scrollbar, with the sidebar outside it — so a conversation taller than
+     * that column scrolled the column, and on a narrow window the page,
+     * carrying the sidebar along. Asserted on the geometry: after enough
+     * messages to overflow, the log must be the thing that scrolls and the
+     * document must not.
+     */
+    // A boolean, not a predicate: the callback form of test.skip is only
+    // legal at describe level.
+    test.skip(!!isMobile, "the shell only fixes its height at lg and above");
+
+    await alice.setViewportSize({ width: 1400, height: 900 });
+
+    for (let i = 0; i < 14; i++) {
+      await alice.getByLabel(/^message$/i).fill(`Filling the log, line ${i}`);
+      await alice.getByRole("button", { name: /^send$/i }).click();
+      await expect(log(alice).getByText(`Filling the log, line ${i}`)).toBeVisible({
+        timeout: 60_000,
+      });
+    }
+
+    const geometry = await alice.evaluate(() => {
+      const scroller = document.querySelector(
+        '[data-testid="message-log"]',
+      ) as HTMLElement;
+
+      /*
+       * The CONTENT COLUMN, not the document.
+       *
+       * The project shell gives that column its own scrollbar and keeps the
+       * sidebar outside it, so on a wide screen the column absorbs any
+       * overflow and `document.scrollHeight` never grows. An assertion on the
+       * document therefore passes whatever the page does — checked by
+       * sabotage, and it did.
+       */
+      let column: HTMLElement | null = scroller.parentElement;
+      while (column && column !== document.body) {
+        const style = getComputedStyle(column);
+        if (style.overflowY === "auto" || style.overflowY === "scroll") break;
+        column = column.parentElement;
+      }
+
+      return {
+        logOverflows: scroller.scrollHeight > scroller.clientHeight + 1,
+        foundColumn: column !== null && column !== document.body,
+        columnOverflows: column
+          ? column.scrollHeight > column.clientHeight + 1
+          : document.documentElement.scrollHeight > window.innerHeight + 1,
+      };
+    });
+
+    expect(geometry.foundColumn, "the shell's scrolling column").toBe(true);
+    expect(geometry.logOverflows, "the conversation should scroll").toBe(true);
+    expect(
+      geometry.columnOverflows,
+      "nothing above the conversation should scroll — that is what moves the sidebar",
+    ).toBe(false);
+  });
+
   test("what the database holds is not the text", async () => {
     /*
      * The assertion the rest of this exists for.

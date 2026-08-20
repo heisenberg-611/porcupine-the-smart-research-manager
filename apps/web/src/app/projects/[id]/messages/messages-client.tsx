@@ -627,7 +627,7 @@ export function MessagesClient({ projectId }: { projectId: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1">
       {error && <Banner tone="danger">{error}</Banner>}
       {keys.rejected > 0 && (
         <Banner tone="danger">
@@ -692,7 +692,7 @@ export function MessagesClient({ projectId }: { projectId: string }) {
       )}
 
       {selected && (
-        <>
+        <div className="flex flex-col lg:min-h-0 lg:flex-1">
           {/*
             Who cannot read this conversation, said where it is being written.
 
@@ -788,7 +788,20 @@ export function MessagesClient({ projectId }: { projectId: string }) {
               scrolled AND the log scrolled, which is two scrollbars for one
               list and the reason this felt wrong to use.
             */
-            className="bg-surface/40 border-border flex max-h-[min(62vh,680px)] min-h-40 flex-col overflow-y-auto overscroll-contain border-x px-1 py-2 shadow-inner"
+            /*
+              The only thing on this page that scrolls.
+
+              It takes whatever height is left after the header, the banner and
+              the composer, so the page never grows past the column the project
+              shell gave it — which is what used to scroll the sidebar along
+              with the conversation. `min-h-0` is the load-bearing half:
+              without it a flex child refuses to shrink below its content and
+              the overflow moves straight back up to the page.
+
+              The `max-h` is the small-screen fallback, where the shell has no
+              fixed height to fill.
+            */
+            className="bg-surface/40 border-border flex max-h-[62vh] min-h-40 flex-col overflow-y-auto overscroll-contain border-x px-1 py-2 shadow-inner lg:max-h-none lg:min-h-0 lg:flex-1"
           >
             {messages.length === 0 && (
               <li className="text-muted text-ui p-6 text-center">
@@ -1071,7 +1084,7 @@ export function MessagesClient({ projectId }: { projectId: string }) {
               </Button>
             </div>
           </form>
-        </>
+        </div>
       )}
     </div>
   );
