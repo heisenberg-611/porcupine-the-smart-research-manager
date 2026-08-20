@@ -1,0 +1,4 @@
+# A blank issue stays available: not every report fits a form, and a person
+# who cannot find the right box usually gives up rather than picking the wrong
+# one.
+blank_issues_enabled: true

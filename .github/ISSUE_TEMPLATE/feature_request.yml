@@ -1,0 +1,36 @@
+name: Ask for something
+description: Something Porcupine should do and does not.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **This issue is public.** Describe the need rather than your data —
+        "I need to filter by sample size", not the sample sizes.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do
+      description: >
+        The task, not the feature. Knowing what you are actually trying to
+        finish usually turns up a better answer than the one being asked for.
+      placeholder: I am screening 400 papers with two other people and I cannot tell who has done what.
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: How you manage today
+      description: A spreadsheet, another tool, or not at all.
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Version and browser
+      render: text
+    validations:
+      required: false

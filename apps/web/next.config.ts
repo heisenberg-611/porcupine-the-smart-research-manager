@@ -1,6 +1,25 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  /*
+   * The commit, so a bug report names code rather than "latest".
+   *
+   * Vercel sets VERCEL_GIT_COMMIT_SHA at build time; locally there is none and
+   * "dev" is the honest answer. Read here because only NEXT_PUBLIC_* reaches
+   * the browser, and the issue link is the one place that needs it.
+   */
+  /*
+   * The commit, so a bug report names code rather than "latest".
+   *
+   * Vercel sets VERCEL_GIT_COMMIT_SHA at build time; locally there is none and
+   * "dev" is the honest answer. Read here rather than in the component because
+   * only NEXT_PUBLIC_* reaches the browser, and this is the one build value
+   * the issue link needs.
+   */
+  env: {
+    NEXT_PUBLIC_COMMIT_SHA:
+      process.env.NEXT_PUBLIC_COMMIT_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "dev",
+  },
   // Workspace packages ship TypeScript source, not build output.
   //
   // Note: libsodium-wrappers-sumo@0.7.16 ships a broken ESM build that
