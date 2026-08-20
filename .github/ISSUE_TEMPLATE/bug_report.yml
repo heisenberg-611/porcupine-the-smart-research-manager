@@ -1,0 +1,39 @@
+name: Something is broken
+description: A part of Porcupine did not do what it said it would.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time. Everything below is optional except the
+        first box — a short report is far better than none.
+
+        **This issue is public.** Do not paste anything from a project you would
+        not publish: paper titles, extracted data, or anything from a document.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you were doing, and what the app did instead.
+      placeholder: I pressed Compile and the button stayed grey.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Version and browser
+      description: >
+        Filled in for you when you report from inside the app. It carries the
+        build, your browser, and which SCREEN you were on — never which project.
+      render: text
+    validations:
+      required: false
