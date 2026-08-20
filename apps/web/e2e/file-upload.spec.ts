@@ -707,9 +707,24 @@ test.describe("file storage — attaching a paper's PDF", () => {
     await expect(panel).toBeVisible();
 
     const panelBox = (await panel.boundingBox())!;
-    const gap = panelBox.y - (box.y + box.height);
-    expect(gap, "the panel should sit just under the selected line").toBeGreaterThan(-4);
-    expect(gap, "and not somewhere further down the document").toBeLessThan(80);
+
+    /*
+     * Near the selection and on screen — not "always below it".
+     *
+     * The panel flips above when there is not enough room beneath, which is
+     * the common case for a passage near the foot of the window; an assertion
+     * that demanded "below" failed on correct behaviour. What matters to a
+     * reader is the distance and that the buttons are reachable.
+     */
+    const distance = Math.min(
+      Math.abs(panelBox.y - (box.y + box.height)),
+      Math.abs(box.y - (panelBox.y + panelBox.height)),
+    );
+    expect(distance, "the panel should sit beside the selected line").toBeLessThan(80);
+
+    const viewport = owner.viewportSize()!;
+    expect(panelBox.y, "and be on screen").toBeGreaterThanOrEqual(0);
+    expect(panelBox.y + panelBox.height).toBeLessThanOrEqual(viewport.height + 1);
 
     /*
      * There was a second assertion here — that the offset between panel and
@@ -919,6 +934,160 @@ test.describe("file storage — attaching a paper's PDF", () => {
     // page source, not merely from view.
     await expect(colleague.getByText(/half-formed thought/i)).toHaveCount(0);
     expect(await colleague.content()).not.toContain("half-formed thought");
+  });
+
+  test("the viewer scrolls in its own window, with zoom and page navigation", async () => {
+    /*
+     * The document used to be part of the page, so reading a 40-page paper
+     * scrolled the whole application — header, project nav and all — and left
+     * the annotation list a full document below the text it describes.
+     */
+    await goto(owner, readUrl);
+    await expect(owner.locator('[data-page="1"] canvas')).toBeVisible({
+      timeout: 60_000,
+    });
+
+    const scroller = owner.getByTestId("pdf-scroll");
+    const scrolls = await scroller.evaluate(
+      (el) =>
+        el.scrollHeight > el.clientHeight && getComputedStyle(el).overflowY !== "visible",
+    );
+    expect(scrolls, "the pages should scroll inside their own box").toBe(true);
+
+    // Go to page: the control moves the container, not the window.
+    const before = await scroller.evaluate((el) => el.scrollTop);
+    await owner.getByLabel("Go to page").fill("2");
+    await expect
+      .poll(() => scroller.evaluate((el) => el.scrollTop), { timeout: 10_000 })
+      .toBeGreaterThan(before);
+
+    // Zoom redraws the page at a larger scale, and the text layer with it.
+    const widthAtFit = await owner
+      .locator('[data-page="1"]')
+      .evaluate((el) => (el as HTMLElement).getBoundingClientRect().width);
+
+    await owner.getByRole("button", { name: "Zoom in" }).click();
+    await expect(owner.getByText("125%")).toBeVisible();
+
+    await expect
+      .poll(
+        () =>
+          owner
+            .locator('[data-page="1"]')
+            .evaluate((el) => (el as HTMLElement).getBoundingClientRect().width),
+        { timeout: 15_000 },
+      )
+      .toBeGreaterThan(widthAtFit);
+
+    /*
+     * The scale the layer is expressed in has to follow, or the selectable
+     * text stops sitting on the glyphs again — the exact fault this viewer
+     * had before, reintroduced by zooming.
+     */
+    await owner.locator('[data-page="1"]').scrollIntoViewIfNeeded();
+    await expect
+      .poll(
+        () =>
+          owner.evaluate(() => {
+            const layer = document.querySelector(
+              '[data-page="1"] [data-section-index]',
+            ) as HTMLElement | null;
+            const run = layer?.querySelector("span") as HTMLElement | null;
+            if (!layer || !run) return null;
+            const scale = Number(
+              getComputedStyle(layer).getPropertyValue("--total-scale-factor"),
+            );
+            const height = parseFloat(run.style.getPropertyValue("--font-height"));
+            const size = parseFloat(getComputedStyle(run).fontSize);
+            return Math.abs(size - height * scale) < 0.5;
+          }),
+        { timeout: 15_000 },
+      )
+      .toBe(true);
+
+    await owner.getByRole("button", { name: /fit to width/i }).click();
+    await expect(owner.getByText("100%")).toBeVisible();
+  });
+
+  test("a highlight is multiplied over the page, once per line", async () => {
+    /*
+     * Two faults reported together: the mark dimmed the words it covered, and
+     * multi-line passages came out in two tones.
+     *
+     * The first is the blend: a translucent fill painted OVER the canvas
+     * darkens the glyphs as well as the paper. `multiply` darkens the paper
+     * and leaves the ink.
+     *
+     * The second is `getClientRects()`, which covers a range without promising
+     * to do it once — overlapping and duplicate rectangles each got their own
+     * translucent layer, and the overlaps came out darker.
+     */
+    await goto(owner, readUrl);
+    await expect(owner.locator('[data-page="1"] [data-highlight]').first()).toBeVisible({
+      timeout: 60_000,
+    });
+
+    const marks = await owner.evaluate(() =>
+      Array.from(document.querySelectorAll('[data-page="1"] [data-highlight]')).map(
+        (el) => {
+          const style = getComputedStyle(el as HTMLElement);
+          const rect = (el as HTMLElement).getBoundingClientRect();
+          return {
+            blend: style.mixBlendMode,
+            id: (el as HTMLElement).dataset.highlight!,
+            left: Math.round(rect.left),
+            top: Math.round(rect.top),
+            right: Math.round(rect.right),
+            bottom: Math.round(rect.bottom),
+          };
+        },
+      ),
+    );
+
+    expect(marks.length).toBeGreaterThan(0);
+    for (const mark of marks) {
+      expect(mark.blend, "highlights must multiply, not overlay").toBe("multiply");
+    }
+
+    /*
+     * No rectangle of a highlight may sit inside another of the same one:
+     * that is the double tone.
+     *
+     * Kept, but not relied on: with one text run per line this fixture's raw
+     * rectangles do not overlap, so removing the dedupe leaves this green.
+     * Checked by removing it. The arithmetic is covered properly in
+     * src/lib/highlight-rects.test.ts, where the overlapping cases can
+     * actually be constructed.
+     */
+    for (const a of marks) {
+      for (const b of marks) {
+        if (a === b || a.id !== b.id) continue;
+        const contained =
+          a.left >= b.left &&
+          a.top >= b.top &&
+          a.right <= b.right &&
+          a.bottom <= b.bottom;
+        expect(contained, `overlapping rects on highlight ${a.id}`).toBe(false);
+      }
+    }
+  });
+
+  test("and the member's name sits in the margin, clear of the text", async () => {
+    // Reported: the name "pops in the middle of the text". A label drawn at
+    // the end of its highlight lands inside the sentence whenever a passage
+    // ends mid-line.
+    const clear = await owner.evaluate(() => {
+      const paper = document
+        .querySelector('[data-page="1"]')!
+        .querySelector("div")!
+        .getBoundingClientRect();
+      return Array.from(
+        document.querySelectorAll('[data-page="1"] [data-highlight-author]'),
+      ).map((el) => el.getBoundingClientRect().left >= paper.right - 1);
+    });
+
+    expect(clear.length).toBeGreaterThan(0);
+    expect(clear.every(Boolean), "every name should be outside the page").toBe(true);
   });
 
   test("an extraction quotes page two of the real paper", async () => {

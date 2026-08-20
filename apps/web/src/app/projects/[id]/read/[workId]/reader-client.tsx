@@ -1,7 +1,7 @@
 "use client";
 
 import { createSelector, type AnchorSelector } from "@Porcupine/anchoring";
-import { useCallback, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { Button, Checkbox, Textarea } from "@/components/ui";
 import { PdfDocument, type PdfHighlight } from "@/components/pdf-document";
@@ -41,6 +41,51 @@ export interface RenderedAnnotation {
  * highlight whose passage has changed is shown with a warning instead of
  * being silently drawn somewhere plausible.
  */
+const PANEL_WIDTH = 340;
+const PANEL_HEIGHT = 268;
+const PANEL_MARGIN = 12;
+
+/**
+ * Where the compose panel goes for a given selection, in viewport coordinates.
+ *
+ * Below the passage when there is room and above it when there is not: a
+ * selection near the foot of the window would otherwise put the buttons
+ * off-screen, which is the original "I have to scroll to the end" complaint in
+ * a smaller form.
+ */
+function placeBeside(range: Range): { top: number; left: number } {
+  const rects = Array.from(range.getClientRects());
+  const last = rects.at(-1) ?? range.getBoundingClientRect();
+
+  const roomBelow = window.innerHeight - last.bottom;
+  const wanted =
+    roomBelow > PANEL_HEIGHT
+      ? last.bottom + 8
+      : Math.max(PANEL_MARGIN, last.top - PANEL_HEIGHT);
+
+  /*
+   * Clamped so the whole panel is on screen, not just its top edge.
+   *
+   * A FIXED element hanging below the fold cannot be scrolled into view —
+   * scrolling moves the document under it and the element stays put — so its
+   * buttons become permanently unreachable rather than one scroll away. The
+   * panel also carries a max-height with its own scrollbar, because
+   * PANEL_HEIGHT is an estimate and this must hold when the estimate is wrong.
+   */
+  const top = Math.max(
+    PANEL_MARGIN,
+    Math.min(wanted, window.innerHeight - PANEL_HEIGHT - PANEL_MARGIN),
+  );
+
+  return {
+    top,
+    left: Math.max(
+      PANEL_MARGIN,
+      Math.min(last.left, window.innerWidth - PANEL_WIDTH - PANEL_MARGIN),
+    ),
+  };
+}
+
 export function ReaderClient({
   projectId,
   projectWorkId,
@@ -79,16 +124,23 @@ export function ReaderClient({
   const [pending, startTransition] = useTransition();
   const documentRef = useRef<HTMLDivElement>(null);
   /*
-   * Where to put the compose panel: just under the selection, in the
-   * document's own coordinates.
+   * Where to put the compose panel: just under the selection, in VIEWPORT
+   * coordinates.
    *
    * It used to sit after the document in normal flow, which on a one-page
    * abstract was fine and on a 300-page PDF meant scrolling to the end of the
    * paper to click Highlight, then scrolling back to carry on reading.
    *
-   * Document coordinates rather than viewport ones so the panel scrolls WITH
-   * the passage it belongs to. Fixed positioning would leave it hanging in the
-   * middle of the screen pointing at nothing the moment the page moved.
+   * The first fix used the document's own coordinates so the panel would
+   * travel with the passage. That stopped working when the PDF moved into its
+   * own scrolling window: the passage now moves inside a box the panel is not
+   * in, so a coordinate measured against the document means nothing a moment
+   * later. Fixed positioning does not care which container scrolled.
+   *
+   * Scrolling re-places it rather than dismissing it. Dismissing was tried
+   * and is wrong twice over: a stray wheel nudge while reaching for the button
+   * throws the selection away, and Playwright's own scroll-into-view before a
+   * click did exactly that, which is how the fault was found.
    */
   const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
 
@@ -100,6 +152,33 @@ export function ReaderClient({
    * previously rebuilt, the whole document while somebody was dragging over a
    * word.
    */
+  /*
+   * Follow the passage when anything scrolls.
+   *
+   * Capture phase and on `document`, because the PDF scrolls inside its own
+   * container now and a listener on `window` never hears about it.
+   *
+   * Only while a live, uncollapsed selection exists: clicking into the note
+   * field collapses it, and recomputing from a collapsed range would throw the
+   * panel to the top-left corner mid-typing.
+   */
+  useEffect(() => {
+    if (!selection) return;
+
+    const follow = () => {
+      const live = window.getSelection();
+      if (!live || live.isCollapsed || live.rangeCount === 0) return;
+      setAnchor(placeBeside(live.getRangeAt(0)));
+    };
+
+    document.addEventListener("scroll", follow, { capture: true, passive: true });
+    window.addEventListener("resize", follow, { passive: true });
+    return () => {
+      document.removeEventListener("scroll", follow, { capture: true });
+      window.removeEventListener("resize", follow);
+    };
+  }, [selection]);
+
   const pdfHighlights = useMemo<PdfHighlight[]>(
     () =>
       annotations
@@ -189,15 +268,7 @@ export function ReaderClient({
      * whole range covers the multi-line case, where the last rect alone can be
      * a two-character stub.
      */
-    const frame = documentRef.current.getBoundingClientRect();
-    const rects = Array.from(range.getClientRects());
-    const lastRect = rects.at(-1) ?? range.getBoundingClientRect();
-    const PANEL_WIDTH = 340;
-
-    setAnchor({
-      top: lastRect.bottom - frame.top + 8,
-      left: Math.max(0, Math.min(lastRect.left - frame.left, frame.width - PANEL_WIDTH)),
-    });
+    setAnchor(placeBeside(range));
   }, [sections]);
 
   function save(kind: "HIGHLIGHT" | "NOTE") {
@@ -285,7 +356,7 @@ export function ReaderClient({
         {selection && (
           <div
             data-testid="annotate-panel"
-            className="border-accent/40 bg-raised absolute z-20 w-[340px] max-w-full space-y-3 rounded-lg border p-4 shadow-lg"
+            className="border-accent/40 bg-raised fixed z-40 max-h-[80vh] w-[340px] max-w-[calc(100vw-24px)] space-y-3 overflow-y-auto rounded-lg border p-4 shadow-lg"
             style={{ top: anchor?.top ?? 0, left: anchor?.left ?? 0 }}
           >
             <p className="text-muted text-fine">Selected</p>

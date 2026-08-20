@@ -143,3 +143,70 @@ sentence, on that page. An extraction quote opens at the passage, on the page,
 with the highlight drawn over it. A quote captured before this phase still
 resolves, because the join rule did not change under it. `pnpm verify --e2e`
 green.
+
+---
+
+## 7. Round two — what real use exposed
+
+Stages 1–4 shipped and were read against a real paper. Six things came back,
+and they are not independent: the scroll container changes what the page
+observer watches, where the annotate panel lives, and what zoom means.
+
+### 7.1 The highlight dims the text it marks
+
+Painting a translucent fill *over* the canvas darkens everything beneath it,
+glyphs included, so marking a sentence makes it harder to read — the opposite
+of a highlighter. A real highlighter darkens the paper and leaves the ink.
+
+`mix-blend-mode: multiply` is that: white ground × colour = colour, dark
+glyph × colour ≈ dark glyph. The mark stays a mark and the text stays legible.
+
+### 7.2 Double tone, worst on multi-line passages
+
+`Range.getClientRects()` does not promise disjoint rectangles. Adjacent line
+boxes overlap by a fraction of a pixel, and a run split across several text
+nodes yields several rectangles for the same glyphs — each painted separately,
+each translucent, so the overlaps come out darker than the rest. On a passage
+spanning three lines this is most of the highlight.
+
+Rectangles get rounded to whole pixels, deduplicated, and any rectangle
+contained by another dropped, before anything is drawn.
+
+### 7.3 The name lands in the middle of the sentence
+
+The label is placed at the right edge of the highlight's last rectangle, which
+for a passage ending mid-line is *inside the text*. It has to live outside the
+column entirely: each page gets a right-hand gutter, and labels sit in it,
+vertically aligned with the mark they name. A margin note, which is what it is.
+
+### 7.4 The PDF should scroll in its own window
+
+Today the document is part of the page, so reading a 40-page paper means
+scrolling the whole application — header, project nav and all — and the
+annotation list sits a full document below the text it describes.
+
+The viewer becomes a fixed-height scroll container. Consequences, each of which
+is the actual work:
+
+- the page observer's `root` becomes that container rather than the viewport;
+- the annotate panel must live INSIDE the scrolled content, or it detaches
+  from its passage the moment the container scrolls;
+- "go to page" and `?anchor=` scroll the container, not the window.
+
+### 7.5 Zoom
+
+A scale multiplier over fit-to-width. Changing it re-renders the visible pages
+and re-runs the text layer, because `--total-scale-factor`, the canvas bitmap
+and every run's font size are all expressed in it — and then repaints the
+highlights, whose rectangles are in the old scale until it does.
+
+### 7.6 Go to page
+
+A number input that scrolls the container to that page and renders it.
+Necessary once the document is virtualized and long: there is no scrollbar
+intuition for "page 214 of 300".
+
+**Order:** the scroll container first, because the observer, the panel and both
+new controls are all expressed against it; then the drawing fixes; then zoom
+and page navigation on top.
+
