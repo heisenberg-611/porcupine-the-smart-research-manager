@@ -637,63 +637,81 @@ export function MessagesClient({ projectId }: { projectId: string }) {
         </Banner>
       )}
 
-      <div className="from-ui/5 to-surface ring-border relative rounded-xl border-t border-white/5 bg-gradient-to-br p-4 shadow-sm ring-1">
-        <form
-          onSubmit={addChannel}
-          className="relative z-10 flex flex-wrap items-end gap-2"
-        >
-          <Field label="New channel" id="channel-name">
-            <Input
-              id="channel-name"
-              value={newChannel}
-              onChange={(e) => setNewChannel(e.target.value)}
-              placeholder="screening-questions"
-            />
-          </Field>
-          <Button type="submit" disabled={pending || newChannel.trim() === ""}>
-            Create
-          </Button>
-        </form>
-      </div>
+      {/*
+        Channels beside the conversation, not stacked on top of it.
 
-      {channels.length === 0 && (
-        // The end of setup should be a place to type, not another empty form
-        // asking you to invent a name for something you have not used yet.
-        <Card className="flex flex-col gap-3">
-          <p className="text-ink text-ui">
-            Encryption is set up. Messages live in channels — one per topic, or just one
-            for everything.
-          </p>
-          <div>
-            <Button
-              variant="primary"
-              disabled={pending}
-              onClick={() => void createNamed("general")}
+        The new-channel form and the channel list were two full-width blocks
+        above the log, and with the page header they left the conversation
+        239px tall on a 900px screen — measured, which is how "the chat window
+        is so small" turned out to be mostly chrome. A rail costs horizontal
+        space, which this page has, instead of vertical space, which it does
+        not.
+      */}
+      <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1 lg:flex-row">
+        <aside className="flex shrink-0 flex-col gap-2 lg:min-h-0 lg:w-52">
+          {channels.length > 0 && (
+            <nav
+              aria-label="Channels"
+              className="flex flex-wrap gap-1 lg:min-h-0 lg:flex-col lg:overflow-y-auto"
             >
-              Start with a #general channel
-            </Button>
-          </div>
-        </Card>
-      )}
+              {channels.map((channel) => (
+                <Button
+                  key={channel.id}
+                  variant={channel.id === selected ? "primary" : "ghost"}
+                  className="border-border shrink-0 justify-start border text-left"
+                  onClick={() => setSelected(channel.id)}
+                >
+                  {channel.name}
+                </Button>
+              ))}
+            </nav>
+          )}
 
-      {channels.length > 0 && (
-        <nav aria-label="Channels" className="flex flex-wrap gap-2">
-          {channels.map((channel) => (
+          {/* Compact, and out of the way until it is wanted. */}
+          <form onSubmit={addChannel} className="flex items-end gap-1.5">
+            <Field label="New channel" id="channel-name">
+              <Input
+                id="channel-name"
+                compact
+                value={newChannel}
+                onChange={(e) => setNewChannel(e.target.value)}
+                placeholder="screening"
+                className="w-full"
+              />
+            </Field>
             <Button
-              key={channel.id}
-              variant={channel.id === selected ? "primary" : "ghost"}
-              className="border-border border"
-              onClick={() => setSelected(channel.id)}
+              type="submit"
+              variant="ghost"
+              className="border-border shrink-0 border"
+              disabled={pending || newChannel.trim() === ""}
             >
-              {channel.name}
+              Create
             </Button>
-          ))}
-        </nav>
-      )}
+          </form>
 
-      {selected && (
-        <div className="flex flex-col lg:min-h-0 lg:flex-1">
-          {/*
+          {channels.length === 0 && (
+            // The end of setup should be a place to type, not another empty
+            // form asking you to invent a name for something unused.
+            <Card className="flex flex-col gap-3">
+              <p className="text-ink text-fine">
+                Messages live in channels — one per topic, or just one for everything.
+              </p>
+              <div>
+                <Button
+                  variant="primary"
+                  disabled={pending}
+                  onClick={() => void createNamed("general")}
+                >
+                  Start with a #general channel
+                </Button>
+              </div>
+            </Card>
+          )}
+        </aside>
+
+        {selected && (
+          <section className="flex min-w-0 flex-col lg:min-h-0 lg:flex-1">
+            {/*
             Who cannot read this conversation, said where it is being written.
 
             A project can split silently into people holding the current key
@@ -702,27 +720,27 @@ export function MessagesClient({ projectId }: { projectId: string }) {
             messages". The sender is the one who can fix it, so the sender is
             told.
           */}
-          {keyless.length > 0 && (
-            <Banner tone="danger">
-              <strong>
-                {keyless.length === 1
-                  ? `${keyless[0]!.displayName} cannot read this conversation.`
-                  : `${keyless.length} members cannot read this conversation.`}
-              </strong>{" "}
-              They hold no key for the current epoch, so everything written here is
-              unreadable to them.{" "}
-              <Link
-                href={`/projects/${projectId}/keys`}
-                className="underline underline-offset-2"
-              >
-                Give them the key
-              </Link>
-              {keyless.some((k) => !k.enrolled) &&
-                " — anyone shown as still setting up has to finish that first."}
-            </Banner>
-          )}
+            {keyless.length > 0 && (
+              <Banner tone="danger">
+                <strong>
+                  {keyless.length === 1
+                    ? `${keyless[0]!.displayName} cannot read this conversation.`
+                    : `${keyless.length} members cannot read this conversation.`}
+                </strong>{" "}
+                They hold no key for the current epoch, so everything written here is
+                unreadable to them.{" "}
+                <Link
+                  href={`/projects/${projectId}/keys`}
+                  className="underline underline-offset-2"
+                >
+                  Give them the key
+                </Link>
+                {keyless.some((k) => !k.enrolled) &&
+                  " — anyone shown as still setting up has to finish that first."}
+              </Banner>
+            )}
 
-          {/*
+            {/*
             A header for the conversation, outside the scrolling log.
 
             The delete control used to be the first row INSIDE the message
@@ -731,56 +749,56 @@ export function MessagesClient({ projectId }: { projectId: string }) {
             optional — the container is not present in CI — so an explicit
             refetch has to stay reachable, not be assumed away.
           */}
-          <div className="border-border bg-raised flex flex-wrap items-center justify-between gap-2 rounded-t-xl border border-b-0 px-4 py-2.5">
-            <p className="text-ink text-ui font-medium">
-              {channels.find((c) => c.id === selected)?.name ?? "Conversation"}
-            </p>
+            <div className="border-border bg-raised flex flex-wrap items-center justify-between gap-2 rounded-t-xl border border-b-0 px-4 py-2.5">
+              <p className="text-ink text-ui font-medium">
+                {channels.find((c) => c.id === selected)?.name ?? "Conversation"}
+              </p>
 
-            <div className="flex items-center gap-1">
-              <Button
-                type="button"
-                variant="ghost"
-                className="text-fine"
-                onClick={() => void reload()}
-                disabled={pending}
-              >
-                Refresh
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="text-fine"
+                  onClick={() => void reload()}
+                  disabled={pending}
+                >
+                  Refresh
+                </Button>
 
-              {isAdmin &&
-                (confirmDelete ? (
-                  <span className="flex flex-wrap items-center gap-2">
-                    <span className="text-danger text-fine">
-                      Delete this channel and every message in it?
+                {isAdmin &&
+                  (confirmDelete ? (
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="text-danger text-fine">
+                        Delete this channel and every message in it?
+                      </span>
+                      <Button variant="danger" disabled={pending} onClick={removeChannel}>
+                        Yes, delete
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        disabled={pending}
+                        onClick={() => setConfirmDelete(false)}
+                      >
+                        Cancel
+                      </Button>
                     </span>
-                    <Button variant="danger" disabled={pending} onClick={removeChannel}>
-                      Yes, delete
-                    </Button>
+                  ) : (
                     <Button
                       variant="ghost"
                       disabled={pending}
-                      onClick={() => setConfirmDelete(false)}
+                      onClick={() => setConfirmDelete(true)}
+                      className="text-danger text-fine"
                     >
-                      Cancel
+                      Delete channel
                     </Button>
-                  </span>
-                ) : (
-                  <Button
-                    variant="ghost"
-                    disabled={pending}
-                    onClick={() => setConfirmDelete(true)}
-                    className="text-danger text-fine"
-                  >
-                    Delete channel
-                  </Button>
-                ))}
+                  ))}
+              </div>
             </div>
-          </div>
 
-          <ul
-            ref={logRef}
-            data-testid="message-log"
-            /*
+            <ul
+              ref={logRef}
+              data-testid="message-log"
+              /*
               Grows with the conversation up to a cap, rather than always
               standing at 62vh.
               A fixed height left a short channel as a tall empty box, and on a
@@ -788,7 +806,7 @@ export function MessagesClient({ projectId }: { projectId: string }) {
               scrolled AND the log scrolled, which is two scrollbars for one
               list and the reason this felt wrong to use.
             */
-            /*
+              /*
               The only thing on this page that scrolls.
 
               It takes whatever height is left after the header, the banner and
@@ -801,186 +819,186 @@ export function MessagesClient({ projectId }: { projectId: string }) {
               The `max-h` is the small-screen fallback, where the shell has no
               fixed height to fill.
             */
-            className="bg-surface/40 border-border flex max-h-[62vh] min-h-40 flex-col overflow-y-auto overscroll-contain border-x px-1 py-2 shadow-inner lg:max-h-none lg:min-h-0 lg:flex-1"
-          >
-            {messages.length === 0 && (
-              <li className="text-muted text-ui p-6 text-center">
-                Nothing said here yet.
-              </li>
-            )}
+              className="bg-surface/40 border-border flex max-h-[62vh] min-h-40 flex-col overflow-y-auto overscroll-contain border-x px-1 py-2 shadow-inner lg:max-h-none lg:min-h-0 lg:flex-1"
+            >
+              {messages.length === 0 && (
+                <li className="text-muted text-ui p-6 text-center">
+                  Nothing said here yet.
+                </li>
+              )}
 
-            {messages.map((message, index) => {
-              /*
-               * Grouped by author.
-               *
-               * Repeating "Alice · 14:32" above every line is most of why this
-               * read as a log rather than a conversation. Consecutive messages
-               * from one person within a few minutes share one header — and a
-               * reply always starts a group, because its quote needs the
-               * context a header gives.
-               */
-              const previous = messages[index - 1];
-              const sameAuthor = previous?.authorId === message.authorId;
-              const soonAfter =
-                previous !== undefined &&
-                new Date(message.createdAt).getTime() -
-                  new Date(previous.createdAt).getTime() <
-                  GROUP_WINDOW_MS;
-              const grouped = sameAuthor && soonAfter && !message.replyTo;
+              {messages.map((message, index) => {
+                /*
+                 * Grouped by author.
+                 *
+                 * Repeating "Alice · 14:32" above every line is most of why this
+                 * read as a log rather than a conversation. Consecutive messages
+                 * from one person within a few minutes share one header — and a
+                 * reply always starts a group, because its quote needs the
+                 * context a header gives.
+                 */
+                const previous = messages[index - 1];
+                const sameAuthor = previous?.authorId === message.authorId;
+                const soonAfter =
+                  previous !== undefined &&
+                  new Date(message.createdAt).getTime() -
+                    new Date(previous.createdAt).getTime() <
+                    GROUP_WINDOW_MS;
+                const grouped = sameAuthor && soonAfter && !message.replyTo;
 
-              const parent = message.replyTo
-                ? messages.find((m) => m.id === message.replyTo)
-                : undefined;
-              const colour = colourFor(message.authorId);
-              const mine = reactions.filter((r) => r.messageId === message.id);
+                const parent = message.replyTo
+                  ? messages.find((m) => m.id === message.replyTo)
+                  : undefined;
+                const colour = colourFor(message.authorId);
+                const mine = reactions.filter((r) => r.messageId === message.id);
 
-              // Grouped by emoji, so "👍 3" rather than three separate chips.
-              const grouping = new Map<string, OpenedReaction[]>();
-              for (const reaction of mine) {
-                if (!reaction.emoji) continue;
-                grouping.set(reaction.emoji, [
-                  ...(grouping.get(reaction.emoji) ?? []),
-                  reaction,
-                ]);
-              }
+                // Grouped by emoji, so "👍 3" rather than three separate chips.
+                const grouping = new Map<string, OpenedReaction[]>();
+                for (const reaction of mine) {
+                  if (!reaction.emoji) continue;
+                  grouping.set(reaction.emoji, [
+                    ...(grouping.get(reaction.emoji) ?? []),
+                    reaction,
+                  ]);
+                }
 
-              return (
-                <li
-                  key={message.id}
-                  className={`group hover:bg-surface/70 relative rounded-lg px-3 transition-colors ${
-                    grouped ? "py-0.5" : "mt-1 pt-2 pb-1.5"
-                  }`}
-                >
-                  {!grouped && (
-                    <p className="mb-0.5 flex items-baseline gap-2">
-                      <span
-                        aria-hidden="true"
-                        className="inline-block size-2.5 shrink-0 rounded-full"
-                        style={{ background: colour.solid }}
-                      />
-                      <span className="text-ink text-ui font-medium">
-                        {message.authorName}
-                        {message.authorId === me && (
-                          <span className="text-muted font-normal"> (you)</span>
-                        )}
-                      </span>
-                      <time
-                        dateTime={message.createdAt}
-                        className="text-muted text-fine tabular-nums"
-                      >
-                        {new Date(message.createdAt).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </time>
-                    </p>
-                  )}
+                return (
+                  <li
+                    key={message.id}
+                    className={`group hover:bg-surface/70 relative rounded-lg px-3 transition-colors ${
+                      grouped ? "py-0.5" : "mt-1 pt-2 pb-1.5"
+                    }`}
+                  >
+                    {!grouped && (
+                      <p className="mb-0.5 flex items-baseline gap-2">
+                        <span
+                          aria-hidden="true"
+                          className="inline-block size-2.5 shrink-0 rounded-full"
+                          style={{ background: colour.solid }}
+                        />
+                        <span className="text-ink text-ui font-medium">
+                          {message.authorName}
+                          {message.authorId === me && (
+                            <span className="text-muted font-normal"> (you)</span>
+                          )}
+                        </span>
+                        <time
+                          dateTime={message.createdAt}
+                          className="text-muted text-fine tabular-nums"
+                        >
+                          {new Date(message.createdAt).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </time>
+                      </p>
+                    )}
 
-                  {/*
+                    {/*
                     The quote, when this answers something.
                     A parent that cannot be read is SAID so rather than left
                     dangling: it may be sealed under an epoch key this reader
                     does not hold, and a reply to nothing is worse than a reply
                     to something unreadable.
                   */}
-                  {message.replyTo && (
-                    <p className="text-muted text-fine border-border mb-1 ml-[1.125rem] truncate border-l-2 pl-2 italic">
-                      {parent ? (
-                        <>
-                          <span className="font-medium">{parent.authorName}</span>{" "}
-                          {parent.text ?? "message you cannot read"}
-                        </>
-                      ) : (
-                        "replying to a message that is not in view"
-                      )}
-                    </p>
-                  )}
+                    {message.replyTo && (
+                      <p className="text-muted text-fine border-border mb-1 ml-[1.125rem] truncate border-l-2 pl-2 italic">
+                        {parent ? (
+                          <>
+                            <span className="font-medium">{parent.authorName}</span>{" "}
+                            {parent.text ?? "message you cannot read"}
+                          </>
+                        ) : (
+                          "replying to a message that is not in view"
+                        )}
+                      </p>
+                    )}
 
-                  <p className="text-ink text-ui ml-[1.125rem] text-pretty break-words">
-                    {message.text !== null ? (
-                      /*
+                    <p className="text-ink text-ui ml-[1.125rem] text-pretty break-words">
+                      {message.text !== null ? (
+                        /*
                         Rendered as PARTS, never as markup. The message is
                         written by a member and decrypted here, and the server
                         cannot sanitise what it cannot read — so everything
                         goes through React as text and only what `linkify`
                         recognised becomes an anchor.
                       */
-                      linkify(message.text).map((part, at) =>
-                        part.kind === "link" ? (
-                          <a
-                            key={at}
-                            href={part.href}
-                            target="_blank"
-                            rel="noopener noreferrer nofollow"
-                            className="text-accent underline underline-offset-2 hover:opacity-80"
-                          >
-                            {part.value}
-                          </a>
-                        ) : (
-                          <span key={at}>{part.value}</span>
-                        ),
-                      )
-                    ) : (
-                      // Never rendered as an empty line: a blank message and an
-                      // unreadable one look identical, and only one is a problem.
-                      <span className="text-muted italic">
-                        Encrypted under a key you do not hold.
-                      </span>
+                        linkify(message.text).map((part, at) =>
+                          part.kind === "link" ? (
+                            <a
+                              key={at}
+                              href={part.href}
+                              target="_blank"
+                              rel="noopener noreferrer nofollow"
+                              className="text-accent underline underline-offset-2 hover:opacity-80"
+                            >
+                              {part.value}
+                            </a>
+                          ) : (
+                            <span key={at}>{part.value}</span>
+                          ),
+                        )
+                      ) : (
+                        // Never rendered as an empty line: a blank message and an
+                        // unreadable one look identical, and only one is a problem.
+                        <span className="text-muted italic">
+                          Encrypted under a key you do not hold.
+                        </span>
+                      )}
+                    </p>
+
+                    {grouping.size > 0 && (
+                      <ul className="mt-1 ml-[1.125rem] flex flex-wrap gap-1">
+                        {[...grouping.entries()].map(([emoji, who]) => (
+                          <li key={emoji}>
+                            <button
+                              type="button"
+                              onClick={() => void react(message.id, emoji)}
+                              // Who reacted, on hover — the count alone tells you
+                              // how many agreed but not who, which in a review is
+                              // the part that matters.
+                              title={who.map((r) => r.authorName).join(", ")}
+                              className={`text-fine flex min-h-7 items-center gap-1 rounded-full border px-2 tabular-nums ${
+                                who.some((r) => r.authorId === me)
+                                  ? "border-accent bg-accent-soft text-ink"
+                                  : "border-border text-muted hover:bg-surface"
+                              }`}
+                            >
+                              <span aria-hidden="true">{emoji}</span>
+                              <span className="sr-only">
+                                {emoji} from {who.map((r) => r.authorName).join(", ")}
+                              </span>
+                              {who.length}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
                     )}
-                  </p>
 
-                  {grouping.size > 0 && (
-                    <ul className="mt-1 ml-[1.125rem] flex flex-wrap gap-1">
-                      {[...grouping.entries()].map(([emoji, who]) => (
-                        <li key={emoji}>
-                          <button
-                            type="button"
-                            onClick={() => void react(message.id, emoji)}
-                            // Who reacted, on hover — the count alone tells you
-                            // how many agreed but not who, which in a review is
-                            // the part that matters.
-                            title={who.map((r) => r.authorName).join(", ")}
-                            className={`text-fine flex min-h-7 items-center gap-1 rounded-full border px-2 tabular-nums ${
-                              who.some((r) => r.authorId === me)
-                                ? "border-accent bg-accent-soft text-ink"
-                                : "border-border text-muted hover:bg-surface"
-                            }`}
-                          >
-                            <span aria-hidden="true">{emoji}</span>
-                            <span className="sr-only">
-                              {emoji} from {who.map((r) => r.authorName).join(", ")}
-                            </span>
-                            {who.length}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-
-                  {/*
+                    {/*
                     Actions on hover, and on focus — a control that only appears
                     for a mouse is a control a keyboard cannot reach.
                   */}
-                  <div
-                    data-reaction-picker
-                    className={`bg-raised border-border absolute -top-2 right-3 flex items-center gap-0.5 rounded-lg border p-0.5 shadow-sm transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 ${
-                      picking === message.id ? "opacity-100" : "opacity-0"
-                    }`}
-                  >
-                    {picking === message.id ? (
-                      <>
-                        {QUICK_REACTIONS.map((emoji) => (
-                          <button
-                            key={emoji}
-                            type="button"
-                            onClick={() => void react(message.id, emoji)}
-                            aria-label={`React ${emoji}`}
-                            className="hover:bg-surface min-h-7 rounded px-1.5"
-                          >
-                            {emoji}
-                          </button>
-                        ))}
-                        {/*
+                    <div
+                      data-reaction-picker
+                      className={`bg-raised border-border absolute -top-2 right-3 flex items-center gap-0.5 rounded-lg border p-0.5 shadow-sm transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 ${
+                        picking === message.id ? "opacity-100" : "opacity-0"
+                      }`}
+                    >
+                      {picking === message.id ? (
+                        <>
+                          {QUICK_REACTIONS.map((emoji) => (
+                            <button
+                              key={emoji}
+                              type="button"
+                              onClick={() => void react(message.id, emoji)}
+                              aria-label={`React ${emoji}`}
+                              className="hover:bg-surface min-h-7 rounded px-1.5"
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                          {/*
                           A way out.
                           Opening the picker replaced the React and Reply
                           buttons with six emoji and nothing else, so the only
@@ -988,104 +1006,105 @@ export function MessagesClient({ projectId }: { projectId: string }) {
                           somebody who opened it by accident does not want.
                           Escape and a click elsewhere close it too.
                         */}
-                        <button
-                          type="button"
-                          onClick={() => setPicking(null)}
-                          aria-label="Close the reaction picker"
-                          className="text-muted hover:bg-surface hover:text-ink border-border ml-0.5 min-h-7 rounded border-l pr-1 pl-1.5"
-                        >
-                          ✕
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => setPicking(message.id)}
-                          aria-label="Add a reaction"
-                          className="text-muted hover:bg-surface hover:text-ink text-fine min-h-7 rounded px-2"
-                        >
-                          React
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setReplyTo(message.id)}
-                          aria-label="Reply to this message"
-                          className="text-muted hover:bg-surface hover:text-ink text-fine min-h-7 rounded px-2"
-                        >
-                          Reply
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                          <button
+                            type="button"
+                            onClick={() => setPicking(null)}
+                            aria-label="Close the reaction picker"
+                            className="text-muted hover:bg-surface hover:text-ink border-border ml-0.5 min-h-7 rounded border-l pr-1 pl-1.5"
+                          >
+                            ✕
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setPicking(message.id)}
+                            aria-label="Add a reaction"
+                            className="text-muted hover:bg-surface hover:text-ink text-fine min-h-7 rounded px-2"
+                          >
+                            React
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setReplyTo(message.id)}
+                            aria-label="Reply to this message"
+                            className="text-muted hover:bg-surface hover:text-ink text-fine min-h-7 rounded px-2"
+                          >
+                            Reply
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
 
-          <form
-            onSubmit={send}
-            className="border-border bg-raised flex flex-col gap-2 rounded-b-xl border border-t-0 p-3 shadow-sm"
-          >
-            {/*
+            <form
+              onSubmit={send}
+              className="border-border bg-raised flex flex-col gap-2 rounded-b-xl border border-t-0 p-3 shadow-sm"
+            >
+              {/*
               What you are answering, and a way out of it.
               Without this the reply is invisible until it is sent, and the
               only way to discover you were still in one is to send the wrong
               message into a thread.
             */}
-            {replyTo && (
-              <div className="border-accent/40 bg-surface text-fine flex items-start justify-between gap-3 rounded-lg border px-3 py-2">
-                <p className="text-muted min-w-0 truncate">
-                  Replying to{" "}
-                  <span className="text-ink font-medium">
-                    {messages.find((m) => m.id === replyTo)?.authorName ?? "a message"}
-                  </span>
-                  {": "}
-                  {messages.find((m) => m.id === replyTo)?.text ?? "…"}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setReplyTo(null)}
-                  className="text-muted hover:text-ink shrink-0 underline underline-offset-2"
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
+              {replyTo && (
+                <div className="border-accent/40 bg-surface text-fine flex items-start justify-between gap-3 rounded-lg border px-3 py-2">
+                  <p className="text-muted min-w-0 truncate">
+                    Replying to{" "}
+                    <span className="text-ink font-medium">
+                      {messages.find((m) => m.id === replyTo)?.authorName ?? "a message"}
+                    </span>
+                    {": "}
+                    {messages.find((m) => m.id === replyTo)?.text ?? "…"}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setReplyTo(null)}
+                    className="text-muted hover:text-ink shrink-0 underline underline-offset-2"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
 
-            <div className="flex items-end gap-2">
-              <label htmlFor="message-body" className="sr-only">
-                Message
-              </label>
-              <Textarea
-                id="message-body"
-                value={draft}
-                rows={1}
-                placeholder="Write a message…"
-                onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) =>
-                  setDraft(event.target.value)
-                }
-                /*
-                 * Enter sends, Shift+Enter breaks the line.
-                 *
-                 * The convention every chat client uses, and the reason this is
-                 * a textarea rather than an input: a message about a paper is
-                 * often two paragraphs, and an input cannot hold the second.
-                 */
-                onKeyDown={(event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-                  if (event.key !== "Enter" || event.shiftKey) return;
-                  event.preventDefault();
-                  if (draft.trim() !== "" && !pending) void send(event);
-                }}
-                className="max-h-40 min-h-11 flex-1 resize-y py-2.5"
-              />
-              <Button type="submit" disabled={pending || draft.trim() === ""}>
-                Send
-              </Button>
-            </div>
-          </form>
-        </div>
-      )}
+              <div className="flex items-end gap-2">
+                <label htmlFor="message-body" className="sr-only">
+                  Message
+                </label>
+                <Textarea
+                  id="message-body"
+                  value={draft}
+                  rows={1}
+                  placeholder="Write a message…"
+                  onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) =>
+                    setDraft(event.target.value)
+                  }
+                  /*
+                   * Enter sends, Shift+Enter breaks the line.
+                   *
+                   * The convention every chat client uses, and the reason this is
+                   * a textarea rather than an input: a message about a paper is
+                   * often two paragraphs, and an input cannot hold the second.
+                   */
+                  onKeyDown={(event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+                    if (event.key !== "Enter" || event.shiftKey) return;
+                    event.preventDefault();
+                    if (draft.trim() !== "" && !pending) void send(event);
+                  }}
+                  className="max-h-40 min-h-11 flex-1 resize-y py-2.5"
+                />
+                <Button type="submit" disabled={pending || draft.trim() === ""}>
+                  Send
+                </Button>
+              </div>
+            </form>
+          </section>
+        )}
+      </div>
     </div>
   );
 }

@@ -431,6 +431,27 @@ test.describe("two people, one encrypted conversation", () => {
       };
     });
 
+    /*
+     * The conversation must get most of the window.
+     *
+     * Reported as "the chat window is so small", and measuring said why: the
+     * page header, the new-channel form and the channel list were three
+     * full-width blocks stacked above the log, which left it 239px tall on a
+     * 900px screen. Chrome, not content.
+     *
+     * Asserted as a FRACTION rather than a pixel count, so it survives a
+     * different viewport, and generously — this is a guard against the log
+     * being crowded out again, not a pin on the current design.
+     */
+    const share = await alice.evaluate(() => {
+      const el = document.querySelector('[data-testid="message-log"]') as HTMLElement;
+      return el.getBoundingClientRect().height / window.innerHeight;
+    });
+    expect(
+      share,
+      "the message log should have most of the window, not a strip of it",
+    ).toBeGreaterThan(0.45);
+
     expect(geometry.foundColumn, "the shell's scrolling column").toBe(true);
     expect(geometry.logOverflows, "the conversation should scroll").toBe(true);
     expect(

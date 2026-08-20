@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
-import { PageHeader } from "@/components/ui";
+import Link from "next/link";
 import { getProject } from "@/lib/project";
 import { getCurrentUser } from "@/lib/supabase/server";
 
@@ -42,14 +42,33 @@ export default async function MessagesPage({
      */
     <main
       id="main"
-      className="mx-auto flex max-w-5xl flex-col gap-4 px-6 py-6 lg:h-full lg:min-h-0"
+      className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4 py-4 lg:h-full lg:min-h-0 lg:px-6"
     >
-      <PageHeader
-        backHref={`/projects/${id}`}
-        backLabel={project.title}
-        title="Messages"
-        description="Encrypted in this browser. The server stores who wrote what and when, and cannot read any of it — including the names of the channels."
-      />
+      {/*
+        A compact header, because every pixel here is taken from the
+        conversation.
+
+        Measured before changing it: the full PageHeader plus the stacked
+        channel controls left the message log 239px tall on a 900px screen —
+        the reason the chat "felt so small" was mostly chrome, not the log.
+        The encryption claim stays, because it is the thing this page is
+        promising, but it says it in one line rather than three.
+      */}
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <div className="flex items-baseline gap-3">
+          <Link
+            href={`/projects/${id}`}
+            className="text-muted hover:text-ink text-fine underline underline-offset-2"
+          >
+            {project.title}
+          </Link>
+          <h1 className="text-ink text-heading font-medium">Messages</h1>
+        </div>
+        <p className="text-muted text-fine">
+          Encrypted in this browser — the server cannot read any of it, including the
+          channel names.
+        </p>
+      </div>
       <MessagesClient projectId={id} />
     </main>
   );
