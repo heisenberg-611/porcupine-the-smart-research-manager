@@ -94,6 +94,18 @@ async function unlock(page: Page, passphrase: string, next: string) {
   });
 }
 
+/**
+ * Scoped to the conversation, never the whole page.
+ *
+ * `page.getByText(sent)` looks right and is not: the composer is a
+ * `<textarea>`, and its draft sits in the DOM as text content — so the
+ * assertion passes on the message you FAILED to send. That is precisely what
+ * happened when the composer changed from an input to a textarea: sending was
+ * silently doing nothing, the draft stayed in the box, and this test went on
+ * reporting success against it while the database held one row.
+ */
+const log = (page: Page) => page.getByTestId("message-log");
+
 test.describe("two people, one encrypted conversation", () => {
   /*
    * 120 s per test, not the 30 s default.
@@ -211,13 +223,102 @@ test.describe("two people, one encrypted conversation", () => {
     const reply = "Agreed — I will re-screen the twelve borderline ones";
     await bob.getByLabel(/^message$/i).fill(reply);
     await bob.getByRole("button", { name: /^send$/i }).click();
-    await expect(bob.getByText(reply)).toBeVisible({ timeout: 60_000 });
+    await expect(log(bob).getByText(reply)).toBeVisible({ timeout: 60_000 });
 
     // Alice is still unlocked in her tab. Nothing pushes — there is no
     // subscription, deliberately — so she refreshes, which is the control the
     // UI actually offers.
     await alice.getByRole("button", { name: /^refresh$/i }).click();
-    await expect(alice.getByText(reply)).toBeVisible({ timeout: 60_000 });
+    await expect(log(alice).getByText(reply)).toBeVisible({ timeout: 60_000 });
+  });
+
+  test("Alice answers a particular message, and the quote resolves", async () => {
+    /*
+     * docs/14 §1: the reply link travels INSIDE the ciphertext, so the server
+     * never learns the reply graph. That it works is proved by the quote
+     * rendering — the client must decrypt every message in the channel and
+     * resolve the parent in memory, because nothing on the server can.
+     */
+    const answer = "Only the twelve where the abstract disagreed with the table";
+
+    const target = log(alice)
+      .getByRole("listitem")
+      .filter({ hasText: /re-screen/i })
+      .first();
+    await target.hover();
+    await target.getByRole("button", { name: /reply to this message/i }).click();
+    await expect(alice.getByText(/replying to/i)).toBeVisible();
+
+    await alice.getByLabel(/^message$/i).fill(answer);
+    await alice.getByRole("button", { name: /^send$/i }).click();
+
+    const sent = log(alice).getByRole("listitem").filter({ hasText: answer });
+    await expect(sent).toBeVisible({ timeout: 60_000 });
+    await expect(sent, "the quote carries who was answered").toContainText(/re-screen/i);
+
+    await bob.getByRole("button", { name: /^refresh$/i }).click();
+    const seen = log(bob).getByRole("listitem").filter({ hasText: answer });
+    await expect(seen).toBeVisible({ timeout: 60_000 });
+    await expect(seen).toContainText(/re-screen/i);
+  });
+
+  test("both react, and each sees the other's", async () => {
+    const target = log(bob)
+      .getByRole("listitem")
+      .filter({ hasText: /re-screen/i })
+      .first();
+
+    await target.hover();
+    await target.getByRole("button", { name: /add a reaction/i }).click();
+    await target.getByRole("button", { name: "React 👍" }).click();
+    await expect(target.getByRole("button", { name: /👍 from/i })).toBeVisible({
+      timeout: 60_000,
+    });
+
+    await alice.getByRole("button", { name: /^refresh$/i }).click();
+    const onAlice = log(alice)
+      .getByRole("listitem")
+      .filter({ hasText: /re-screen/i })
+      .first();
+    await expect(onAlice.getByRole("button", { name: /👍 from/i })).toBeVisible({
+      timeout: 60_000,
+    });
+
+    // Alice agrees too: one chip counted 2, not two chips.
+    await onAlice.hover();
+    await onAlice.getByRole("button", { name: /add a reaction/i }).click();
+    await onAlice.getByRole("button", { name: "React 👍" }).click();
+    await expect(onAlice.getByRole("button", { name: /👍 from/i })).toContainText("2", {
+      timeout: 60_000,
+    });
+  });
+
+  test("a second choice replaces the first, and choosing it again withdraws it", async () => {
+    /*
+     * One reaction per person per message — forced by the encryption, not a
+     * preference: the only uniqueness the server can enforce is
+     * (message, author), because a constraint including the emoji would
+     * require the server to see the emoji.
+     */
+    const target = log(alice)
+      .getByRole("listitem")
+      .filter({ hasText: /re-screen/i })
+      .first();
+
+    await target.hover();
+    await target.getByRole("button", { name: /add a reaction/i }).click();
+    await target.getByRole("button", { name: "React 🎯" }).click();
+
+    // Alice's 👍 became a 🎯, so 👍 is back to one — Bob's.
+    await expect(target.getByRole("button", { name: /🎯 from/i })).toBeVisible({
+      timeout: 60_000,
+    });
+    await expect(target.getByRole("button", { name: /👍 from/i })).toContainText("1");
+
+    await target.getByRole("button", { name: /🎯 from/i }).click();
+    await expect(target.getByRole("button", { name: /🎯 from/i })).toHaveCount(0, {
+      timeout: 60_000,
+    });
   });
 
   test("what the database holds is not the text", async () => {
@@ -265,6 +366,42 @@ test.describe("two people, one encrypted conversation", () => {
       Number(rowCount),
       "the messages should be in the database at all",
     ).toBeGreaterThan(0);
+
+    /*
+     * The reactions too, the newer half of the same claim. The server is
+     * allowed to know somebody reacted — it stores the row — but not what they
+     * said with it.
+     */
+    const reactionDump = execFileSync(
+      "psql",
+      [
+        "--no-psqlrc",
+        "-At",
+        process.env.DIRECT_URL ??
+          "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
+        "-c",
+        "select coalesce(string_agg(encode(ciphertext, 'escape'), ' '), '') from message_reactions",
+      ],
+      { encoding: "utf8" },
+    );
+    const reactionCount = Number(
+      execFileSync(
+        "psql",
+        [
+          "--no-psqlrc",
+          "-At",
+          process.env.DIRECT_URL ??
+            "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
+          "-c",
+          "select count(*) from message_reactions",
+        ],
+        { encoding: "utf8" },
+      ).trim(),
+    );
+    // Otherwise "no emoji in the dump" is also true of an empty table.
+    expect(reactionCount, "a reaction should be stored at all").toBeGreaterThan(0);
+    expect(reactionDump).not.toContain("👍");
+    expect(reactionDump).not.toContain("🎯");
 
     expect(dump).not.toContain(SECRET);
     expect(dump).not.toContain("re-screen the twelve borderline");

@@ -1,15 +1,20 @@
 "use client";
 
 import { fromBase64, openMessage, sealMessage, toBase64 } from "@Porcupine/crypto";
+import { decodeMessage, encodeMessage } from "@Porcupine/shared";
+
+// The same rule the PDF annotations use, so a person is one colour everywhere
+// in the product rather than one colour per feature.
+import { colourFor } from "@/lib/annotation-colour";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useProjectActivity } from "@/lib/use-project-activity";
 
 import { InlineUnlock } from "@/components/inline-unlock";
 import { SetUpEncryption } from "@/components/set-up-encryption";
-import { Banner, Button, Card, Field, Input } from "@/components/ui";
+import { Banner, Button, Card, Field, Input, Textarea } from "@/components/ui";
 import { useCryptoSession } from "@/lib/crypto/session";
 import { useProjectKeys } from "@/lib/crypto/use-project-keys";
 
@@ -18,7 +23,10 @@ import {
   createChannel,
   deleteChannel,
   listChannels,
+  clearReaction,
   listMessages,
+  listReactions,
+  setReaction,
   sendMessage,
   type ChannelRow,
 } from "./actions";
@@ -31,11 +39,36 @@ interface OpenedChannel {
 
 interface OpenedMessage {
   id: string;
+  authorId: string;
   authorName: string;
   createdAt: string;
   /** Null when no key for its epoch is held — said, never rendered as blank. */
   text: string | null;
+  /**
+   * The message this answers, from INSIDE the ciphertext.
+   *
+   * Not a column: the server holding a reply graph would know which message
+   * drew six answers and where an argument happened — the shape of the work,
+   * legible without a plaintext word, which is the same half-claim the
+   * encrypted channel name exists to refuse. See docs/14 §1.
+   */
+  replyTo?: string | undefined;
 }
+
+/** One person's reaction, after decryption. */
+interface OpenedReaction {
+  messageId: string;
+  authorId: string;
+  authorName: string;
+  /** Null when sealed under an epoch key this reader does not hold. */
+  emoji: string | null;
+}
+
+/** What the picker offers. Anything can be sent; these are the quick ones. */
+const QUICK_REACTIONS = ["👍", "🎯", "❓", "⚠️", "🎉", "👀"] as const;
+
+/** Consecutive messages from one person inside this window share a header. */
+const GROUP_WINDOW_MS = 5 * 60 * 1000;
 
 /**
  * The first conversation in the product, and the first thing to prove the
@@ -54,11 +87,32 @@ export function MessagesClient({ projectId }: { projectId: string }) {
   const [channels, setChannels] = useState<OpenedChannel[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [messages, setMessages] = useState<OpenedMessage[]>([]);
+  const [reactions, setReactions] = useState<OpenedReaction[]>([]);
+  const [replyTo, setReplyTo] = useState<string | null>(null);
+  const [picking, setPicking] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [newChannel, setNewChannel] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const logRef = useRef<HTMLUListElement>(null);
+  /*
+   * Tickets, so a slow fetch cannot overwrite a fast one that started later.
+   *
+   * Several things ask for a reload — sending, the realtime signal, focus,
+   * the Refresh button — and nothing serialised them. Two overlapping calls
+   * resolve in whatever order the network returns them, and the OLDER
+   * snapshot, taken before the message was inserted, would win. The message
+   * then stayed missing, because nothing triggers another load once the
+   * signal has already fired.
+   *
+   * It was rare until reactions doubled the number of requests in flight, at
+   * which point the full test suite reproduced it every run.
+   */
+  const messageLoad = useRef(0);
+  const reactionLoad = useRef(0);
+  /** Whose messages are "mine", and whose reaction the picker toggles. */
+  const [me, setMe] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const currentKey = keys.byEpoch.get(keys.currentEpoch);
@@ -67,8 +121,9 @@ export function MessagesClient({ projectId }: { projectId: string }) {
     void (async () => {
       const members = await getMemberKeys(projectId);
       if (members.ok) {
-        const me = members.data.find((m) => m.isMe);
-        setIsAdmin(me?.accessRole === "OWNER" || me?.accessRole === "ADMIN");
+        const mine = members.data.find((m) => m.isMe);
+        setMe(mine?.userId ?? null);
+        setIsAdmin(mine?.accessRole === "OWNER" || mine?.accessRole === "ADMIN");
       }
     })();
   }, [projectId]);
@@ -108,7 +163,9 @@ export function MessagesClient({ projectId }: { projectId: string }) {
   const loadMessages = useCallback(async () => {
     if (!selected || keys.byEpoch.size === 0) return;
 
+    const ticket = ++messageLoad.current;
     const result = await listMessages(projectId, selected);
+    if (ticket !== messageLoad.current) return;
     if (!result.ok) {
       setError(result.error);
       return;
@@ -129,15 +186,76 @@ export function MessagesClient({ projectId }: { projectId: string }) {
           text = null;
         }
       }
+      // The payload carries the reply link; a message from before the format
+      // existed decodes as its own text. Neither needs a migration.
+      const payload = text === null ? null : decodeMessage(text);
+
+      // Checked again after the awaits above: decrypting a long channel takes
+      // long enough for a newer load to have finished while this one worked.
+      if (ticket !== messageLoad.current) return;
+
       opened.push({
         id: row.id,
+        authorId: row.authorId,
         authorName: row.authorName,
         createdAt: row.createdAt,
-        text,
+        text: payload?.text ?? null,
+        ...(payload?.replyTo ? { replyTo: payload.replyTo } : {}),
       });
     }
     setMessages(opened);
   }, [projectId, selected, keys.byEpoch]);
+
+  const loadReactions = useCallback(async () => {
+    if (!selected || keys.byEpoch.size === 0) return;
+
+    const ticket = ++reactionLoad.current;
+    const result = await listReactions(projectId, selected);
+    if (ticket !== reactionLoad.current) return;
+    if (!result.ok) return;
+
+    const opened: OpenedReaction[] = [];
+    for (const row of result.data) {
+      const key = keys.byEpoch.get(row.epoch);
+      let emoji: string | null = null;
+      if (key) {
+        try {
+          emoji = await openMessage(await fromBase64(row.ciphertext), key, {
+            channelId: selected,
+            messageId: row.messageId,
+            epoch: row.epoch,
+          });
+        } catch {
+          emoji = null;
+        }
+      }
+      if (ticket !== reactionLoad.current) return;
+
+      opened.push({
+        messageId: row.messageId,
+        authorId: row.authorId,
+        authorName: row.authorName,
+        emoji,
+      });
+    }
+    setReactions(opened);
+  }, [projectId, selected, keys.byEpoch]);
+
+  /*
+   * Messages then reactions, in that order, never at the same time.
+   *
+   * Firing both server actions concurrently from one page is what broke the
+   * refresh: several things ask for a reload — sending, the realtime signal,
+   * focus, the button — and doubling the requests in flight made the full test
+   * suite fail every run, with a refresh simply never landing.
+   *
+   * Sequential is also the honest order: reactions are drawn against messages,
+   * so arriving first buys nothing.
+   */
+  const reload = useCallback(async () => {
+    await loadMessages();
+    await loadReactions();
+  }, [loadMessages, loadReactions]);
 
   useEffect(() => {
     void loadChannels();
@@ -145,8 +263,23 @@ export function MessagesClient({ projectId }: { projectId: string }) {
 
   useEffect(() => {
     setConfirmDelete(false);
-    void loadMessages();
-  }, [loadMessages, selected]);
+    setReplyTo(null);
+    void reload();
+  }, [reload, selected]);
+
+  /*
+   * Stay at the newest message, unless the reader has gone looking.
+   *
+   * Jumping to the bottom while somebody is reading back through a
+   * conversation is worse than not scrolling at all, so this only follows when
+   * they were already near the end.
+   */
+  useEffect(() => {
+    const log = logRef.current;
+    if (!log) return;
+    const distance = log.scrollHeight - log.scrollTop - log.clientHeight;
+    if (distance < 120) log.scrollTop = log.scrollHeight;
+  }, [messages]);
 
   /*
    * Refetch when the tab comes back to the front.
@@ -156,10 +289,10 @@ export function MessagesClient({ projectId }: { projectId: string }) {
    * a tab is the case that has to work everywhere.
    */
   useEffect(() => {
-    const onFocus = () => void loadMessages();
+    const onFocus = () => void reload();
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [loadMessages]);
+  }, [reload]);
 
   /*
    * And live, now, at a cost that was worth paying.
@@ -178,7 +311,9 @@ export function MessagesClient({ projectId }: { projectId: string }) {
    * this refetches through `loadMessages`, which decrypts in the browser as
    * it always has.
    */
-  useProjectActivity(projectId, "messages", () => void loadMessages());
+  // A reaction bumps the same signal a message does — one row per project per
+  // kind, so this costs no extra deliveries.
+  useProjectActivity(projectId, "messages", () => void reload());
 
   async function addChannel(event: React.FormEvent) {
     event.preventDefault();
@@ -254,13 +389,36 @@ export function MessagesClient({ projectId }: { projectId: string }) {
 
   async function send(event: React.FormEvent) {
     event.preventDefault();
-    if (!currentKey || !selected || draft.trim() === "") return;
+
+    /*
+     * Say why, rather than doing nothing.
+     *
+     * This used to `return` silently on all three conditions, and a Send
+     * button that quietly discards a message is the worst possible failure for
+     * a chat client — the text stays in the box, so it looks like the click
+     * missed. It also hid a real bug for a whole afternoon.
+     */
+    if (draft.trim() === "") return;
+    if (!selected) {
+      setError("Choose a channel first.");
+      return;
+    }
+    if (!currentKey) {
+      setError(
+        `No key for the current epoch (${keys.currentEpoch}) — unlock, or ask an admin to re-share the project key.`,
+      );
+      return;
+    }
     setPending(true);
     setError(null);
 
     try {
       const messageId = crypto.randomUUID();
-      const ciphertext = await sealMessage(draft.trim(), currentKey, {
+      const plaintext = encodeMessage({
+        text: draft.trim(),
+        ...(replyTo ? { replyTo } : {}),
+      });
+      const ciphertext = await sealMessage(plaintext, currentKey, {
         channelId: selected,
         messageId,
         epoch: keys.currentEpoch,
@@ -279,11 +437,50 @@ export function MessagesClient({ projectId }: { projectId: string }) {
       }
 
       setDraft("");
-      await loadMessages();
+      setReplyTo(null);
+      await reload();
     } catch {
       setError("Could not send the message.");
     } finally {
       setPending(false);
+    }
+  }
+
+  /**
+   * Set, replace, or withdraw this person's reaction.
+   *
+   * One per person per message, which is not a preference: the uniqueness the
+   * server can enforce is `(message, author)`, because a constraint including
+   * the emoji would require the server to see the emoji. So choosing the same
+   * one again withdraws it, and choosing another replaces it.
+   */
+  async function react(messageId: string, emoji: string) {
+    if (!currentKey) return;
+    setPicking(null);
+
+    const mine = reactions.find((r) => r.messageId === messageId && r.authorId === me);
+
+    try {
+      if (mine?.emoji === emoji) {
+        const result = await clearReaction(projectId, messageId);
+        if (!result.ok) setError(result.error);
+      } else {
+        const sealed = await sealMessage(emoji, currentKey, {
+          channelId: selected!,
+          messageId,
+          epoch: keys.currentEpoch,
+        });
+        const result = await setReaction({
+          projectId,
+          messageId,
+          epoch: keys.currentEpoch,
+          ciphertext: await toBase64(sealed),
+        });
+        if (!result.ok) setError(result.error);
+      }
+      await reload();
+    } catch {
+      setError("Could not save that reaction.");
     }
   }
 
@@ -403,16 +600,39 @@ export function MessagesClient({ projectId }: { projectId: string }) {
 
       {selected && (
         <>
-          <ul className="divide-border bg-surface/50 ring-border divide-y rounded-xl shadow-sm ring-1">
-            {isAdmin && (
-              <li className="bg-ui/5 flex justify-end rounded-t-xl p-2">
-                {confirmDelete ? (
-                  <span className="flex items-center gap-2">
-                    <span className="text-danger-heavy text-sm">
-                      Are you sure? This will delete all messages permanently.
+          {/*
+            A header for the conversation, outside the scrolling log.
+
+            The delete control used to be the first row INSIDE the message
+            list, where it scrolled away with the messages and sat where a
+            message would be. Refresh belongs here too: the realtime signal is
+            optional — the container is not present in CI — so an explicit
+            refetch has to stay reachable, not be assumed away.
+          */}
+          <div className="border-border flex flex-wrap items-center justify-between gap-2 rounded-t-xl border border-b-0 px-4 py-2">
+            <p className="text-ink text-ui font-medium">
+              {channels.find((c) => c.id === selected)?.name ?? "Conversation"}
+            </p>
+
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                className="text-fine"
+                onClick={() => void reload()}
+                disabled={pending}
+              >
+                Refresh
+              </Button>
+
+              {isAdmin &&
+                (confirmDelete ? (
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="text-danger text-fine">
+                      Delete this channel and every message in it?
                     </span>
                     <Button variant="danger" disabled={pending} onClick={removeChannel}>
-                      Yes, delete channel
+                      Yes, delete
                     </Button>
                     <Button
                       variant="ghost"
@@ -427,60 +647,250 @@ export function MessagesClient({ projectId }: { projectId: string }) {
                     variant="ghost"
                     disabled={pending}
                     onClick={() => setConfirmDelete(true)}
-                    className="text-danger"
+                    className="text-danger text-fine"
                   >
                     Delete channel
                   </Button>
-                )}
-              </li>
-            )}
+                ))}
+            </div>
+          </div>
+
+          <ul
+            ref={logRef}
+            data-testid="message-log"
+            className="bg-surface/50 border-border flex max-h-[min(60vh,640px)] flex-col overflow-y-auto rounded-b-xl border pb-2 shadow-sm"
+          >
             {messages.length === 0 && (
-              <li className="text-muted text-ui p-4">Nothing said here yet.</li>
-            )}
-            {messages.map((message) => (
-              <li key={message.id} className="p-4">
-                <p className="text-muted text-fine">
-                  {message.authorName} ·{" "}
-                  <time dateTime={message.createdAt}>
-                    {new Date(message.createdAt).toLocaleTimeString()}
-                  </time>
-                </p>
-                <p className="text-ink text-ui mt-1 text-pretty">
-                  {message.text ?? (
-                    // Never rendered as an empty line: a blank message and an
-                    // unreadable one look identical, and only one is a problem.
-                    <span className="text-muted italic">
-                      Encrypted under a key you do not hold.
-                    </span>
-                  )}
-                </p>
+              <li className="text-muted text-ui p-6 text-center">
+                Nothing said here yet.
               </li>
-            ))}
+            )}
+
+            {messages.map((message, index) => {
+              /*
+               * Grouped by author.
+               *
+               * Repeating "Alice · 14:32" above every line is most of why this
+               * read as a log rather than a conversation. Consecutive messages
+               * from one person within a few minutes share one header — and a
+               * reply always starts a group, because its quote needs the
+               * context a header gives.
+               */
+              const previous = messages[index - 1];
+              const sameAuthor = previous?.authorId === message.authorId;
+              const soonAfter =
+                previous !== undefined &&
+                new Date(message.createdAt).getTime() -
+                  new Date(previous.createdAt).getTime() <
+                  GROUP_WINDOW_MS;
+              const grouped = sameAuthor && soonAfter && !message.replyTo;
+
+              const parent = message.replyTo
+                ? messages.find((m) => m.id === message.replyTo)
+                : undefined;
+              const colour = colourFor(message.authorId);
+              const mine = reactions.filter((r) => r.messageId === message.id);
+
+              // Grouped by emoji, so "👍 3" rather than three separate chips.
+              const grouping = new Map<string, OpenedReaction[]>();
+              for (const reaction of mine) {
+                if (!reaction.emoji) continue;
+                grouping.set(reaction.emoji, [
+                  ...(grouping.get(reaction.emoji) ?? []),
+                  reaction,
+                ]);
+              }
+
+              return (
+                <li
+                  key={message.id}
+                  className={`group hover:bg-surface/60 relative px-4 transition-colors ${
+                    grouped ? "py-0.5" : "pt-3 pb-1"
+                  }`}
+                >
+                  {!grouped && (
+                    <p className="mb-0.5 flex items-baseline gap-2">
+                      <span
+                        aria-hidden="true"
+                        className="inline-block size-2.5 shrink-0 rounded-full"
+                        style={{ background: colour.solid }}
+                      />
+                      <span className="text-ink text-ui font-medium">
+                        {message.authorName}
+                        {message.authorId === me && (
+                          <span className="text-muted font-normal"> (you)</span>
+                        )}
+                      </span>
+                      <time
+                        dateTime={message.createdAt}
+                        className="text-muted text-fine tabular-nums"
+                      >
+                        {new Date(message.createdAt).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </time>
+                    </p>
+                  )}
+
+                  {/*
+                    The quote, when this answers something.
+                    A parent that cannot be read is SAID so rather than left
+                    dangling: it may be sealed under an epoch key this reader
+                    does not hold, and a reply to nothing is worse than a reply
+                    to something unreadable.
+                  */}
+                  {message.replyTo && (
+                    <p className="text-muted text-fine border-border mb-1 ml-[1.125rem] truncate border-l-2 pl-2">
+                      {parent ? (
+                        <>
+                          <span className="font-medium">{parent.authorName}</span>{" "}
+                          {parent.text ?? "message you cannot read"}
+                        </>
+                      ) : (
+                        "replying to a message that is not in view"
+                      )}
+                    </p>
+                  )}
+
+                  <p className="text-ink text-ui ml-[1.125rem] text-pretty break-words">
+                    {message.text ?? (
+                      // Never rendered as an empty line: a blank message and an
+                      // unreadable one look identical, and only one is a problem.
+                      <span className="text-muted italic">
+                        Encrypted under a key you do not hold.
+                      </span>
+                    )}
+                  </p>
+
+                  {grouping.size > 0 && (
+                    <ul className="mt-1 ml-[1.125rem] flex flex-wrap gap-1">
+                      {[...grouping.entries()].map(([emoji, who]) => (
+                        <li key={emoji}>
+                          <button
+                            type="button"
+                            onClick={() => void react(message.id, emoji)}
+                            // Who reacted, on hover — the count alone tells you
+                            // how many agreed but not who, which in a review is
+                            // the part that matters.
+                            title={who.map((r) => r.authorName).join(", ")}
+                            className={`text-fine flex min-h-7 items-center gap-1 rounded-full border px-2 tabular-nums ${
+                              who.some((r) => r.authorId === me)
+                                ? "border-accent bg-accent-soft text-ink"
+                                : "border-border text-muted hover:bg-surface"
+                            }`}
+                          >
+                            <span aria-hidden="true">{emoji}</span>
+                            <span className="sr-only">
+                              {emoji} from {who.map((r) => r.authorName).join(", ")}
+                            </span>
+                            {who.length}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {/*
+                    Actions on hover, and on focus — a control that only appears
+                    for a mouse is a control a keyboard cannot reach.
+                  */}
+                  <div className="bg-raised border-border absolute -top-2 right-3 flex items-center gap-0.5 rounded-lg border p-0.5 opacity-0 shadow-sm transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+                    {picking === message.id ? (
+                      QUICK_REACTIONS.map((emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => void react(message.id, emoji)}
+                          aria-label={`React ${emoji}`}
+                          className="hover:bg-surface min-h-7 rounded px-1.5"
+                        >
+                          {emoji}
+                        </button>
+                      ))
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setPicking(message.id)}
+                          aria-label="Add a reaction"
+                          className="text-muted hover:bg-surface hover:text-ink text-fine min-h-7 rounded px-2"
+                        >
+                          React
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setReplyTo(message.id)}
+                          aria-label="Reply to this message"
+                          className="text-muted hover:bg-surface hover:text-ink text-fine min-h-7 rounded px-2"
+                        >
+                          Reply
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
 
-          <form onSubmit={send} className="flex flex-wrap items-end gap-2">
-            {/* Explicit, because nothing pushes. See the refocus effect above
-                for why there is no subscription. */}
-            <Field label="Message" id="message-body">
-              <Input
+          <form onSubmit={send} className="flex flex-col gap-2">
+            {/*
+              What you are answering, and a way out of it.
+              Without this the reply is invisible until it is sent, and the
+              only way to discover you were still in one is to send the wrong
+              message into a thread.
+            */}
+            {replyTo && (
+              <div className="border-accent/40 bg-surface text-fine flex items-start justify-between gap-3 rounded-lg border px-3 py-2">
+                <p className="text-muted min-w-0 truncate">
+                  Replying to{" "}
+                  <span className="text-ink font-medium">
+                    {messages.find((m) => m.id === replyTo)?.authorName ?? "a message"}
+                  </span>
+                  {": "}
+                  {messages.find((m) => m.id === replyTo)?.text ?? "…"}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setReplyTo(null)}
+                  className="text-muted hover:text-ink shrink-0 underline underline-offset-2"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+
+            <div className="flex items-end gap-2">
+              <label htmlFor="message-body" className="sr-only">
+                Message
+              </label>
+              <Textarea
                 id="message-body"
                 value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                className="min-w-[18rem]"
+                rows={1}
+                placeholder="Write a message…"
+                onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) =>
+                  setDraft(event.target.value)
+                }
+                /*
+                 * Enter sends, Shift+Enter breaks the line.
+                 *
+                 * The convention every chat client uses, and the reason this is
+                 * a textarea rather than an input: a message about a paper is
+                 * often two paragraphs, and an input cannot hold the second.
+                 */
+                onKeyDown={(event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+                  if (event.key !== "Enter" || event.shiftKey) return;
+                  event.preventDefault();
+                  if (draft.trim() !== "" && !pending) void send(event);
+                }}
+                className="max-h-40 min-h-11 flex-1 resize-y py-2.5"
               />
-            </Field>
-            <Button type="submit" disabled={pending || draft.trim() === ""}>
-              Send
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              className="border-border border"
-              onClick={() => void loadMessages()}
-              disabled={pending}
-            >
-              Refresh
-            </Button>
+              <Button type="submit" disabled={pending || draft.trim() === ""}>
+                Send
+              </Button>
+            </div>
           </form>
         </>
       )}

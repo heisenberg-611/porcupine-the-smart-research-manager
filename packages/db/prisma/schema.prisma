@@ -283,6 +283,7 @@ model User {
   prismaCountEdits PrismaManualCounts[] @relation("PrismaCountsEditor")
 
   @@map("users")
+  messageReactions MessageReaction[]
 }
 
 model Device {
@@ -399,6 +400,7 @@ model Project {
   projectWorks       ProjectWork[]
   files              FileObject[]
   filePages          FilePage[]
+  messageReactions   MessageReaction[]
   anchors            Anchor[]
   screeningDecisions ScreeningDecision[]
   importBatches      ImportBatch[]
@@ -586,8 +588,47 @@ model Message {
   channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
   author  User    @relation(fields: [authorId], references: [id])
 
+  reactions MessageReaction[]
+
   @@index([channelId, createdAt])
   @@map("messages")
+}
+
+/// One person's reaction to one message.
+///
+/// The emoji is CIPHERTEXT. "Alice 👍 the message about the null result" is
+/// sentiment and social graph, and storing it in the clear beside a table that
+/// encrypts even the channel's name would be the same half-claim the schema
+/// refuses elsewhere.
+///
+/// One per person per message, because the uniqueness constraint has to be
+/// (message, author): a constraint including the emoji would require the
+/// server to see it. Reacting again replaces; reacting with the same thing
+/// removes.
+///
+/// Unlike `Message`, this is mutable. A message is the transcript and an
+/// edited ciphertext is indistinguishable from a substituted one; a reaction
+/// is a current opinion about a line in it, and one that cannot be withdrawn
+/// is not worth recording.
+model MessageReaction {
+  id         String @id @default(uuid()) @db.Uuid
+  projectId  String @map("project_id") @db.Uuid
+  messageId  String @map("message_id") @db.Uuid
+  authorId   String @map("author_id") @db.Uuid
+  /// Which project key opens this, exactly as a message names its own.
+  epoch      Int
+  ciphertext Bytes
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  author  User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, authorId])
+  @@index([messageId])
+  @@map("message_reactions")
 }
 
 // ═══════════════════════ Infrastructure ═══════════════════════
