@@ -78,6 +78,19 @@ export function ReaderClient({
   const [status, setStatus] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const documentRef = useRef<HTMLDivElement>(null);
+  /*
+   * Where to put the compose panel: just under the selection, in the
+   * document's own coordinates.
+   *
+   * It used to sit after the document in normal flow, which on a one-page
+   * abstract was fine and on a 300-page PDF meant scrolling to the end of the
+   * paper to click Highlight, then scrolling back to carry on reading.
+   *
+   * Document coordinates rather than viewport ones so the panel scrolls WITH
+   * the passage it belongs to. Fixed positioning would leave it hanging in the
+   * middle of the screen pointing at nothing the moment the page moved.
+   */
+  const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
 
   /*
    * Derived once per annotation change, not once per render.
@@ -166,6 +179,25 @@ export function ReaderClient({
     }
 
     setSelection(createSelector(section.text, start, end, section.page ?? undefined));
+
+    /*
+     * Anchored to the END of the selection, which is where the pointer let go
+     * and so where attention already is.
+     *
+     * Clamped to the document's width so a passage ending at the right margin
+     * does not push the panel off the edge; `getBoundingClientRect` on the
+     * whole range covers the multi-line case, where the last rect alone can be
+     * a two-character stub.
+     */
+    const frame = documentRef.current.getBoundingClientRect();
+    const rects = Array.from(range.getClientRects());
+    const lastRect = rects.at(-1) ?? range.getBoundingClientRect();
+    const PANEL_WIDTH = 340;
+
+    setAnchor({
+      top: lastRect.bottom - frame.top + 8,
+      left: Math.max(0, Math.min(lastRect.left - frame.left, frame.width - PANEL_WIDTH)),
+    });
   }, [sections]);
 
   function save(kind: "HIGHLIGHT" | "NOTE") {
@@ -193,6 +225,7 @@ export function ReaderClient({
       if (response.ok) {
         setStatus(kind === "NOTE" ? "Note saved." : "Highlight saved.");
         setSelection(null);
+        setAnchor(null);
         setNote("");
         window.getSelection()?.removeAllRanges();
       } else setError(response.error);
@@ -210,88 +243,98 @@ export function ReaderClient({
 
   return (
     <div className="space-y-6">
-      <div ref={documentRef} onMouseUp={captureSelection} onKeyUp={captureSelection}>
-        {pdfPath ? (
-          <PdfDocument
-            storagePath={pdfPath}
-            pageTexts={sections.map((section) => section.text)}
-            highlights={pdfHighlights}
-            onSelection={captureSelection}
-            focusPage={focusPage}
-          />
-        ) : (
-          sections.map((section, index) => (
-            <div key={section.page ?? "abstract"}>
-              {/* Only when there is more than one. A lone "Page 1" above an
+      <div className="relative">
+        <div ref={documentRef} onMouseUp={captureSelection} onKeyUp={captureSelection}>
+          {pdfPath ? (
+            <PdfDocument
+              storagePath={pdfPath}
+              pageTexts={sections.map((section) => section.text)}
+              highlights={pdfHighlights}
+              onSelection={captureSelection}
+              focusPage={focusPage}
+            />
+          ) : (
+            sections.map((section, index) => (
+              <div key={section.page ?? "abstract"}>
+                {/* Only when there is more than one. A lone "Page 1" above an
                   abstract is a label for a distinction nobody is making. */}
-              {sections.length > 1 && section.page !== null && (
-                <p className="text-muted text-fine border-rule mt-6 border-t pt-4">
-                  Page {section.page}
-                </p>
-              )}
-              <div
-                data-testid="reader-text"
-                data-section-index={index}
-                className={
-                  sections.length > 1
-                    ? "prose-body py-2"
-                    : "prose-body border-rule border-t py-6"
-                }
-              >
-                {renderWithHighlights(
-                  section.text,
-                  annotations.filter((a) => a.sectionIndex === index),
+                {sections.length > 1 && section.page !== null && (
+                  <p className="text-muted text-fine border-rule mt-6 border-t pt-4">
+                    Page {section.page}
+                  </p>
                 )}
+                <div
+                  data-testid="reader-text"
+                  data-section-index={index}
+                  className={
+                    sections.length > 1
+                      ? "prose-body py-2"
+                      : "prose-body border-rule border-t py-6"
+                  }
+                >
+                  {renderWithHighlights(
+                    section.text,
+                    annotations.filter((a) => a.sectionIndex === index),
+                  )}
+                </div>
               </div>
+            ))
+          )}
+        </div>
+
+        {selection && (
+          <div
+            data-testid="annotate-panel"
+            className="border-accent/40 bg-raised absolute z-20 w-[340px] max-w-full space-y-3 rounded-lg border p-4 shadow-lg"
+            style={{ top: anchor?.top ?? 0, left: anchor?.left ?? 0 }}
+          >
+            <p className="text-muted text-fine">Selected</p>
+            <blockquote className="text-ink border-accent text-ui border-l-2 pl-3">
+              {selection.quote}
+            </blockquote>
+
+            <label className="text-muted text-fine flex flex-col gap-1">
+              Note (optional)
+              <Textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={3}
+                className="border-border bg-surface text-ink text-ui rounded-lg border p-2"
+              />
+            </label>
+
+            <label className="text-muted text-fine flex items-center gap-2">
+              <Checkbox
+                checked={isPrivate}
+                onChange={(e) => setIsPrivate(e.target.checked)}
+                className="size-4"
+              />
+              {/* PRIVATE excludes the project owner too — see the RLS policy. */}
+              Private to me — nobody else on the project can read this
+            </label>
+
+            <div className="flex gap-2">
+              <Button onClick={() => save("HIGHLIGHT")} disabled={pending}>
+                Highlight
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => save("NOTE")}
+                disabled={pending || !note.trim()}
+              >
+                Save note
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => setSelection(null)}
+                disabled={pending}
+              >
+                Cancel
+              </Button>
             </div>
-          ))
+          </div>
         )}
       </div>
-
-      {selection && (
-        <div className="border-accent/40 bg-surface space-y-3 rounded-lg border p-4">
-          <p className="text-muted text-fine">Selected</p>
-          <blockquote className="text-ink border-accent text-ui border-l-2 pl-3">
-            {selection.quote}
-          </blockquote>
-
-          <label className="text-muted text-fine flex flex-col gap-1">
-            Note (optional)
-            <Textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={3}
-              className="border-border bg-surface text-ink text-ui rounded-lg border p-2"
-            />
-          </label>
-
-          <label className="text-muted text-fine flex items-center gap-2">
-            <Checkbox
-              checked={isPrivate}
-              onChange={(e) => setIsPrivate(e.target.checked)}
-              className="size-4"
-            />
-            {/* PRIVATE excludes the project owner too — see the RLS policy. */}
-            Private to me — nobody else on the project can read this
-          </label>
-
-          <div className="flex gap-2">
-            <Button onClick={() => save("HIGHLIGHT")} disabled={pending}>
-              Highlight
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => save("NOTE")}
-              disabled={pending || !note.trim()}
-            >
-              Save note
-            </Button>
-            <Button variant="ghost" onClick={() => setSelection(null)} disabled={pending}>
-              Cancel
-            </Button>
-          </div>
-        </div>
-      )}
 
       <div aria-live="polite">
         {status && <p className="text-muted text-ui">{status}</p>}

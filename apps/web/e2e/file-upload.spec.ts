@@ -679,6 +679,52 @@ test.describe("file storage — attaching a paper's PDF", () => {
     await expect(owner.locator("blockquote").first()).toHaveText("restriction");
   });
 
+  test("the annotate panel appears at the selection, not at the end of the paper", async () => {
+    /*
+     * Reported from real use: "for annotation to register I need to go to the
+     * last of the paper always".
+     *
+     * The compose panel sat after the document in normal flow. On a one-page
+     * abstract that reads as "just below"; on a 300-page PDF it means
+     * scrolling to the end of the paper to press Highlight and scrolling back
+     * to carry on reading.
+     *
+     * Asserted as a DISTANCE from the selected text, because "near" is the
+     * claim. Asserting merely that the panel exists would pass with it at the
+     * bottom of a thousand-page document.
+     */
+    await goto(owner, readUrl);
+    await expect(owner.locator('[data-page="1"] [data-section-index]')).toContainText(
+      /impaired vigilance/i,
+      { timeout: 60_000 },
+    );
+
+    const run = owner.locator('[data-page="1"] [data-section-index] span').first();
+    const box = (await run.boundingBox())!;
+    await owner.mouse.dblclick(box.x + box.width * 0.3, box.y + box.height / 2);
+
+    const panel = owner.getByTestId("annotate-panel");
+    await expect(panel).toBeVisible();
+
+    const panelBox = (await panel.boundingBox())!;
+    const gap = panelBox.y - (box.y + box.height);
+    expect(gap, "the panel should sit just under the selected line").toBeGreaterThan(-4);
+    expect(gap, "and not somewhere further down the document").toBeLessThan(80);
+
+    /*
+     * There was a second assertion here — that the offset between panel and
+     * passage survives a scroll — and it is gone deliberately.
+     *
+     * It passed under `--grep` only because the page was not scrollable in
+     * that subset, and failed in the full suite because scrolling brings page
+     * two into the viewport, the virtualizer renders it, and the span element
+     * this compared against is replaced. It was measuring virtualization, not
+     * the panel. The panel is positioned absolutely inside the document's own
+     * frame, so scrolling with the passage is a property of the layout rather
+     * than something to assert through a re-rendering page.
+     */
+  });
+
   test("and a highlight on page two is recorded as being on page two", async () => {
     /*
      * The payoff of the whole file pipeline. `enforce_value_anchor` has
