@@ -456,7 +456,7 @@ export function ReaderClient({
                   <span
                     aria-hidden="true"
                     className="inline-block size-2.5 shrink-0 rounded-full"
-                    style={{ background: colourFor(annotation.authorId).ink }}
+                    style={{ background: colourFor(annotation.authorId).solid }}
                   />
                   <span>{annotation.authorName}</span>
                   <span>·</span>

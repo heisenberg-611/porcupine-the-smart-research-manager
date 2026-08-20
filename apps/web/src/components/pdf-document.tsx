@@ -39,7 +39,10 @@ import "@/styles/pdf-text-layer.css";
  * sentence whenever a passage ends mid-line, covering the words it is meant to
  * annotate. Margin notes go in the margin.
  */
-const GUTTER = 132;
+const GUTTER = 148;
+
+/** Enough for one line of the name chip, used to keep them from overlapping. */
+const LABEL_HEIGHT = 18;
 
 /** One page's live state. Kept out of React state deliberately — see below. */
 interface PageSlot {
@@ -55,6 +58,9 @@ interface PageSlot {
   container: HTMLDivElement;
   /** The white page itself: canvas and text layer, nothing else. */
   paper: HTMLDivElement;
+  /** Unscaled page size, so a zoom can resize the box without redrawing it. */
+  baseWidth: number;
+  baseHeight: number;
   canvas: HTMLCanvasElement;
   layer: HTMLDivElement;
   rendered: boolean;
@@ -141,6 +147,8 @@ export function PdfDocument({
     if (!slot.rendered) return;
 
     const box = slot.container.getBoundingClientRect();
+    /** Where each name wants to go, before they are made not to collide. */
+    const wanted: Array<{ highlight: PdfHighlight; top: number }> = [];
 
     for (const highlight of highlightsRef.current) {
       if (highlight.page !== number) continue;
@@ -162,7 +170,7 @@ export function PdfDocument({
         const mark = document.createElement("div");
         mark.dataset.highlight = highlight.id;
         mark.dataset.author = highlight.authorId;
-        mark.className = "pointer-events-none absolute";
+        mark.className = "pointer-events-none absolute rounded-[1px]";
         mark.style.left = `${rect.left - box.left}px`;
         mark.style.top = `${rect.top - box.top}px`;
         mark.style.width = `${rect.right - rect.left}px`;
@@ -175,7 +183,6 @@ export function PdfDocument({
          * beneath it, glyphs included, so marking a sentence made it harder to
          * read — the opposite of a highlighter. Multiply is what a real one
          * does: white paper × colour = colour, dark ink × colour ≈ dark ink.
-         * The mark stays a mark and the text stays legible.
          *
          * It also keeps the property this fill was chosen for: two people
          * marking the same sentence multiply into a third, darker colour, so
@@ -192,66 +199,99 @@ export function PdfDocument({
         // Your own private notes, marked as such for you alone. Nobody else
         // receives them, so this is a reminder rather than a control.
         if (highlight.isPrivate) {
-          mark.style.outline = `1px dashed ${colour.ink}`;
+          mark.style.outline = `1px dashed ${colour.solid}`;
           mark.style.outlineOffset = "1px";
         }
 
         slot.container.append(mark);
       }
 
-      /*
-       * The name, once per highlight, in the margin.
-       *
-       * Once rather than per rectangle: a passage wrapping three lines
-       * produces three rects and would otherwise carry three copies of the
-       * same name.
-       *
-       * In the gutter rather than at the end of the mark, because a passage
-       * ending mid-line put the label on top of the words it was annotating.
-       * Aligned with the FIRST rectangle: that is where the passage starts and
-       * where the eye goes; the end of a wrapped passage can be two characters
-       * on a line of its own.
-       */
       const first = rects[0];
-      if (!first) continue;
+      if (first) wanted.push({ highlight, top: first.top - box.top });
+    }
+
+    /*
+     * Names in the margin, stacked so they cannot cover each other.
+     *
+     * Two people marking the same sentence is the case the colours exist for,
+     * and it put their names at identical coordinates — one legible, one
+     * underneath it. Sorted by where their passage starts, then each pushed
+     * down to clear the one above.
+     *
+     * A label is never pulled UP to its ideal spot once pushed, because that
+     * would let a later, shorter passage jump above an earlier one and break
+     * the correspondence between vertical order on the page and vertical
+     * order in the margin.
+     */
+    wanted.sort((a, b) => a.top - b.top);
+    let floor = -Infinity;
+
+    for (const { highlight, top } of wanted) {
+      const colour = colourFor(highlight.authorId);
+      const at = Math.max(top, floor);
+      floor = at + LABEL_HEIGHT + 2;
 
       const tag = document.createElement("span");
       tag.dataset.highlightAuthor = highlight.id;
       tag.textContent = highlight.isPrivate
         ? `${highlight.authorName} · private`
         : highlight.authorName;
+
+      /*
+       * Theme colours, not the highlight's.
+       *
+       * The label sits in the margin, on the APPLICATION's background rather
+       * than on the page — so `ink` on a translucent `fill`, which is legible
+       * over white paper, resolved dark-on-dark in dark mode and vanished.
+       * The chip takes its surface from the theme and wears the author's hue
+       * as an edge, which reads either way.
+       */
       tag.className =
-        "pointer-events-none absolute overflow-hidden text-ellipsis whitespace-nowrap rounded px-1 py-px text-[10px] font-medium leading-tight";
-      tag.style.color = colour.ink;
-      tag.style.background = colour.fill;
-      tag.style.left = `${slot.paper.clientWidth + 8}px`;
-      tag.style.top = `${first.top - box.top}px`;
-      tag.style.maxWidth = `${GUTTER - 16}px`;
+        "text-fine text-ink bg-raised pointer-events-none absolute overflow-hidden " +
+        "text-ellipsis whitespace-nowrap rounded-r px-1.5 py-px leading-tight shadow-sm";
+      tag.style.borderLeft = `3px solid ${colour.solid}`;
+      tag.style.left = `${slot.paper.clientWidth + 10}px`;
+      tag.style.top = `${at}px`;
+      tag.style.maxWidth = `${GUTTER - 18}px`;
       slot.container.append(tag);
     }
   }, []);
 
   /*
-   * Zoom re-renders; it does not rebuild.
+   * Zoom resizes every page and redraws the ones on screen.
    *
    * `--total-scale-factor`, the canvas bitmap and every run's font size are
    * all expressed in the scale, so a page drawn at the old one is wrong in
-   * three ways at once — and the stored highlights' rectangles are in the old
-   * scale until the text layer is rebuilt. So each rendered page is marked
-   * un-rendered and drawn again; the pages nobody has reached are untouched
-   * and will pick up the new scale when they arrive.
+   * three ways at once — and its highlights' rectangles are in the old scale
+   * until the text layer is rebuilt.
+   *
+   * The two halves are split on cost. Resizing the boxes is arithmetic and
+   * happens for all of them, because leaving off-screen pages at their old
+   * width makes the scrollbar describe a document that no longer exists and a
+   * jump to page 200 land somewhere else. Redrawing bitmaps is the expensive
+   * half and stays lazy: the observer asks for each page as it is reached.
    */
   useEffect(() => {
     zoomRef.current = zoom;
     const slots = slotsRef.current;
     if (slots.size === 0) return;
 
+    const width = (rootRef.current?.clientWidth ?? 0) - GUTTER;
+
     for (const slot of slots.values()) {
       slot.rendered = false;
       slot.layer.replaceChildren();
+      for (const drawn of slot.container.querySelectorAll(
+        "[data-highlight], [data-highlight-author]",
+      )) {
+        drawn.remove();
+      }
+
+      const scale = (Math.max(width, 200) / slot.baseWidth) * zoom;
+      slot.paper.style.width = `${slot.baseWidth * scale}px`;
+      slot.container.style.width = `${slot.baseWidth * scale + GUTTER}px`;
     }
-    // The observer fires again for whatever is on screen; nudging it is not
-    // possible, so the visible pages are asked for directly.
+
     rerenderRef.current?.();
   }, [zoom]);
 
@@ -375,14 +415,17 @@ export function PdfDocument({
          */
         const label = document.createElement("p");
         label.textContent = `Page ${number}`;
-        label.className = "text-muted text-fine mb-1 text-center";
+        label.className = "text-muted text-fine mb-1.5 text-center tabular-nums";
 
         const container = document.createElement("div");
         container.dataset.page = String(number);
-        container.className = "relative mx-auto mb-6";
+        container.className = "relative mx-auto mb-8";
 
         const paper = document.createElement("div");
-        paper.className = "relative bg-white shadow-sm ring-1 ring-black/10";
+        // A page is paper: white in both themes, with a shadow that reads
+        // against a light mat and a dark one.
+        paper.className =
+          "relative bg-white shadow-[0_2px_12px_rgba(0,0,0,0.18)] ring-1 ring-black/10";
         paper.style.aspectRatio = `${viewport.width} / ${viewport.height}`;
 
         const canvas = document.createElement("canvas");
@@ -400,6 +443,8 @@ export function PdfDocument({
         slots.set(number, {
           container,
           paper,
+          baseWidth: viewport.width,
+          baseHeight: viewport.height,
           canvas,
           layer,
           rendered: false,
@@ -594,9 +639,9 @@ export function PdfDocument({
   const handleSelection = useCallback(() => onSelection(), [onSelection]);
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="border-border overflow-hidden rounded-xl border">
       {status === "ready" && (
-        <div className="border-border flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2">
+        <div className="border-border bg-raised flex flex-wrap items-center gap-3 border-b px-3 py-2">
           <label className="text-muted text-fine flex items-center gap-1.5">
             Page
             <Input
@@ -668,16 +713,20 @@ export function PdfDocument({
 
       {/*
         The document scrolls in its own window.
+
         Reading a 40-page paper used to scroll the whole application — header,
         project nav and all — and left the annotation list a full document
-        below the text it describes. The height is viewport-relative so the
-        window grows with the screen rather than being a fixed box on a large
-        one.
+        below the text it describes.
+
+        The ground behind the pages is deliberately the app's own surface
+        rather than a neutral grey: in dark mode a white page on a light grey
+        mat is a lamp pointed at the reader, and the page has to be white
+        because it is paper.
       */}
       <div
         ref={scrollRef}
         data-testid="pdf-scroll"
-        className="border-border bg-surface/40 h-[min(78vh,900px)] overflow-auto rounded-lg border p-4"
+        className="bg-surface h-[min(84vh,1100px)] overflow-auto px-4 py-6"
       >
         <div
           ref={rootRef}

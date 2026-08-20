@@ -961,6 +961,16 @@ test.describe("file storage — attaching a paper's PDF", () => {
       .poll(() => scroller.evaluate((el) => el.scrollTop), { timeout: 10_000 })
       .toBeGreaterThan(before);
 
+    /*
+     * Back to page one before measuring: pages out of view are redrawn lazily,
+     * and the earlier "go to page 2" left page one off screen. Measuring it
+     * there would be measuring the virtualizer.
+     */
+    await owner.getByLabel("Go to page").fill("1");
+    await expect
+      .poll(() => scroller.evaluate((el) => el.scrollTop), { timeout: 10_000 })
+      .toBeLessThan(80);
+
     // Zoom redraws the page at a larger scale, and the text layer with it.
     const widthAtFit = await owner
       .locator('[data-page="1"]')
@@ -1088,6 +1098,78 @@ test.describe("file storage — attaching a paper's PDF", () => {
 
     expect(clear.length).toBeGreaterThan(0);
     expect(clear.every(Boolean), "every name should be outside the page").toBe(true);
+  });
+
+  test("two names on one line stack instead of covering each other", async () => {
+    /*
+     * Reported: "if in one area text is annotated by two users, the member
+     * name overlaps on each other."
+     *
+     * Two marks starting on the same line want the same vertical position in
+     * the margin, so one name was drawn on top of the other and only the last
+     * painted was legible — in exactly the case the colours exist to
+     * disambiguate.
+     */
+    await goto(owner, readUrl);
+    await expect(
+      owner.locator('[data-page="1"] [data-highlight-author]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+
+    const boxes = await owner.evaluate(() =>
+      Array.from(
+        document.querySelectorAll('[data-page="1"] [data-highlight-author]'),
+      ).map((el) => {
+        const rect = el.getBoundingClientRect();
+        return { top: rect.top, bottom: rect.bottom, text: el.textContent };
+      }),
+    );
+
+    expect(boxes.length).toBeGreaterThanOrEqual(2);
+
+    for (const a of boxes) {
+      for (const b of boxes) {
+        if (a === b) continue;
+        const overlaps = a.top < b.bottom - 1 && b.top < a.bottom - 1;
+        expect(overlaps, `"${a.text}" and "${b.text}" overlap`).toBe(false);
+      }
+    }
+  });
+
+  test("the margin names are legible in dark mode", async () => {
+    /*
+     * Reported as "in dark mode there is a visibility issue".
+     *
+     * The labels used the highlight's own colours — dark ink on a translucent
+     * fill. Over the white page that is legible; in the margin the fill
+     * resolves against the application's background, so in dark mode it was
+     * dark text on a dark ground. They now take their surface from the theme
+     * and wear the author's hue only as an edge.
+     *
+     * Asserted as "the colour changed with the theme", which is the property;
+     * asserting a particular hex would pin the design rather than the rule.
+     */
+    const readLabel = () =>
+      owner.evaluate(() => {
+        const el = document.querySelector(
+          '[data-page="1"] [data-highlight-author]',
+        ) as HTMLElement | null;
+        if (!el) return null;
+        const style = getComputedStyle(el);
+        return { colour: style.color, background: style.backgroundColor };
+      });
+
+    const light = await readLabel();
+    expect(light).not.toBeNull();
+
+    await owner.getByRole("button", { name: /dark theme/i }).click();
+    await expect
+      .poll(async () => (await readLabel())?.colour, { timeout: 10_000 })
+      .not.toBe(light!.colour);
+
+    const dark = await readLabel();
+    expect(dark!.background, "the chip follows the theme").not.toBe(light!.background);
+
+    await owner.getByRole("button", { name: /light theme/i }).click();
   });
 
   test("an extraction quotes page two of the real paper", async () => {

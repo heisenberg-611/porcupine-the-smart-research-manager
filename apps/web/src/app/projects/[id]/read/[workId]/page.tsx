@@ -224,7 +224,21 @@ export default async function ReadPage({
     : null;
 
   return (
-    <main id="main" className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-12">
+    /*
+     * Wider when there is a page to render.
+     *
+     * `max-w-3xl` is right for prose — an abstract at 768px is a comfortable
+     * measure — and wrong for a paper: after the margin for annotation names
+     * it left the page about 600px across, which is a photograph of A4 shrunk
+     * to two-thirds and the main reason reading felt bad. A rendered page gets
+     * the room a page needs; an abstract keeps the measure prose wants.
+     */
+    <main
+      id="main"
+      className={`mx-auto flex flex-col gap-6 px-6 py-12 ${
+        readingFullText ? "max-w-6xl" : "max-w-3xl"
+      }`}
+    >
       <PageHeader
         backHref={`/projects/${id}/library`}
         backLabel={projectTitle}

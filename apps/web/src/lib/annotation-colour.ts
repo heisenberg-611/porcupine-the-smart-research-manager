@@ -31,20 +31,32 @@
  * Ordered so that neighbours are far apart in hue: an accidental adjacency in
  * the palette is what makes two members hard to tell apart.
  *
+ * Three values, because they sit on three different grounds:
+ *
+ *   `fill`  multiplied over the white page — a highlighter over paper;
+ *   `ink`   dark text, readable ON that fill, so only ever used over the page;
+ *   `solid` the mid-tone hue, for anything on the APPLICATION's background.
+ *
+ * The third exists because the margin labels are not on the page. `ink` on a
+ * translucent fill works over white and disappears in dark mode, where the
+ * fill resolves against a dark ground and dark-on-dark is what a reader gets.
+ * Labels therefore take their background from the theme and use `solid` only
+ * as an accent, which reads on both.
+ *
  * Written the way a browser serialises them — `0.3`, not `0.30` — because
  * these strings are compared against `element.style.background` in a test, and
  * a trailing zero is a mismatch that only appears when somebody happens to
  * hash to that hue.
  */
 export const ANNOTATION_COLOURS = [
-  { name: "amber", fill: "rgba(245, 158, 11, 0.3)", ink: "#92400e" },
-  { name: "sky", fill: "rgba(14, 165, 233, 0.28)", ink: "#075985" },
-  { name: "rose", fill: "rgba(244, 63, 94, 0.26)", ink: "#9f1239" },
-  { name: "emerald", fill: "rgba(16, 185, 129, 0.28)", ink: "#065f46" },
-  { name: "violet", fill: "rgba(139, 92, 246, 0.28)", ink: "#5b21b6" },
-  { name: "orange", fill: "rgba(249, 115, 22, 0.28)", ink: "#9a3412" },
-  { name: "teal", fill: "rgba(20, 184, 166, 0.28)", ink: "#115e59" },
-  { name: "fuchsia", fill: "rgba(217, 70, 239, 0.24)", ink: "#86198f" },
+  { name: "amber", fill: "rgba(245, 158, 11, 0.3)", ink: "#92400e", solid: "#f59e0b" },
+  { name: "sky", fill: "rgba(14, 165, 233, 0.28)", ink: "#075985", solid: "#0ea5e9" },
+  { name: "rose", fill: "rgba(244, 63, 94, 0.26)", ink: "#9f1239", solid: "#f43f5e" },
+  { name: "emerald", fill: "rgba(16, 185, 129, 0.28)", ink: "#065f46", solid: "#10b981" },
+  { name: "violet", fill: "rgba(139, 92, 246, 0.28)", ink: "#5b21b6", solid: "#8b5cf6" },
+  { name: "orange", fill: "rgba(249, 115, 22, 0.28)", ink: "#9a3412", solid: "#f97316" },
+  { name: "teal", fill: "rgba(20, 184, 166, 0.28)", ink: "#115e59", solid: "#14b8a6" },
+  { name: "fuchsia", fill: "rgba(217, 70, 239, 0.24)", ink: "#86198f", solid: "#d946ef" },
 ] as const;
 
 export type AnnotationColour = (typeof ANNOTATION_COLOURS)[number];
