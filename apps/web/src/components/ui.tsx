@@ -128,6 +128,38 @@ export function Input({
   );
 }
 
+/**
+ * A file picker that looks like it belongs to this design system.
+ *
+ * Its own primitive rather than `<Input type="file" />`, because a file input
+ * is two controls in one trench coat: the browser draws a button and a
+ * filename label inside it, and neither responds to the border, padding or
+ * background that make `Input` look like `Input`. Styling has to go through
+ * `file:` to reach the button, and the surrounding text is the page's, not the
+ * field's.
+ *
+ * The button mirrors `Button variant="ghost"` — same height, same radius, same
+ * hover ground — so the picker reads as a control rather than as the raw
+ * browser default sitting in the middle of a styled form.
+ */
+export function FileInput({ className, ...props }: ComponentProps<"input">) {
+  return (
+    <input
+      type="file"
+      className={cx(
+        "text-ui text-ink w-full",
+        "file:text-ui file:mr-3 file:min-h-11 file:cursor-pointer file:rounded-full",
+        "file:border-0 file:px-5 file:font-medium",
+        "file:bg-surface file:text-ink hover:file:bg-border file:transition-colors",
+        "focus-visible:ring-accent rounded-xl focus-visible:ring-2 focus-visible:outline-none",
+        "disabled:cursor-not-allowed disabled:opacity-40",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
 export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
   return (
     <textarea

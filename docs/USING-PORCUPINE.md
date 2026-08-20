@@ -332,4 +332,5 @@ up). `pnpm verify --e2e` adds a browser run.
 | `docs/08-phase-2-build-plan.md` | The extraction pipeline, week by week |
 | `docs/09-phase-2c-usability-build-plan.md` | What was wrong with the interface, and how it was fixed |
 | `docs/10-phase-3-build-plan.md` | Encryption and messaging — including why the key hierarchy had to be fixed first |
+| `docs/12-file-storage-build-plan.md` | PDF storage — the plan for the biggest remaining gap |
 | `docs/adr/` | Architecture Decision Records (ADRs) |

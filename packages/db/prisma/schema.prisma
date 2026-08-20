@@ -113,16 +113,19 @@ enum ReadStatus {
 }
 
 /// R-04: where a file's bytes are allowed to live.
-/// R2_SHARED is only ever reached by an Unpaywall-verified open-access file —
+/// SHARED is only ever reached by an Unpaywall-verified open-access file —
 /// publisher PDFs are never deduplicated between users (ADR-005, copyright).
+/// Renamed from R2_SHARED/R2_USER while the table still had zero rows: the
+/// backend is Supabase Storage, not R2 (docs/12-file-storage-build-plan.md §2),
+/// and an enum that names the wrong vendor only gets more expensive to fix.
 enum Residency {
-  R2_SHARED
-  R2_USER
+  SHARED
+  PRIVATE
   DEVICE_ONLY
 }
 
-/// A presigned PUT can succeed without the app hearing about it, so upload
-/// state is tracked explicitly and reconciled against R2 by a nightly job.
+/// An upload can succeed without the app hearing about it, so upload state is
+/// tracked explicitly and reconciled against the bucket by a nightly job.
 enum UploadState {
   PENDING
   COMPLETE
@@ -395,6 +398,7 @@ model Project {
   savedSearches      SavedSearch[]
   projectWorks       ProjectWork[]
   files              FileObject[]
+  filePages          FilePage[]
   anchors            Anchor[]
   screeningDecisions ScreeningDecision[]
   importBatches      ImportBatch[]
@@ -769,10 +773,15 @@ model SavedSearch {
 
 // ═══════════════════════ Files ═══════════════════════
 
-/// A pointer to bytes in R2, plus the authorization record for reaching them.
-/// R2 has no RLS, so every download goes: verify JWT → is_project_member() →
-/// presigned GET with a 5-minute TTL. Uploads are presigned PUT direct from
-/// the browser, so file bytes never pass through Vercel.
+/// A pointer to bytes in Supabase Storage, plus everything about the file the
+/// app needs without fetching it.
+///
+/// It is NOT the authorization record — that was the R2 design, where a Worker
+/// had to check membership because object storage had no RLS. `storage.objects`
+/// is a Postgres table, so the object's own policies decide who may read it,
+/// keyed on the project id in its path: {projectId}/{fileId}.pdf. File access
+/// is therefore the same kind of rule as every other rule here, and fails the
+/// same way when someone breaks it.
 model FileObject {
   id        String  @id @default(uuid()) @db.Uuid
   ownerId   String  @map("owner_id") @db.Uuid
@@ -780,14 +789,15 @@ model FileObject {
   workId    String? @map("work_id") @db.Uuid
 
   bucket      String
-  /// Key within the bucket: {ownerId}/{uuid}.pdf
+  /// Key within the bucket: {projectId}/{fileId}.pdf — the leading segment is
+  /// what the storage policy reads, so it is load-bearing rather than tidy.
   storagePath String  @map("storage_path")
   etag        String?
 
   /// R-04. Defaults to a private per-user copy; only an Unpaywall-verified
-  /// open-access file may be promoted to R2_SHARED.
-  residency   Residency @default(R2_USER)
-  /// SHA-256, and the dedupe key — but for R2_SHARED rows only.
+  /// open-access file may be promoted to SHARED.
+  residency   Residency @default(PRIVATE)
+  /// SHA-256, and the dedupe key — but for SHARED rows only.
   contentHash String?   @map("content_hash")
   oaVerified  Boolean   @default(false) @map("oa_verified")
 
@@ -806,11 +816,41 @@ model FileObject {
   project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
   owner   User     @relation("FileOwner", fields: [ownerId], references: [id])
   anchors Anchor[]
+  pages   FilePage[]
 
   @@index([ownerId])
   @@index([projectId])
   @@index([contentHash])
   @@map("file_objects")
+}
+
+/// The text layer of one page of an uploaded PDF.
+///
+/// One row per page rather than one blob per file, because `AnchorSelector`
+/// has always carried a page number and a quote resolved against a whole
+/// document could only ever report "page 1 of 1". A page is the unit a reader
+/// cites, so it is the unit the text is stored in.
+///
+/// Written once, at upload, and never edited — there is no update policy. A
+/// re-extraction that produced different text would be a different file, and
+/// every anchor into the old text would need to drift-check against the new,
+/// which is exactly what the anchoring engine reports rather than silently
+/// repointing.
+model FilePage {
+  id         String   @id @default(uuid()) @db.Uuid
+  projectId  String   @map("project_id") @db.Uuid
+  fileId     String   @map("file_id") @db.Uuid
+  /// 1-based, matching AnchorSelector.page.
+  pageNumber Int      @map("page_number")
+  text       String
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  file    FileObject @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  project Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([fileId, pageNumber])
+  @@index([projectId])
+  @@map("file_pages")
 }
 
 // ═══════════════════════ Corpus pipeline ═══════════════════════

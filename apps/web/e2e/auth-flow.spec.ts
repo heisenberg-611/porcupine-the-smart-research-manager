@@ -380,7 +380,11 @@ test.describe("Phase 0 exit criterion", () => {
     await expect(
       page.getByRole("heading", { name: /attention is all you need/i }),
     ).toBeVisible();
-    const reader = page.getByTestId("reader-text");
+    // `.first()`: the reader now renders one block per PAGE when a PDF's text
+    // has been extracted, so the testid is no longer unique on every document.
+    // This paper has only an abstract, so there is exactly one — but asserting
+    // through `.first()` keeps the test about what it is about.
+    const reader = page.getByTestId("reader-text").first();
     await expect(reader).toBeVisible();
 
     // Playwright cannot drag-select reliably across text nodes, so the

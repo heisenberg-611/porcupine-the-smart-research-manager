@@ -4,6 +4,10 @@
     {
       "path": "/tasks/purge-accounts",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/tasks/reconcile-uploads",
+      "schedule": "30 3 * * *"
     }
   ]
 }

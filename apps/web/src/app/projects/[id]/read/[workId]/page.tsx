@@ -1,15 +1,17 @@
-import { resolveAnchor } from "@Porcupine/anchoring";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
-import { Banner, PageHeader } from "@/components/ui";
+import { Banner, Card, PageHeader } from "@/components/ui";
 import { AccessHelp } from "@/components/access-route";
 import { getProject } from "@/lib/project";
 import { SourceLinks } from "@/components/source-links";
 import { must } from "@/lib/supabase/query";
+import { describeReading, resolveInSections } from "@/lib/reader-document";
+import { loadPaperDocument } from "@/server/paper-text";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 import { ReaderClient, type RenderedAnnotation } from "./reader-client";
+import { AttachedPaper, UploadPaperForm } from "./upload-paper-form";
 
 export const metadata: Metadata = { title: "Read" };
 
@@ -51,7 +53,7 @@ export default async function ReadPage({
     supabase
       .from("project_works")
       .select(
-        "id, project_id, screen_status, projects(title), works(title, abstract, doi, arxiv_id, pmid, oa_pdf_url, venue, published_year)",
+        "id, project_id, work_id, screen_status, projects(title), works(title, abstract, doi, arxiv_id, pmid, oa_pdf_url, venue, published_year)",
       )
       .eq("id", workId)
       .eq("project_id", id)
@@ -79,16 +81,30 @@ export default async function ReadPage({
     (projectWork as unknown as { projects: { title: string } | null }).projects?.title ??
     "Project";
 
-  /**
-   * The passage under annotation.
+  /*
+   * The document under annotation: the paper's own pages when the PDF's text
+   * has been extracted, and the abstract when it has not.
    *
-   * For now this is the abstract. Full PDF text needs the file pipeline —
-   * presigned upload to R2 and text extraction — which is not built yet, so
-   * rendering a PDF here would be a shell with nothing in it. The anchoring
-   * engine does not care which text it is given, so this path does not change
-   * when the PDF arrives; only the source of `text` does.
+   * Loaded through the shared helper because the extraction form loads the
+   * same thing — a quote captured there is resolved against this every time
+   * somebody follows an evidence cell back to its source, and two copies that
+   * could disagree would rot the provenance chain silently.
    */
-  const text = work?.abstract ?? "";
+  const paper = await loadPaperDocument(
+    supabase,
+    id,
+    (projectWork as unknown as { work_id: string }).work_id,
+    work?.abstract ?? null,
+  );
+
+  const { sections, fullText: readingFullText } = paper;
+
+  const notice = describeReading({
+    hasFile: paper.file !== null,
+    textStatus: paper.textStatus,
+    pageCount: readingFullText ? sections.length : 0,
+    hasAbstract: Boolean(work?.abstract),
+  });
 
   // No embed of the author here: `annotations.author_id` has no foreign key
   // to `users`, so PostgREST cannot join it — asking for one makes the WHOLE
@@ -135,7 +151,7 @@ export default async function ReadPage({
     .filter((row) => row.anchors)
     .map((row) => {
       const anchor = row.anchors!;
-      const resolution = resolveAnchor(
+      const { sectionIndex, resolution } = resolveInSections(
         {
           quote: anchor.quote,
           prefix: anchor.prefix ?? undefined,
@@ -144,14 +160,17 @@ export default async function ReadPage({
           endOff: anchor.end_off ?? undefined,
           page: anchor.page ?? undefined,
         },
-        text,
+        sections,
       );
 
       return {
+        sectionIndex,
+        page: anchor.page ?? null,
         id: row.id,
         kind: row.kind,
         body: row.body,
         visibility: row.visibility,
+        authorId: row.author_id,
         authorName: authorNames.get(row.author_id) ?? "Unknown",
         isMine: row.author_id === user.id,
         status: resolution.status,
@@ -187,8 +206,11 @@ export default async function ReadPage({
       )
     : null;
 
+  // Placed across the whole document, not against one string: an evidence
+  // cell quoting page 14 has to land on page 14, and before full text existed
+  // there was only ever one place it could land.
   const focus = focusAnchor
-    ? resolveAnchor(
+    ? resolveInSections(
         {
           quote: focusAnchor.quote,
           prefix: focusAnchor.prefix ?? undefined,
@@ -197,12 +219,26 @@ export default async function ReadPage({
           endOff: focusAnchor.end_off ?? undefined,
           page: focusAnchor.page ?? undefined,
         },
-        text,
-      )
+        sections,
+      ).resolution
     : null;
 
   return (
-    <main id="main" className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-12">
+    /*
+     * Wider when there is a page to render.
+     *
+     * `max-w-3xl` is right for prose — an abstract at 768px is a comfortable
+     * measure — and wrong for a paper: after the margin for annotation names
+     * it left the page about 600px across, which is a photograph of A4 shrunk
+     * to two-thirds and the main reason reading felt bad. A rendered page gets
+     * the room a page needs; an abstract keeps the measure prose wants.
+     */
+    <main
+      id="main"
+      className={`mx-auto flex flex-col gap-6 px-6 py-12 ${
+        readingFullText ? "max-w-6xl" : "max-w-3xl"
+      }`}
+    >
       <PageHeader
         backHref={`/projects/${id}/library`}
         backLabel={projectTitle}
@@ -267,11 +303,42 @@ export default async function ReadPage({
         </Banner>
       )}
 
-      {!text && (
+      {/* Stage 2 of the file pipeline: the paper's own bytes, held for the
+          project. Reading them in the app is stage 3. */}
+      {paper.file ? (
+        <AttachedPaper
+          projectId={id}
+          projectWorkId={workId}
+          fileId={paper.file.id}
+          sizeBytes={paper.file.sizeBytes}
+          uploadedAt={paper.file.createdAt}
+          hasText={readingFullText}
+        />
+      ) : (
+        <Card className="p-6">
+          <UploadPaperForm projectId={id} projectWorkId={workId} />
+        </Card>
+      )}
+
+      {/*
+        ONE notice, derived from the whole situation.
+        Three independent messages used to live here and they contradicted each
+        other: the "no text we could read" banner promised the abstract was
+        shown below, the empty state claimed no PDF was attached, and a scanned
+        PDF on a record with no abstract triggered both. `describeReading` makes
+        that combination unwriteable rather than merely fixed, and it is unit
+        tested on the cases that used to collide.
+      */}
+      {notice.tone === "danger" ? (
+        <Banner tone="danger">
+          {notice.headline && <strong>{notice.headline}</strong>} {notice.body}
+        </Banner>
+      ) : notice.headline ? (
         <p className="border-border text-muted text-ui rounded-lg border border-dashed p-6 text-center">
-          This record has no abstract, so there is no text to annotate yet. Full-text
-          reading arrives with the file pipeline.
+          <strong className="text-ink">{notice.headline}</strong> {notice.body}
         </p>
+      ) : (
+        <p className="text-muted text-fine">{notice.body}</p>
       )}
 
       {/* The reader renders whenever there is text OR existing annotations.
@@ -279,12 +346,17 @@ export default async function ReadPage({
           record vanish from the page — indistinguishable from having been
           deleted, when in fact the rows were there the whole time and every
           anchor had simply resolved to BROKEN against an empty document. */}
-      {(text || annotations.length > 0) && (
+      {(sections.length > 0 || annotations.length > 0) && (
         <ReaderClient
           projectId={id}
           projectWorkId={workId}
-          text={text}
+          sections={sections}
           annotations={annotations}
+          // Only with a text layer to select from. A scanned PDF has pages
+          // nobody can quote, and rendering it would offer a reading surface
+          // that silently cannot be annotated.
+          pdfPath={readingFullText ? (paper.file?.storagePath ?? null) : null}
+          focusPage={focusAnchor?.page ?? null}
         />
       )}
     </main>

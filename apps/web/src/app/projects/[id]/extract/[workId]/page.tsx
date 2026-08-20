@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { Banner, EmptyState, ButtonLink, PageHeader } from "@/components/ui";
 import { must } from "@/lib/supabase/query";
+import { loadPaperDocument } from "@/server/paper-text";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 import { StartExtraction } from "./start-extraction";
@@ -25,7 +26,7 @@ export default async function ExtractPage({
     supabase
       .from("project_works")
       .select(
-        "id, project_id, projects(title), works(title, abstract, venue, published_year)",
+        "id, project_id, work_id, projects(title), works(title, abstract, venue, published_year)",
       )
       .eq("id", workId)
       .eq("project_id", id)
@@ -211,6 +212,21 @@ export default async function ExtractPage({
     quote: v.anchors?.quote ?? null,
   }));
 
+  /*
+   * The paper, from the same loader the reader uses.
+   *
+   * This is the whole point of stage 4: the text somebody quotes here and the
+   * text somebody sees when they follow that quote back must be the same
+   * text, down to the ligatures. Two loaders that could drift would turn every
+   * evidence cell into a DRIFTED badge months later, with nothing to point at.
+   */
+  const paper = await loadPaperDocument(
+    supabase,
+    id,
+    (projectWork as unknown as { work_id: string }).work_id,
+    work?.abstract ?? null,
+  );
+
   return (
     <main
       id="main"
@@ -227,7 +243,7 @@ export default async function ExtractPage({
         projectWorkId={workId}
         extractionId={extraction.id}
         status={extraction.status}
-        text={work?.abstract ?? ""}
+        sections={paper.sections}
         fields={fields}
         existing={existing}
       />

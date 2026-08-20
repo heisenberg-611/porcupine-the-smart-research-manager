@@ -61,3 +61,5 @@ debug-scratch/
 apps/web/public/latex/
 .vercel
 .env*
+apps/web/public/pdfjs/
+apps/web/src/styles/pdf-text-layer.css

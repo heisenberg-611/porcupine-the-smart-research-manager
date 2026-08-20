@@ -275,17 +275,18 @@ what was built, what it cost, and where reality diverged from the plan —
 including the mistakes, which are the part worth reading. Where it contradicts a
 numbered plan document, the plan is stale.
 
-| Document                           | What                                                        |
-| ---------------------------------- | ----------------------------------------------------------- |
-| `docs/USING-PORCUPINE.md`          | How to use the app, and what is not built                   |
-| `docs/BUILD-LOG.md`                | What happened, honestly                                     |
-| `docs/00-product-plan.md`          | The roadmap                                                 |
-| `docs/01-data-model.md`            | Every table and why it is shaped that way                   |
-| `docs/02-security-and-e2ee.md`     | Threat model, encryption tiers, SSRF                        |
-| `docs/04-conflicts-and-hazards.md` | The hard problems                                           |
-| `docs/05-resolution-plan.md`       | The numbered risks (R-02, R-06 …) cited throughout the code |
-| `docs/06`–`10`                     | Phase build plans, including the current phase              |
-| `docs/adr/`                        | Architecture decisions                                      |
+| Document                             | What                                                         |
+| ------------------------------------ | ------------------------------------------------------------ |
+| `docs/USING-PORCUPINE.md`            | How to use the app, and what is not built                    |
+| `docs/BUILD-LOG.md`                  | What happened, honestly                                      |
+| `docs/00-product-plan.md`            | The roadmap                                                  |
+| `docs/01-data-model.md`              | Every table and why it is shaped that way                    |
+| `docs/02-security-and-e2ee.md`       | Threat model, encryption tiers, SSRF                         |
+| `docs/04-conflicts-and-hazards.md`   | The hard problems                                            |
+| `docs/05-resolution-plan.md`         | The numbered risks (R-02, R-06 …) cited throughout the code  |
+| `docs/06`–`11`                       | Phase build plans, including the current phase               |
+| `docs/12-file-storage-build-plan.md` | PDF storage: the plan, and why it is Supabase rather than R2 |
+| `docs/adr/`                          | Architecture decisions                                       |
 
 ---
 
