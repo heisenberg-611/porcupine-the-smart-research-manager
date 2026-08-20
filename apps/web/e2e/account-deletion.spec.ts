@@ -27,15 +27,36 @@ function uniqueEmail(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@test.dev`;
 }
 
-async function fetchOtp(email: string): Promise<string> {
-  for (let attempt = 0; attempt < 20; attempt++) {
+/**
+ * The sign-in code, from the mailbox — and only one issued AFTER `since`.
+ *
+ * The `since` argument is the whole point. Without it this returns the newest
+ * message for the address, which on a RETRY is the previous attempt's code:
+ * Supabase invalidates the old one the moment a new one is issued, so the
+ * retry signs in with a code that is guaranteed to be rejected, `waitForURL`
+ * waits for a navigation that never comes, and the hook burns its full 180
+ * second timeout before failing exactly as it did the first time.
+ *
+ * That turned every flake into three, and it is most of why a CI run took an
+ * hour and twenty minutes to not finish.
+ */
+async function fetchOtp(email: string, since: number): Promise<string> {
+  for (let attempt = 0; attempt < 30; attempt++) {
     const res = await fetch("http://127.0.0.1:54324/api/v1/messages?limit=50");
     if (res.ok) {
       const body = (await res.json()) as {
-        messages?: Array<{ ID: string; To?: Array<{ Address: string }> }>;
+        messages?: Array<{
+          ID: string;
+          Created?: string;
+          To?: Array<{ Address: string }>;
+        }>;
       };
-      const match = body.messages?.find((m) =>
-        m.To?.some((t) => t.Address.toLowerCase() === email.toLowerCase()),
+      const match = body.messages?.find(
+        (m) =>
+          m.To?.some((t) => t.Address.toLowerCase() === email.toLowerCase()) &&
+          // A second of slack: mailpit stamps the message when it receives it,
+          // which is fractionally after the click that caused it.
+          new Date(m.Created ?? 0).getTime() >= since - 1000,
       );
       if (match) {
         const detail = await fetch(`http://127.0.0.1:54324/api/v1/message/${match.ID}`);
@@ -46,7 +67,24 @@ async function fetchOtp(email: string): Promise<string> {
     }
     await new Promise((r) => setTimeout(r, 500));
   }
-  throw new Error(`No OTP arrived for ${email}`);
+  throw new Error(`No OTP arrived for ${email} after ${new Date(since).toISOString()}`);
+}
+
+/**
+ * The address, scoped to this attempt.
+ *
+ * A retry that reuses the address cannot sign in. GoTrue rate-limits OTP
+ * resends, so asking again inside the window sends no new mail at all — and
+ * the previous code has already been consumed. The retry then fills in a dead
+ * code, waits for a navigation that never comes, and burns its whole timeout
+ * failing exactly as the first attempt did. Three attempts, one outcome, and
+ * most of why a CI run took an hour and twenty minutes to not finish.
+ *
+ * A fresh address per attempt is what makes a retry a retry.
+ */
+function attemptEmail(base: string): string {
+  const { retry } = test.info();
+  return retry > 0 ? `r${retry}-${base}` : base;
 }
 
 async function createConfirmedUser(email: string) {
@@ -67,8 +105,11 @@ async function signInAndEnroll(browser: Browser, email: string): Promise<Page> {
   const page = await context.newPage();
   await goto(page, "/sign-in");
   await page.getByLabel("Email").fill(email);
+  // Stamped before the click: anything already in this mailbox belongs
+  // to an earlier attempt and has been invalidated by this one.
+  const requestedAt = Date.now();
   await page.getByRole("button", { name: /email me a .*code/i }).click();
-  await page.getByLabel(/verification code/i).fill(await fetchOtp(email));
+  await page.getByLabel(/verification code/i).fill(await fetchOtp(email, requestedAt));
   await page.getByRole("button", { name: /^sign in$/i }).click();
   await page.waitForURL(/\/(enroll|dashboard|projects)/);
 
@@ -92,12 +133,21 @@ test.describe("closing an account", () => {
   test.describe.configure({ mode: "serial" });
 
   const email = uniqueEmail("closing");
+  /**
+   * The address this attempt actually signed in with.
+   *
+   * `attemptEmail` gives a retry its own address, so anything that types the
+   * account's address back at it — this screen asks you to, before deleting —
+   * has to use the one that was really used, not the base.
+   */
+  let address = email;
   let page: Page;
 
   test.beforeAll(async ({ browser }) => {
     test.setTimeout(180_000);
-    await createConfirmedUser(email);
-    page = await signInAndEnroll(browser, email);
+    address = attemptEmail(email);
+    await createConfirmedUser(address);
+    page = await signInAndEnroll(browser, address);
   });
 
   test.afterAll(async () => {
@@ -118,7 +168,7 @@ test.describe("closing an account", () => {
     // means rather than reaching for `.first()`, which would have been happy
     // with either.
     await expect(
-      main.getByRole("region", { name: "Details" }).getByText(email),
+      main.getByRole("region", { name: "Details" }).getByText(address),
     ).toBeVisible();
 
     // The two sentences somebody is most likely to feel misled about later.
@@ -138,7 +188,7 @@ test.describe("closing an account", () => {
 
     // Case-insensitively, because an address is not case-sensitive in the half
     // that matters and refusing "Alice@" for "alice@" teaches nobody anything.
-    await confirm.fill(email.toUpperCase());
+    await confirm.fill(address.toUpperCase());
     await expect(button).toBeEnabled();
   });
 
@@ -165,7 +215,7 @@ test.describe("closing an account", () => {
 
   test("deleting it immediately ends the account", async () => {
     await goto(page, "/account");
-    await page.getByLabel(/type your email address/i).fill(email);
+    await page.getByLabel(/type your email address/i).fill(address);
     await page.getByRole("checkbox", { name: /delete it permanently now/i }).check();
 
     await page.getByRole("button", { name: /delete permanently/i }).click();

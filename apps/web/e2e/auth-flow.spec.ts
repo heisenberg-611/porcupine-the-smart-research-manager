@@ -28,15 +28,23 @@ function uniqueEmail(prefix: string) {
  * Reads the most recent OTP from Mailpit, which the local stack uses as its
  * mail sink.
  */
-async function fetchOtp(email: string): Promise<string> {
+async function fetchOtp(email: string, since: number): Promise<string> {
   for (let attempt = 0; attempt < 20; attempt++) {
     const res = await fetch("http://127.0.0.1:54324/api/v1/messages?limit=50");
     if (res.ok) {
       const body = (await res.json()) as {
-        messages?: Array<{ ID: string; To?: Array<{ Address: string }> }>;
+        messages?: Array<{
+          ID: string;
+          Created?: string;
+          To?: Array<{ Address: string }>;
+        }>;
       };
-      const match = body.messages?.find((m) =>
-        m.To?.some((t) => t.Address.toLowerCase() === email.toLowerCase()),
+      const match = body.messages?.find(
+        (m) =>
+          m.To?.some((t) => t.Address.toLowerCase() === email.toLowerCase()) &&
+          // A second of slack: mailpit stamps the message when it receives it,
+          // which is fractionally after the click that caused it.
+          new Date(m.Created ?? 0).getTime() >= since - 1000,
       );
       if (match) {
         const detail = await fetch(`http://127.0.0.1:54324/api/v1/message/${match.ID}`);
@@ -48,7 +56,7 @@ async function fetchOtp(email: string): Promise<string> {
     }
     await new Promise((r) => setTimeout(r, 500));
   }
-  throw new Error(`No OTP arrived for ${email}`);
+  throw new Error(`No OTP arrived for ${email} after ${new Date(since).toISOString()}`);
 }
 
 /** Creates a confirmed account directly, for the invitee. */
@@ -107,11 +115,14 @@ test.describe("Phase 0 exit criterion", () => {
      * Same for the code field below: its label is "Verification code" now, not
      * "six-digit code".
      */
+    // Stamped before the click: anything already in this mailbox belongs
+    // to an earlier attempt and has been invalidated by this one.
+    const requestedAt = Date.now();
     await page.getByRole("button", { name: /email me a .*code/i }).click();
 
     await expect(page.getByLabel(/verification code/i)).toBeVisible();
 
-    const code = await fetchOtp(email);
+    const code = await fetchOtp(email, requestedAt);
     await page.getByLabel(/verification code/i).fill(code);
     await page.getByRole("button", { name: /^sign in$/i }).click();
 
