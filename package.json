@@ -9,9 +9,9 @@
   },
   "packageManager": "pnpm@11.21.0",
   "scripts": {
-    "dev": "pnpm --filter @Porcupine/web dev",
+    "dev": "pnpm -C apps/web run dev",
     "build": "pnpm -r build",
-    "postinstall": "pnpm db:generate",
+    "postinstall": "pnpm db:generate && pnpm --filter @Porcupine/web vendor:pdfjs",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint .",
     "format": "prettier --write .",
