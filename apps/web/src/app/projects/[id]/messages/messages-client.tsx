@@ -15,7 +15,7 @@ import { useProjectActivity } from "@/lib/use-project-activity";
 
 import { InlineUnlock } from "@/components/inline-unlock";
 import { SetUpEncryption } from "@/components/set-up-encryption";
-import { Banner, Button, Card, Field, Input, Textarea } from "@/components/ui";
+import { Banner, Button, Card, Input, Textarea } from "@/components/ui";
 import { useCryptoSession } from "@/lib/crypto/session";
 import { useProjectKeys } from "@/lib/crypto/use-project-keys";
 
@@ -648,65 +648,99 @@ export function MessagesClient({ projectId }: { projectId: string }) {
         not.
       */}
       <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1 lg:flex-row">
-        <aside className="flex shrink-0 flex-col gap-2 lg:min-h-0 lg:w-52">
+        {/*
+          The rail: a list of channels, and one way to add one.
+
+          It read as a jumble — channel, "New channel", channel, "Create" —
+          because the list and the form were siblings with no structure
+          between them, so the form's own label looked like another entry in
+          the list. Now the list is a list, the form is pinned to the bottom
+          behind a rule, and its label is for screen readers only: the
+          placeholder says the same thing to everyone else without adding a
+          line that reads like a channel.
+        */}
+        <aside className="border-border flex shrink-0 flex-col gap-2 lg:min-h-0 lg:w-56 lg:border-r lg:pr-3">
+          <p className="text-muted text-fine px-1 font-medium tracking-wide uppercase">
+            Channels
+          </p>
+
           {channels.length > 0 && (
             <nav
               aria-label="Channels"
-              className="flex flex-wrap gap-1 lg:min-h-0 lg:flex-col lg:overflow-y-auto"
+              className="flex flex-wrap gap-1 lg:min-h-0 lg:flex-1 lg:flex-col lg:flex-nowrap lg:overflow-y-auto"
             >
               {channels.map((channel) => (
-                <Button
+                <button
                   key={channel.id}
-                  variant={channel.id === selected ? "primary" : "ghost"}
-                  className="border-border shrink-0 justify-start border text-left"
+                  type="button"
                   onClick={() => setSelected(channel.id)}
+                  aria-current={channel.id === selected ? "true" : undefined}
+                  className={`text-ui flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg px-2 text-left transition-colors ${
+                    channel.id === selected
+                      ? "bg-accent-soft text-ink font-medium"
+                      : "text-muted hover:bg-surface hover:text-ink"
+                  }`}
                 >
-                  {channel.name}
-                </Button>
+                  <span aria-hidden="true" className="text-muted">
+                    #
+                  </span>
+                  <span className="truncate">{channel.name}</span>
+                </button>
               ))}
             </nav>
           )}
 
-          {/* Compact, and out of the way until it is wanted. */}
-          <form onSubmit={addChannel} className="flex items-end gap-1.5">
-            <Field label="New channel" id="channel-name">
-              <Input
-                id="channel-name"
-                compact
-                value={newChannel}
-                onChange={(e) => setNewChannel(e.target.value)}
-                placeholder="screening"
-                className="w-full"
-              />
-            </Field>
-            <Button
-              type="submit"
-              variant="ghost"
-              className="border-border shrink-0 border"
-              disabled={pending || newChannel.trim() === ""}
-            >
-              Create
-            </Button>
-          </form>
-
           {channels.length === 0 && (
-            // The end of setup should be a place to type, not another empty
-            // form asking you to invent a name for something unused.
-            <Card className="flex flex-col gap-3">
-              <p className="text-ink text-fine">
+            // The end of setup should be a place to type, not an empty form
+            // asking you to invent a name for something unused.
+            <div className="flex flex-col gap-2 px-1">
+              <p className="text-muted text-fine">
                 Messages live in channels — one per topic, or just one for everything.
               </p>
-              <div>
-                <Button
-                  variant="primary"
-                  disabled={pending}
-                  onClick={() => void createNamed("general")}
-                >
-                  Start with a #general channel
-                </Button>
-              </div>
-            </Card>
+              <Button
+                variant="primary"
+                disabled={pending}
+                onClick={() => void createNamed("general")}
+              >
+                Start with a #general channel
+              </Button>
+            </div>
           )}
+
+          {/*
+            Stacked, not side by side: the rail is 224px, and two columns left
+            the input about 120px — narrower than most channel names. Create
+            appears only once there is a name to create, so the resting state
+            of the rail is the list plus one place to type.
+          */}
+          <form
+            onSubmit={addChannel}
+            className="border-rule mt-auto flex flex-col gap-1.5 border-t pt-2"
+          >
+            {/* sr-only: the placeholder carries it visually, and a visible
+                label here sat in the list looking like a channel. */}
+            <label htmlFor="channel-name" className="sr-only">
+              New channel
+            </label>
+            <Input
+              id="channel-name"
+              compact
+              value={newChannel}
+              onChange={(e) => setNewChannel(e.target.value)}
+              placeholder="new channel…"
+              className="w-full"
+            />
+            {newChannel.trim() !== "" && (
+              <Button
+                type="submit"
+                variant="primary"
+                className="w-full"
+                disabled={pending}
+              >
+                Create
+              </Button>
+            )}
+          </form>
         </aside>
 
         {selected && (

@@ -65,8 +65,7 @@ export default async function MessagesPage({
           <h1 className="text-ink text-heading font-medium">Messages</h1>
         </div>
         <p className="text-muted text-fine">
-          Encrypted in this browser — the server cannot read any of it, including the
-          channel names.
+          Encrypted in this browser — the server cannot read any of it.
         </p>
       </div>
       <MessagesClient projectId={id} />

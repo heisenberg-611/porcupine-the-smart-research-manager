@@ -116,8 +116,20 @@ select set_config('request.jwt.claims', '', true);
 select is((select count(*) from message_reactions)::int, 0,
   'and no claim sees none');
 
+/*
+ * Scoped to the fixture, deliberately.
+ *
+ * This count runs as postgres, so RLS does not filter it — which is the whole
+ * point: it proves the three zeroes above are RLS hiding a row, not RLS
+ * hiding nothing. But an unscoped count(*) also sees every reaction any other
+ * run left in this database, and the e2e suite leaves real ones. That made it
+ * fail with have: 10, want: 1 while nothing about the policies had changed.
+ * The fixture message is the subject of this test; the rest of the table is
+ * not.
+ */
 set local role postgres;
-select is((select count(*) from message_reactions)::int, 1,
+select is((select count(*) from message_reactions
+           where message_id = 'cc000000-0000-0000-0000-0000000000e1')::int, 1,
   'MUTATION: the reaction was there the whole time');
 
 -- ═══════════════ Changing your mind, and only your own ══════════════════════
