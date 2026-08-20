@@ -229,7 +229,7 @@ test.describe("project navigation", () => {
     // "find papers first" was advice that produced a worse search.
     await expect(page.getByText(/there are none yet/i)).toBeVisible();
     await expect(
-      page.getByRole("link", { name: /say what this review asks/i }),
+      page.getByRole("link", { name: /Add your research question/i }),
     ).toBeVisible();
 
     // Every stat is a link. A dashboard number you cannot click is a dead end

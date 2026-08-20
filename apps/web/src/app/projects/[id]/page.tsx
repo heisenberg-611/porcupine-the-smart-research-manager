@@ -155,7 +155,7 @@ export default async function ProjectPage({
     questionCount === 0
       ? {
           href: sectionHref(id, "questions"),
-          label: "Say what this review asks",
+          label: "Add your research question",
           // Before finding papers, because it changes what finding papers
           // returns: with no questions the ranking has nothing to score
           // against and every result reports matching nothing.
