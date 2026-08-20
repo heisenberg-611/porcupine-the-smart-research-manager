@@ -19,7 +19,7 @@ import { Banner, Button, Card, Field, Input, Textarea } from "@/components/ui";
 import { useCryptoSession } from "@/lib/crypto/session";
 import { useProjectKeys } from "@/lib/crypto/use-project-keys";
 
-import { getMemberKeys } from "../keys/actions";
+import { getKeyState, getMemberKeys, type KeylessMember } from "../keys/actions";
 import {
   createChannel,
   deleteChannel,
@@ -91,6 +91,8 @@ export function MessagesClient({ projectId }: { projectId: string }) {
   const [reactions, setReactions] = useState<OpenedReaction[]>([]);
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [picking, setPicking] = useState<string | null>(null);
+  /** Members with no key for the current epoch — see the banner below. */
+  const [keyless, setKeyless] = useState<KeylessMember[]>([]);
   const [draft, setDraft] = useState("");
   const [newChannel, setNewChannel] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -128,6 +130,13 @@ export function MessagesClient({ projectId }: { projectId: string }) {
       }
     })();
   }, [projectId]);
+
+  useEffect(() => {
+    void (async () => {
+      const state = await getKeyState(projectId);
+      if (state.ok) setKeyless(state.data.keyless);
+    })();
+  }, [projectId, keys.currentEpoch, keys.byEpoch]);
 
   const loadChannels = useCallback(async () => {
     if (keys.byEpoch.size === 0) return;
@@ -342,7 +351,20 @@ export function MessagesClient({ projectId }: { projectId: string }) {
    */
   // A reaction bumps the same signal a message does — one row per project per
   // kind, so this costs no extra deliveries.
-  useProjectActivity(projectId, "messages", () => void reload());
+  /*
+   * Keys too, not just messages.
+   *
+   * A member who is handed the key had no way to notice: this refetched
+   * messages, which stayed unreadable, while the wrap that would open them sat
+   * in the database until somebody reloaded the page. The signal is one row
+   * per project per kind and already debounced, so re-checking the keys on it
+   * costs nothing and makes "they gave me the key and nothing happened"
+   * impossible.
+   */
+  useProjectActivity(projectId, "messages", () => {
+    void reload();
+    keys.reload();
+  });
 
   async function addChannel(event: React.FormEvent) {
     event.preventDefault();
@@ -672,6 +694,35 @@ export function MessagesClient({ projectId }: { projectId: string }) {
       {selected && (
         <>
           {/*
+            Who cannot read this conversation, said where it is being written.
+
+            A project can split silently into people holding the current key
+            and people who do not: everyone sees a working conversation, and
+            the only symptom is somebody eventually saying "I can't see your
+            messages". The sender is the one who can fix it, so the sender is
+            told.
+          */}
+          {keyless.length > 0 && (
+            <Banner tone="danger">
+              <strong>
+                {keyless.length === 1
+                  ? `${keyless[0]!.displayName} cannot read this conversation.`
+                  : `${keyless.length} members cannot read this conversation.`}
+              </strong>{" "}
+              They hold no key for the current epoch, so everything written here is
+              unreadable to them.{" "}
+              <Link
+                href={`/projects/${projectId}/keys`}
+                className="underline underline-offset-2"
+              >
+                Give them the key
+              </Link>
+              {keyless.some((k) => !k.enrolled) &&
+                " — anyone shown as still setting up has to finish that first."}
+            </Banner>
+          )}
+
+          {/*
             A header for the conversation, outside the scrolling log.
 
             The delete control used to be the first row INSIDE the message
@@ -729,7 +780,15 @@ export function MessagesClient({ projectId }: { projectId: string }) {
           <ul
             ref={logRef}
             data-testid="message-log"
-            className="bg-surface/40 border-border flex h-[min(62vh,680px)] flex-col overflow-y-auto border-x px-1 py-2 shadow-inner"
+            /*
+              Grows with the conversation up to a cap, rather than always
+              standing at 62vh.
+              A fixed height left a short channel as a tall empty box, and on a
+              small window it pushed the composer past the fold — so the page
+              scrolled AND the log scrolled, which is two scrollbars for one
+              list and the reason this felt wrong to use.
+            */
+            className="bg-surface/40 border-border flex max-h-[min(62vh,680px)] min-h-40 flex-col overflow-y-auto overscroll-contain border-x px-1 py-2 shadow-inner"
           >
             {messages.length === 0 && (
               <li className="text-muted text-ui p-6 text-center">

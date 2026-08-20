@@ -650,10 +650,25 @@ test.describe("a member who joins after the key exists", () => {
   });
 
   test("the owner shares the key, without a rotation", async () => {
-    // `unlock`, not `goto`: a full page load drops the in-memory identity, and
-    // without it there is no key to share — the button would be disabled and
-    // this would fail for the wrong reason.
-    await unlock(owner, ownerPhrase, `/projects/${projectId}/keys`);
+    /*
+     * First: the owner is TOLD, on the page where they are writing.
+     *
+     * The split is otherwise invisible — the conversation looks fine to
+     * everyone in it, and the only symptom is somebody eventually saying they
+     * cannot see the messages.
+     */
+    await unlock(owner, ownerPhrase, `/projects/${projectId}/messages`);
+    await expect(owner.getByText(/cannot read this conversation/i)).toBeVisible({
+      timeout: 60_000,
+    });
+
+    // By CLICKING, so the in-memory identity survives — without it there is no
+    // key to share and the button would be disabled.
+    await owner
+      .getByRole("navigation", { name: /sections/i })
+      .getByRole("link", { name: "Keys & members" })
+      .click();
+    await expect(owner.getByRole("heading", { name: "Who holds a key" })).toBeVisible();
 
     await owner.getByRole("button", { name: /give .* the key/i }).click();
     await expect(owner.getByText(/now holds the key/i)).toBeVisible({ timeout: 60_000 });
@@ -702,5 +717,40 @@ test.describe("a member who joins after the key exists", () => {
 
     await owner.getByRole("button", { name: /^refresh$/i }).click();
     await expect(log(owner).getByText(answer)).toBeVisible({ timeout: 60_000 });
+  });
+
+  test("and the warning clears once they hold it", async () => {
+    /*
+     * The silent split, made loud.
+     *
+     * A project divides into people holding the current key and people who do
+     * not, everyone sees a working conversation, and the only symptom is
+     * somebody eventually saying "I can't see your messages". This asserts the
+     * warning is shown to the person who can fix it, and that it goes away
+     * when they have.
+     */
+    await expect(owner.getByText(/cannot read this conversation/i)).toHaveCount(0);
+  });
+
+  test("and the owner's NEXT message reaches them too", async () => {
+    /*
+     * Reported after the sharing fix shipped: "when the owner sent a message,
+     * the member got locked out again."
+     *
+     * The test above only ever ran the exchange one way — the joiner sent and
+     * the owner read. This is the other direction, which is the one that was
+     * broken and the one anybody would try first.
+     */
+    const afterShare = "Now that you can read this, here is the plan";
+
+    await owner.getByLabel(/^message$/i).fill(afterShare);
+    await owner.getByRole("button", { name: /^send$/i }).click();
+    await expect(log(owner).getByText(afterShare)).toBeVisible({ timeout: 60_000 });
+
+    await joiner.getByRole("button", { name: /^refresh$/i }).click();
+    await expect(log(joiner).getByText(afterShare)).toBeVisible({ timeout: 60_000 });
+
+    // And nothing in the conversation became unreadable in the process.
+    await expect(log(joiner).getByText(/key you do not hold/i)).toHaveCount(0);
   });
 });
