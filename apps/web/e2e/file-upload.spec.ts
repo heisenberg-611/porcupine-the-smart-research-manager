@@ -181,15 +181,36 @@ function uniqueEmail(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@test.dev`;
 }
 
-async function fetchOtp(email: string): Promise<string> {
-  for (let attempt = 0; attempt < 20; attempt++) {
+/**
+ * The sign-in code, from the mailbox — and only one issued AFTER `since`.
+ *
+ * The `since` argument is the whole point. Without it this returns the newest
+ * message for the address, which on a RETRY is the previous attempt's code:
+ * Supabase invalidates the old one the moment a new one is issued, so the
+ * retry signs in with a code that is guaranteed to be rejected, `waitForURL`
+ * waits for a navigation that never comes, and the hook burns its full 180
+ * second timeout before failing exactly as it did the first time.
+ *
+ * That turned every flake into three, and it is most of why a CI run took an
+ * hour and twenty minutes to not finish.
+ */
+async function fetchOtp(email: string, since: number): Promise<string> {
+  for (let attempt = 0; attempt < 30; attempt++) {
     const res = await fetch("http://127.0.0.1:54324/api/v1/messages?limit=50");
     if (res.ok) {
       const body = (await res.json()) as {
-        messages?: Array<{ ID: string; To?: Array<{ Address: string }> }>;
+        messages?: Array<{
+          ID: string;
+          Created?: string;
+          To?: Array<{ Address: string }>;
+        }>;
       };
-      const match = body.messages?.find((m) =>
-        m.To?.some((t) => t.Address.toLowerCase() === email.toLowerCase()),
+      const match = body.messages?.find(
+        (m) =>
+          m.To?.some((t) => t.Address.toLowerCase() === email.toLowerCase()) &&
+          // A second of slack: mailpit stamps the message when it receives it,
+          // which is fractionally after the click that caused it.
+          new Date(m.Created ?? 0).getTime() >= since - 1000,
       );
       if (match) {
         const detail = await fetch(`http://127.0.0.1:54324/api/v1/message/${match.ID}`);
@@ -200,7 +221,7 @@ async function fetchOtp(email: string): Promise<string> {
     }
     await new Promise((r) => setTimeout(r, 500));
   }
-  throw new Error(`No OTP arrived for ${email}`);
+  throw new Error(`No OTP arrived for ${email} after ${new Date(since).toISOString()}`);
 }
 
 async function createConfirmedUser(email: string) {
@@ -276,8 +297,11 @@ async function signInAndEnroll(browser: Browser, email: string): Promise<Page> {
 
   await goto(page, "/sign-in");
   await page.getByLabel("Email").fill(email);
+  // Stamped before the click: anything already in this mailbox belongs
+  // to an earlier attempt and has been invalidated by this one.
+  const requestedAt = Date.now();
   await page.getByRole("button", { name: /email me a .*code/i }).click();
-  await page.getByLabel(/verification code/i).fill(await fetchOtp(email));
+  await page.getByLabel(/verification code/i).fill(await fetchOtp(email, requestedAt));
   await page.getByRole("button", { name: /^sign in$/i }).click();
   await page.waitForURL(/\/(enroll|dashboard|projects)/);
 
