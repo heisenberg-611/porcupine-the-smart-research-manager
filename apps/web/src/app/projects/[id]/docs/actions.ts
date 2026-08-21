@@ -58,7 +58,7 @@ export async function shareFileAction(
 
 export async function createCollaborationFile(
   input: z.infer<typeof CreateFileInput>,
-): Promise<ActionResult<{ url: string | null }>> {
+): Promise<ActionResult<{ url: string | null; isFallback?: boolean }>> {
   const claims = await getUserClaims();
   if (!claims) return { ok: false, error: "Not signed in." };
 
@@ -91,12 +91,13 @@ export async function createCollaborationFile(
 
       const project = await tx.project.findUnique({
         where: { id: projectId },
-        select: { driveFolderId: true },
+        select: { driveFolderId: true, title: true },
       });
 
       const targetFolderId = project?.driveFolderId || undefined;
 
       let result;
+      let isFallback = false;
       try {
         if (type === "doc") {
           result = await createGoogleDoc(providerToken, title, projectId, targetFolderId);
@@ -115,17 +116,51 @@ export async function createCollaborationFile(
             targetFolderId,
           );
         }
-      } catch (e: unknown) {
-        console.error("Failed to create file", e);
-        return {
-          ok: false,
-          error:
-            "Failed to create file in Google Drive. Ensure your Google account is connected and you have write permissions to the shared folder.",
-        };
+      } catch (e: any) {
+        const isPermissionError =
+          e?.status === 403 ||
+          e?.code === 403 ||
+          e?.message?.toLowerCase().includes("permission") ||
+          e?.message?.toLowerCase().includes("forbidden");
+
+        if (isPermissionError) {
+          console.warn("Failed to create in shared folder, falling back to personal folder", e);
+          const { ensurePersonalFallbackFolder } = await import("@/lib/google");
+          
+          try {
+             const fallbackFolderId = await ensurePersonalFallbackFolder(
+               providerToken,
+               projectId,
+               project?.title || "Project"
+             );
+             isFallback = true;
+             
+             if (type === "doc") {
+               result = await createGoogleDoc(providerToken, title, projectId, fallbackFolderId);
+             } else if (type === "slide") {
+               result = await createGoogleSlide(providerToken, title, projectId, fallbackFolderId);
+             } else {
+               result = await createGoogleSheet(providerToken, title, projectId, fallbackFolderId);
+             }
+          } catch (fallbackErr) {
+             console.error("Fallback creation failed", fallbackErr);
+             return {
+               ok: false,
+               error: "Failed to create file in both shared and personal drives. Check your permissions.",
+             };
+          }
+        } else {
+          console.error("Failed to create file", e);
+          return {
+            ok: false,
+            error:
+              "Failed to create file in Google Drive. Ensure your Google account is connected.",
+          };
+        }
       }
 
       revalidatePath(`/projects/${projectId}/docs`);
-      return { ok: true, data: { url: result.webViewLink ?? null } };
+      return { ok: true, data: { url: result.webViewLink ?? null, isFallback } };
     });
   } catch (e: unknown) {
     console.error("createCollaborationFile failed:", e);

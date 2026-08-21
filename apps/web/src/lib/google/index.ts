@@ -65,6 +65,39 @@ export async function createProjectFolder(accessToken: string, projectName: stri
   return response.data.id;
 }
 
+export async function ensurePersonalFallbackFolder(
+  accessToken: string,
+  projectId: string,
+  projectName: string,
+): Promise<string> {
+  const drive = getDriveClient(accessToken);
+  
+  const response = await drive.files.list({
+    q: `mimeType = 'application/vnd.google-apps.folder' and appProperties has { key='PorcupineFallbackProjectId' and value='${projectId}' } and trashed = false`,
+    fields: "files(id)",
+  });
+  
+  const existingFolders = response.data.files;
+  if (existingFolders && existingFolders.length > 0) {
+    const folderId = existingFolders[0]?.id;
+    if (folderId) return folderId;
+  }
+  
+  const createResponse = await drive.files.create({
+    requestBody: {
+      name: `Porcupine: ${projectName} (Personal)`,
+      mimeType: "application/vnd.google-apps.folder",
+      appProperties: { PorcupineFallbackProjectId: projectId },
+    },
+    fields: "id",
+  });
+  
+  if (!createResponse.data.id) {
+    throw new Error("Failed to create fallback folder");
+  }
+  return createResponse.data.id;
+}
+
 export async function listFolderFiles(accessToken: string, folderId: string) {
   const drive = getDriveClient(accessToken);
   const response = await drive.files.list({
