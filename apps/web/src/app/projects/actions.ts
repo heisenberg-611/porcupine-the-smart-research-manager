@@ -153,17 +153,30 @@ export async function inviteMember(
       // Check if project has a Google Drive folder and we have a token
       const project = await tx.project.findUnique({
         where: { id: projectId },
-        select: { driveFolderId: true },
+        select: { driveFolderId: true, googleRefreshToken: true },
       });
 
       const cookieStore = await cookies();
       const providerToken = cookieStore.get("google_provider_token")?.value;
 
-      if (project?.driveFolderId && providerToken && accessRole === "OBSERVER") {
-        try {
-          await shareGoogleFile(providerToken, project.driveFolderId, email, "reader");
-        } catch (e) {
-          console.error(`Failed to automatically share folder with ${email}`, e);
+      if (project?.driveFolderId) {
+        const { shareGoogleFile, getAdminToken } = await import("@/lib/google");
+        
+        let tokenToUse = providerToken;
+        if (!tokenToUse && project.googleRefreshToken) {
+          tokenToUse = (await getAdminToken(project.googleRefreshToken)) ?? undefined;
+        }
+
+        if (tokenToUse) {
+          let role: "writer" | "commenter" | "reader" = "reader";
+          if (["OWNER", "ADMIN", "CONTRIBUTOR"].includes(accessRole)) role = "writer";
+          else if (["REVIEWER"].includes(accessRole)) role = "commenter";
+          
+          try {
+            await shareGoogleFile(tokenToUse, project.driveFolderId, email, role);
+          } catch (e) {
+            console.error(`Failed to automatically share folder with ${email}`, e);
+          }
         }
       }
 
@@ -217,17 +230,24 @@ export async function updateMemberRole(
         select: { driveFolderId: true, googleRefreshToken: true },
       });
 
-      if (project?.driveFolderId && project.googleRefreshToken && existing.user.email) {
+      if (project?.driveFolderId && existing.user.email) {
         const { shareGoogleFile, getAdminToken } = await import("@/lib/google");
-        const adminToken = await getAdminToken(project.googleRefreshToken);
-        if (adminToken) {
+        const cookieStore = await cookies();
+        const providerToken = cookieStore.get("google_provider_token")?.value;
+        
+        let tokenToUse = providerToken;
+        if (!tokenToUse && project.googleRefreshToken) {
+          tokenToUse = (await getAdminToken(project.googleRefreshToken)) ?? undefined;
+        }
+
+        if (tokenToUse) {
           let role: "writer" | "commenter" | "reader" = "reader";
           if (["OWNER", "ADMIN", "CONTRIBUTOR"].includes(accessRole)) role = "writer";
           else if (["REVIEWER"].includes(accessRole)) role = "commenter";
 
           try {
             await shareGoogleFile(
-              adminToken,
+              tokenToUse,
               project.driveFolderId,
               existing.user.email,
               role,
@@ -287,18 +307,42 @@ export async function removeMember(
         select: { driveFolderId: true, googleRefreshToken: true },
       });
 
-      if (project?.driveFolderId && project.googleRefreshToken && existing.user.email) {
-        const { revokeGoogleFileAccess, getAdminToken } = await import("@/lib/google");
-        const adminToken = await getAdminToken(project.googleRefreshToken);
-        if (adminToken) {
+      const driveFolderId = project?.driveFolderId;
+      const userEmail = existing.user.email;
+
+      if (driveFolderId && userEmail) {
+        const { revokeGoogleFileAccess, listProjectFiles, getAdminToken } = await import("@/lib/google");
+        const cookieStore = await cookies();
+        const providerToken = cookieStore.get("google_provider_token")?.value;
+        
+        let tokenToUse = providerToken;
+        if (!tokenToUse && project.googleRefreshToken) {
+          tokenToUse = (await getAdminToken(project.googleRefreshToken)) ?? undefined;
+        }
+
+        const validToken = tokenToUse;
+
+        if (validToken) {
           try {
+            // First, explicitly revoke access to all individual project files
+            // to catch direct shares and circumvent drive folder propagation limits.
+            const files = await listProjectFiles(validToken, projectId, false, driveFolderId);
+            for (const file of files) {
+              if (file.id) {
+                await revokeGoogleFileAccess(validToken, file.id, userEmail).catch((e) => {
+                  console.error(`Failed to revoke access to file ${file.id} for ${userEmail}`, e);
+                });
+              }
+            }
+
+            // Then revoke access to the central folder itself
             await revokeGoogleFileAccess(
-              adminToken,
-              project.driveFolderId,
-              existing.user.email,
+              validToken,
+              driveFolderId,
+              userEmail,
             );
           } catch (e) {
-            console.error(`Failed to revoke access for ${existing.user.email}`, e);
+            console.error(`Failed to revoke access for ${userEmail}`, e);
           }
         }
       }

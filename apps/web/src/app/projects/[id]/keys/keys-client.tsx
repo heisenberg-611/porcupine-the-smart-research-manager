@@ -20,11 +20,11 @@ import {
   getKeyState,
   getMemberKeys,
   provisionProjectKey,
-  removeMember,
   shareProjectKey,
   type KeylessMember,
   type MemberKey,
 } from "./actions";
+import { removeMember } from "../../actions";
 
 /**
  * Set up, hold and rotate this project's content key.
