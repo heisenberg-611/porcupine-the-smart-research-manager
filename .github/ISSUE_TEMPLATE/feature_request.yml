@@ -20,9 +20,17 @@ body:
       required: true
 
   - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution
+      description: How do you think this should ideally work within Porcupine?
+    validations:
+      required: false
+
+  - type: textarea
     id: workaround
     attributes:
-      label: How you manage today
+      label: How you manage today (Alternatives considered)
       description: A spreadsheet, another tool, or not at all.
     validations:
       required: false

@@ -260,16 +260,7 @@ export default async function DashboardPage() {
               )}
             </p>
             <span className="flex flex-wrap items-center gap-4">
-              {/* Restored: the studio link was on this page and was lost in a
-                  later rewrite. It is top level and belongs to no project —
-                  a chapter gets written long before anyone decides which
-                  project it sits in. */}
-              <Link
-                href="/studio"
-                className="text-accent text-ui font-medium underline underline-offset-4 transition-all hover:brightness-110"
-              >
-                LaTeX studio
-              </Link>
+
               <Link
                 href="/zotero"
                 className="text-accent text-ui font-medium underline underline-offset-4 transition-all hover:brightness-110"

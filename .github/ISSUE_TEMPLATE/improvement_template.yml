@@ -1,0 +1,42 @@
+name: Propose an improvement
+description: Suggest a tweak or improvement to existing functionality.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **This issue is public.** If something feels clunky, awkward, or just needs a little polish, tell us about it here!
+
+  - type: textarea
+    id: current-behavior
+    attributes:
+      label: What is the current behavior?
+      description: What feels awkward, annoying, or could be better?
+      placeholder: The button to export data is too small and hard to find.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-improvement
+    attributes:
+      label: What would make it better?
+      description: How should we improve this?
+      placeholder: Make the button larger and move it to the top right corner.
+    validations:
+      required: true
+
+  - type: textarea
+    id: why-it-matters
+    attributes:
+      label: Why does this matter?
+      description: Any extra context on how this impacts your workflow.
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Version and browser
+      render: text
+    validations:
+      required: false

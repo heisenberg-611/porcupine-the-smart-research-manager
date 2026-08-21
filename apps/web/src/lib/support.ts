@@ -30,11 +30,12 @@ export const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "";
 /** The build, so a report can be tied to code rather than to "latest". */
 export const BUILD = process.env.NEXT_PUBLIC_COMMIT_SHA?.slice(0, 7) ?? "dev";
 
-export type IssueKind = "bug" | "feature";
+export type IssueKind = "bug" | "feature" | "improvement";
 
 const TEMPLATE: Record<IssueKind, string> = {
   bug: "bug_report.yml",
   feature: "feature_request.yml",
+  improvement: "improvement_template.yml",
 };
 
 /**
@@ -128,7 +129,11 @@ export function mailtoUrl(kind: IssueKind, context: ReportContext): string {
   if (!SUPPORT_EMAIL) return "";
 
   const subject =
-    kind === "bug" ? "Porcupine: something is broken" : "Porcupine: a request";
+    kind === "bug"
+      ? "Porcupine: something is broken"
+      : kind === "feature"
+        ? "Porcupine: a request"
+        : "Porcupine: an improvement";
 
   const params = new URLSearchParams({
     subject,

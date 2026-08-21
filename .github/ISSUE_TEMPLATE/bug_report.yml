@@ -21,9 +21,30 @@ body:
       required: true
 
   - type: textarea
+    id: reproduction-steps
+    attributes:
+      label: Steps to reproduce
+      description: How can we make this happen on our end?
+      placeholder: |
+        1. Go to '...'
+        2. Click on '....'
+        3. Scroll down to '....'
+        4. See error
+    validations:
+      required: false
+
+  - type: textarea
     id: expected
     attributes:
       label: What you expected instead
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs-screenshots
+    attributes:
+      label: Logs or Screenshots
+      description: Paste any helpful screenshots, video recordings, or error logs here.
     validations:
       required: false
 

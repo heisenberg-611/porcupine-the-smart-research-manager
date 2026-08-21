@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { BugAntIcon, SparklesIcon, ArrowRightIcon, WrenchScrewdriverIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui";
 import {
@@ -39,7 +40,7 @@ export function ReportIssue() {
   return (
     <section
       aria-labelledby="feedback"
-      className="border-border rounded-[--radius-card] border p-4"
+      className="border-rule bg-surface/40 rounded-2xl border p-5 backdrop-blur-sm"
     >
       <h2 id="feedback" className="text-ink text-ui font-medium">
         Something broken, or missing?
@@ -49,53 +50,71 @@ export function ReportIssue() {
         see for yourself before it opens.
       </p>
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-4 flex flex-wrap gap-2">
         <Button
           variant={kind === "bug" ? "primary" : "ghost"}
-          className={kind === "bug" ? "" : "border-border border"}
+          className={`flex items-center gap-2 transition-all ${kind === "bug" ? "shadow-sm" : "border-border border"}`}
           onClick={() => setKind(kind === "bug" ? null : "bug")}
           aria-expanded={kind === "bug"}
         >
+          <BugAntIcon className="size-4" />
           Report a problem
         </Button>
         <Button
           variant={kind === "feature" ? "primary" : "ghost"}
-          className={kind === "feature" ? "" : "border-border border"}
+          className={`flex items-center gap-2 transition-all ${kind === "feature" ? "shadow-sm" : "border-border border"}`}
           onClick={() => setKind(kind === "feature" ? null : "feature")}
           aria-expanded={kind === "feature"}
         >
+          <SparklesIcon className="size-4" />
           Request a feature
+        </Button>
+        <Button
+          variant={kind === "improvement" ? "primary" : "ghost"}
+          className={`flex items-center gap-2 transition-all ${kind === "improvement" ? "shadow-sm" : "border-border border"}`}
+          onClick={() => setKind(kind === "improvement" ? null : "improvement")}
+          aria-expanded={kind === "improvement"}
+        >
+          <WrenchScrewdriverIcon className="size-4" />
+          Suggest an improvement
         </Button>
       </div>
 
       {kind && context && (
-        <div className="mt-4 flex flex-col gap-3">
+        <div className="animate-in fade-in slide-in-from-top-2 duration-300 mt-5 flex flex-col gap-4">
           <div>
-            <p className="text-muted text-fine mb-1">
+            <p className="text-muted text-fine mb-2">
               This much goes with it, and nothing else:
             </p>
             {/* The whole point of this block is that it can be read. It is
                 deliberately the literal text that will be pasted into the
                 issue's last field, not a summary of it. */}
-            <pre className="border-rule bg-surface text-ink-soft text-fine overflow-x-auto rounded-lg border p-3 font-mono">
-              {formatContext(context)}
-            </pre>
-            <p className="text-muted text-fine mt-1 text-pretty">
+            <div className="bg-surface/50 border-rule rounded-xl border shadow-sm overflow-hidden">
+              <div className="bg-raised/50 border-rule/50 flex items-center gap-1.5 border-b px-4 py-2">
+                <div className="bg-danger/80 size-2.5 rounded-full" />
+                <div className="bg-accent/80 size-2.5 rounded-full" />
+                <div className="bg-success/80 size-2.5 rounded-full" />
+              </div>
+              <pre className="text-ink-soft text-fine overflow-x-auto p-4 font-mono">
+                {formatContext(context)}
+              </pre>
+            </div>
+            <p className="text-muted text-fine mt-2 text-pretty">
               The screen is the route&rsquo;s shape, not its address — project identifiers
               are replaced before they leave the page.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-4">
             <a
               href={issueUrl(kind, context)}
               target="_blank"
               rel="noopener noreferrer"
-              className="bg-accent text-accent-ink text-ui focus-visible:ring-accent inline-flex min-h-11 items-center rounded-lg px-4 focus-visible:ring-2 focus-visible:outline-none"
+              className="group bg-accent text-accent-ink text-ui focus-visible:ring-accent inline-flex min-h-11 items-center gap-2 rounded-lg px-4 shadow-sm transition-all hover:brightness-110 focus-visible:ring-2 focus-visible:outline-none"
             >
-              Open GitHub{" "}
+              Open GitHub
+              <ArrowRightIcon className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
               <span className="sr-only">(opens in a new tab, needs an account)</span>
-              <span aria-hidden> ↗</span>
             </a>
 
             {/* Only when a deployment has configured one. A GitHub account is
@@ -104,7 +123,7 @@ export function ReportIssue() {
             {SUPPORT_EMAIL && (
               <a
                 href={mailtoUrl(kind, context)}
-                className="text-accent text-fine underline underline-offset-4"
+                className="text-accent text-fine underline underline-offset-4 transition-colors hover:brightness-110"
               >
                 No GitHub account? Email it instead
               </a>
