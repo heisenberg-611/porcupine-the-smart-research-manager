@@ -173,6 +173,17 @@ export function InviteMemberForm({
         </Select>
       </Field>
 
+      {(role === "ADMIN" || role === "CONTRIBUTOR") && (
+        <div className="border-warning/40 bg-warning-soft/20 text-warning-strong flex items-start gap-3 rounded-lg border p-3 text-sm animate-in fade-in slide-in-from-top-2 duration-200">
+          <svg className="text-warning mt-0.5 h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <p className="leading-relaxed">
+            <strong>Warning:</strong> As a Google Drive Editor, any files they create in the shared folder will be owned by them. You will not be able to revoke their access to those specific files later.
+          </p>
+        </div>
+      )}
+
       {/*
         ADR-006. Asked explicitly rather than assumed, and only for reviewers,
         because that is the case where it actually carries weight — a

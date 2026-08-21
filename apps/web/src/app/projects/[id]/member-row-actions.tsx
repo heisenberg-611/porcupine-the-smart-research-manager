@@ -23,6 +23,22 @@ export function MemberRowActions({
     const newRole = e.target.value as "ADMIN" | "CONTRIBUTOR" | "REVIEWER" | "OBSERVER";
     if (newRole === currentRole) return;
 
+    const isPromotingToEditor =
+      (newRole === "ADMIN" || newRole === "CONTRIBUTOR") &&
+      currentRole !== "ADMIN" &&
+      currentRole !== "CONTRIBUTOR";
+
+    if (isPromotingToEditor) {
+      if (
+        !window.confirm(
+          "Warning: As a Google Drive Editor, any files they create in the shared folder will be owned by them. You will not be able to revoke their access to those specific files later.\n\nDo you want to proceed?"
+        )
+      ) {
+        e.target.value = currentRole;
+        return;
+      }
+    }
+
     setRunning("role");
     await updateMemberRole({ projectId, userId, accessRole: newRole });
     setRunning(null);
