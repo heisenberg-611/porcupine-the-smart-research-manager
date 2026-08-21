@@ -53,7 +53,7 @@ export function ReportIssue() {
       <div className="mt-4 flex flex-wrap gap-2">
         <Button
           variant={kind === "bug" ? "primary" : "ghost"}
-          className={`flex items-center gap-2 transition-all ${kind === "bug" ? "shadow-sm" : "border-border border"}`}
+          className={`flex items-center gap-2 transition-all duration-300 active:scale-95 border ${kind === "bug" ? "border-transparent shadow-sm" : "border-border"}`}
           onClick={() => setKind(kind === "bug" ? null : "bug")}
           aria-expanded={kind === "bug"}
         >
@@ -62,7 +62,7 @@ export function ReportIssue() {
         </Button>
         <Button
           variant={kind === "feature" ? "primary" : "ghost"}
-          className={`flex items-center gap-2 transition-all ${kind === "feature" ? "shadow-sm" : "border-border border"}`}
+          className={`flex items-center gap-2 transition-all duration-300 active:scale-95 border ${kind === "feature" ? "border-transparent shadow-sm" : "border-border"}`}
           onClick={() => setKind(kind === "feature" ? null : "feature")}
           aria-expanded={kind === "feature"}
         >
@@ -71,7 +71,7 @@ export function ReportIssue() {
         </Button>
         <Button
           variant={kind === "improvement" ? "primary" : "ghost"}
-          className={`flex items-center gap-2 transition-all ${kind === "improvement" ? "shadow-sm" : "border-border border"}`}
+          className={`flex items-center gap-2 transition-all duration-300 active:scale-95 border ${kind === "improvement" ? "border-transparent shadow-sm" : "border-border"}`}
           onClick={() => setKind(kind === "improvement" ? null : "improvement")}
           aria-expanded={kind === "improvement"}
         >
