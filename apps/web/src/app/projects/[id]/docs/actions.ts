@@ -84,10 +84,9 @@ export async function createCollaborationFile(
         return { ok: false, error: "You are not a member of this project." };
       }
 
-      // Check if user has permission to write (OBSERVER/REVIEWER shouldn't create files)
-      if (me.accessRole === "OBSERVER" || me.accessRole === "REVIEWER") {
-        return { ok: false, error: "You do not have permission to create files." };
-      }
+      // Let Google Drive API be the ultimate source of truth for write permissions.
+      // If they don't have permission (either due to role or Google Drive bugs),
+      // the API will throw a 403, which automatically triggers the personal drive fallback.
 
       const project = await tx.project.findUnique({
         where: { id: projectId },

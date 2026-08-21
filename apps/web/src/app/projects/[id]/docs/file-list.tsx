@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button, Card, Input, Select } from "@/components/ui";
 import { createCollaborationFile, fetchFolderContents, shareFileAction } from "./actions";
 import type { DriveFile } from "./drive-file";
@@ -32,6 +32,9 @@ export function FileList({
 
   const currentFolder = folderStack[folderStack.length - 1];
 
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const [fallbackUrl, setFallbackUrl] = useState<string | null>(null);
+
   async function handleCreate(type: "doc" | "sheet" | "slide") {
     let defaultTitle = "New Document";
     if (type === "sheet") defaultTitle = "New Spreadsheet";
@@ -47,7 +50,12 @@ export function FileList({
     } else {
       setNewName("");
       if (res.data?.url) {
-        window.open(res.data.url, "_blank");
+        if (res.data.isFallback) {
+          setFallbackUrl(res.data.url);
+          dialogRef.current?.showModal();
+        } else {
+          window.open(res.data.url, "_blank");
+        }
       }
       // Refresh the current folder
       await loadFolder(currentFolder!.id);
@@ -296,6 +304,41 @@ export function FileList({
           </ul>
         )}
       </div>
+
+      <dialog
+        ref={dialogRef}
+        className="bg-canvas border-rule text-ink m-auto w-[90vw] max-w-md rounded-[--radius-card] border p-6 shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-sm"
+        onCancel={() => {
+          dialogRef.current?.close();
+          setFallbackUrl(null);
+        }}
+      >
+        <div className="flex flex-col gap-5">
+          <div>
+            <h3 className="text-warning mb-2 text-lg font-semibold tracking-tight">Created in Personal Drive</h3>
+            <p className="text-muted text-sm leading-relaxed">
+              Google Drive blocked creating this file in the shared project folder because of a permission limitation. 
+            </p>
+            <p className="text-muted mt-2 text-sm leading-relaxed">
+              As a fallback, the file has been successfully created in your personal Google Drive in a folder named <span className="font-semibold text-ink">Porcupine: Project Name (Personal)</span>. It is still linked to this project and visible to you here.
+            </p>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button 
+              variant="primary" 
+              onClick={() => {
+                dialogRef.current?.close();
+                if (fallbackUrl) {
+                  window.open(fallbackUrl, "_blank");
+                }
+                setFallbackUrl(null);
+              }}
+            >
+              Open Document
+            </Button>
+          </div>
+        </div>
+      </dialog>
     </section>
   );
 }
