@@ -128,6 +128,9 @@ export default async function ProjectPage({
   const me = members.find((m) => m.user_id === user.id);
   const canInvite = me?.access_role === "OWNER" || me?.access_role === "ADMIN";
 
+  const { checkProjectAutomationState } = await import("../actions");
+  const { isDisconnected } = await checkProjectAutomationState(id);
+
   const progress = (progressData ?? []) as unknown as ProgressRow[];
   const countOf = (...statuses: string[]) =>
     progress
@@ -378,7 +381,7 @@ export default async function ProjectPage({
             They need a Porcupine account already — sign them up first, or the invitation
             is refused.
           </p>
-          <InviteMemberForm projectId={project.id} />
+          <InviteMemberForm projectId={project.id} isDisconnected={isDisconnected} />
         </section>
       )}
     </main>

@@ -704,3 +704,27 @@ export async function deleteProject(
     return { ok: false, error: "Could not delete the project." };
   }
 }
+
+export async function checkProjectAutomationState(projectId: string) {
+  const cookieStore = await cookies();
+  const providerToken = cookieStore.get("google_provider_token")?.value;
+  
+  const claims = await getUserClaims();
+  if (!claims) return { isDisconnected: false };
+
+  return await withUserContext(claims, async (tx) => {
+    const project = await tx.project.findUnique({
+       where: { id: projectId },
+       select: { driveFolderId: true, googleRefreshToken: true }
+    });
+
+    if (!project?.driveFolderId) return { isDisconnected: false };
+
+    // If the project lacks a refresh token (due to disconnection) 
+    // AND the current user has no provider token, automation will fail.
+    if (!providerToken && !project.googleRefreshToken) {
+      return { isDisconnected: true };
+    }
+    return { isDisconnected: false };
+  });
+}

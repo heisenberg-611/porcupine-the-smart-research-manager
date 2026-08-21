@@ -167,6 +167,34 @@ export async function shareGoogleFile(
   role: "reader" | "commenter" | "writer",
 ) {
   const drive = getDriveClient(accessToken);
+  
+  // First, check if the permission already exists
+  const listResponse = await drive.permissions.list({
+    fileId,
+    fields: "permissions(id, emailAddress, role)",
+  });
+  
+  const permissions = listResponse.data.permissions || [];
+  const existingPermission = permissions.find(
+    (p) => p.emailAddress?.toLowerCase() === emailAddress.toLowerCase()
+  );
+
+  if (existingPermission?.id) {
+    // If the role is already exactly what we want, do nothing
+    if (existingPermission.role === role) {
+      return existingPermission;
+    }
+    
+    // Update the existing permission
+    const updateResponse = await drive.permissions.update({
+      fileId,
+      permissionId: existingPermission.id,
+      requestBody: { role },
+    });
+    return updateResponse.data;
+  }
+
+  // Create a new permission if one doesn't exist
   const response = await drive.permissions.create({
     fileId,
     sendNotificationEmail: true,
