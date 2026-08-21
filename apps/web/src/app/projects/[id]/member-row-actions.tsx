@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button, Select } from "@/components/ui";
 import { updateMemberRole, removeMember } from "../actions";
 
@@ -13,11 +13,10 @@ export function MemberRowActions({
   userId: string;
   currentRole: string;
 }) {
-  // Named, because the Select and the button share this flag: a role change
-  // would otherwise have Remove announce "Removing…" while nothing of the sort
-  // was happening.
   const [running, setRunning] = useState<null | "role" | "remove">(null);
   const pending = running !== null;
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const [pendingRole, setPendingRole] = useState<"ADMIN" | "CONTRIBUTOR" | null>(null);
 
   async function handleRoleChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const newRole = e.target.value as "ADMIN" | "CONTRIBUTOR" | "REVIEWER" | "OBSERVER";
@@ -29,19 +28,29 @@ export function MemberRowActions({
       currentRole !== "CONTRIBUTOR";
 
     if (isPromotingToEditor) {
-      if (
-        !window.confirm(
-          "Warning: As a Google Drive Editor, any files they create in the shared folder will be owned by them. You will not be able to revoke their access to those specific files later.\n\nDo you want to proceed?"
-        )
-      ) {
-        e.target.value = currentRole;
-        return;
-      }
+      setPendingRole(newRole);
+      e.target.value = currentRole;
+      dialogRef.current?.showModal();
+      return;
     }
 
     setRunning("role");
     await updateMemberRole({ projectId, userId, accessRole: newRole });
     setRunning(null);
+  }
+
+  async function confirmRoleChange() {
+    if (!pendingRole) return;
+    dialogRef.current?.close();
+    setRunning("role");
+    await updateMemberRole({ projectId, userId, accessRole: pendingRole });
+    setRunning(null);
+    setPendingRole(null);
+  }
+
+  function cancelRoleChange() {
+    dialogRef.current?.close();
+    setPendingRole(null);
   }
 
   async function handleRemove() {
@@ -53,48 +62,59 @@ export function MemberRowActions({
   }
 
   return (
-    <div className="flex items-center gap-3">
-      {/* The shared primitive, compact, rather than a bare element. The guard
-          that forbids raw form controls is not stylistic: this had its own
-          focus treatment, its own disabled opacity and its own border colour,
-          all of them nearly — but not quite — the primitive's, and none of
-          them updated when the focus indicator was fixed. */}
-      <Select
-        compact
-        /*
-         * "Change member role", not "Role".
-         *
-         * The invite form on this same page has a field labelled exactly
-         * "Role", so naming this one the same way puts two differently-scoped
-         * controls with an identical accessible name on one screen — one that
-         * sets the role of a person being added, one that changes the role of
-         * a person already there. A screen-reader user hears "Role, combo box"
-         * twice and has to guess. Playwright hit the same ambiguity as a
-         * strict-mode violation, which is the machine-readable version of that
-         * complaint.
-         */
-        aria-label="Change member role"
-        className="disabled:opacity-50"
-        value={currentRole}
-        onChange={handleRoleChange}
-        disabled={pending}
+    <>
+      <div className="flex items-center gap-3">
+        <Select
+          compact
+          aria-label="Change member role"
+          className="disabled:opacity-50"
+          value={currentRole}
+          onChange={handleRoleChange}
+          disabled={pending}
+        >
+          <option value="ADMIN">Admin</option>
+          <option value="CONTRIBUTOR">Contributor</option>
+          <option value="REVIEWER">Reviewer</option>
+          <option value="OBSERVER">Observer</option>
+        </Select>
+        <Button
+          variant="ghost"
+          className="text-danger hover:bg-danger/10 h-auto px-2 py-1"
+          onClick={handleRemove}
+          disabled={pending}
+          busy={running === "remove"}
+          busyLabel="Removing…"
+          title="Remove member"
+        >
+          Remove
+        </Button>
+      </div>
+
+      <dialog
+        ref={dialogRef}
+        onCancel={cancelRoleChange}
+        className="bg-canvas border-rule text-ink m-auto w-[90vw] max-w-md rounded-[--radius-card] border p-6 shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-sm"
       >
-        <option value="ADMIN">Admin</option>
-        <option value="CONTRIBUTOR">Contributor</option>
-        <option value="REVIEWER">Reviewer</option>
-        <option value="OBSERVER">Observer</option>
-      </Select>
-      <Button
-        variant="ghost"
-        className="text-danger hover:bg-danger/10 h-auto px-2 py-1"
-        onClick={handleRemove}
-        disabled={pending}
-        busy={running === "remove"}
-        busyLabel="Removing…"
-        title="Remove member"
-      >
-        Remove
-      </Button>
-    </div>
+        <div className="flex flex-col gap-5">
+          <div>
+            <h3 className="text-danger mb-2 text-lg font-semibold tracking-tight">Warning: Google Drive Limitation</h3>
+            <p className="text-muted text-sm leading-relaxed">
+              Google Drive prevents permission changes if a member creates a file. If this member creates a file in the shared folder, Google will block you from downgrading OR removing ANY members in the future.
+            </p>
+            <p className="text-muted mt-2 text-sm leading-relaxed">
+              Please set other users' permissions properly before promoting anyone to an Editor.
+            </p>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button variant="ghost" onClick={cancelRoleChange}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={confirmRoleChange}>
+              I understand, promote
+            </Button>
+          </div>
+        </div>
+      </dialog>
+    </>
   );
 }

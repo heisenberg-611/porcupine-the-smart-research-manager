@@ -179,7 +179,7 @@ export function InviteMemberForm({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
           <p className="leading-relaxed">
-            <strong>Warning:</strong> As a Google Drive Editor, any files they create in the shared folder will be owned by them. You will not be able to revoke their access to those specific files later.
+            <strong>Warning:</strong> Google Drive prevents permission changes if a member creates a file. If this member creates a file in the shared folder, Google will block you from downgrading OR removing ANY members in the future. Please set other users' permissions properly before adding anyone as an Editor.
           </p>
         </div>
       )}
