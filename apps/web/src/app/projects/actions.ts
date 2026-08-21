@@ -161,10 +161,12 @@ export async function inviteMember(
 
       if (project?.driveFolderId) {
         const { shareGoogleFile, getAdminToken } = await import("@/lib/google");
-        
-        let tokenToUse = providerToken;
-        if (!tokenToUse && project.googleRefreshToken) {
-          tokenToUse = (await getAdminToken(project.googleRefreshToken)) ?? undefined;
+        let tokenToUse = project.googleRefreshToken
+          ? await getAdminToken(project.googleRefreshToken)
+          : undefined;
+
+        if (!tokenToUse) {
+          tokenToUse = providerToken;
         }
 
         if (tokenToUse) {
@@ -234,10 +236,12 @@ export async function updateMemberRole(
         const { shareGoogleFile, getAdminToken } = await import("@/lib/google");
         const cookieStore = await cookies();
         const providerToken = cookieStore.get("google_provider_token")?.value;
-        
-        let tokenToUse = providerToken;
-        if (!tokenToUse && project.googleRefreshToken) {
-          tokenToUse = (await getAdminToken(project.googleRefreshToken)) ?? undefined;
+        let tokenToUse = project.googleRefreshToken
+          ? await getAdminToken(project.googleRefreshToken)
+          : undefined;
+
+        if (!tokenToUse) {
+          tokenToUse = providerToken;
         }
 
         if (tokenToUse) {
@@ -314,10 +318,12 @@ export async function removeMember(
         const { revokeGoogleFileAccess, listProjectFiles, getAdminToken } = await import("@/lib/google");
         const cookieStore = await cookies();
         const providerToken = cookieStore.get("google_provider_token")?.value;
-        
-        let tokenToUse = providerToken;
-        if (!tokenToUse && project.googleRefreshToken) {
-          tokenToUse = (await getAdminToken(project.googleRefreshToken)) ?? undefined;
+        let tokenToUse = project.googleRefreshToken
+          ? await getAdminToken(project.googleRefreshToken)
+          : undefined;
+
+        if (!tokenToUse) {
+          tokenToUse = providerToken;
         }
 
         const validToken = tokenToUse;
