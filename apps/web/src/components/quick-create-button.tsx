@@ -48,9 +48,9 @@ export function QuickCreateButton({
           }
           setPending(false);
         }}
-        className="text-ui text-muted hover:text-ink hover:bg-surface/50 flex h-8 items-center rounded-lg px-3 text-left transition-all duration-200 hover:translate-x-1 active:scale-95 disabled:opacity-50 disabled:hover:translate-x-0 disabled:active:scale-100"
+        className="text-ui text-muted hover:text-ink hover:bg-surface/80 flex h-9 items-center rounded-xl px-3.5 text-left font-medium transition-all duration-200 hover:translate-x-1 active:scale-95 disabled:opacity-50 disabled:hover:translate-x-0 disabled:active:scale-100"
       >
-        <span className="text-muted/50 mr-3" aria-hidden="true">
+        <span className="text-muted/50 mr-3 font-bold" aria-hidden="true">
           {pending ? "…" : "+"}
         </span>{" "}
         {pending ? "Creating…" : label}
@@ -58,7 +58,7 @@ export function QuickCreateButton({
 
       <dialog
         ref={dialogRef}
-        className="bg-canvas border-rule text-ink m-auto w-[90vw] max-w-md rounded-[--radius-card] border p-6 shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-sm"
+        className="bg-raised/95 border-rule/80 text-ink m-auto w-[90vw] max-w-md rounded-2xl border p-6 shadow-2xl backdrop:bg-black/50 backdrop:backdrop-blur-sm"
         onCancel={() => {
           dialogRef.current?.close();
           setFallbackUrl(null);

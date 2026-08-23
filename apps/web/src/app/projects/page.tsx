@@ -124,7 +124,7 @@ export default async function ProjectsPage() {
       {error && (
         <p
           role="alert"
-          className="text-danger text-ui bg-danger-soft/20 border-danger/20 rounded-lg border p-4"
+          className="text-danger text-ui bg-danger-soft/30 border-danger/30 rounded-2xl border p-4 shadow-xs"
         >
           Could not load projects.
         </p>
@@ -150,7 +150,7 @@ export default async function ProjectsPage() {
             return (
               <li key={project.id} className="group">
                 <Link href={`/projects/${project.id}`} className="block h-full">
-                  <Card className="border-border/60 hover:border-accent/40 bg-surface/50 hover:bg-surface relative flex h-full flex-col overflow-hidden p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+                  <Card className="border-border/60 hover:border-accent/40 bg-surface/50 hover:bg-surface relative flex h-full flex-col overflow-hidden p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
                     <div className="from-accent/20 to-accent/60 absolute top-0 left-0 h-1 w-full bg-gradient-to-r opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
                     <div className="flex-1">
@@ -166,14 +166,14 @@ export default async function ProjectsPage() {
 
                     <div className="border-border/50 mt-6 flex flex-col gap-2 border-t pt-4">
                       <div className="text-muted flex flex-wrap items-center gap-2 font-mono text-[11px] font-semibold tracking-wider uppercase">
-                        <span className="bg-canvas/80 border-border/50 flex items-center gap-1.5 rounded-md border px-2 py-1">
+                        <span className="bg-canvas/80 border-border/50 flex items-center gap-1.5 rounded-full border px-3 py-1 shadow-xs">
                           <ProjectIcon
                             kind={project.kind}
                             className="text-accent h-3.5 w-3.5"
                           />
                           {project.kind.replace(/_/g, " ")}
                         </span>
-                        <span className="bg-canvas/80 border-border/50 flex items-center gap-1.5 rounded-md border px-2 py-1">
+                        <span className="bg-canvas/80 border-border/50 flex items-center gap-1.5 rounded-full border px-3 py-1 shadow-xs">
                           <svg
                             className="text-accent h-3.5 w-3.5"
                             fill="none"

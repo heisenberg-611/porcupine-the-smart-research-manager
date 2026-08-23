@@ -206,17 +206,17 @@ export default async function ProgressPage({
             </dl>
           </section>
 
-          <section aria-labelledby="pipeline">
-            <h2 id="pipeline" className="text-ink text-heading mb-3 font-medium">
-              Pipeline
+          <section aria-labelledby="pipeline" className="border-border/70 bg-raised/70 rounded-2xl border p-6 shadow-xs">
+            <h2 id="pipeline" className="text-ink text-heading mb-4 font-semibold">
+              Pipeline Stages
             </h2>
-            <ul className="space-y-2">
+            <ul className="space-y-3">
               {SCREEN_STATUSES.map((status) => {
                 const count = countsMap.get(status) ?? 0;
                 const share = total === 0 ? 0 : Math.round((count / total) * 100);
                 return (
-                  <li key={status} className="flex items-center gap-3">
-                    <span className="text-muted text-fine w-28 shrink-0">
+                  <li key={status} className="flex items-center gap-4">
+                    <span className="text-muted text-fine w-28 shrink-0 font-medium">
                       {screenStatusLabel(status)}
                     </span>
                     <div
@@ -225,11 +225,11 @@ export default async function ProgressPage({
                       aria-valuemin={0}
                       aria-valuemax={total}
                       aria-label={`${screenStatusLabel(status)}: ${count} of ${total}`}
-                      className="bg-border h-2 flex-1 overflow-hidden rounded-full"
+                      className="bg-surface/80 border-border/40 h-2.5 flex-1 overflow-hidden rounded-full border"
                     >
-                      <div className="bg-accent h-full" style={{ width: `${share}%` }} />
+                      <div className="bg-accent h-full rounded-full transition-all duration-500" style={{ width: `${share}%` }} />
                     </div>
-                    <span className="text-ink text-ui w-10 shrink-0 text-right tabular-nums">
+                    <span className="text-ink text-ui w-12 shrink-0 text-right font-semibold tabular-nums">
                       {count}
                     </span>
                   </li>
@@ -239,11 +239,11 @@ export default async function ProgressPage({
           </section>
 
           <section aria-labelledby="velocity" className="grid gap-6 sm:grid-cols-2">
-            <div className="border-border rounded-xl border p-5">
-              <h2 id="velocity" className="text-ink text-heading mb-2 font-medium">
+            <div className="border-border/70 bg-raised/70 rounded-2xl border p-6 shadow-xs">
+              <h2 id="velocity" className="text-ink text-heading mb-2 font-semibold">
                 Screening velocity
               </h2>
-              <p className="text-muted text-ui">
+              <p className="text-muted text-ui leading-relaxed">
                 {decisions.length === 0 ? (
                   "No papers included or excluded in the last fortnight."
                 ) : (
@@ -268,11 +268,11 @@ export default async function ProgressPage({
               </p>
             </div>
 
-            <div className="border-border rounded-xl border p-5">
-              <h2 className="text-ink text-heading mb-2 font-medium">
+            <div className="border-border/70 bg-raised/70 rounded-2xl border p-6 shadow-xs">
+              <h2 className="text-ink text-heading mb-2 font-semibold">
                 Extraction velocity
               </h2>
-              <p className="text-muted text-ui">
+              <p className="text-muted text-ui leading-relaxed">
                 {recentSubmissions.length === 0 ? (
                   "No extractions submitted in the last fortnight."
                 ) : (
@@ -316,13 +316,13 @@ function Stat({
   hint?: string;
 }) {
   return (
-    <div className="border-border rounded-lg border p-3">
-      <dt className="text-muted text-fine">
+    <div className="border-border/70 bg-raised/70 rounded-2xl border p-4 shadow-xs">
+      <dt className="text-muted text-fine font-medium">
         {label}
-        {hint && <span className="mt-0.5 block opacity-80">{hint}</span>}
+        {hint && <span className="mt-0.5 block opacity-80 font-normal">{hint}</span>}
       </dt>
       <dd
-        className={`text-title mt-1 font-semibold tabular-nums ${
+        className={`text-title mt-1.5 font-bold tabular-nums ${
           tone === "danger" && value > 0 ? "text-danger" : "text-ink"
         }`}
       >

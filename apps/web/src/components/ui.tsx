@@ -369,28 +369,7 @@ export function TableScroll({
       aria-label={label}
       tabIndex={0}
       className={cx(
-        /*
-         * `relative` is load-bearing, not decoration.
-         *
-         * `overflow-x: auto` only clips an absolutely positioned descendant
-         * when this element is that descendant's CONTAINING BLOCK — which it
-         * is not unless it is positioned. Tailwind's `sr-only` is
-         * `position: absolute`, and the evidence table has one inside every
-         * sortable column header and every unanswered cell. Their static
-         * positions are spread across a 3,700px-wide table, so they escaped
-         * this clip, were laid out against the initial containing block, and
-         * stretched `documentElement.scrollWidth` to 3,783px on a 1,280px
-         * viewport.
-         *
-         * The symptom was the whole page scrolling sideways when the table
-         * was scrolled — with `body.scrollWidth` still a correct 1,280, which
-         * is the tell that something is positioned against the viewport rather
-         * than flowing in the document.
-         *
-         * Measured: `window.scrollTo(600, 0)` moved the page before this line
-         * and does nothing after it.
-         */
-        "border-border relative overflow-x-auto rounded-lg border",
+        "border-border/70 bg-raised/50 relative overflow-x-auto rounded-2xl border shadow-xs",
         "focus-visible:ring-accent focus-visible:ring-2 focus-visible:outline-none",
         className,
       )}
@@ -403,7 +382,7 @@ export function Card({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       className={cx(
-        "border-rule bg-raised rounded-[--radius-card] border p-5",
+        "border-rule/70 bg-raised/90 rounded-2xl border p-6 shadow-xs backdrop-blur-xs transition-all duration-200",
         className,
       )}
       {...props}
@@ -426,7 +405,7 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="border-rule flex flex-col items-start gap-3 rounded-[--radius-card] border border-dashed px-6 py-10">
+    <div className="border-rule/80 bg-surface/30 flex flex-col items-start gap-4 rounded-2xl border-2 border-dashed px-8 py-12">
       <h2 className="text-ink text-heading">{title}</h2>
       <p className="text-muted measure text-ui text-pretty">{description}</p>
       {action}
@@ -464,7 +443,7 @@ export function PageHeader({
         {backHref && backLabel && (
           <Link
             href={backHref}
-            className="text-muted hover:text-ink text-fine focus-visible:ring-accent inline-flex items-center rounded focus-visible:ring-2 focus-visible:outline-none"
+            className="text-muted hover:text-ink text-fine focus-visible:ring-accent inline-flex items-center rounded-lg px-2 py-1 focus-visible:ring-2 focus-visible:outline-none hover:bg-surface/60 transition-colors"
           >
             ← {backLabel}
           </Link>
@@ -501,10 +480,10 @@ export function ButtonLink({
     <Link
       href={href}
       className={cx(
-        "focus-visible:ring-accent text-ui inline-flex min-h-11 items-center justify-center rounded-lg px-4 font-medium",
-        "transition-colors focus-visible:ring-2 focus-visible:outline-none",
-        variant === "primary" && "bg-accent text-accent-ink hover:opacity-90",
-        variant === "ghost" && "border-border text-ink hover:bg-surface border",
+        "focus-visible:ring-accent text-ui inline-flex min-h-11 items-center justify-center rounded-xl px-5 font-medium shadow-xs",
+        "transition-all duration-200 focus-visible:ring-2 focus-visible:outline-none hover:-translate-y-0.5",
+        variant === "primary" && "bg-accent text-accent-ink hover:opacity-90 hover:shadow-sm",
+        variant === "ghost" && "border-border text-ink hover:bg-surface hover:border-accent/40 border",
         className,
       )}
     >
@@ -531,7 +510,7 @@ export function Skeleton({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       aria-hidden
-      className={cx("bg-surface animate-pulse rounded", className)}
+      className={cx("bg-surface animate-pulse rounded-xl", className)}
       {...props}
     />
   );
@@ -565,22 +544,22 @@ export function PageSkeleton({
     >
       {/* The header block, which every page has. */}
       <div className="border-rule flex flex-col gap-3 border-b pb-5">
-        <Skeleton className="h-3 w-24" />
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-4 w-96 max-w-full" />
+        <Skeleton className="h-3 w-24 rounded-full" />
+        <Skeleton className="h-8 w-64 rounded-xl" />
+        <Skeleton className="h-4 w-96 max-w-full rounded-lg" />
       </div>
 
       {shape === "table" && (
-        <div className="border-border overflow-hidden rounded-lg border">
+        <div className="border-border overflow-hidden rounded-2xl border shadow-xs">
           <div className="border-rule bg-surface/60 flex gap-4 border-b p-3">
             {Array.from({ length: 5 }, (_, i) => (
-              <Skeleton key={i} className="h-4 flex-1" />
+              <Skeleton key={i} className="h-4 flex-1 rounded-md" />
             ))}
           </div>
           {Array.from({ length: 8 }, (_, row) => (
             <div key={row} className="border-rule flex gap-4 border-b p-3 last:border-0">
               {Array.from({ length: 5 }, (_, col) => (
-                <Skeleton key={col} className="h-4 flex-1" />
+                <Skeleton key={col} className="h-4 flex-1 rounded-md" />
               ))}
             </div>
           ))}
@@ -589,9 +568,9 @@ export function PageSkeleton({
 
       {shape === "list" &&
         Array.from({ length: 6 }, (_, i) => (
-          <div key={i} className="border-rule flex flex-col gap-2 rounded-lg border p-4">
-            <Skeleton className="h-4 w-2/3" />
-            <Skeleton className="h-3 w-1/3" />
+          <div key={i} className="border-rule flex flex-col gap-2 rounded-2xl border p-4 shadow-xs">
+            <Skeleton className="h-4 w-2/3 rounded-md" />
+            <Skeleton className="h-3 w-1/3 rounded-md" />
           </div>
         ))}
 
@@ -599,8 +578,8 @@ export function PageSkeleton({
         <div className="flex max-w-xl flex-col gap-5">
           {Array.from({ length: 5 }, (_, i) => (
             <div key={i} className="flex flex-col gap-2">
-              <Skeleton className="h-3 w-32" />
-              <Skeleton className="h-11 w-full" />
+              <Skeleton className="h-3 w-32 rounded-md" />
+              <Skeleton className="h-11 w-full rounded-xl" />
             </div>
           ))}
         </div>
@@ -609,7 +588,7 @@ export function PageSkeleton({
       {shape === "prose" && (
         <div className="measure flex flex-col gap-3">
           {Array.from({ length: 10 }, (_, i) => (
-            <Skeleton key={i} className={cx("h-4", i % 4 === 3 ? "w-2/3" : "w-full")} />
+            <Skeleton key={i} className={cx("h-4 rounded-md", i % 4 === 3 ? "w-2/3" : "w-full")} />
           ))}
         </div>
       )}
@@ -628,11 +607,9 @@ export function Banner({
     <div
       role={tone === "danger" ? "alert" : "status"}
       className={cx(
-        "text-ui rounded-lg px-4 py-3",
-        // A left rule and a tint: it reads as an aside rather than another
-        // card competing with the content.
-        tone === "info" && "border-accent bg-accent-soft text-ink border-l-2",
-        tone === "danger" && "border-danger bg-danger-soft text-danger border-l-2",
+        "text-ui rounded-2xl p-5 shadow-xs transition-all",
+        tone === "info" && "border-accent/40 bg-accent-soft text-ink border",
+        tone === "danger" && "border-danger/40 bg-danger-soft text-danger border",
       )}
     >
       {children}

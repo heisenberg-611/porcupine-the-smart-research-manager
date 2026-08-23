@@ -256,7 +256,7 @@ export default async function ExtractDashboardPage({
       {(role === "OWNER" || role === "ADMIN") && (
         <section
           aria-label="Target"
-          className="border-rule bg-surface/50 rounded-[--radius-card] border p-5"
+          className="border-border/70 bg-raised/70 rounded-2xl border p-6 shadow-xs"
         >
           <TargetForm projectId={id} target={target} />
         </section>
@@ -282,7 +282,7 @@ export default async function ExtractDashboardPage({
           {query && (
             <Link
               href={`/projects/${id}/extract`}
-              className="text-muted hover:text-ink text-ui focus-visible:ring-accent inline-flex min-h-12 items-center rounded-lg px-3 focus-visible:ring-2 focus-visible:outline-none"
+              className="text-muted hover:text-ink text-ui focus-visible:ring-accent inline-flex min-h-12 items-center rounded-xl px-4 focus-visible:ring-2 focus-visible:outline-none"
             >
               Clear
             </Link>
@@ -308,10 +308,10 @@ export default async function ExtractDashboardPage({
             <details
               key={member.user_id}
               open={query !== "" && visible.length > 0}
-              className="border-rule bg-surface/50 rounded-[--radius-card] border"
+              className="border-border/70 bg-raised/70 rounded-2xl border overflow-hidden shadow-xs"
             >
-              <summary className="hover:bg-surface flex cursor-pointer flex-wrap items-center gap-x-4 gap-y-2 rounded-[--radius-card] p-5">
-                <span className="text-ink min-w-0 flex-1 font-medium">
+              <summary className="hover:bg-surface/80 flex cursor-pointer flex-wrap items-center gap-x-4 gap-y-2 p-5 transition-colors">
+                <span className="text-ink min-w-0 flex-1 font-semibold">
                   {member.users?.display_name ?? "Unknown member"}
                 </span>
 
@@ -329,7 +329,7 @@ export default async function ExtractDashboardPage({
                 ) : null}
               </summary>
 
-              <div className="border-rule border-t px-5 py-4">
+              <div className="border-border/60 border-t px-5 py-4">
                 {visible.length === 0 ? (
                   <p className="text-muted text-ui">
                     {papers.length === 0
@@ -355,15 +355,15 @@ export default async function ExtractDashboardPage({
         {board.unassigned.length > 0 && (
           <details
             open={query !== ""}
-            className="border-rule rounded-[--radius-card] border border-dashed"
+            className="border-border/70 bg-raised/50 rounded-2xl border border-dashed overflow-hidden shadow-xs"
           >
-            <summary className="hover:bg-surface flex cursor-pointer items-center gap-4 rounded-[--radius-card] p-5">
-              <span className="text-ink flex-1 font-medium">Nobody has started</span>
-              <span className="text-muted text-ui font-mono">
+            <summary className="hover:bg-surface/80 flex cursor-pointer items-center gap-4 p-5 transition-colors">
+              <span className="text-ink flex-1 font-semibold">Nobody has started</span>
+              <span className="text-muted text-ui font-mono font-semibold">
                 {board.unassigned.length}
               </span>
             </summary>
-            <div className="border-rule border-t px-5 py-4">
+            <div className="border-border/60 border-t px-5 py-4">
               <ul className="flex flex-col gap-2">
                 {board.unassigned
                   .filter((paper) => matches(paper.title))
@@ -376,16 +376,16 @@ export default async function ExtractDashboardPage({
         )}
 
         {board.departed.length > 0 && (
-          <details className="border-rule rounded-[--radius-card] border border-dashed">
-            <summary className="hover:bg-surface flex cursor-pointer items-center gap-4 rounded-[--radius-card] p-5">
-              <span className="text-ink flex-1 font-medium">
+          <details className="border-border/70 bg-raised/50 rounded-2xl border border-dashed overflow-hidden shadow-xs">
+            <summary className="hover:bg-surface/80 flex cursor-pointer items-center gap-4 p-5 transition-colors">
+              <span className="text-ink flex-1 font-semibold">
                 Extracted by former members
               </span>
-              <span className="text-muted text-ui font-mono">
+              <span className="text-muted text-ui font-mono font-semibold">
                 {board.departed.length}
               </span>
             </summary>
-            <div className="border-rule border-t px-5 py-4">
+            <div className="border-border/60 border-t px-5 py-4">
               <p className="text-muted text-ui mb-3 text-pretty">
                 Still counted above and still in the evidence table — removing somebody
                 from a project does not remove their work from the review.
@@ -410,7 +410,7 @@ export default async function ExtractDashboardPage({
             action={
               <Link
                 href={`/projects/${id}/screen`}
-                className="border-border text-ink hover:bg-surface focus-visible:ring-accent text-ui inline-flex min-h-11 items-center rounded-lg border px-4 font-medium focus-visible:ring-2 focus-visible:outline-none"
+                className="border-border text-ink hover:bg-surface focus-visible:ring-accent text-ui inline-flex min-h-11 items-center rounded-xl border px-5 font-medium focus-visible:ring-2 focus-visible:outline-none"
               >
                 Go to screening
               </Link>
@@ -437,10 +437,10 @@ function Stat({
   return (
     <div
       data-stat={name}
-      className="border-rule bg-surface/50 rounded-[--radius-card] border p-5"
+      className="border-border/70 bg-raised/70 rounded-2xl border p-5 shadow-xs"
     >
-      <dt className="text-muted text-fine">{label}</dt>
-      <dd className="text-ink text-title mt-1 font-serif">{value}</dd>
+      <dt className="text-muted text-fine font-medium">{label}</dt>
+      <dd className="text-ink text-title mt-1 font-serif font-bold">{value}</dd>
       {hint && <dd className="text-muted text-fine mt-1">{hint}</dd>}
     </div>
   );
@@ -456,9 +456,9 @@ function Stat({
  */
 function Meter({ percent }: { percent: number }) {
   return (
-    <span aria-hidden className="bg-surface block h-1.5 w-full rounded-full">
+    <span aria-hidden className="bg-surface/80 border-border/40 block h-2 w-full rounded-full border overflow-hidden">
       <span
-        className="bg-accent block h-1.5 rounded-full transition-[width] duration-500"
+        className="bg-accent block h-full rounded-full transition-[width] duration-500"
         style={{ width: `${percent}%` }}
       />
     </span>
@@ -479,10 +479,10 @@ function PaperRow({ projectId, paper }: { projectId: string; paper: Paper }) {
       : `/projects/${projectId}/extract/${paper.id}`;
 
   return (
-    <li className="border-rule bg-raised flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border p-3">
-      <span className="text-ink text-ui min-w-0 flex-1 text-pretty">
+    <li className="border-border/60 bg-surface/70 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border p-3.5 shadow-xs">
+      <span className="text-ink text-ui min-w-0 flex-1 text-pretty font-medium">
         {paper.title}
-        {paper.year ? <span className="text-muted"> · {paper.year}</span> : null}
+        {paper.year ? <span className="text-muted font-normal"> · {paper.year}</span> : null}
       </span>
 
       <span className="meta shrink-0">
@@ -502,7 +502,7 @@ function PaperRow({ projectId, paper }: { projectId: string; paper: Paper }) {
 
       <Link
         href={href}
-        className="border-border text-ink hover:bg-surface focus-visible:ring-accent text-ui inline-flex min-h-9 shrink-0 items-center rounded-lg border px-3 font-medium focus-visible:ring-2 focus-visible:outline-none"
+        className="border-border text-ink hover:bg-surface hover:border-accent/40 focus-visible:ring-accent text-ui inline-flex min-h-9 shrink-0 items-center rounded-xl border px-3.5 font-medium transition-all focus-visible:ring-2 focus-visible:outline-none"
       >
         {label}
       </Link>

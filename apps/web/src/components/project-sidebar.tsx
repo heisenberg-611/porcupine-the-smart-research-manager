@@ -61,11 +61,11 @@ export function ProjectSidebar({
           href={sectionHref(projectId, "")}
           aria-current={active === "" ? "page" : undefined}
           className={cx(
-            "block rounded-xl border px-4 py-3 transition-all duration-200 active:scale-95",
+            "block rounded-2xl border px-4 py-3.5 transition-all duration-200 active:scale-95",
             "focus-visible:ring-accent focus-visible:ring-2 focus-visible:outline-none",
             active === ""
-              ? "bg-surface border-border shadow-sm ring-1 ring-black/5 dark:ring-white/5"
-              : "bg-surface/40 hover:bg-surface hover:border-border border-transparent hover:scale-[1.02] hover:shadow-sm",
+              ? "bg-surface border-border/80 shadow-xs ring-1 ring-black/5 dark:ring-white/5"
+              : "bg-surface/40 hover:bg-surface hover:border-border border-transparent hover:scale-[1.02] hover:shadow-xs",
           )}
         >
           <div className="mb-1.5 flex items-center gap-2">
@@ -101,11 +101,11 @@ export function ProjectSidebar({
                           href={sectionHref(projectId, section.slug)}
                           aria-current={current ? "page" : undefined}
                           className={cx(
-                            "text-ui flex min-h-9 items-center rounded-lg px-3 transition-all duration-200 active:scale-95",
+                            "text-ui flex min-h-10 items-center rounded-xl px-3.5 transition-all duration-200 active:scale-95 font-medium",
                             "focus-visible:ring-accent focus-visible:ring-2 focus-visible:outline-none",
                             current
-                              ? "bg-surface text-ink font-semibold shadow-sm"
-                              : "text-muted hover:text-ink hover:bg-surface/50 hover:translate-x-1",
+                              ? "bg-raised text-ink font-semibold shadow-xs border border-border/60"
+                              : "text-muted hover:text-ink hover:bg-surface/80 hover:translate-x-1",
                           )}
                         >
                           <span

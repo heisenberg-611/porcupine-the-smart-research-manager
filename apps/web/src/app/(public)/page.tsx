@@ -98,9 +98,9 @@ export default async function Home() {
           {STEPS.map(({ term, detail }, index) => (
             <li
               key={term}
-              className="bg-surface/50 border-rule rounded-[--radius-card] border p-6"
+              className="border-border/70 bg-raised/70 rounded-2xl border p-6 shadow-xs hover:shadow-md hover:border-accent/40 hover:-translate-y-0.5 transition-all duration-300"
             >
-              <p className="text-accent text-fine font-mono">
+              <p className="text-accent text-fine font-mono font-semibold">
                 Step {String(index + 1).padStart(2, "0")}
               </p>
               {/*
@@ -108,7 +108,7 @@ export default async function Home() {
                 that outranks the heading of the section containing it is the
                 most common way a page's outline stops describing the page.
               */}
-              <h3 className="text-ink text-heading mt-2 font-serif">{term}</h3>
+              <h3 className="text-ink text-heading mt-2 font-serif font-bold">{term}</h3>
               <p className="text-ink-soft text-ui mt-3 leading-relaxed text-pretty">
                 {detail}
               </p>

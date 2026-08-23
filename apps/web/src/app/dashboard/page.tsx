@@ -209,18 +209,18 @@ export default async function DashboardPage() {
                           )}
                         </div>
 
-                        <div className="bg-raised/50 border-rule flex items-center justify-between rounded-lg border px-3 py-2">
-                          <span className="text-muted text-fine">
+                        <div className="bg-raised/60 border-rule/70 flex items-center justify-between rounded-xl border px-3.5 py-2 shadow-xs">
+                          <span className="text-muted text-fine font-medium">
                             {papers} {papers === 1 ? "paper" : "papers"}
                           </span>
 
                           {/* The one number that decides whether to open it. */}
                           {undecided > 0 ? (
-                            <span className="text-accent text-fine font-medium">
+                            <span className="text-accent text-fine font-semibold">
                               {undecided} to screen
                             </span>
                           ) : (
-                            <span className="text-muted text-fine flex items-center gap-1">
+                            <span className="text-muted text-fine flex items-center gap-1 font-medium">
                               <svg
                                 className="size-3.5"
                                 fill="none"
@@ -246,7 +246,7 @@ export default async function DashboardPage() {
             </ul>
           </section>
 
-          <div className="bg-surface/50 border-rule mt-4 flex flex-col justify-between gap-4 rounded-xl border p-5 sm:flex-row sm:items-center">
+          <div className="bg-surface/50 border-rule/80 mt-6 flex flex-col justify-between gap-4 rounded-2xl border p-6 shadow-xs sm:flex-row sm:items-center">
             <p className="text-muted text-ui">
               {totalUndecided > 0 ? (
                 <>

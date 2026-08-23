@@ -33,13 +33,13 @@ export async function SiteHeader() {
       >
         <Link
           href="/"
-          className="text-ink focus-visible:ring-accent flex shrink-0 items-center gap-3 rounded-lg focus-visible:ring-2 focus-visible:outline-none"
+          className="text-ink focus-visible:ring-accent flex shrink-0 items-center gap-3 rounded-xl focus-visible:ring-2 focus-visible:outline-none"
           aria-label="porcupineResearch home"
         >
           <Image
             src={logo}
             alt=""
-            className="size-9 rounded-lg object-contain"
+            className="size-9 rounded-xl object-contain shadow-xs"
             priority
           />
           <span className="text-heading font-serif">porcupineResearch</span>
@@ -59,7 +59,7 @@ export async function SiteHeader() {
             <li key={href}>
               <Link
                 href={href}
-                className="text-muted hover:text-ink hover:bg-surface focus-visible:ring-accent inline-flex min-h-11 items-center rounded-lg px-3 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                className="text-muted hover:text-ink hover:bg-surface/80 focus-visible:ring-accent inline-flex min-h-11 items-center rounded-xl px-3.5 transition-all focus-visible:ring-2 focus-visible:outline-none"
               >
                 {label}
               </Link>
@@ -71,14 +71,14 @@ export async function SiteHeader() {
           {user ? (
             <Link
               href="/dashboard"
-              className="bg-accent text-accent-ink focus-visible:ring-accent text-ui inline-flex min-h-11 items-center rounded-lg px-4 font-medium transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none"
+              className="bg-accent text-accent-ink focus-visible:ring-accent text-ui inline-flex min-h-11 items-center rounded-xl px-5 font-medium shadow-xs transition-all hover:opacity-90 hover:shadow-sm focus-visible:ring-2 focus-visible:outline-none"
             >
               Dashboard
             </Link>
           ) : (
             <Link
               href="/sign-in"
-              className="border-border text-ink hover:bg-surface focus-visible:ring-accent text-ui inline-flex min-h-11 items-center rounded-lg border px-4 font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none"
+              className="border-border text-ink hover:bg-surface/80 hover:border-accent/40 focus-visible:ring-accent text-ui inline-flex min-h-11 items-center rounded-xl border px-5 font-medium shadow-xs transition-all focus-visible:ring-2 focus-visible:outline-none"
             >
               Sign in
             </Link>
