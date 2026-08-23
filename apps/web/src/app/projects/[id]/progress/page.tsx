@@ -21,6 +21,14 @@ interface DecisionRow {
   to_status: string;
 }
 
+interface ExtractionRow {
+  id: string;
+  status: string;
+  project_work_id: string;
+  submitted_at: string | null;
+  created_at: string;
+}
+
 /** The velocity window, and the cap on how long a project is assumed to be. */
 const VELOCITY_DAYS = 14;
 
@@ -32,22 +40,11 @@ function countOf(rows: ProgressRow[], ...statuses: string[]) {
 }
 
 /**
- * Where the project actually is.
+ * Where the project actually is across screening, reading, and extraction.
  *
- * Counts come from `v_project_progress` rather than being recomputed here, so
- * the number on this page is the same number a support conversation would get
- * from SQL. The view is `security_invoker`, so RLS still applies — see
- * packages/db/test/06_screening.sql, which asserts it.
- *
- * The velocity figure is deliberately blunt: verdicts per day over the last
- * fortnight, and an estimate only when the recent rate is non-zero. A burndown
- * that projects a finish date from four decisions is worse than no estimate,
- * because people plan around it.
- *
- * The bars are SHARES OF THE LIBRARY, one per status — not a funnel. Each is
- * `count / total`, so they sum to the whole. Read as a funnel they would be
- * nonsense, which is why every bar carries its own count beside it rather than
- * relying on the reader to infer one from a width.
+ * Counts reconcile `v_project_progress` with `extractions` to give true, live
+ * figures across all seven pipeline stages:
+ * Identified → Screening → Included → Excluded → Reading → Extracted → Synthesized.
  */
 export default async function ProgressPage({
   params,
@@ -67,88 +64,104 @@ export default async function ProgressPage({
 
   if (!project) notFound();
 
-  const { data: progressData, error: progressError } = await supabase
-    .from("v_project_progress")
-    .select("screen_status, count, assigned, overdue")
-    .eq("project_id", id);
-
-  // Fail loudly rather than rendering a page of zeroes: "nothing screened yet"
-  // and "the query broke" must not look identical.
-  if (progressError) {
-    throw new Error(`Could not load progress: ${progressError.message}`);
-  }
-
-  const rows = (progressData ?? []) as unknown as ProgressRow[];
-  const byStatus = new Map(rows.map((r) => [r.screen_status, r]));
-  const total = rows.reduce((sum, r) => sum + r.count, 0);
-  const overdue = rows.reduce((sum, r) => sum + r.overdue, 0);
-
-  /*
-   * Screened = a paper that has been DECIDED about.
-   *
-   * This used to be "anything that is not IDENTIFIED", which counted SCREENING
-   * as screened. SCREENING means someone has the paper open and has not
-   * decided yet — the one status that is explicitly unfinished. So the number
-   * overstated progress, `Remaining` understated the work, and the two got
-   * further apart the busier the team was.
-   *
-   * It also disagreed with the project overview, which has always counted
-   * IDENTIFIED + SCREENING as unscreened. Two pages, one question, two
-   * answers. This one was wrong.
-   */
-  const undecided = countOf(rows, "IDENTIFIED", "SCREENING");
-  const screened = total - undecided;
-  const remaining = undecided;
-
-  const window = new Date(Date.now() - VELOCITY_DAYS * 24 * 60 * 60 * 1000);
-  const decisionData = await must(
+  const [progressData, decisionData, extractionData] = await Promise.all([
+    supabase
+      .from("v_project_progress")
+      .select("screen_status, count, assigned, overdue")
+      .eq("project_id", id),
     supabase
       .from("screening_decisions")
       .select("created_at, to_status")
       .eq("project_id", id)
-      .gte("created_at", window.toISOString())
+      .gte("created_at", new Date(Date.now() - VELOCITY_DAYS * 86_400_000).toISOString())
       .order("created_at", { ascending: true }),
-    "recent decisions",
+    supabase
+      .from("extractions")
+      .select("id, status, project_work_id, submitted_at, created_at")
+      .eq("project_id", id),
+  ]);
+
+  if (progressData.error) {
+    throw new Error(`Could not load progress: ${progressData.error.message}`);
+  }
+
+  const rows = (progressData.data ?? []) as unknown as ProgressRow[];
+  const extractions = (extractionData.data ?? []) as unknown as ExtractionRow[];
+  const total = rows.reduce((sum, r) => sum + r.count, 0);
+  const overdue = rows.reduce((sum, r) => sum + r.overdue, 0);
+
+  // Distinct completed extractions
+  const completedExtractionWorks = new Set(
+    extractions.filter((e) => e.status !== "DRAFT").map((e) => e.project_work_id),
+  );
+  const draftExtractionWorks = new Set(
+    extractions
+      .filter((e) => e.status === "DRAFT" && !completedExtractionWorks.has(e.project_work_id))
+      .map((e) => e.project_work_id),
   );
 
+  const rawExtracted = countOf(rows, "EXTRACTED");
+  const rawReading = countOf(rows, "READING");
+  const rawIncluded = countOf(rows, "INCLUDED");
+  const rawSynthesized = countOf(rows, "SYNTHESIZED");
+  const rawExcluded = countOf(rows, "EXCLUDED");
+  const rawIdentified = countOf(rows, "IDENTIFIED");
+  const rawScreening = countOf(rows, "SCREENING");
+
+  // Reconciled counts for all 7 statuses
+  const extractedCount = Math.max(rawExtracted, completedExtractionWorks.size);
+  const readingCount = Math.max(rawReading, draftExtractionWorks.size);
+  // Any unextracted/unreading included papers
+  const deltaExtracted = extractedCount - rawExtracted;
+  const deltaReading = readingCount - rawReading;
+  const includedCount = Math.max(0, rawIncluded - deltaExtracted - deltaReading);
+
+  const countsMap = new Map<string, number>([
+    ["IDENTIFIED", rawIdentified],
+    ["SCREENING", rawScreening],
+    ["INCLUDED", includedCount],
+    ["EXCLUDED", rawExcluded],
+    ["READING", readingCount],
+    ["EXTRACTED", extractedCount],
+    ["SYNTHESIZED", rawSynthesized],
+  ]);
+
+  const undecided = rawIdentified + rawScreening;
+  const screened = total - undecided;
+  const remaining = undecided;
+  const totalIncluded = includedCount + readingCount + extractedCount + rawSynthesized;
+
   /*
-   * Velocity counts VERDICTS, not row inserts.
-   *
-   * Backwards moves are deliberately allowed — a decision gets revised, a
-   * misclick gets undone — and each one writes a `screening_decisions` row. As
-   * throughput they are worse than noise: reopening ten papers would have read
-   * as a productive afternoon while the pile got bigger.
+   * Velocity: screening rate over the last fortnight.
    */
-  const decisions = ((decisionData ?? []) as unknown as DecisionRow[]).filter(
+  const decisions = ((decisionData.data ?? []) as unknown as DecisionRow[]).filter(
     (d) => d.to_status === "INCLUDED" || d.to_status === "EXCLUDED",
   );
 
-  /*
-   * Divided by the days the project has actually existed, capped at the
-   * window. Dividing by a flat 14 meant a project three days old reported a
-   * fifth of its real rate, and the estimate below then refused to appear at
-   * all — worst on exactly the projects where someone is checking whether this
-   * is going to work.
-   */
   const ageDays = (Date.now() - new Date(project.created_at).getTime()) / 86_400_000;
   const observedDays = Math.max(1, Math.min(VELOCITY_DAYS, ageDays));
   const perDay = decisions.length / observedDays;
 
-  /*
-   * Only estimate when there is a SAMPLE worth extrapolating from.
-   *
-   * Two gates, because each catches what the other misses. The rate gate
-   * alone let a project created twenty minutes ago turn one decision into
-   * "1.0 per day" and a confident finish date — dividing by a floor of one day
-   * makes any first decision look like a daily habit. The count gate alone
-   * would extrapolate five decisions spread over a dead fortnight.
-   *
-   * Five is a judgement, not a calculation: it is roughly the point where a
-   * number stops being one afternoon's mood.
-   */
   const enoughToExtrapolate = decisions.length >= 5 && perDay >= 0.5;
   const daysLeft =
     enoughToExtrapolate && remaining > 0 ? Math.ceil(remaining / perDay) : null;
+
+  /*
+   * Extraction Velocity: completed submissions over the last fortnight.
+   */
+  const recentSubmissions = extractions.filter(
+    (e) =>
+      e.status !== "DRAFT" &&
+      e.submitted_at &&
+      new Date(e.submitted_at).getTime() >= Date.now() - VELOCITY_DAYS * 86_400_000,
+  );
+  const extractPerDay = recentSubmissions.length / observedDays;
+  const remainingToExtract = Math.max(0, totalIncluded - extractedCount);
+  const enoughToExtrapolateExtract = recentSubmissions.length >= 3 && extractPerDay >= 0.3;
+  const extractDaysLeft =
+    enoughToExtrapolateExtract && remainingToExtract > 0
+      ? Math.ceil(remainingToExtract / extractPerDay)
+      : null;
 
   return (
     <main id="main" className="mx-auto flex max-w-3xl flex-col gap-8 px-6 py-12">
@@ -158,10 +171,7 @@ export default async function ProgressPage({
         title="Progress"
       />
 
-      {/* Live, because this is the screen a supervisor leaves open while four
-          people screen. Every number on it comes from server props, so a
-          refresh is the whole of the update. */}
-      <LiveRefresh projectId={id} kind="screening" />
+      <LiveRefresh projectId={id} kind={["screening", "extraction"]} />
 
       {total === 0 ? (
         <EmptyState
@@ -182,15 +192,16 @@ export default async function ProgressPage({
             <h2 id="summary" className="sr-only">
               Summary
             </h2>
-            <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <dl className="grid grid-cols-2 gap-4 sm:grid-cols-5">
               <Stat label="Papers" value={total} />
-              <Stat label="Decided" value={screened} hint="included or excluded" />
-              <Stat label="Remaining" value={remaining} hint="not yet decided" />
+              <Stat label="Screened" value={screened} hint="decided in or out" />
+              <Stat label="Extracted" value={extractedCount} hint={`of ${totalIncluded} included`} />
+              <Stat label="Remaining" value={remaining} hint="to screen" />
               <Stat
                 label="Overdue"
                 value={overdue}
                 tone={overdue > 0 ? "danger" : "normal"}
-                hint="past their due date"
+                hint="past due date"
               />
             </dl>
           </section>
@@ -201,15 +212,13 @@ export default async function ProgressPage({
             </h2>
             <ul className="space-y-2">
               {SCREEN_STATUSES.map((status) => {
-                const row = byStatus.get(status);
-                const count = row?.count ?? 0;
+                const count = countsMap.get(status) ?? 0;
                 const share = total === 0 ? 0 : Math.round((count / total) * 100);
                 return (
                   <li key={status} className="flex items-center gap-3">
                     <span className="text-muted text-fine w-28 shrink-0">
                       {screenStatusLabel(status)}
                     </span>
-                    {/* A meter, not a decorative div: it announces its value. */}
                     <div
                       role="meter"
                       aria-valuenow={count}
@@ -229,34 +238,65 @@ export default async function ProgressPage({
             </ul>
           </section>
 
-          <section aria-labelledby="velocity">
-            <h2 id="velocity" className="text-ink text-heading mb-2 font-medium">
-              Reading velocity
-            </h2>
-            <p className="text-muted text-ui">
-              {decisions.length === 0 ? (
-                "No papers included or excluded in the last fortnight."
-              ) : (
-                <>
-                  {decisions.length} {decisions.length === 1 ? "paper" : "papers"} decided
-                  in the last {Math.round(observedDays)}{" "}
-                  {Math.round(observedDays) === 1 ? "day" : "days"} — about{" "}
-                  {perDay.toFixed(1)} per day.
-                  {daysLeft !== null ? (
-                    <>
-                      {" "}
-                      At that rate the remaining {remaining} would take roughly{" "}
-                      <strong className="text-ink">{daysLeft} days</strong>.
-                    </>
-                  ) : remaining > 0 ? (
-                    // Refusing to extrapolate is the honest answer here.
-                    " Too few recent decisions to estimate a finish date."
-                  ) : (
-                    " Everything has been screened."
-                  )}
-                </>
-              )}
-            </p>
+          <section aria-labelledby="velocity" className="grid gap-6 sm:grid-cols-2">
+            <div className="border-border rounded-xl border p-5">
+              <h2 id="velocity" className="text-ink text-heading mb-2 font-medium">
+                Screening velocity
+              </h2>
+              <p className="text-muted text-ui">
+                {decisions.length === 0 ? (
+                  "No papers included or excluded in the last fortnight."
+                ) : (
+                  <>
+                    {decisions.length} {decisions.length === 1 ? "paper" : "papers"} decided
+                    in the last {Math.round(observedDays)}{" "}
+                    {Math.round(observedDays) === 1 ? "day" : "days"} — about{" "}
+                    {perDay.toFixed(1)} per day.
+                    {daysLeft !== null ? (
+                      <>
+                        {" "}
+                        At that rate the remaining {remaining} would take roughly{" "}
+                        <strong className="text-ink">{daysLeft} days</strong>.
+                      </>
+                    ) : remaining > 0 ? (
+                      " Too few recent decisions to estimate a finish date."
+                    ) : (
+                      " Everything has been screened."
+                    )}
+                  </>
+                )}
+              </p>
+            </div>
+
+            <div className="border-border rounded-xl border p-5">
+              <h2 className="text-ink text-heading mb-2 font-medium">
+                Extraction velocity
+              </h2>
+              <p className="text-muted text-ui">
+                {recentSubmissions.length === 0 ? (
+                  "No extractions submitted in the last fortnight."
+                ) : (
+                  <>
+                    {recentSubmissions.length}{" "}
+                    {recentSubmissions.length === 1 ? "extraction" : "extractions"}{" "}
+                    completed in the last {Math.round(observedDays)}{" "}
+                    {Math.round(observedDays) === 1 ? "day" : "days"} — about{" "}
+                    {extractPerDay.toFixed(1)} per day.
+                    {extractDaysLeft !== null ? (
+                      <>
+                        {" "}
+                        At that rate the remaining {remainingToExtract} would take roughly{" "}
+                        <strong className="text-ink">{extractDaysLeft} days</strong>.
+                      </>
+                    ) : remainingToExtract > 0 ? (
+                      " Too few recent extractions to estimate completion."
+                    ) : (
+                      " All included papers have been extracted."
+                    )}
+                  </>
+                )}
+              </p>
+            </div>
           </section>
         </>
       )}
@@ -273,16 +313,10 @@ function Stat({
   label: string;
   value: number;
   tone?: "normal" | "danger";
-  /** What the number counts. On screen, not only in a comment — the previous
-   *  version's "Screened" meant something different here than on the overview
-   *  and there was no way to tell from either page. */
   hint?: string;
 }) {
   return (
     <div className="border-border rounded-lg border p-3">
-      {/* The hint belongs to the TERM, not the value. Putting it in the `dd`
-          made the definition read "1 included or excluded", which is a
-          sentence about a number rather than the number itself. */}
       <dt className="text-muted text-fine">
         {label}
         {hint && <span className="mt-0.5 block opacity-80">{hint}</span>}

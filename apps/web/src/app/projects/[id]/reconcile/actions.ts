@@ -144,9 +144,18 @@ export async function recordReconciliation(
         select: { id: true },
       });
 
+      // Update paper's screen status to EXTRACTED
+      await tx.projectWork.update({
+        where: { id: projectWorkId },
+        data: { screenStatus: "EXTRACTED" },
+      });
+
       return { extractionId: created.id, resolved };
     });
 
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath(`/projects/${projectId}/extract`);
+    revalidatePath(`/projects/${projectId}/progress`);
     revalidatePath(`/projects/${projectId}/reconcile`);
     revalidatePath(`/projects/${projectId}/reconcile/${projectWorkId}`);
     revalidatePath(`/projects/${projectId}/evidence`);

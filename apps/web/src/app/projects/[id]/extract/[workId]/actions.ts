@@ -65,17 +65,23 @@ export async function startExtraction(
       });
 
       if (!existing) {
-        // Auto-assign the paper to the user if it's currently unassigned
+        // Auto-assign the paper to the user if it's currently unassigned, and move INCLUDED to READING
         const work = await tx.projectWork.findUnique({
           where: { id: projectWorkId },
-          select: { assigneeId: true },
+          select: { assigneeId: true, screenStatus: true },
         });
 
-        if (work && !work.assigneeId) {
-          await tx.projectWork.update({
-            where: { id: projectWorkId },
-            data: { assigneeId: claims.sub },
-          });
+        if (work) {
+          const updateData: { assigneeId?: string; screenStatus?: "READING" } = {};
+          if (!work.assigneeId) updateData.assigneeId = claims.sub;
+          if (work.screenStatus === "INCLUDED") updateData.screenStatus = "READING";
+
+          if (Object.keys(updateData).length > 0) {
+            await tx.projectWork.update({
+              where: { id: projectWorkId },
+              data: updateData,
+            });
+          }
         }
       }
 
@@ -94,6 +100,9 @@ export async function startExtraction(
       return created.id;
     });
 
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath(`/projects/${projectId}/extract`);
+    revalidatePath(`/projects/${projectId}/progress`);
     revalidatePath(`/projects/${projectId}/extract/${projectWorkId}`);
     return { ok: true, data: { extractionId } };
   } catch (error) {
@@ -253,6 +262,7 @@ export async function saveDraft(
       return count;
     });
 
+    revalidatePath(`/projects/${projectId}/extract`);
     revalidatePath(`/projects/${projectId}/extract/${projectWorkId}`);
     return { ok: true, data: { saved } };
   } catch (error) {
@@ -313,6 +323,12 @@ export async function submitExtraction(
         data: { status: "SUBMITTED", submittedAt: new Date() },
       });
 
+      // Update paper's screenStatus to EXTRACTED so progress views reflect completion
+      await tx.projectWork.update({
+        where: { id: projectWorkId },
+        data: { screenStatus: "EXTRACTED" },
+      });
+
       return { missing: [] };
     });
 
@@ -325,6 +341,12 @@ export async function submitExtraction(
       };
     }
 
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath(`/projects/${projectId}/extract`);
+    revalidatePath(`/projects/${projectId}/progress`);
+    revalidatePath(`/projects/${projectId}/evidence`);
+    revalidatePath(`/projects/${projectId}/library`);
+    revalidatePath(`/projects/${projectId}/reconcile`);
     revalidatePath(`/projects/${projectId}/extract/${projectWorkId}`);
     return { ok: true, data: { missing: [] } };
   } catch (error) {
@@ -352,12 +374,33 @@ export async function reopenExtraction(
   const { projectId, projectWorkId, extractionId } = parsed.data;
 
   try {
-    const updated = await withUserContext(claims, async (tx) =>
-      tx.extraction.updateMany({
+    const updated = await withUserContext(claims, async (tx) => {
+      const res = await tx.extraction.updateMany({
         where: { id: extractionId, extractorId: claims.sub },
         data: { status: "DRAFT" },
-      }),
-    );
+      });
+
+      if (res.count > 0) {
+        // If no other completed extraction exists for this work, revert to READING
+        const otherCompleted = await tx.extraction.findFirst({
+          where: {
+            projectWorkId,
+            id: { not: extractionId },
+            status: { in: ["SUBMITTED", "RECONCILED", "VERIFIED"] },
+          },
+          select: { id: true },
+        });
+
+        if (!otherCompleted) {
+          await tx.projectWork.update({
+            where: { id: projectWorkId },
+            data: { screenStatus: "READING" },
+          });
+        }
+      }
+
+      return res;
+    });
 
     // RLS filters rather than raising, so zero rows is how "not yours" arrives
     // — and nobody may reopen someone else's extraction, not even an owner.
@@ -365,6 +408,12 @@ export async function reopenExtraction(
       return { ok: false, error: "That extraction is not yours to reopen." };
     }
 
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath(`/projects/${projectId}/extract`);
+    revalidatePath(`/projects/${projectId}/progress`);
+    revalidatePath(`/projects/${projectId}/evidence`);
+    revalidatePath(`/projects/${projectId}/library`);
+    revalidatePath(`/projects/${projectId}/reconcile`);
     revalidatePath(`/projects/${projectId}/extract/${projectWorkId}`);
     return { ok: true };
   } catch (error) {

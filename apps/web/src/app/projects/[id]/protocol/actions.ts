@@ -108,6 +108,7 @@ export async function createProtocol(
       return protocol.id;
     });
 
+    revalidatePath(`/projects/${projectId}`);
     revalidatePath(`/projects/${projectId}/protocol`);
     return { ok: true, data: { protocolId } };
   } catch (error) {
@@ -379,6 +380,7 @@ export async function createNewVersion(
 
     if (!newId) return { ok: false, error: "Protocol not found." };
 
+    revalidatePath(`/projects/${projectId}`);
     revalidatePath(`/projects/${projectId}/protocol`);
     return { ok: true, data: { protocolId: newId } };
   } catch (error) {

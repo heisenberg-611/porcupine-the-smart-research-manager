@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { ButtonLink, Card, PageHeader } from "@/components/ui";
+import { LiveRefresh } from "@/components/live-refresh";
 import { getProject } from "@/lib/project";
 import {
   projectSections,
@@ -80,49 +81,59 @@ export default async function ProjectPage({
   const caps = capabilities(kind);
   const sections = projectSections(kind);
 
-  // In parallel: four independent reads, none of which needs another's result.
-  // Serially this is four round trips on the first screen of every project.
-  const [memberData, progressData, protocolCount, reconcileCount, questionData] =
-    await Promise.all([
-      must(
-        supabase
-          .from("project_members")
-          .select(
-            // See the note in extract/page.tsx: two relationships now exist
-            // between project_members and users, so the embed names which.
-            "id, user_id, access_role, history_access, joined_at, " +
-              "users!project_members_user_id_fkey(display_name, email)",
-          )
+  // In parallel: independent reads, none of which needs another's result.
+  const [
+    memberData,
+    progressData,
+    protocolCount,
+    reconcileCount,
+    questionData,
+    extractionsData,
+  ] = await Promise.all([
+    must(
+      supabase
+        .from("project_members")
+        .select(
+          // See the note in extract/page.tsx: two relationships now exist
+          // between project_members and users, so the embed names which.
+          "id, user_id, access_role, history_access, joined_at, " +
+            "users!project_members_user_id_fkey(display_name, email)",
+        )
+        .eq("project_id", id)
+        .is("removed_at", null)
+        .order("joined_at", { ascending: true }),
+      "project members",
+    ),
+    must(
+      supabase
+        .from("v_project_progress")
+        .select("screen_status, count")
+        .eq("project_id", id),
+      "screening progress",
+    ),
+    supabase
+      .from("protocols")
+      .select("id", { count: "exact", head: true })
+      .eq("project_id", id),
+    // Only asked for when the project has the feature: a THESIS querying a
+    // reconciliation view it can never use is a round trip spent on nothing.
+    caps.dualExtraction
+      ? supabase
+          .from("v_reconciliation_queue")
+          .select("project_work_id", { count: "exact", head: true })
           .eq("project_id", id)
-          .is("removed_at", null)
-          .order("joined_at", { ascending: true }),
-        "project members",
-      ),
-      must(
-        supabase
-          .from("v_project_progress")
-          .select("screen_status, count")
-          .eq("project_id", id),
-        "screening progress",
-      ),
-      supabase
-        .from("protocols")
-        .select("id", { count: "exact", head: true })
-        .eq("project_id", id),
-      // Only asked for when the project has the feature: a THESIS querying a
-      // reconciliation view it can never use is a round trip spent on nothing.
-      caps.dualExtraction
-        ? supabase
-            .from("v_reconciliation_queue")
-            .select("project_work_id", { count: "exact", head: true })
-            .eq("project_id", id)
-            .eq("reconciled", false)
-        : Promise.resolve({ count: 0, error: null }),
-      supabase
-        .from("questions")
-        .select("id", { count: "exact", head: true })
-        .eq("project_id", id),
-    ]);
+          .eq("reconciled", false)
+      : Promise.resolve({ count: 0, error: null }),
+    supabase
+      .from("questions")
+      .select("id", { count: "exact", head: true })
+      .eq("project_id", id),
+    supabase
+      .from("extractions")
+      .select("project_work_id")
+      .eq("project_id", id)
+      .neq("status", "DRAFT"),
+  ]);
 
   const members = (memberData ?? []) as unknown as MemberRow[];
   const me = members.find((m) => m.user_id === user.id);
@@ -141,7 +152,16 @@ export default async function ProjectPage({
   const unscreened = countOf("IDENTIFIED", "SCREENING");
   const included = countOf("INCLUDED", "READING", "EXTRACTED", "SYNTHESIZED");
   const excluded = countOf("EXCLUDED");
-  const extracted = countOf("EXTRACTED", "SYNTHESIZED");
+
+  // Distinct completed/submitted extracted papers
+  const extractedWorks = new Set(
+    ((extractionsData?.data ?? []) as Array<{ project_work_id: string }>).map(
+      (e) => e.project_work_id,
+    ),
+  );
+  const dbExtracted = countOf("EXTRACTED", "SYNTHESIZED");
+  const extracted = Math.max(extractedWorks.size, dbExtracted);
+
   const hasProtocol = (protocolCount.count ?? 0) > 0;
   const questionCount = questionData.count ?? 0;
   const awaiting = reconcileCount.count ?? 0;
@@ -219,6 +239,8 @@ export default async function ProjectPage({
         title={project.title}
         description={project.description ?? undefined}
       />
+
+      <LiveRefresh projectId={id} kind={["screening", "extraction"]} />
 
       {/* ── Where the project is ─────────────────────────────────────────── */}
       <section aria-labelledby="state">

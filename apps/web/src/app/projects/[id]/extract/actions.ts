@@ -74,7 +74,9 @@ export async function setExtractionTarget(
       });
     });
 
+    revalidatePath(`/projects/${projectId}`);
     revalidatePath(`/projects/${projectId}/extract`);
+    revalidatePath(`/projects/${projectId}/progress`);
     return { ok: true };
   } catch (error) {
     if (error instanceof Error && error.message === "forbidden") {

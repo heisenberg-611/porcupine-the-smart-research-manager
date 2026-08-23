@@ -154,8 +154,13 @@ export async function recordDecision(
 
     if ("error" in result) return { ok: false, error: result.error };
 
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath(`/projects/${projectId}/progress`);
     revalidatePath(`/projects/${projectId}/screen`);
     revalidatePath(`/projects/${projectId}/library`);
+    revalidatePath(`/projects/${projectId}/prisma`);
+    revalidatePath(`/projects/${projectId}/extract`);
+    revalidatePath("/dashboard");
 
     if ("conflict" in result && result.conflict) {
       // Deliberately ok:true — nothing went wrong, the paper is simply
@@ -257,8 +262,12 @@ export async function assignWork(
 
     if ("error" in result && result.error) return { ok: false, error: result.error };
 
+    revalidatePath(`/projects/${projectId}`);
     revalidatePath(`/projects/${projectId}/screen`);
+    revalidatePath(`/projects/${projectId}/extract`);
+    revalidatePath(`/projects/${projectId}/progress`);
     revalidatePath("/assigned");
+    revalidatePath("/dashboard");
     return { ok: true };
   } catch {
     return { ok: false, error: "Could not update that paper." };

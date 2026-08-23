@@ -46,35 +46,26 @@ export type ActivityKind = "screening" | "extraction" | "messages";
  */
 export function useProjectActivity(
   projectId: string,
-  kind: ActivityKind,
+  kind: ActivityKind | ActivityKind[],
   onSignal: () => void,
 ): boolean {
   const [live, setLive] = useState(false);
 
   // The callback in a ref, not in the dependency list.
-  //
-  // Callers pass an inline arrow or a `useCallback` whose own dependencies
-  // change — `loadMessages` in messages-client changes whenever the selected
-  // channel does. In the dependency array that tears down the websocket and
-  // opens a new one on every such change, which is both wasteful and a race:
-  // events in the gap are lost. The ref keeps the effect stable and still
-  // calls the current callback.
   const handler = useRef(onSignal);
   useEffect(() => {
-    // Assigned in an effect rather than during render. Writing to a ref while
-    // rendering is a side effect in the render phase, which React is entitled
-    // to run twice or throw away; no dependency array, so it lands after every
-    // commit and the effect below always calls the current callback.
     handler.current = onSignal;
   });
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const kindsKey = Array.isArray(kind) ? kind.slice().sort().join(",") : kind;
 
   useEffect(() => {
     const supabase = createClient();
+    const kinds = Array.isArray(kind) ? kind : [kind];
 
     const channel = supabase
-      .channel(`activity:${projectId}:${kind}`)
+      .channel(`activity:${projectId}:${kindsKey}`)
       .on(
         "postgres_changes",
         {
@@ -86,7 +77,10 @@ export function useProjectActivity(
           // all; this only narrows what it asks for.
           filter: `project_id=eq.${projectId}`,
         },
-        () => {
+        (payload) => {
+          const rowKind = (payload.new as { kind?: string } | undefined)?.kind;
+          if (rowKind && !kinds.includes(rowKind as ActivityKind)) return;
+
           if (timer.current) return;
           timer.current = setTimeout(() => {
             timer.current = null;
@@ -106,7 +100,7 @@ export function useProjectActivity(
       timer.current = null;
       void supabase.removeChannel(channel);
     };
-  }, [projectId, kind]);
+  }, [projectId, kindsKey]);
 
   return live;
 }

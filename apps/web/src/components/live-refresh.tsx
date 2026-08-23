@@ -21,10 +21,10 @@ import { useProjectActivity, type ActivityKind } from "@/lib/use-project-activit
  */
 export function LiveRefresh({
   projectId,
-  kind,
+  kind = "screening",
 }: {
   projectId: string;
-  kind: ActivityKind;
+  kind?: ActivityKind | ActivityKind[];
 }) {
   const router = useRouter();
   const live = useProjectActivity(projectId, kind, () => router.refresh());
