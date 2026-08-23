@@ -73,7 +73,8 @@
   --text-fine: 0.8125rem;
   --text-fine--line-height: 1.5;
 
-  --radius-card: 0.625rem;
+  --radius-card: 1.25rem;
+  --radius-control: 0.75rem;
 }
 
 /*
@@ -180,6 +181,16 @@
     font-size: var(--text-fine);
     letter-spacing: 0.02em;
     color: var(--color-muted);
+  }
+
+  .glass-panel {
+    background-color: color-mix(in srgb, var(--color-raised) 75%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .card-glow {
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
   }
 }
 

@@ -39,13 +39,13 @@ export default async function AccountPage() {
         <h2 id="details" className="text-ink text-title font-serif">
           Details
         </h2>
-        <dl className="border-rule divide-rule divide-y rounded-[--radius-card] border">
-          <div className="flex flex-wrap justify-between gap-2 p-4">
-            <dt className="text-muted text-ui">Email</dt>
+        <dl className="border-border/70 divide-border/60 bg-raised/70 divide-y rounded-2xl border overflow-hidden shadow-xs">
+          <div className="flex flex-wrap justify-between gap-2 p-5">
+            <dt className="text-muted text-ui font-medium">Email</dt>
             <dd className="text-ink text-ui font-mono">{user.email}</dd>
           </div>
-          <div className="flex flex-wrap justify-between gap-2 p-4">
-            <dt className="text-muted text-ui">Sign-in</dt>
+          <div className="flex flex-wrap justify-between gap-2 p-5">
+            <dt className="text-muted text-ui font-medium">Sign-in</dt>
             <dd className="text-ink text-ui">
               A six-digit code, emailed. There is no password to change.
             </dd>
@@ -64,7 +64,7 @@ export default async function AccountPage() {
           project, and a deleted account is no longer a member of any of them.
         </p>
         <p>
-          <Link href="/projects" className="text-accent underline underline-offset-4">
+          <Link href="/projects" className="text-accent underline underline-offset-4 font-medium">
             Your projects
           </Link>
         </p>
@@ -72,7 +72,7 @@ export default async function AccountPage() {
 
       <section
         aria-labelledby="danger"
-        className="border-danger/30 bg-danger-soft flex flex-col gap-4 rounded-[--radius-card] border p-6"
+        className="border-danger/30 bg-danger-soft/40 flex flex-col gap-5 rounded-2xl border p-6 shadow-xs"
       >
         <h2 id="danger" className="text-ink text-title font-serif">
           Delete your account
@@ -121,7 +121,7 @@ export default async function AccountPage() {
             </div>
 
             {state.ok && state.data.blockers.length > 0 && (
-              <div className="border-danger/30 bg-raised rounded-lg border p-4">
+              <div className="border-danger/30 bg-raised rounded-xl border p-4 shadow-xs">
                 <p className="text-ink text-ui font-medium">
                   {state.data.blockers.length === 1
                     ? "One project would be left without an owner."

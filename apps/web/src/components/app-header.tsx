@@ -76,7 +76,7 @@ export async function AppHeader() {
               <button
                 type="submit"
                 aria-label={`Sign out ${user.email}`}
-                className="text-muted hover:text-ink hover:bg-surface focus-visible:ring-accent text-ui inline-flex h-9 items-center rounded-lg px-3 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                className="text-muted hover:text-ink hover:bg-surface/80 focus-visible:ring-accent text-ui inline-flex h-9 items-center rounded-xl px-3.5 transition-all focus-visible:ring-2 focus-visible:outline-none"
               >
                 Sign out
               </button>
@@ -143,7 +143,7 @@ function NavLink({
   return (
     <Link
       href={href}
-      className={`text-muted hover:text-ink hover:bg-surface focus-visible:ring-accent text-ui min-h-11 items-center rounded-lg px-3 transition-colors focus-visible:ring-2 focus-visible:outline-none ${className}`}
+      className={`text-muted hover:text-ink hover:bg-surface/80 focus-visible:ring-accent text-ui min-h-11 items-center rounded-xl px-3.5 font-medium transition-all focus-visible:ring-2 focus-visible:outline-none ${className}`}
     >
       {children}
     </Link>

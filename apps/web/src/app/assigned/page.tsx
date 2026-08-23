@@ -150,8 +150,8 @@ export default async function AssignedPage() {
         <div className="flex flex-col gap-10">
           {openRows.length > 0 && (
             <section>
-              <h2 className="text-display text-ink mb-4">Open</h2>
-              <ul className="border-border divide-border divide-y rounded-lg border">
+              <h2 className="text-display text-ink mb-4 font-serif font-semibold">Open</h2>
+              <ul className="border-border/70 divide-border/60 bg-raised/70 divide-y rounded-2xl border overflow-hidden shadow-xs">
                 {openRows.map((row) => {
                   const isOverdue = row.due_at
                     ? new Date(row.due_at).getTime() < now
@@ -159,7 +159,7 @@ export default async function AssignedPage() {
                   return (
                     <li
                       key={row.id}
-                      className="flex items-start justify-between gap-4 p-4"
+                      className="flex items-start justify-between gap-4 p-5 transition-colors hover:bg-surface/50"
                     >
                       <div className="min-w-0">
                         <Link
@@ -191,15 +191,15 @@ export default async function AssignedPage() {
                         />
 
                         {/* Named by the work, not by the screen. */}
-                        <div className="mt-2 flex flex-wrap gap-2">
+                        <div className="mt-3 flex flex-wrap gap-2">
                           {actions(row).map((action) => (
                             <Link
                               key={action.href + action.label}
                               href={action.href}
                               className={
                                 action.primary
-                                  ? "bg-accent text-accent-ink text-fine focus-visible:ring-accent inline-flex min-h-9 items-center rounded-lg px-3 focus-visible:ring-2 focus-visible:outline-none"
-                                  : "border-border text-muted hover:text-ink text-fine focus-visible:ring-accent inline-flex min-h-9 items-center rounded-lg border px-3 focus-visible:ring-2 focus-visible:outline-none"
+                                  ? "bg-accent text-accent-ink text-fine font-medium focus-visible:ring-accent inline-flex min-h-9 items-center rounded-xl px-3.5 shadow-xs transition-all hover:shadow-sm focus-visible:ring-2 focus-visible:outline-none"
+                                  : "border-border/80 text-muted hover:text-ink hover:bg-surface text-fine font-medium focus-visible:ring-accent inline-flex min-h-9 items-center rounded-xl border px-3.5 transition-all focus-visible:ring-2 focus-visible:outline-none"
                               }
                             >
                               {action.label}
@@ -211,7 +211,7 @@ export default async function AssignedPage() {
                       <div className="flex shrink-0 items-center gap-3">
                         {row.due_at && (
                           <span
-                            className={`text-fine shrink-0 ${isOverdue ? "text-danger" : "text-muted"}`}
+                            className={`text-fine shrink-0 font-medium ${isOverdue ? "text-danger" : "text-muted"}`}
                           >
                             {/* Rendered from a timestamptz, in UTC. A due date is
                         stored as 23:59:59.999Z on the day someone chose, so the
@@ -240,13 +240,13 @@ export default async function AssignedPage() {
 
           {closedRows.length > 0 && (
             <section>
-              <h2 className="text-display text-ink mb-4 opacity-70">Closed</h2>
-              <ul className="border-border divide-border divide-y rounded-lg border opacity-70">
+              <h2 className="text-display text-ink mb-4 font-serif font-semibold opacity-70">Closed</h2>
+              <ul className="border-border/70 divide-border/60 bg-raised/50 divide-y rounded-2xl border overflow-hidden shadow-xs opacity-70">
                 {closedRows.map((row) => {
                   return (
                     <li
                       key={row.id}
-                      className="flex items-start justify-between gap-4 p-4"
+                      className="flex items-start justify-between gap-4 p-5"
                     >
                       <div className="min-w-0">
                         <Link

@@ -273,10 +273,10 @@ export default async function ProjectPage({
           />
         </ul>
 
-        <Card className="mt-4 flex flex-wrap items-center justify-between gap-4">
+        <Card className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-accent/30 bg-gradient-to-br from-accent/10 via-surface/40 to-raised/90 p-6 shadow-sm">
           <div className="min-w-0">
-            <p className="text-muted text-fine">Next</p>
-            <p className="text-ink text-ui mt-0.5">{next.why}</p>
+            <p className="text-accent text-fine font-semibold uppercase tracking-wider">Next Recommended Step</p>
+            <p className="text-ink text-body mt-1 font-medium">{next.why}</p>
           </div>
           <ButtonLink href={next.href} variant="primary">
             {next.label}
@@ -300,12 +300,12 @@ export default async function ProjectPage({
                 <h3 className="text-muted text-fine mb-2 font-mono tracking-wide uppercase">
                   {group}
                 </h3>
-                <ul className="grid gap-2 sm:grid-cols-2">
+                <ul className="grid gap-3 sm:grid-cols-2">
                   {inGroup.map((section) => (
                     <li key={section.slug}>
                       <Link
                         href={sectionHref(id, section.slug)}
-                        className="border-rule hover:border-border hover:bg-surface focus-visible:ring-accent block rounded-[--radius-card] border p-3 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                        className="border-rule/70 hover:border-accent/40 bg-raised/70 hover:bg-raised focus-visible:ring-accent block rounded-2xl border p-4 shadow-xs hover:shadow-md transition-all focus-visible:ring-2 focus-visible:outline-none"
                       >
                         <span className="text-ink text-ui font-medium">
                           {section.label}
@@ -340,12 +340,12 @@ export default async function ProjectPage({
         <h2 id="members" className="text-ink text-heading mb-3 font-medium">
           Members <span className="text-muted font-normal">({members.length})</span>
         </h2>
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-3">
           {members.map((member) => (
             <li key={member.id}>
-              <Card className="flex flex-wrap items-baseline justify-between gap-2 py-3">
+              <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
                 <div>
-                  <p className="text-ink text-ui font-medium">
+                  <p className="text-ink text-ui font-semibold">
                     {member.users?.display_name ?? "Unknown"}
                     {member.user_id === user.id && (
                       <span className="text-muted font-normal"> — you</span>
@@ -353,11 +353,11 @@ export default async function ProjectPage({
                   </p>
                   <p className="text-muted text-fine">{member.users?.email}</p>
                 </div>
-                <div className="flex items-center gap-4">
-                  <p className="text-muted text-fine font-mono tracking-wide uppercase">
+                <div className="flex items-center gap-3">
+                  <span className="bg-surface/80 text-muted border-border/60 rounded-full border px-3 py-1 text-fine font-mono tracking-wide uppercase">
                     {member.access_role}
                     {member.history_access === "FROM_JOIN" && " · from join"}
-                  </p>
+                  </span>
                   {canInvite && member.user_id !== user.id && (
                     <MemberRowActions
                       projectId={id}
@@ -373,7 +373,7 @@ export default async function ProjectPage({
       </section>
 
       {canInvite && (
-        <section className="border-border border-t pt-8">
+        <section className="border-border/70 border-t pt-8">
           <h2 className="text-ink text-heading mb-1 font-medium">
             When a paper will not open
           </h2>
@@ -394,7 +394,7 @@ export default async function ProjectPage({
       )}
 
       {canInvite && (
-        <section className="border-border border-t pt-8">
+        <section className="border-border/70 border-t pt-8">
           <h2 className="text-ink text-heading mb-1 font-medium">Add a member</h2>
           <p className="text-muted text-ui mb-4">
             {/* Was: "Email invitations arrive in Phase 1." Phase 1 shipped;
@@ -424,9 +424,9 @@ function Stat({ label, value, href }: { label: string; value: number; href: stri
         // The count comes first in the accessible name because "24 unscreened"
         // is what the link does; "Unscreened 24" reads as a table cell.
         aria-label={`${value} ${label.toLowerCase()}`}
-        className="border-rule hover:border-border hover:bg-surface focus-visible:ring-accent block rounded-lg border p-3 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+        className="border-rule/70 hover:border-accent/40 bg-raised/70 hover:bg-raised focus-visible:ring-accent block rounded-2xl border p-4 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 focus-visible:ring-2 focus-visible:outline-none"
       >
-        <span className="text-muted text-fine block">{label}</span>
+        <span className="text-muted text-fine block font-medium">{label}</span>
         <span className="text-ink text-title mt-1 block font-semibold tabular-nums">
           {value}
         </span>

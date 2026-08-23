@@ -455,7 +455,7 @@ function Box({
         y={y}
         width={w}
         height={h}
-        rx={6}
+        rx={12}
         fill="currentColor"
         fillOpacity={emphasis ? 0.12 : 0.04}
         strokeWidth={1}

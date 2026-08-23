@@ -71,14 +71,14 @@ export function DeleteProjectDialog({
       <button
         type="button"
         onClick={open}
-        className="text-danger hover:bg-danger-soft w-full rounded-lg px-3 py-2 text-left text-sm font-semibold transition-all duration-200 hover:translate-x-1"
+        className="text-danger hover:bg-danger-soft w-full rounded-xl px-3.5 py-2 text-left text-sm font-semibold transition-all duration-200 hover:translate-x-1"
       >
         Delete Project
       </button>
 
       <dialog
         ref={dialogRef}
-        className="bg-raised text-ink border-danger/30 open:animate-in open:fade-in-0 open:zoom-in-95 m-auto w-full max-w-lg rounded-xl border p-0 shadow-2xl backdrop:bg-black/50 backdrop:backdrop-blur-sm"
+        className="bg-raised text-ink border-danger/30 open:animate-in open:fade-in-0 open:zoom-in-95 m-auto w-full max-w-lg rounded-2xl border p-0 shadow-2xl backdrop:bg-black/50 backdrop:backdrop-blur-sm"
       >
         <div className="flex flex-col gap-5 p-6">
           <div>
@@ -96,7 +96,7 @@ export function DeleteProjectDialog({
             </ul>
           </div>
 
-          <div className="bg-danger-soft/50 border-danger/20 rounded-lg border p-4">
+          <div className="bg-danger-soft/50 border-danger/20 rounded-xl border p-4">
             <label
               htmlFor="confirm-delete"
               className="text-ui text-ink mb-2 block font-medium"

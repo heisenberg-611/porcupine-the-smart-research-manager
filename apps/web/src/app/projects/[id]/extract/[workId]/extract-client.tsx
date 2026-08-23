@@ -310,7 +310,7 @@ export function ExtractClient({
               onMouseUp={capture}
               onKeyUp={capture}
               className={
-                capturing ? "ring-accent bg-accent-soft/40 rounded px-3 ring-2" : ""
+                capturing ? "ring-accent bg-accent-soft/40 rounded-2xl px-4 py-2 ring-2 transition-all" : ""
               }
             >
               {sections.map((section, index) => (
@@ -393,18 +393,18 @@ export function ExtractClient({
                   // can address one question on a twenty-question form
                   // without depending on the surrounding DOM shape.
                   data-field-key={field.key}
-                  className={`border-rule scroll-mt-32 border-b pb-5 last:border-b-0 ${
+                  className={`border-border/70 bg-raised/70 rounded-2xl border p-5 shadow-xs scroll-mt-32 ${
                     missing.some((m) => m.id === field.id)
-                      ? "border-danger -ml-3 border-l-2 pl-3"
+                      ? "border-danger ring-1 ring-danger/40"
                       : ""
                   }`}
                 >
                   <label
                     htmlFor={`f-${field.id}`}
-                    className="text-ink text-ui block font-medium"
+                    className="text-ink text-ui block font-semibold"
                   >
                     {field.label}
-                    {field.required && <span className="text-muted"> · required</span>}
+                    {field.required && <span className="text-accent"> · required</span>}
                   </label>
 
                   <p className="meta mt-0.5">
@@ -422,7 +422,7 @@ export function ExtractClient({
                     {quoted ? (
                       <div className="space-y-2">
                         {answer?.text ? (
-                          <blockquote className="border-accent text-ink text-ui border-l-2 pl-3">
+                          <blockquote className="border-accent bg-surface/80 rounded-r-xl border-l-4 p-3 text-ink text-ui shadow-xs">
                             {answer.text}
                           </blockquote>
                         ) : (

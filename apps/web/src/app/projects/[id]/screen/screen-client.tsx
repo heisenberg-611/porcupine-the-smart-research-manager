@@ -380,11 +380,11 @@ export function ScreenClient({
 
   if (!current) {
     return (
-      <div className="border-border rounded-lg border border-dashed p-8 text-center">
-        <p className="text-ink font-medium">
+      <div className="border-border/80 bg-surface/30 rounded-2xl border-2 border-dashed p-10 text-center">
+        <p className="text-ink font-semibold text-heading">
           {decided > 0 ? "That is everything for now." : "Nothing to screen."}
         </p>
-        <p className="text-muted text-ui mt-1">
+        <p className="text-muted text-ui mt-1.5">
           {decided > 0
             ? `${decided} ${decided === 1 ? "decision" : "decisions"} recorded.`
             : "Papers appear here once they are added to the library."}
@@ -452,7 +452,7 @@ export function ScreenClient({
             </Select>
           </div>
 
-          <ul className="flex flex-col gap-0.5">
+          <ul className="flex flex-col gap-1">
             {remaining.map((row) => {
               const isCurrent = row.id === current.id;
               return (
@@ -462,15 +462,17 @@ export function ScreenClient({
                     onClick={() => select(row.id)}
                     aria-current={isCurrent ? "true" : undefined}
                     className={cx(
-                      "focus-visible:ring-accent w-full rounded-lg px-2 py-2 text-left transition-colors",
+                      "focus-visible:ring-accent w-full rounded-xl px-3 py-2.5 text-left transition-all",
                       "focus-visible:ring-2 focus-visible:outline-none",
-                      isCurrent ? "bg-accent-soft" : "hover:bg-surface",
+                      isCurrent
+                        ? "bg-accent-soft text-ink font-medium shadow-xs border border-accent/30"
+                        : "hover:bg-surface/80 text-muted",
                     )}
                   >
                     <span
                       className={cx(
                         "text-fine block leading-snug text-pretty",
-                        isCurrent ? "text-ink font-medium" : "text-muted",
+                        isCurrent ? "text-ink font-semibold" : "text-ink/80",
                       )}
                     >
                       {row.title}
@@ -498,9 +500,9 @@ export function ScreenClient({
           </ul>
         </nav>
 
-        <div className="flex min-w-0 flex-col gap-4">
-          <article className="border-rule border-t pt-6 lg:border-t-0 lg:pt-0">
-            <h2 className="text-ink text-title">{current.title}</h2>
+        <div className="flex min-w-0 flex-col gap-6">
+          <article className="border-border/70 bg-raised/90 rounded-2xl border p-6 sm:p-8 shadow-xs">
+            <h2 className="text-ink text-title font-serif">{current.title}</h2>
             <p className="meta mt-2">
               {current.authors}
               {current.venue && ` · ${current.venue}`}
@@ -693,7 +695,7 @@ function dueDayLabel(day: string): string {
 /** A keycap. Small enough to be inline, distinct enough to be read as a key. */
 function Key({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="border-border bg-surface text-ink mx-0.5 rounded border px-1.5 py-0.5 font-mono text-[0.75rem]">
+    <kbd className="border-border/80 bg-surface/90 text-ink mx-0.5 rounded-lg border px-2 py-0.5 font-mono text-[0.75rem] shadow-xs">
       {children}
     </kbd>
   );

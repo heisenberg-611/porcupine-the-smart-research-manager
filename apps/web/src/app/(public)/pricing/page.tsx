@@ -31,12 +31,12 @@ export default function PricingPage() {
         description="Free, on the hosted service and on your own machine alike. There is no paid tier to compare this against, and no card to enter."
       />
 
-      <div className="border-rule bg-surface/50 rounded-[--radius-card] border p-8">
-        <p className="text-accent text-fine font-mono tracking-widest uppercase">
+      <div className="border-border/70 bg-raised/70 rounded-2xl border p-8 shadow-xs">
+        <p className="text-accent text-fine font-mono tracking-widest uppercase font-semibold">
           Every feature
         </p>
-        <p className="text-ink mt-3 font-serif text-5xl">Free</p>
-        <p className="text-ink-soft measure text-ui mt-4 text-pretty">
+        <p className="text-ink mt-3 font-serif text-5xl font-bold">Free</p>
+        <p className="text-ink-soft measure text-ui mt-4 text-pretty leading-relaxed">
           No trial, no seats, no card, no feature held back for a paid tier. There is no
           billing code in this project — not disabled, not behind a flag.
         </p>

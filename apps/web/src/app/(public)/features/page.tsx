@@ -51,9 +51,9 @@ export default function FeaturesPage() {
               {group.items.map(({ term, detail }) => (
                 <li
                   key={term}
-                  className="border-rule bg-surface/50 rounded-[--radius-card] border p-5"
+                  className="border-border/70 bg-raised/70 rounded-2xl border p-5 shadow-xs hover:shadow-md hover:border-accent/40 hover:-translate-y-0.5 transition-all duration-300"
                 >
-                  <h3 className="text-ink text-ui font-medium">{term}</h3>
+                  <h3 className="text-ink text-ui font-semibold">{term}</h3>
                   <p className="text-ink-soft text-ui mt-2 leading-relaxed text-pretty">
                     {detail}
                   </p>
@@ -82,7 +82,7 @@ export default function FeaturesPage() {
         </ul>
       </section>
 
-      <section className="border-rule bg-surface/50 rounded-[--radius-card] border p-8">
+      <section className="border-border/70 bg-raised/70 rounded-2xl border p-8 shadow-xs">
         <h2 className="text-ink text-title font-serif">Free, and yours either way</h2>
         <p className="text-ink-soft measure text-ui mt-3 text-pretty">
           No paid tier, no trial and no card. Use the hosted service — this site is it, so{" "}

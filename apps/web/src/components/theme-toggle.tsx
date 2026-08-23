@@ -59,7 +59,7 @@ export function ThemeToggle() {
       // Visible on a phone too. It is ~104px, which the header has room for
       // now that the email is hidden there — and a reader on a phone at night
       // is exactly who wants this.
-      className="border-rule bg-surface/60 inline-flex items-center gap-0.5 rounded-lg border p-0.5"
+      className="border-rule/80 bg-surface/70 inline-flex items-center gap-0.5 rounded-xl border p-1 shadow-xs"
     >
       {THEMES.map(({ value, label }) => (
         <button
@@ -70,11 +70,11 @@ export function ThemeToggle() {
           aria-label={`${label} theme`}
           title={label}
           className={cx(
-            "inline-flex size-8 items-center justify-center rounded-md transition-colors",
+            "inline-flex size-8 items-center justify-center rounded-lg transition-all",
             "focus-visible:ring-accent focus-visible:ring-2 focus-visible:outline-none",
             theme === value
-              ? "bg-raised text-ink shadow-[0_1px_0_rgb(0_0_0/0.04)]"
-              : "text-muted hover:text-ink",
+              ? "bg-raised text-ink shadow-xs font-semibold"
+              : "text-muted hover:text-ink hover:bg-surface/50",
           )}
         >
           <Icon theme={value} />

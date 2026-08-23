@@ -141,7 +141,7 @@ export default async function PrismaPage({
       />
 
       {!caps.prismaDiagram && (
-        <p className="border-border text-muted text-ui rounded-lg border border-dashed p-3">
+        <p className="border-border/80 bg-surface/50 text-muted text-ui rounded-2xl border border-dashed p-4 shadow-xs">
           {/* R-06: the diagram is shown for any project kind, but only a
               systematic review is REQUIRED to report exclusion reasons — so
               for other kinds the exclusion box may legitimately be sparse. */}
@@ -160,7 +160,7 @@ export default async function PrismaPage({
         />
       ) : (
         <>
-          <section className="border-border bg-surface rounded-lg border p-4">
+          <section className="border-border/70 bg-raised/70 rounded-2xl border p-6 shadow-xs">
             <PrismaDiagram
               counts={counts}
               manual={manual}
@@ -229,7 +229,7 @@ export default async function PrismaPage({
             </TableScroll>
           </section>
 
-          <section className="border-border rounded-lg border border-dashed p-4">
+          <section className="border-border/70 bg-raised/50 rounded-2xl border border-dashed p-6 shadow-xs">
             <h2 className="text-ink text-heading font-medium">
               The figures nobody here can count
             </h2>
