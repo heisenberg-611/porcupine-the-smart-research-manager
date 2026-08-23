@@ -428,7 +428,8 @@ export function SearchClient({
                     <Input
                       id="filter-results"
                       name="filter-results"
-                      type="search"
+                      type="text"
+                      role="searchbox"
                       value={filterQuery}
                       onChange={(e) => setFilterQuery(e.target.value)}
                       placeholder="Search within loaded results (filter by keyword, author, abstract, year, DOI...)"

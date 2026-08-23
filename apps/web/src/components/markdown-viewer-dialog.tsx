@@ -296,7 +296,8 @@ export function MarkdownViewerDialog({
                   <SearchIcon className="text-muted absolute left-3 top-1/2 -translate-y-1/2 size-3.5 pointer-events-none" />
                   <Input
                     ref={searchInputRef}
-                    type="search"
+                    type="text"
+                    role="searchbox"
                     value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
