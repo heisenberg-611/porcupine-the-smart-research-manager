@@ -230,6 +230,7 @@ export function EvidenceControls({
       <div className="flex flex-wrap items-center gap-2">
         <ButtonLink href={exportHref("csv")}>Export CSV</ButtonLink>
         <ButtonLink href={exportHref("xlsx")}>Export Excel</ButtonLink>
+        <ButtonLink href={exportHref("md")}>Export Markdown (.md)</ButtonLink>
         {children}
       </div>
     </div>

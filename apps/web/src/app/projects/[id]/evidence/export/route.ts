@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 
 import { toCsv } from "@/lib/export/csv";
+import { toEvidenceMarkdown } from "@/lib/export/evidence-markdown";
 import { toXlsx, type XlsxCell } from "@/lib/export/xlsx";
 import {
   exportValue,
@@ -42,7 +43,7 @@ export async function GET(
 
   const { id } = await params;
   const url = request.nextUrl;
-  const format = url.searchParams.get("format") === "xlsx" ? "xlsx" : "csv";
+  const format = url.searchParams.get("format") ?? "csv";
 
   const supabase = await createClient();
 
@@ -124,6 +125,23 @@ export async function GET(
 
   const stamp = new Date().toISOString().slice(0, 10);
   const base = `evidence-${slug(protocol.name)}-v${protocol.version}-${stamp}`;
+
+  if (format === "md" || format === "markdown") {
+    const md = toEvidenceMarkdown({
+      protocolName: protocol.name,
+      protocolVersion: protocol.version,
+      fields,
+      rows,
+    });
+
+    return new Response(md, {
+      headers: {
+        "content-type": "text/markdown; charset=utf-8",
+        "content-disposition": `attachment; filename="${base}.md"`,
+        "cache-control": "no-store",
+      },
+    });
+  }
 
   if (format === "xlsx") {
     const sheet: XlsxCell[][] = [header, ...rows.map(cellsFor)];
