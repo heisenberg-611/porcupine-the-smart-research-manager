@@ -479,7 +479,7 @@ export function parseMarkdown(text: string): BlockNode[] {
     }
 
     // 7. Unordered list line: -, *, +, •
-    const ulMatch = line.match(/^[\*\-\+•]\s+(.+)$/);
+    const ulMatch = line.match(/^[*\-+•]\s+(.+)$/);
     if (ulMatch && ulMatch[1] !== undefined) {
       flushParagraph();
       flushBlockquote();
@@ -492,7 +492,7 @@ export function parseMarkdown(text: string): BlockNode[] {
     }
 
     // 8. Ordered list line: 1., 2., etc.
-    const olMatch = line.match(/^\d+[\.\)]\s+(.+)$/);
+    const olMatch = line.match(/^\d+[.)]\s+(.+)$/);
     if (olMatch && olMatch[1] !== undefined) {
       flushParagraph();
       flushBlockquote();

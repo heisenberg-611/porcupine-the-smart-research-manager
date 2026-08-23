@@ -5,6 +5,11 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Button, Field, Input, Skeleton } from "@/components/ui";
+import {
+  downloadSearchExportMarkdown,
+  formatSearchExportMarkdown,
+  generateSearchExportFilename,
+} from "@/lib/export/search-markdown";
 
 import { addWorkToProject, searchWorks, type SearchResults } from "./actions";
 
@@ -44,6 +49,8 @@ export function SearchClient({
   const [searched, setSearched] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [exported, setExported] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [pending, startTransition] = useTransition();
   const input = useRef<HTMLInputElement>(null);
 
@@ -104,6 +111,41 @@ export function SearchClient({
     const next = terms.trim() ? `${terms.trim()} ${keyword}` : keyword;
     setTerms(next);
     input.current?.focus();
+  }
+
+  function getMarkdownContent() {
+    if (!results || results.ranked.length === 0) return null;
+    return formatSearchExportMarkdown({
+      terms: searched || terms || "search-results",
+      fromYear: fromYear || undefined,
+      toYear: toYear || undefined,
+      ranked: results.ranked,
+      counts: results.counts,
+      failures: results.failures,
+    });
+  }
+
+  function onExportMarkdown() {
+    const md = getMarkdownContent();
+    if (!md) return;
+
+    const filename = generateSearchExportFilename(searched || terms || "search-results");
+    downloadSearchExportMarkdown(md, filename);
+    setExported(true);
+    setTimeout(() => setExported(false), 2500);
+  }
+
+  async function onCopyMarkdown() {
+    const md = getMarkdownContent();
+    if (!md) return;
+
+    try {
+      await navigator.clipboard.writeText(md);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      // Ignore if clipboard permissions are not available
+    }
   }
 
   return (
@@ -261,22 +303,50 @@ export function SearchClient({
               </div>
             ) : (
               <>
-                <div className="flex flex-col gap-2">
-                  <p className="text-muted text-ui">
-                    {results.ranked.length}{" "}
-                    {results.ranked.length === 1 ? "result" : "results"} after merging
-                    duplicates across sources.
-                  </p>
-                  {results.counts && results.counts.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-muted text-fine">Found:</span>
-                      {results.counts.map((c) => (
-                        <Chip key={c.provider} tone="muted">
-                          {c.provider}: {c.count}
-                        </Chip>
-                      ))}
-                    </div>
-                  )}
+                <div className="border-border/70 from-surface/90 via-raised/70 to-surface flex flex-col gap-4 rounded-2xl border p-5 shadow-xs bg-gradient-to-br sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-ink text-ui font-semibold">
+                      {results.ranked.length}{" "}
+                      {results.ranked.length === 1 ? "result" : "results"}
+                      <span className="text-muted font-normal">
+                        {" "}
+                        · duplicates merged across sources
+                      </span>
+                    </p>
+                    {results.counts && results.counts.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-muted text-fine">Found:</span>
+                        {results.counts.map((c) => (
+                          <Chip key={c.provider} tone="muted">
+                            {c.provider}: {c.count}
+                          </Chip>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={onExportMarkdown}
+                      className="border-border/70 bg-surface/80 hover:bg-surface text-ink hover:border-accent/40 rounded-full border text-sm font-medium shadow-xs transition-all"
+                      aria-label={`Export all ${results.ranked.length} papers with abstracts to Markdown for AI`}
+                    >
+                      <DownloadIcon className="text-accent size-4" />
+                      <span>{exported ? "Exported .md!" : "Export for AI (.md)"}</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={onCopyMarkdown}
+                      className="border-border/70 bg-surface/80 hover:bg-surface text-ink hover:border-accent/40 rounded-full border text-sm font-medium shadow-xs transition-all"
+                      aria-label="Copy all papers with abstracts to clipboard as Markdown"
+                    >
+                      <CopyIcon className="text-accent size-4" />
+                      <span>{copied ? "Copied!" : "Copy markdown"}</span>
+                    </Button>
+                  </div>
                 </div>
 
                 <ul className="flex flex-col gap-3">
@@ -518,4 +588,37 @@ function Chip({
 
 function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
+}
+
+function DownloadIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      <path
+        fillRule="evenodd"
+        d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.378 2H4.5Zm4.75 6.75a.75.75 0 0 1 1.5 0v3.94l1.22-1.22a.75.75 0 1 1 1.06 1.06l-2.5 2.5a.75.75 0 0 1-1.06 0l-2.5-2.5a.75.75 0 1 1 1.06-1.06l1.22 1.22V8.75Z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+function CopyIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M7 3.5A1.5 1.5 0 0 1 8.5 2h3.879a1.5 1.5 0 0 1 1.06.44l3.122 3.12a1.5 1.5 0 0 1 .439 1.061V14.5A1.5 1.5 0 0 1 15.5 16h-7A1.5 1.5 0 0 1 7 14.5v-11Z" />
+      <path d="M5 6a1.5 1.5 0 0 0-1.5 1.5v9A1.5 1.5 0 0 0 5 18h7a1.5 1.5 0 0 0 1.5-1.5v-.5H7A2.5 2.5 0 0 1 4.5 13.5V6H5Z" />
+    </svg>
+  );
 }
