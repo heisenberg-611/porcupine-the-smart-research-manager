@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { MarkdownViewerDialog } from "@/components/markdown-viewer-dialog";
 import {
   Button,
   ButtonLink,
@@ -228,9 +229,16 @@ export function EvidenceControls({
       )}
 
       <div className="flex flex-wrap items-center gap-2">
+        <MarkdownViewerDialog
+          fetchUrl={exportHref("md")}
+          title="Evidence Markdown Preview"
+          filename={`evidence-protocol-v${protocols.find((p) => p.id === protocolId)?.version ?? 1}`}
+          triggerLabel="Preview Markdown"
+          triggerVariant="ghost"
+        />
         <ButtonLink href={exportHref("csv")}>Export CSV</ButtonLink>
         <ButtonLink href={exportHref("xlsx")}>Export Excel</ButtonLink>
-        <ButtonLink href={exportHref("md")}>Export Markdown (.md)</ButtonLink>
+        <ButtonLink href={exportHref("md")}>Download .md</ButtonLink>
         {children}
       </div>
     </div>

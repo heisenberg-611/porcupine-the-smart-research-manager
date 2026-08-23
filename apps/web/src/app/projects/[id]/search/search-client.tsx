@@ -4,6 +4,7 @@ import type { ScoredWork } from "@Porcupine/discovery";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
+import { MarkdownViewerDialog } from "@/components/markdown-viewer-dialog";
 import { Button, Field, Input, Skeleton } from "@/components/ui";
 import {
   downloadSearchExportMarkdown,
@@ -382,6 +383,14 @@ export function SearchClient({
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
+                      <MarkdownViewerDialog
+                        content={getMarkdownContent() ?? ""}
+                        title={`Search Export: ${searched || terms}`}
+                        filename={generateSearchExportFilename(searched || terms || "search-results")}
+                        triggerLabel="Preview Markdown"
+                        triggerVariant="ghost"
+                        triggerClassName="border-border/70 bg-surface/80 hover:bg-surface text-ink hover:border-accent/40 rounded-full border text-sm font-medium shadow-xs transition-all"
+                      />
                       <Button
                         type="button"
                         variant="ghost"
