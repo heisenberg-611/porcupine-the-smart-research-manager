@@ -315,7 +315,7 @@ export async function storePaperTextChunk(
           projectId,
           fileId,
           pageNumber: page.pageNumber,
-          text: page.text,
+          text: page.text.replace(/\0/g, ""),
         })),
         skipDuplicates: true,
       });

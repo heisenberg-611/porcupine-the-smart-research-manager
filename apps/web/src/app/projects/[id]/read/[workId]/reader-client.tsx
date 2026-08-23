@@ -1,10 +1,11 @@
 "use client";
 
 import { createSelector, type AnchorSelector } from "@Porcupine/anchoring";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { Button, Checkbox, Textarea } from "@/components/ui";
-import { PdfDocument, type PdfHighlight } from "@/components/pdf-document";
+import { PdfDocument, formatAnnotationTime, type PdfHighlight } from "@/components/pdf-document";
 import { colourFor } from "@/lib/annotation-colour";
 import { offsetInPageText } from "@/lib/page-text";
 import type { ReaderSection } from "@/lib/reader-document";
@@ -19,6 +20,7 @@ export interface RenderedAnnotation {
   authorId: string;
   authorName: string;
   isMine: boolean;
+  createdAt: string;
   /** Resolved against the CURRENT text on the server. */
   status: "OK" | "DRIFTED" | "BROKEN";
   /** Which section it resolved in; null when it resolved nowhere. */
@@ -116,6 +118,7 @@ export function ReaderClient({
   /** Page to open at, when arriving from an evidence cell. */
   focusPage: number | null;
 }) {
+  const router = useRouter();
   const [selection, setSelection] = useState<AnchorSelector | null>(null);
   const [note, setNote] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
@@ -203,6 +206,10 @@ export function ReaderClient({
           authorId: a.authorId,
           authorName: a.authorName,
           isPrivate: a.visibility === "PRIVATE",
+          body: a.body,
+          createdAt: a.createdAt,
+          quote: a.quote,
+          isMine: a.isMine,
         })),
     [annotations, sections],
   );
@@ -262,60 +269,68 @@ export function ReaderClient({
       return;
     }
 
-    setSelection(createSelector(section.text, start, end, section.page ?? undefined));
+    setNote("");
+    setIsPrivate(false);
+    setError(null);
+    setStatus(null);
 
-    /*
-     * Anchored to the END of the selection, which is where the pointer let go
-     * and so where attention already is.
-     *
-     * Clamped to the document's width so a passage ending at the right margin
-     * does not push the panel off the edge; `getBoundingClientRect` on the
-     * whole range covers the multi-line case, where the last rect alone can be
-     * a two-character stub.
-     */
+    const selector = createSelector(section.text, start, end, section.page ?? undefined);
+    setSelection(selector);
     setAnchor(placeBeside(range));
   }, [sections]);
 
-  function save(kind: "HIGHLIGHT" | "NOTE") {
+  async function save(kind: "HIGHLIGHT" | "NOTE") {
     if (!selection) return;
+
     setError(null);
     setStatus(null);
-    setRunning(kind === "NOTE" ? "note" : "highlight");
+    setRunning(kind.toLowerCase());
 
-    startTransition(async () => {
-      const response = await createAnnotation({
-        projectId,
-        projectWorkId,
-        kind,
-        visibility: isPrivate ? "PRIVATE" : "PROJECT",
-        body: note.trim() || null,
-        selector: {
-          quote: selection.quote,
-          prefix: selection.prefix ?? null,
-          suffix: selection.suffix ?? null,
-          startOff: selection.startOff ?? null,
-          endOff: selection.endOff ?? null,
-          page: selection.page ?? null,
-        },
-      });
+    const result = await createAnnotation({
+      projectId,
+      projectWorkId,
+      selector: selection,
+      kind,
+      body: kind === "NOTE" ? note : undefined,
+      visibility: isPrivate ? "PRIVATE" : "PROJECT",
+    });
 
-      if (response.ok) {
-        setStatus(kind === "NOTE" ? "Note saved." : "Highlight saved.");
-        setSelection(null);
-        setAnchor(null);
-        setNote("");
-        window.getSelection()?.removeAllRanges();
-      } else setError(response.error);
+    setRunning(null);
+
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+
+    setSelection(null);
+    setNote("");
+    setStatus("Saved.");
+    startTransition(() => {
+      router.refresh();
     });
   }
 
-  function remove(annotationId: string) {
+  async function remove(annotationId: string) {
     setError(null);
+    setStatus(null);
     setRunning(`remove:${annotationId}`);
-    startTransition(async () => {
-      const response = await deleteAnnotation({ projectId, projectWorkId, annotationId });
-      if (response.ok) setStatus("Annotation deleted.");
-      else setError(response.error);
+
+    const result = await deleteAnnotation({
+      projectId,
+      projectWorkId,
+      annotationId,
+    });
+
+    setRunning(null);
+
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+
+    setStatus("Removed.");
+    startTransition(() => {
+      router.refresh();
     });
   }
 
@@ -329,6 +344,7 @@ export function ReaderClient({
               pageTexts={sections.map((section) => section.text)}
               highlights={pdfHighlights}
               onSelection={captureSelection}
+              onDeleteHighlight={remove}
               focusPage={focusPage}
             />
           ) : (
@@ -363,21 +379,22 @@ export function ReaderClient({
         {selection && (
           <div
             data-testid="annotate-panel"
-            className="border-accent/40 bg-raised fixed z-40 max-h-[80vh] w-[340px] max-w-[calc(100vw-24px)] space-y-3 overflow-y-auto rounded-lg border p-4 shadow-lg"
+            className="border-accent/40 bg-raised fixed z-40 max-h-[80vh] w-[340px] max-w-[calc(100vw-24px)] space-y-3 overflow-y-auto rounded-2xl border p-4 shadow-xl"
             style={{ top: anchor?.top ?? 0, left: anchor?.left ?? 0 }}
           >
-            <p className="text-muted text-fine">Selected</p>
-            <blockquote className="text-ink border-accent text-ui border-l-2 pl-3">
+            <p className="text-muted text-fine font-medium">Selected text</p>
+            <blockquote className="text-ink border-accent text-ui border-l-2 pl-3 italic">
               {selection.quote}
             </blockquote>
 
-            <label className="text-muted text-fine flex flex-col gap-1">
+            <label className="text-muted text-fine flex flex-col gap-1.5">
               Note (optional)
               <Textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={3}
-                className="border-border bg-surface text-ink text-ui rounded-lg border p-2"
+                placeholder="Add your note or insights here..."
+                className="border-border bg-surface text-ink text-ui rounded-xl border p-2.5"
               />
             </label>
 
@@ -391,7 +408,7 @@ export function ReaderClient({
               Private to me — nobody else on the project can read this
             </label>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 pt-1">
               <Button
                 onClick={() => save("HIGHLIGHT")}
                 disabled={pending}
@@ -443,9 +460,9 @@ export function ReaderClient({
         ) : (
           <ul className="space-y-3">
             {annotations.map((annotation) => (
-              <li key={annotation.id} className="border-border rounded-lg border p-3">
+              <li key={annotation.id} className="border-border bg-raised/50 rounded-2xl border p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
-                  <blockquote className="border-border text-ink text-ui border-l-2 pl-3">
+                  <blockquote className="border-border text-ink text-ui border-l-2 pl-3 italic">
                     {annotation.quote}
                   </blockquote>
                   {annotation.isMine && (
@@ -463,20 +480,34 @@ export function ReaderClient({
                 </div>
 
                 {annotation.body && (
-                  <p className="text-ink/80 text-ui mt-2">{annotation.body}</p>
+                  <p className="text-ink/90 text-ui mt-2.5 rounded-xl bg-surface/60 p-2.5 border border-border/50 whitespace-pre-wrap">
+                    {annotation.body}
+                  </p>
                 )}
 
-                <p className="text-muted text-fine mt-2 flex flex-wrap items-center gap-2">
+                <p className="text-muted text-fine mt-2.5 flex flex-wrap items-center gap-2">
                   {/* The same colour the mark is drawn in, so the list and the
                       page identify people the same way. */}
                   <span
                     aria-hidden="true"
-                    className="inline-block size-2.5 shrink-0 rounded-full"
+                    className="inline-block size-2.5 shrink-0 rounded-full shadow-sm"
                     style={{ background: colourFor(annotation.authorId).solid }}
                   />
-                  <span>{annotation.authorName}</span>
+                  <span className="font-medium text-ink">{annotation.authorName}</span>
+                  {annotation.createdAt && (
+                    <>
+                      <span>·</span>
+                      <time
+                        dateTime={annotation.createdAt}
+                        title={new Date(annotation.createdAt).toLocaleString()}
+                        className="text-muted"
+                      >
+                        {formatAnnotationTime(annotation.createdAt).full}
+                      </time>
+                    </>
+                  )}
                   <span>·</span>
-                  <span>{annotation.kind.toLowerCase()}</span>
+                  <span className="capitalize">{annotation.kind.toLowerCase()}</span>
                   {annotation.page !== null && (
                     <>
                       <span>·</span>
@@ -486,7 +517,9 @@ export function ReaderClient({
                   {annotation.visibility === "PRIVATE" && (
                     <>
                       <span>·</span>
-                      <span>private</span>
+                      <span className="border-border rounded border px-1 py-0.5 text-[10px]">
+                        private
+                      </span>
                     </>
                   )}
                 </p>
@@ -494,7 +527,7 @@ export function ReaderClient({
                 {/* The whole point of the DRIFTED state: say it, do not hide it. */}
                 {annotation.status !== "OK" && (
                   <p
-                    className={`text-fine mt-2 rounded px-2 py-1 ${
+                    className={`text-fine mt-2 rounded-lg px-2.5 py-1.5 ${
                       annotation.status === "DRIFTED"
                         ? "bg-accent/10 text-ink"
                         : "bg-danger/10 text-danger"
