@@ -64,7 +64,7 @@ export default async function ProgressPage({
 
   if (!project) notFound();
 
-  const [progressData, decisionData, extractionData] = await Promise.all([
+  const [progressData, decisionData, extractionData, annotationData] = await Promise.all([
     supabase
       .from("v_project_progress")
       .select("screen_status, count, assigned, overdue")
@@ -79,6 +79,11 @@ export default async function ProgressPage({
       .from("extractions")
       .select("id, status, project_work_id, submitted_at, created_at")
       .eq("project_id", id),
+    supabase
+      .from("annotations")
+      .select("id, project_work_id")
+      .eq("project_id", id)
+      .is("deleted_at", null),
   ]);
 
   if (progressData.error) {
@@ -99,6 +104,16 @@ export default async function ProgressPage({
       .filter((e) => e.status === "DRAFT" && !completedExtractionWorks.has(e.project_work_id))
       .map((e) => e.project_work_id),
   );
+  const annotatedWorks = new Set(
+    ((annotationData.data ?? []) as Array<{ project_work_id: string }>)
+      .filter((a) => !completedExtractionWorks.has(a.project_work_id))
+      .map((a) => a.project_work_id),
+  );
+
+  const activeReadingWorks = new Set([
+    ...draftExtractionWorks,
+    ...annotatedWorks,
+  ]);
 
   const rawExtracted = countOf(rows, "EXTRACTED");
   const rawReading = countOf(rows, "READING");
@@ -110,7 +125,7 @@ export default async function ProgressPage({
 
   // Reconciled counts for all 7 statuses
   const extractedCount = Math.max(rawExtracted, completedExtractionWorks.size);
-  const readingCount = Math.max(rawReading, draftExtractionWorks.size);
+  const readingCount = Math.max(rawReading, activeReadingWorks.size);
   // Any unextracted/unreading included papers
   const deltaExtracted = extractedCount - rawExtracted;
   const deltaReading = readingCount - rawReading;

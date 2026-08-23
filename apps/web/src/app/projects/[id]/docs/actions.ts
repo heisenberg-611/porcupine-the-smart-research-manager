@@ -115,12 +115,13 @@ export async function createCollaborationFile(
             targetFolderId,
           );
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
+        const err = e as { status?: number; code?: number; message?: string } | undefined;
         const isPermissionError =
-          e?.status === 403 ||
-          e?.code === 403 ||
-          e?.message?.toLowerCase().includes("permission") ||
-          e?.message?.toLowerCase().includes("forbidden");
+          err?.status === 403 ||
+          err?.code === 403 ||
+          err?.message?.toLowerCase().includes("permission") ||
+          err?.message?.toLowerCase().includes("forbidden");
 
         if (isPermissionError) {
           console.warn("Failed to create in shared folder, falling back to personal folder", e);

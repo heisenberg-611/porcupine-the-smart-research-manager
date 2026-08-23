@@ -78,10 +78,30 @@ export async function createAnnotation(
         select: { id: true },
       });
 
+      // When anyone (assigned or unassigned) starts annotating an INCLUDED paper,
+      // transition its status to READING so it is tracked in the reading progress.
+      const work = await tx.projectWork.findUnique({
+        where: { id: projectWorkId },
+        select: { screenStatus: true },
+      });
+
+      if (work?.screenStatus === "INCLUDED") {
+        await tx.projectWork.update({
+          where: { id: projectWorkId },
+          data: { screenStatus: "READING" },
+        });
+      }
+
       return annotation.id;
     });
 
     revalidatePath(`/projects/${projectId}/read/${projectWorkId}`);
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath(`/projects/${projectId}/progress`);
+    revalidatePath(`/projects/${projectId}/library`);
+    revalidatePath(`/projects/${projectId}/extract`);
+    revalidatePath(`/dashboard`);
+    revalidatePath(`/assigned`);
     return { ok: true, data: { annotationId } };
   } catch {
     // An OBSERVER hits the RLS policy here. Say so without confirming what

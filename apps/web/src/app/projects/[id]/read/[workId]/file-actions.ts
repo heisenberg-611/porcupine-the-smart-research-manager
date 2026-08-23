@@ -134,8 +134,6 @@ export async function beginUpload(
     const refused = message.includes("42501") || /row-level security/i.test(message);
 
     if (!refused) {
-      // eslint-disable-next-line no-console -- an unexplained failure here is
-      // invisible otherwise: the browser only ever sees the sentence below.
       console.error("beginUpload failed", cause);
     }
 
@@ -482,8 +480,6 @@ export async function removePaperFile(
     const message = cause instanceof Error ? cause.message : String(cause);
     const refused = message.includes("42501") || /row-level security/i.test(message);
     if (!refused) {
-      // eslint-disable-next-line no-console -- otherwise the browser sees only
-      // the sentence below and the reason is gone.
       console.error("removePaperFile failed", cause);
     }
     return {
