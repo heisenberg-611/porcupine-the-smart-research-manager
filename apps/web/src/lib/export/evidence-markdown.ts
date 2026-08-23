@@ -42,13 +42,31 @@ export function exportCellValue(cell: EvidenceCellData | undefined): string | nu
 }
 
 /**
- * Clean text for inclusion in a single-line GFM Markdown table cell.
+ * Clean and summarize text for inclusion in a single-line GFM Markdown table cell.
  */
-function cleanTableText(text: string): string {
-  return text
-    .replace(/\r?\n/g, "<br>")
-    .replace(/\|/g, "\\|")
-    .trim();
+function formatSummaryCell(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return "—";
+  const str = String(value).trim();
+  if (str === "") return "—";
+
+  // If it's a markdown table, provide a compact summary
+  if (str.includes("|") && str.includes("\n")) {
+    const tableLines = str.split("\n").filter((l) => l.trim().startsWith("|"));
+    if (tableLines.length >= 2) {
+      return `📊 Table (${Math.max(1, tableLines.length - 2)} rows)`;
+    }
+  }
+
+  // If multi-line, take the first line and append line count
+  const lines = str.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length > 1) {
+    const first = lines[0] ?? "";
+    const short = first.length > 50 ? first.slice(0, 47) + "..." : first;
+    return short.replace(/\|/g, "\\|") + ` (${lines.length} lines)`;
+  }
+
+  const single = str.length > 80 ? str.slice(0, 77) + "..." : str;
+  return single.replace(/\|/g, "\\|").trim();
 }
 
 /**
@@ -73,16 +91,12 @@ export function toEvidenceMarkdown(options: EvidenceMarkdownOptions): string {
   lines.push(`# Evidence Synthesis: ${protocolName} (v${protocolVersion})`);
   lines.push("");
 
-  // AI Prompt & Analysis Context
-  lines.push("<!--");
-  lines.push("AI INSTRUCTIONS FOR SYSTEMATIC REVIEW & EVIDENCE SYNTHESIS:");
-  lines.push("This document contains extracted research data across papers according to the specified protocol.");
-  lines.push("Use this structured evidence to:");
-  lines.push("1. Synthesize quantitative and qualitative outcomes across all included studies.");
-  lines.push("2. Compare effect sizes, metrics, sample sizes, and interventions.");
-  lines.push("3. Assess heterogeneity, consistency, gaps, and risk of bias across studies.");
-  lines.push("4. Generate comprehensive summary tables and narrative findings for publication.");
-  lines.push("-->");
+  // AI Prompt & Analysis Context (as a standard Markdown callout)
+  lines.push("> **💡 AI Instructions for Systematic Review & Evidence Synthesis**");
+  lines.push("> - **Synthesize Findings**: Synthesize quantitative and qualitative outcomes across all included studies.");
+  lines.push("> - **Compare Metrics**: Compare effect sizes, metrics, sample sizes, and interventions.");
+  lines.push("> - **Assess Bias & Gaps**: Assess heterogeneity, consistency, outliers, and risk of bias across studies.");
+  lines.push("> - **Generate Tables**: Produce structured summary tables and narrative review sections for a manuscript.");
   lines.push("");
 
   // Overview
@@ -121,14 +135,13 @@ export function toEvidenceMarkdown(options: EvidenceMarkdownOptions): string {
     rows.forEach((row, idx) => {
       const cells = [
         String(idx + 1),
-        cleanTableText(row.work_title),
+        row.work_title.replace(/\|/g, "\\|").replace(/\r?\n/g, " ").trim(),
         row.published_year ? String(row.published_year) : "—",
         row.status,
         `${row.answered}/${row.field_total}`,
         ...fields.map((f) => {
           const val = exportCellValue(row.cells?.[f.key]);
-          if (val === null || val === undefined || String(val).trim() === "") return "—";
-          return cleanTableText(String(val));
+          return formatSummaryCell(val);
         }),
       ];
       lines.push(`| ${cells.join(" | ")} |`);

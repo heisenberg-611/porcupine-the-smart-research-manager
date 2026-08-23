@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Button, FormattedText, Skeleton } from "@/components/ui";
+import { Button, FormattedText, Skeleton, Textarea } from "@/components/ui";
 
 function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -23,8 +23,8 @@ export interface MarkdownViewerDialogProps {
 }
 
 /**
- * A rich Markdown viewer dialog with interactive Rendered Preview and Raw Markdown tabs,
- * instant copy to clipboard, and one-click file download.
+ * A rich Markdown viewer dialog with interactive Rendered Preview and editable Raw Markdown,
+ * live two-way synchronization, instant copy to clipboard, and one-click file download.
  */
 export function MarkdownViewerDialog({
   content,
@@ -36,14 +36,16 @@ export function MarkdownViewerDialog({
   triggerClassName,
 }: MarkdownViewerDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const [activeTab, setActiveTab] = useState<"preview" | "raw">("preview");
+  const [isOpen, setIsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"preview" | "edit">("preview");
   const [markdown, setMarkdown] = useState<string>(content ?? "");
+  const [originalMarkdown, setOriginalMarkdown] = useState<string>(content ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   const open = async () => {
-    dialogRef.current?.showModal();
+    setIsOpen(true);
 
     if (fetchUrl && !content) {
       setLoading(true);
@@ -55,6 +57,7 @@ export function MarkdownViewerDialog({
         }
         const text = await response.text();
         setMarkdown(text);
+        setOriginalMarkdown(text);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load document");
       } finally {
@@ -62,12 +65,20 @@ export function MarkdownViewerDialog({
       }
     } else if (content) {
       setMarkdown(content);
+      setOriginalMarkdown(content);
     }
   };
 
   const close = () => {
+    setIsOpen(false);
     dialogRef.current?.close();
   };
+
+  useEffect(() => {
+    if (isOpen) {
+      dialogRef.current?.showModal();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -80,7 +91,7 @@ export function MarkdownViewerDialog({
     };
     dialog.addEventListener("click", handleBackdropClick);
     return () => dialog.removeEventListener("click", handleBackdropClick);
-  }, []);
+  }, [isOpen]);
 
   const onCopy = async () => {
     if (!markdown) return;
@@ -127,144 +138,190 @@ export function MarkdownViewerDialog({
         <span>{triggerLabel}</span>
       </Button>
 
-      <dialog
-        ref={dialogRef}
-        aria-labelledby="md-viewer-title"
-        className="bg-raised text-ink border-border/70 open:animate-in open:fade-in-0 open:zoom-in-95 m-auto flex h-[88vh] w-[92vw] max-w-5xl flex-col overflow-hidden rounded-2xl border p-0 shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-sm"
-      >
-        {/* Header */}
-        <div className="border-border/70 bg-surface/90 flex flex-wrap items-center justify-between gap-3 border-b px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-accent/10 text-accent ring-accent/20 flex size-9 items-center justify-center rounded-xl ring-1">
-              <MarkdownIcon className="size-5" />
-            </div>
-            <div>
-              <h2
-                id="md-viewer-title"
-                className="text-ink text-base font-bold sm:text-lg"
-              >
-                {title}
-              </h2>
-              <p className="text-muted text-fine mt-0.5">
-                {loading
-                  ? "Generating document..."
-                  : `${lineCount} lines · ${wordCount.toLocaleString()} words · Ready for review & AI`}
-              </p>
-            </div>
-          </div>
+      {isOpen && (
+        <dialog
+          ref={dialogRef}
+          onCancel={close}
+          onClose={close}
+          aria-labelledby="md-viewer-title"
+          className="bg-raised text-ink border-border/70 open:animate-in open:fade-in-0 open:zoom-in-95 m-auto h-[88vh] w-[92vw] max-w-5xl rounded-2xl border p-0 shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-sm"
+        >
+          <div className="flex h-full w-full flex-col overflow-hidden">
+            {/* Header */}
+            <div className="border-border/70 bg-surface/90 flex flex-wrap items-center justify-between gap-3 border-b px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-accent/10 text-accent ring-accent/20 flex size-9 items-center justify-center rounded-xl ring-1">
+                  <MarkdownIcon className="size-5" />
+                </div>
+                <div>
+                  <h2
+                    id="md-viewer-title"
+                    className="text-ink text-base font-bold sm:text-lg"
+                  >
+                    {title}
+                  </h2>
+                  <p className="text-muted text-fine mt-0.5">
+                    {loading
+                      ? "Generating document..."
+                      : `${lineCount} lines · ${wordCount.toLocaleString()} words · Ready for review & AI`}
+                  </p>
+                </div>
+              </div>
 
-          {/* Mode Switcher + Actions */}
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="bg-raised border-border/70 inline-flex rounded-lg border p-0.5 shadow-2xs">
-              <button
-                type="button"
-                onClick={() => setActiveTab("preview")}
-                className={cx(
-                  "focus-visible:ring-accent inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all focus-visible:ring-2 focus-visible:outline-none",
-                  activeTab === "preview"
-                    ? "bg-accent text-accent-ink shadow-xs"
-                    : "text-muted hover:text-ink",
-                )}
-              >
-                <EyeIcon className="size-3.5" />
-                Rendered Preview
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("raw")}
-                className={cx(
-                  "focus-visible:ring-accent inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all focus-visible:ring-2 focus-visible:outline-none",
-                  activeTab === "raw"
-                    ? "bg-accent text-accent-ink shadow-xs"
-                    : "text-muted hover:text-ink",
-                )}
-              >
-                <CodeIcon className="size-3.5" />
-                Raw Markdown
-              </button>
-            </div>
+              {/* Mode Switcher + Actions */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="bg-raised border-border/70 inline-flex rounded-lg border p-0.5 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("preview")}
+                    className={cx(
+                      "focus-visible:ring-accent inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all focus-visible:ring-2 focus-visible:outline-none",
+                      activeTab === "preview"
+                        ? "bg-accent text-accent-ink shadow-xs"
+                        : "text-muted hover:text-ink",
+                    )}
+                  >
+                    <EyeIcon className="size-3.5" />
+                    Rendered Preview
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("edit")}
+                    className={cx(
+                      "focus-visible:ring-accent inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all focus-visible:ring-2 focus-visible:outline-none",
+                      activeTab === "edit"
+                        ? "bg-accent text-accent-ink shadow-xs"
+                        : "text-muted hover:text-ink",
+                    )}
+                  >
+                    <PencilIcon className="size-3.5" />
+                    Edit Markdown
+                  </button>
+                </div>
 
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={onCopy}
-              disabled={loading || !markdown}
-              className="text-xs font-medium"
-              aria-label="Copy markdown to clipboard"
-            >
-              {copied ? (
-                <CheckIcon className="size-4 text-accent" />
-              ) : (
-                <CopyIcon className="size-4" />
-              )}
-              <span>{copied ? "Copied!" : "Copy"}</span>
-            </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={onCopy}
+                  disabled={loading || !markdown}
+                  className="text-xs font-medium"
+                  aria-label="Copy markdown to clipboard"
+                >
+                  {copied ? (
+                    <CheckIcon className="size-4 text-accent" />
+                  ) : (
+                    <CopyIcon className="size-4" />
+                  )}
+                  <span>{copied ? "Copied!" : "Copy"}</span>
+                </Button>
 
-            <Button
-              type="button"
-              onClick={onDownload}
-              disabled={loading || !markdown}
-              className="text-xs font-semibold"
-              aria-label="Download markdown file"
-            >
-              <DownloadIcon className="size-4" />
-              <span>Download .md</span>
-            </Button>
+                <Button
+                  type="button"
+                  onClick={onDownload}
+                  disabled={loading || !markdown}
+                  className="text-xs font-semibold"
+                  aria-label="Download markdown file"
+                >
+                  <DownloadIcon className="size-4" />
+                  <span>Download .md</span>
+                </Button>
 
-            <button
-              type="button"
-              onClick={close}
-              aria-label="Close viewer"
-              className="text-muted hover:bg-surface hover:text-ink focus-visible:ring-accent inline-flex size-8 items-center justify-center rounded-lg text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:outline-none"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-
-        {/* Body Viewport */}
-        <div className="flex-1 overflow-y-auto p-6 sm:p-8">
-          {loading && (
-            <div className="space-y-4 py-8">
-              <Skeleton className="h-8 w-2/3" />
-              <Skeleton className="h-4 w-1/3" />
-              <div className="space-y-2 pt-4">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-4/5" />
+                <button
+                  type="button"
+                  onClick={close}
+                  aria-label="Close viewer"
+                  className="text-muted hover:bg-surface hover:text-ink focus-visible:ring-accent inline-flex size-8 items-center justify-center rounded-lg text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                >
+                  ✕
+                </button>
               </div>
             </div>
-          )}
 
-          {error && (
-            <div className="border-danger/30 bg-danger-soft/50 text-danger rounded-2xl border p-6 text-center">
-              <p className="text-ui font-semibold">Failed to load Markdown</p>
-              <p className="text-fine mt-1">{error}</p>
+            {/* Body Viewport */}
+            <div className="flex-1 overflow-y-auto p-6 sm:p-8">
+              {loading && (
+                <div className="space-y-4 py-8">
+                  <Skeleton className="h-8 w-2/3" />
+                  <Skeleton className="h-4 w-1/3" />
+                  <div className="space-y-2 pt-4">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-4/5" />
+                  </div>
+                </div>
+              )}
+
+              {error && (
+                <div className="border-danger/30 bg-danger-soft/50 text-danger rounded-2xl border p-6 text-center">
+                  <p className="text-ui font-semibold">Failed to load Markdown</p>
+                  <p className="text-fine mt-1">{error}</p>
+                </div>
+              )}
+
+              {!loading && !error && activeTab === "preview" && (
+                <div className="prose-porcupine text-ink max-w-none">
+                  <FormattedText text={markdown} />
+                </div>
+              )}
+
+              {!loading && !error && activeTab === "edit" && (
+                <div className="flex flex-col gap-3">
+                  <div className="border-border/60 bg-surface/50 text-fine flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2">
+                    <span className="text-muted">
+                      💡 Edits directly update the rendered preview and the downloaded file.
+                    </span>
+                    {markdown !== originalMarkdown && (
+                      <div className="flex items-center gap-2">
+                        <span className="bg-accent/15 text-accent rounded-md px-2 py-0.5 font-medium">
+                          Edited
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setMarkdown(originalMarkdown)}
+                          className="text-accent hover:underline focus-visible:ring-accent rounded text-xs font-semibold focus-visible:outline-none"
+                        >
+                          Reset to original
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <Textarea
+                    id="markdown-edit-area"
+                    value={markdown}
+                    onChange={(e) => setMarkdown(e.target.value)}
+                    spellCheck={false}
+                    placeholder="Type or paste markdown here..."
+                    rows={20}
+                    className="border-border/70 bg-surface text-ink text-fine focus:border-accent min-h-[50vh] w-full rounded-xl border p-4 font-mono leading-relaxed shadow-xs transition-all focus:outline-none focus:ring-2 focus:ring-accent"
+                  />
+                </div>
+              )}
             </div>
-          )}
 
-          {!loading && !error && activeTab === "preview" && (
-            <div className="prose-porcupine text-ink max-w-none">
-              <FormattedText text={markdown} />
+            {/* Footer info bar */}
+            <div className="border-border/60 bg-surface/50 text-muted text-fine flex items-center justify-between border-t px-6 py-3">
+              <span>Format: GitHub Flavored Markdown (GFM) with UTF-8 encoding</span>
+              <span>Edits sync automatically to Download & Copy</span>
             </div>
-          )}
-
-          {!loading && !error && activeTab === "raw" && (
-            <div className="border-border/70 bg-surface/80 relative rounded-xl border p-4 shadow-xs">
-              <pre className="text-ink font-mono text-xs leading-relaxed whitespace-pre-wrap select-all">
-                <code>{markdown}</code>
-              </pre>
-            </div>
-          )}
-        </div>
-
-        {/* Footer info bar */}
-        <div className="border-border/60 bg-surface/50 text-muted text-fine flex items-center justify-between border-t px-6 py-3">
-          <span>Format: GitHub Flavored Markdown (GFM) with UTF-8 encoding</span>
-          <span>Ready for LLM fine-tuning & prompt ingestion</span>
-        </div>
-      </dialog>
+          </div>
+        </dialog>
+      )}
     </>
+  );
+}
+
+function PencilIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="m5.433 13.917 1.262-3.155A4 4 0 0 1 7.58 9.42l6.92-6.918a2.121 2.121 0 0 1 3 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 0 1-.65-.65Z" />
+      <path d="M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0 0 10 3H4.75A2.75 2.75 0 0 0 2 5.75v9.5A2.75 2.75 0 0 0 4.75 18h9.5A2.75 2.75 0 0 0 17 15.25V10a.75.75 0 0 0-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5Z" />
+    </svg>
   );
 }
 
@@ -301,23 +358,7 @@ function EyeIcon({ className }: { className?: string }) {
   );
 }
 
-function CodeIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <path
-        fillRule="evenodd"
-        d="M6.28 5.22a.75.75 0 0 1 0 1.06L2.56 10l3.72 3.72a.75.75 0 0 1-1.06 1.06L.97 10.53a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Zm7.44 0a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L17.44 10l-3.72-3.72a.75.75 0 0 1 0-1.06Z"
-        clipRule="evenodd"
-      />
-    </svg>
-  );
-}
+
 
 function CopyIcon({ className }: { className?: string }) {
   return (

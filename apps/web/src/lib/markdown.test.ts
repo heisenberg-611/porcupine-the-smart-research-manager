@@ -320,4 +320,33 @@ describe("Block markdown parsing", () => {
     const tables = blocks.filter((b) => b.type === "table");
     expect(tables.length).toBe(2);
   });
+
+  it("strips HTML comments cleanly without breaking paragraph blocks", () => {
+    const md = `<!--
+AI INSTRUCTIONS
+Multi-line comment block
+-->
+# Overview
+This is regular text. <!-- inline comment -->`;
+
+    const blocks = parseMarkdown(md);
+    expect(blocks.length).toBe(2);
+    expect(blocks[0]?.type).toBe("heading");
+    expect(blocks[1]?.type).toBe("paragraph");
+  });
+
+  it("handles escaped pipes in table cells without splitting columns", () => {
+    const md = `| Column A | Column B |
+| :--- | :--- |
+| First \\| Part | Second Part |`;
+
+    const blocks = parseMarkdown(md);
+    expect(blocks.length).toBe(1);
+    expect(blocks[0]?.type).toBe("table");
+    if (blocks[0]?.type === "table") {
+      expect(blocks[0].rows[0]?.length).toBe(2);
+      expect(blocks[0].rows[0]?.[0]?.content).toBe("First | Part");
+      expect(blocks[0].rows[0]?.[1]?.content).toBe("Second Part");
+    }
+  });
 });

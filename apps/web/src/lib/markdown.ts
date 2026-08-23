@@ -358,8 +358,37 @@ export function parseInline(text: string): InlineNode[] {
 function parseTableCells(rawLine: string): string[] {
   let line = rawLine.trim();
   if (line.startsWith("|")) line = line.slice(1);
-  if (line.endsWith("|")) line = line.slice(0, -1);
-  return line.split("|").map((col) => col.trim());
+  if (line.endsWith("|") && !line.endsWith("\\|")) line = line.slice(0, -1);
+
+  const cells: string[] = [];
+  let current = "";
+  let isEscaped = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === "\\" && !isEscaped) {
+      isEscaped = true;
+      continue;
+    }
+    if (char === "|" && !isEscaped) {
+      cells.push(current.trim().replace(/\\\|/g, "|"));
+      current = "";
+      continue;
+    }
+    if (isEscaped) {
+      if (char !== "|") {
+        current += "\\";
+      }
+      current += char;
+      isEscaped = false;
+    } else {
+      current += char;
+    }
+  }
+  if (isEscaped) current += "\\";
+  cells.push(current.trim().replace(/\\\|/g, "|"));
+
+  return cells;
 }
 
 function parseTableAlignment(delimiterCell: string): TableAlignment {
@@ -382,7 +411,11 @@ function isTableDelimiterRow(line: string): boolean {
 export function parseMarkdown(text: string): BlockNode[] {
   if (!text || text.trim() === "") return [];
 
-  const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  // Strip HTML comments <!-- ... --> before AST parsing
+  const uncommented = text.replace(/<!--[\s\S]*?-->/g, "");
+  if (uncommented.trim() === "") return [];
+
+  const normalized = uncommented.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   const rawLines = normalized.split("\n");
   const blocks: BlockNode[] = [];
 

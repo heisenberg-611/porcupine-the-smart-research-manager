@@ -98,7 +98,7 @@ describe("toEvidenceMarkdown", () => {
     });
 
     expect(md).toContain("# Evidence Synthesis: Data Extraction Protocol (v1)");
-    expect(md).toContain("AI INSTRUCTIONS FOR SYSTEMATIC REVIEW");
+    expect(md).toContain("AI Instructions for Systematic Review");
     expect(md).toContain("## Protocol & Synthesis Overview");
     expect(md).toContain("- **Total Included Papers**: 2");
     expect(md).toContain("## Evidence Matrix Table");
