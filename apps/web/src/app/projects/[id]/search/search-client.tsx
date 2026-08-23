@@ -2,7 +2,7 @@
 
 import type { ScoredWork } from "@Porcupine/discovery";
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { Button, Field, Input, Skeleton } from "@/components/ui";
 import {
@@ -49,6 +49,7 @@ export function SearchClient({
   const [searched, setSearched] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [filterQuery, setFilterQuery] = useState("");
   const [exported, setExported] = useState(false);
   const [copied, setCopied] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -84,6 +85,7 @@ export function SearchClient({
   function run(query: string) {
     setError(null);
     setSearched(query);
+    setFilterQuery("");
 
     startTransition(async () => {
       const response = await searchWorks({
@@ -113,13 +115,57 @@ export function SearchClient({
     input.current?.focus();
   }
 
+  const filteredRanked = useMemo(() => {
+    if (!results) return [];
+    const q = filterQuery.trim().toLowerCase();
+    if (!q) return results.ranked;
+
+    const tokens = q.split(/\s+/).filter(Boolean);
+    return results.ranked.filter((scored) => {
+      const { work, matched } = scored;
+      const authorStr = Array.isArray(work.authors)
+        ? work.authors
+            .map((a) =>
+              typeof a === "string"
+                ? a
+                : typeof a === "object" && a && "name" in a
+                  ? `${a.name} ${"affiliation" in a && a.affiliation ? a.affiliation : ""}`
+                  : "",
+            )
+            .join(" ")
+            .toLowerCase()
+        : "";
+
+      const targetText = [
+        work.title,
+        work.abstract ?? "",
+        authorStr,
+        work.venue ?? "",
+        work.publishedYear ? String(work.publishedYear) : "",
+        work.doi ?? "",
+        work.arxivId ?? "",
+        work.pmid ?? "",
+        work.openalexId ?? "",
+        matched.join(" "),
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return tokens.every((token) => targetText.includes(token));
+    });
+  }, [results, filterQuery]);
+
   function getMarkdownContent() {
     if (!results || results.ranked.length === 0) return null;
+    const rankedToExport =
+      filterQuery.trim().length > 0 && filteredRanked.length > 0
+        ? filteredRanked
+        : results.ranked;
     return formatSearchExportMarkdown({
       terms: searched || terms || "search-results",
       fromYear: fromYear || undefined,
       toYear: toYear || undefined,
-      ranked: results.ranked,
+      ranked: rankedToExport,
       counts: results.counts,
       failures: results.failures,
     });
@@ -303,69 +349,131 @@ export function SearchClient({
               </div>
             ) : (
               <>
-                <div className="border-border/70 from-surface/90 via-raised/70 to-surface flex flex-col gap-4 rounded-2xl border p-5 shadow-xs bg-gradient-to-br sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex flex-col gap-1.5">
-                    <p className="text-ink text-ui font-semibold">
-                      {results.ranked.length}{" "}
-                      {results.ranked.length === 1 ? "result" : "results"}
-                      <span className="text-muted font-normal">
-                        {" "}
-                        · duplicates merged across sources
-                      </span>
-                    </p>
-                    {results.counts && results.counts.length > 0 && (
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-muted text-fine">Found:</span>
-                        {results.counts.map((c) => (
-                          <Chip key={c.provider} tone="muted">
-                            {c.provider}: {c.count}
-                          </Chip>
-                        ))}
-                      </div>
-                    )}
+                <div className="border-border/70 from-surface/90 via-raised/70 to-surface flex flex-col gap-4 rounded-2xl border p-5 shadow-xs bg-gradient-to-br">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-col gap-1.5">
+                      <p className="text-ink text-ui font-semibold">
+                        {filterQuery.trim() ? (
+                          <>
+                            Showing {filteredRanked.length} of {results.ranked.length}{" "}
+                            {results.ranked.length === 1 ? "paper" : "papers"}
+                          </>
+                        ) : (
+                          <>
+                            {results.ranked.length}{" "}
+                            {results.ranked.length === 1 ? "result" : "results"}
+                            <span className="text-muted font-normal">
+                              {" "}
+                              · duplicates merged across sources
+                            </span>
+                          </>
+                        )}
+                      </p>
+                      {results.counts && results.counts.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-muted text-fine">Found:</span>
+                          {results.counts.map((c) => (
+                            <Chip key={c.provider} tone="muted">
+                              {c.provider}: {c.count}
+                            </Chip>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={onExportMarkdown}
+                        className="border-border/70 bg-surface/80 hover:bg-surface text-ink hover:border-accent/40 rounded-full border text-sm font-medium shadow-xs transition-all"
+                        aria-label={`Export ${filteredRanked.length} papers with abstracts to Markdown for AI`}
+                      >
+                        <DownloadIcon className="text-accent size-4" />
+                        <span>
+                          {exported
+                            ? "Exported .md!"
+                            : filterQuery.trim()
+                              ? `Export ${filteredRanked.length} filtered (.md)`
+                              : "Export for AI (.md)"}
+                        </span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={onCopyMarkdown}
+                        className="border-border/70 bg-surface/80 hover:bg-surface text-ink hover:border-accent/40 rounded-full border text-sm font-medium shadow-xs transition-all"
+                        aria-label="Copy paper details and abstracts to clipboard as Markdown"
+                      >
+                        <CopyIcon className="text-accent size-4" />
+                        <span>{copied ? "Copied!" : "Copy markdown"}</span>
+                      </Button>
+                    </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={onExportMarkdown}
-                      className="border-border/70 bg-surface/80 hover:bg-surface text-ink hover:border-accent/40 rounded-full border text-sm font-medium shadow-xs transition-all"
-                      aria-label={`Export all ${results.ranked.length} papers with abstracts to Markdown for AI`}
-                    >
-                      <DownloadIcon className="text-accent size-4" />
-                      <span>{exported ? "Exported .md!" : "Export for AI (.md)"}</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={onCopyMarkdown}
-                      className="border-border/70 bg-surface/80 hover:bg-surface text-ink hover:border-accent/40 rounded-full border text-sm font-medium shadow-xs transition-all"
-                      aria-label="Copy all papers with abstracts to clipboard as Markdown"
-                    >
-                      <CopyIcon className="text-accent size-4" />
-                      <span>{copied ? "Copied!" : "Copy markdown"}</span>
-                    </Button>
+                  {/* Fast in-browser client-side filter input */}
+                  <div className="relative">
+                    <div className="text-muted pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
+                      <SearchFilterIcon className="size-4" />
+                    </div>
+                    <Input
+                      id="filter-results"
+                      name="filter-results"
+                      type="search"
+                      value={filterQuery}
+                      onChange={(e) => setFilterQuery(e.target.value)}
+                      placeholder="Search within loaded results (filter by keyword, author, abstract, year, DOI...)"
+                      className="border-border/70 bg-surface/90 text-ink text-ui placeholder:text-muted/60 focus:border-accent min-h-11 w-full rounded-xl border pr-9 pl-10 shadow-2xs transition-all focus:outline-none focus:ring-2 focus:ring-accent"
+                    />
+                    {filterQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setFilterQuery("")}
+                        aria-label="Clear filter"
+                        className="text-muted hover:text-ink absolute inset-y-0 right-0 flex items-center pr-3 text-sm font-semibold transition-colors"
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                <ul className="flex flex-col gap-3">
-                  {results.ranked.map((scored) => (
-                    <ResultCard
-                      key={identityOf(scored)}
-                      scored={scored}
-                      projectId={projectId}
-                      alreadyAdded={results.alreadyAdded.some((id) =>
-                        [
-                          scored.work.doi,
-                          scored.work.arxivId,
-                          scored.work.openalexId,
-                          scored.work.pmid,
-                        ].includes(id),
-                      )}
-                    />
-                  ))}
-                </ul>
+                {filteredRanked.length === 0 ? (
+                  <div className="border-rule/80 bg-surface/30 rounded-2xl border border-dashed p-8 text-center shadow-xs">
+                    <p className="text-ink text-ui font-medium">
+                      No loaded papers match “{filterQuery}”.
+                    </p>
+                    <p className="text-muted text-fine mx-auto mt-1 max-w-sm text-pretty">
+                      Try adjusting your search terms or clearing the filter.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setFilterQuery("")}
+                      className="mt-3 rounded-full border border-border/70 text-sm"
+                    >
+                      Clear search filter
+                    </Button>
+                  </div>
+                ) : (
+                  <ul className="flex flex-col gap-3">
+                    {filteredRanked.map((scored) => (
+                      <ResultCard
+                        key={identityOf(scored)}
+                        scored={scored}
+                        projectId={projectId}
+                        alreadyAdded={results.alreadyAdded.some((id) =>
+                          [
+                            scored.work.doi,
+                            scored.work.arxivId,
+                            scored.work.openalexId,
+                            scored.work.pmid,
+                          ].includes(id),
+                        )}
+                      />
+                    ))}
+                  </ul>
+                )}
               </>
             )}
           </>
@@ -619,6 +727,24 @@ function CopyIcon({ className }: { className?: string }) {
     >
       <path d="M7 3.5A1.5 1.5 0 0 1 8.5 2h3.879a1.5 1.5 0 0 1 1.06.44l3.122 3.12a1.5 1.5 0 0 1 .439 1.061V14.5A1.5 1.5 0 0 1 15.5 16h-7A1.5 1.5 0 0 1 7 14.5v-11Z" />
       <path d="M5 6a1.5 1.5 0 0 0-1.5 1.5v9A1.5 1.5 0 0 0 5 18h7a1.5 1.5 0 0 0 1.5-1.5v-.5H7A2.5 2.5 0 0 1 4.5 13.5V6H5Z" />
+    </svg>
+  );
+}
+
+function SearchFilterIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      <path
+        fillRule="evenodd"
+        d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z"
+        clipRule="evenodd"
+      />
     </svg>
   );
 }
