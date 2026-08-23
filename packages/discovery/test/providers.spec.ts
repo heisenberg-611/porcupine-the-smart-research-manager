@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { __testing as arxivInternals, arxiv } from "../src/providers/arxiv";
+import {
+  __testing as arxivInternals,
+  arxiv,
+  arxivUserAgent,
+} from "../src/providers/arxiv";
 import { stripJats } from "../src/providers/crossref";
 import { splitAuthorString } from "../src/providers/europepmc";
 import { rebuildAbstract } from "../src/providers/openalex";
@@ -118,6 +122,26 @@ describe("arXiv Atom parsing", () => {
 
   it("asks for one request every three seconds", () => {
     expect(arxiv.rateLimit).toEqual({ capacity: 1, refillPerSecond: 1 / 3 });
+  });
+
+  it("sets a descriptive custom User-Agent identifying Porcupine", () => {
+    expect(arxivUserAgent()).toMatch(/^Porcupine\/0\.1 \(/);
+    expect(arxivUserAgent()).toContain("github.com/heisenberg-611/porcupine");
+  });
+});
+
+describe("InProcessRateLimiter queuing", () => {
+  it("queues concurrent callers sequentially to prevent thundering herds", async () => {
+    const limiter = new InProcessRateLimiter();
+    const limit = { capacity: 1, refillPerSecond: 1 / 3 }; // 3s per request
+
+    const wait1 = await limiter.take("provider:arxiv", limit);
+    const wait2 = await limiter.take("provider:arxiv", limit);
+    const wait3 = await limiter.take("provider:arxiv", limit);
+
+    expect(wait1).toBe(0);
+    expect(wait2).toBeCloseTo(3, 0.5);
+    expect(wait3).toBeCloseTo(6, 0.5);
   });
 });
 

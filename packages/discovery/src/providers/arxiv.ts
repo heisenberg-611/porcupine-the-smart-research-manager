@@ -93,6 +93,80 @@ function entryToWorkInput(entry: string): WorkInput | null {
   };
 }
 
+export function arxivUserAgent(): string {
+  const contact =
+    process.env.POLITE_POOL_EMAIL ||
+    process.env.NEXT_PUBLIC_SUPPORT_EMAIL ||
+    "support@porcupine.app";
+  return `Porcupine/0.1 (https://github.com/heisenberg-611/porcupine-the-smart-research-manager; mailto:${contact})`;
+}
+
+export interface ArxivFetchOptions {
+  maxRetries?: number;
+  baseDelayMs?: number;
+  maxDelayMs?: number;
+}
+
+/**
+ * Fetch from arXiv with custom descriptive User-Agent and exponential backoff + jitter
+ * for 429 (Too Many Requests), 503 (Service Unavailable), and 504 (Gateway Timeout).
+ */
+export async function fetchArxivWithBackoff(
+  url: string,
+  options: ArxivFetchOptions = {},
+): Promise<Response> {
+  const maxRetries = options.maxRetries ?? 3;
+  const baseDelayMs = options.baseDelayMs ?? 3500; // 3.5s delay adhering to arXiv 3-second spacing policy
+  const maxDelayMs = options.maxDelayMs ?? 15000;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const response = await safeFetch(url, {
+      headers: {
+        accept: "application/atom+xml",
+        "user-agent": arxivUserAgent(),
+      },
+    });
+
+    if (response.ok) return response;
+
+    const status = response.status;
+    const isRetryable = status === 429 || status === 503 || status === 504;
+
+    if (!isRetryable || attempt === maxRetries) {
+      if (status === 429) {
+        throw new Error(
+          "arXiv rate limit exceeded (429 Too Many Requests). Please wait a few seconds before searching again.",
+        );
+      }
+      throw new Error(`arXiv returned ${status}`);
+    }
+
+    // Inspect Retry-After header if provided by arXiv
+    const retryAfterHeader = response.headers.get("retry-after");
+    let backoffMs = baseDelayMs * Math.pow(2, attempt);
+
+    if (retryAfterHeader) {
+      const seconds = Number(retryAfterHeader);
+      if (!Number.isNaN(seconds) && seconds > 0) {
+        backoffMs = seconds * 1000;
+      } else {
+        const date = new Date(retryAfterHeader);
+        if (!Number.isNaN(date.getTime())) {
+          backoffMs = Math.max(0, date.getTime() - Date.now());
+        }
+      }
+    }
+
+    // Add random jitter (200-800ms) to avoid synchronization collisions across concurrent workers
+    const jitter = Math.floor(Math.random() * 600) + 200;
+    const totalWait = Math.min(backoffMs + jitter, maxDelayMs);
+
+    await new Promise((resolve) => setTimeout(resolve, totalWait));
+  }
+
+  throw new Error("arXiv request failed after retries");
+}
+
 export const arxiv: Provider = {
   id: "arxiv",
   label: "arXiv",
@@ -106,10 +180,7 @@ export const arxiv: Provider = {
     url.searchParams.set("max_results", String(Math.min(query.limit ?? 25, 100)));
     url.searchParams.set("sortBy", "relevance");
 
-    const response = await safeFetch(url.href, {
-      headers: { accept: "application/atom+xml" },
-    });
-    if (!response.ok) throw new Error(`arXiv returned ${response.status}`);
+    const response = await fetchArxivWithBackoff(url.href);
 
     const xml = await response.text();
     const entries = [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/gi)].map(
@@ -138,8 +209,9 @@ export const arxiv: Provider = {
  *
  * Separate from `search` because the import path resolves bare identifiers,
  * and `id_list` accepts up to 100 at once — one rate-limited request for a
- * whole pasted list rather than one per line, which at 1 request/3s would
- * make a 50-item import take two and a half minutes.
+ * whole pasted list rather than one per line.
+ *
+ * Batches requests in chunks of 100 with spacing between chunks to prevent 429s.
  */
 export async function arxivByIds(ids: string[]): Promise<WorkInput[]> {
   const normalized = ids
@@ -147,19 +219,30 @@ export async function arxivByIds(ids: string[]): Promise<WorkInput[]> {
     .filter((id): id is string => id !== null);
   if (normalized.length === 0) return [];
 
-  const url = new URL("https://export.arxiv.org/api/query");
-  url.searchParams.set("id_list", normalized.slice(0, 100).join(","));
-  url.searchParams.set("max_results", String(Math.min(normalized.length, 100)));
+  const results: WorkInput[] = [];
+  const chunkSize = 100;
 
-  const response = await safeFetch(url.href, {
-    headers: { accept: "application/atom+xml" },
-  });
-  if (!response.ok) throw new Error(`arXiv returned ${response.status}`);
+  for (let i = 0; i < normalized.length; i += chunkSize) {
+    const chunk = normalized.slice(i, i + chunkSize);
+    const url = new URL("https://export.arxiv.org/api/query");
+    url.searchParams.set("id_list", chunk.join(","));
+    url.searchParams.set("max_results", String(chunk.length));
 
-  const xml = await response.text();
-  return [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/gi)]
-    .map((m) => entryToWorkInput(m[1] ?? ""))
-    .filter((w): w is WorkInput => w !== null);
+    if (i > 0) {
+      // Minimum 3-second spacing between sequential batches
+      await new Promise((resolve) => setTimeout(resolve, 3500));
+    }
+
+    const response = await fetchArxivWithBackoff(url.href);
+    const xml = await response.text();
+    const works = [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/gi)]
+      .map((m) => entryToWorkInput(m[1] ?? ""))
+      .filter((w): w is WorkInput => w !== null);
+
+    results.push(...works);
+  }
+
+  return results;
 }
 
 export const __testing = { entryToWorkInput, decodeEntities, extractTag };

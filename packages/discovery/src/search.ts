@@ -51,7 +51,7 @@ export class InProcessRateLimiter implements RateLimiter {
       return Promise.resolve(0);
     }
 
-    this.buckets.set(key, { tokens, updated: now });
+    this.buckets.set(key, { tokens: tokens - 1, updated: now });
     return Promise.resolve((1 - tokens) / limit.refillPerSecond);
   }
 }
