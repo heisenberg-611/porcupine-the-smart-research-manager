@@ -209,7 +209,7 @@ export default async function ProgressPage({
             </h2>
             <dl className="grid grid-cols-2 gap-4 sm:grid-cols-5">
               <Stat label="Papers" value={total} />
-              <Stat label="Screened" value={screened} hint="decided in or out" />
+              <Stat label="Decided" value={screened} hint="in or out" />
               <Stat label="Extracted" value={extractedCount} hint={`of ${totalIncluded} included`} />
               <Stat label="Remaining" value={remaining} hint="to screen" />
               <Stat

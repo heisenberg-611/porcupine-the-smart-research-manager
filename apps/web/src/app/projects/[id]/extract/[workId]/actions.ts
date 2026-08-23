@@ -323,11 +323,17 @@ export async function submitExtraction(
         data: { status: "SUBMITTED", submittedAt: new Date() },
       });
 
-      // Update paper's screenStatus to EXTRACTED so progress views reflect completion
-      await tx.projectWork.update({
+      // Update paper's screenStatus to EXTRACTED if it was INCLUDED or READING
+      const work = await tx.projectWork.findUnique({
         where: { id: projectWorkId },
-        data: { screenStatus: "EXTRACTED" },
+        select: { screenStatus: true },
       });
+      if (work?.screenStatus === "INCLUDED" || work?.screenStatus === "READING") {
+        await tx.projectWork.update({
+          where: { id: projectWorkId },
+          data: { screenStatus: "EXTRACTED" },
+        });
+      }
 
       return { missing: [] };
     });
