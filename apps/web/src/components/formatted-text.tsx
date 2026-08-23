@@ -146,6 +146,67 @@ export function renderBlock(block: BlockNode, index: number): ReactNode {
       );
     case "hr":
       return <hr key={index} className="border-rule/80 my-4" />;
+    case "table":
+      return (
+        <div
+          key={index}
+          className="border-border/70 bg-surface/50 my-3.5 overflow-x-auto rounded-xl border shadow-xs"
+        >
+          <table className="divide-border/60 text-ink text-ui w-full divide-y text-left text-sm">
+            <thead className="bg-raised/80 font-semibold">
+              <tr>
+                {block.headers.map((h, hIdx) => {
+                  const alignClass =
+                    h.align === "center"
+                      ? "text-center"
+                      : h.align === "right"
+                        ? "text-right"
+                        : "text-left";
+                  return (
+                    <th
+                      key={hIdx}
+                      className={cx(
+                        "px-4 py-2.5 font-semibold text-ink",
+                        alignClass,
+                      )}
+                    >
+                      {renderInlineNodes(h.inline)}
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody className="divide-border/40 divide-y">
+              {block.rows.map((row, rIdx) => (
+                <tr
+                  key={rIdx}
+                  className="hover:bg-surface/70 transition-colors"
+                >
+                  {row.map((cell, cIdx) => {
+                    const alignClass =
+                      cell.align === "center"
+                        ? "text-center"
+                        : cell.align === "right"
+                          ? "text-right"
+                          : "text-left";
+                    return (
+                      <td
+                        key={cIdx}
+                        className={cx(
+                          "px-4 py-2.5 align-top leading-relaxed text-ink-soft",
+                          alignClass,
+                        )}
+                      >
+                        {renderInlineNodes(cell.inline)}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
   }
 }
 

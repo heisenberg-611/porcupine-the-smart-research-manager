@@ -23,6 +23,20 @@ export type InlineNode =
   | { type: "link"; href: string; children: InlineNode[] }
   | { type: "br" };
 
+export type TableAlignment = "left" | "center" | "right";
+
+export interface TableCell {
+  content: string;
+  inline: InlineNode[];
+  align?: TableAlignment;
+}
+
+export interface TableNode {
+  type: "table";
+  headers: TableCell[];
+  rows: TableCell[][];
+}
+
 export type BlockNode =
   | { type: "paragraph"; content: string; inline: InlineNode[] }
   | { type: "heading"; level: 1 | 2 | 3 | 4 | 5 | 6; content: string; inline: InlineNode[] }
@@ -30,7 +44,8 @@ export type BlockNode =
   | { type: "ol"; items: Array<{ content: string; inline: InlineNode[] }> }
   | { type: "blockquote"; content: string; inline: InlineNode[] }
   | { type: "code_block"; lang?: string | undefined; code: string }
-  | { type: "hr" };
+  | { type: "hr" }
+  | TableNode;
 
 /**
  * Validates whether a URL is safe to be used in an anchor href.
@@ -241,7 +256,18 @@ export function parseInline(text: string): InlineNode[] {
       }
     }
 
-    // 8. Line break: \n
+    // 8. Line break: <br>, <br/>, or \n
+    const brTagMatch = remaining.match(/<br\s*\/?>/i);
+    if (brTagMatch && brTagMatch.index !== undefined) {
+      candidates.push({
+        type: "br",
+        startIndex: cursor + brTagMatch.index,
+        endIndex: cursor + brTagMatch.index + brTagMatch[0].length,
+        matchLength: brTagMatch[0].length,
+        raw: brTagMatch[0],
+      });
+    }
+
     const brMatch = remaining.match(/\n/);
     if (brMatch && brMatch.index !== undefined) {
       candidates.push({
@@ -327,6 +353,27 @@ export function parseInline(text: string): InlineNode[] {
   }
 
   return nodes;
+}
+
+function parseTableCells(rawLine: string): string[] {
+  let line = rawLine.trim();
+  if (line.startsWith("|")) line = line.slice(1);
+  if (line.endsWith("|")) line = line.slice(0, -1);
+  return line.split("|").map((col) => col.trim());
+}
+
+function parseTableAlignment(delimiterCell: string): TableAlignment {
+  const cell = delimiterCell.trim();
+  const startsWithColon = cell.startsWith(":");
+  const endsWithColon = cell.endsWith(":");
+  if (startsWithColon && endsWithColon) return "center";
+  if (endsWithColon) return "right";
+  return "left";
+}
+
+function isTableDelimiterRow(line: string): boolean {
+  const trimmed = line.trim();
+  return /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/.test(trimmed);
 }
 
 /**
@@ -450,6 +497,54 @@ export function parseMarkdown(text: string): BlockNode[] {
     if (/^(?:---+|\*\*\*+|___+)$/.test(trimmed)) {
       flushAll();
       blocks.push({ type: "hr" });
+      continue;
+    }
+
+    // 5. GFM Table: line has | and next line is a delimiter row
+    if (
+      trimmed.includes("|") &&
+      i + 1 < rawLines.length &&
+      isTableDelimiterRow(rawLines[i + 1] ?? "")
+    ) {
+      flushAll();
+      const headerCols = parseTableCells(line);
+      const delimiterCols = parseTableCells(rawLines[i + 1] ?? "");
+      const alignments = delimiterCols.map(parseTableAlignment);
+
+      const headers: TableCell[] = headerCols.map((col, idx) => ({
+        content: col,
+        inline: parseInline(col),
+        align: alignments[idx] ?? "left",
+      }));
+
+      const rows: TableCell[][] = [];
+      i += 2; // skip header and delimiter rows
+
+      while (i < rawLines.length) {
+        const rowLine = rawLines[i];
+        if (rowLine === undefined) break;
+        const rowTrimmed = rowLine.trim();
+        if (rowTrimmed === "" || !rowTrimmed.includes("|")) {
+          i--; // back up so main loop handles this line
+          break;
+        }
+
+        const cols = parseTableCells(rowLine);
+        const rowCells: TableCell[] = cols.map((col, idx) => ({
+          content: col,
+          inline: parseInline(col),
+          align: alignments[idx] ?? "left",
+        }));
+
+        rows.push(rowCells);
+        i++;
+      }
+
+      blocks.push({
+        type: "table",
+        headers,
+        rows,
+      });
       continue;
     }
 
