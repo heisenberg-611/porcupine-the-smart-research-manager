@@ -3,7 +3,7 @@
 import { PAPER_BUCKET } from "@Porcupine/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { Input } from "@/components/ui";
+import { Button, Input, Select } from "@/components/ui";
 import { colourFor } from "@/lib/annotation-colour";
 import { createClient } from "@/lib/supabase/client";
 import { tidyRects } from "@/lib/highlight-rects";
@@ -14,6 +14,33 @@ import { rangeForPageText } from "@/lib/page-text";
 // anything alongside these rules; without them the spans stack at the origin
 // and every selection lands in the wrong place.
 import "@/styles/pdf-text-layer.css";
+
+/** Format ISO timestamp for annotation display */
+export function formatAnnotationTime(isoString?: string): { relative: string; full: string } {
+  if (!isoString) return { relative: "", full: "" };
+  const date = new Date(isoString);
+  if (isNaN(date.getTime())) return { relative: "", full: "" };
+
+  const now = Date.now();
+  const diffSec = Math.max(0, Math.floor((now - date.getTime()) / 1000));
+
+  let relative = "";
+  if (diffSec < 60) relative = "Just now";
+  else if (diffSec < 3600) relative = `${Math.floor(diffSec / 60)}m ago`;
+  else if (diffSec < 86400) relative = `${Math.floor(diffSec / 3600)}h ago`;
+  else if (diffSec < 604800) relative = `${Math.floor(diffSec / 86400)}d ago`;
+  else relative = date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+  const full = date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  return { relative, full };
+}
 
 /**
  * The paper, drawn as the paper.
@@ -88,6 +115,10 @@ export interface PdfHighlight {
    * that enforces it.
    */
   isPrivate: boolean;
+  body?: string | null;
+  createdAt?: string;
+  quote?: string;
+  isMine?: boolean;
 }
 
 export function PdfDocument({
@@ -95,6 +126,7 @@ export function PdfDocument({
   pageTexts,
   highlights,
   onSelection,
+  onDeleteHighlight,
   focusPage,
 }: {
   storagePath: string;
@@ -103,6 +135,8 @@ export function PdfDocument({
   highlights: PdfHighlight[];
   /** Called after every selection change inside the document. */
   onSelection: () => void;
+  /** Optional handler to delete user's own annotation from popup. */
+  onDeleteHighlight?: (id: string) => void;
   /** Scroll this page into view once, when the document is ready. */
   focusPage: number | null;
 }) {
@@ -123,6 +157,8 @@ export function PdfDocument({
   const focusPageRef = useRef(focusPage);
   const [status, setStatus] = useState<"loading" | "ready" | "failed">("loading");
   const [error, setError] = useState<string | null>(null);
+  const [activeHighlight, setActiveHighlight] = useState<PdfHighlight | null>(null);
+  const [popupPos, setPopupPos] = useState<{ top: number; left: number } | null>(null);
 
   /*
    * The latest highlights, without rebuilding the document to get them.
@@ -231,7 +267,8 @@ export function PdfDocument({
       const at = Math.max(top, floor);
       floor = at + LABEL_HEIGHT + 2;
 
-      const tag = document.createElement("span");
+      const tag = document.createElement("button");
+      tag.type = "button";
       tag.dataset.highlightAuthor = highlight.id;
       tag.textContent = highlight.isPrivate
         ? `${highlight.authorName} · private`
@@ -247,12 +284,31 @@ export function PdfDocument({
        * as an edge, which reads either way.
        */
       tag.className =
-        "text-fine text-ink bg-raised pointer-events-none absolute overflow-hidden " +
-        "text-ellipsis whitespace-nowrap rounded-r px-1.5 py-px leading-tight shadow-sm";
-      tag.style.borderLeft = `3px solid ${colour.solid}`;
+        "text-fine text-ink bg-raised pointer-events-auto cursor-pointer select-none absolute overflow-hidden " +
+        "text-ellipsis whitespace-nowrap rounded-r-lg px-2 py-0.5 leading-tight shadow-sm hover:shadow-md " +
+        "hover:bg-subtle active:scale-95 transition-all text-left border-l-[3px]";
+      tag.style.borderLeftColor = colour.solid;
       tag.style.left = `${slot.paper.clientWidth + 10}px`;
       tag.style.top = `${at}px`;
       tag.style.maxWidth = `${GUTTER - 18}px`;
+      tag.title = `Click to view note by ${highlight.authorName}`;
+
+      tag.onclick = (e) => {
+        e.stopPropagation();
+        const rect = tag.getBoundingClientRect();
+        const POPUP_WIDTH = 340;
+        let left = rect.left - POPUP_WIDTH - 12;
+        if (left < 16) {
+          left = Math.min(window.innerWidth - POPUP_WIDTH - 16, rect.right + 12);
+        }
+        if (left < 16) {
+          left = Math.max(16, (window.innerWidth - POPUP_WIDTH) / 2);
+        }
+        const top = Math.max(16, Math.min(rect.top - 10, window.innerHeight - 380));
+        setPopupPos({ top, left });
+        setActiveHighlight(highlight);
+      };
+
       slot.container.append(tag);
     }
   }, []);
@@ -638,12 +694,24 @@ export function PdfDocument({
 
   const handleSelection = useCallback(() => onSelection(), [onSelection]);
 
+  useEffect(() => {
+    if (!activeHighlight) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setActiveHighlight(null);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [activeHighlight]);
+
   return (
-    <div className="border-border overflow-hidden rounded-xl border">
+    <div className="relative">
       {status === "ready" && (
-        <div className="border-border bg-raised flex flex-wrap items-center gap-3 border-b px-3 py-2">
-          <label className="text-muted text-fine flex items-center gap-1.5">
-            Page
+        <div className="border-border bg-raised/95 backdrop-blur-md sticky top-0 z-10 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-2.5 shadow-sm">
+          {/* Page navigation */}
+          <label className="text-muted text-fine flex items-center gap-2 font-medium">
+            <span>Page</span>
             <Input
               compact
               type="number"
@@ -658,44 +726,95 @@ export function PdfDocument({
                 goToPageRef.current?.(clamped);
               }}
               aria-label="Go to page"
-              className="w-16 text-center tabular-nums"
+              className="w-16 text-center tabular-nums font-semibold"
             />
-            <span className="tabular-nums">of {pageCount}</span>
+            <span className="tabular-nums text-muted">of {pageCount}</span>
           </label>
 
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() =>
-                setZoom((z) => Math.max(0.5, Math.round((z - 0.25) * 100) / 100))
-              }
-              disabled={zoom <= 0.5}
-              aria-label="Zoom out"
-              className="border-border text-ink hover:bg-surface min-h-9 min-w-9 rounded-md border disabled:opacity-40"
+          {/* Fine-tuning Zoom Controls */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() =>
+                  setZoom((z) => Math.max(0.25, Math.round((z - 0.1) * 100) / 100))
+                }
+                disabled={zoom <= 0.25}
+                aria-label="Zoom out"
+                title="Zoom out (10%)"
+                className="border-border text-ink hover:bg-surface flex size-8 items-center justify-center rounded-lg border text-base font-semibold shadow-xs disabled:opacity-40 transition-colors"
+              >
+                −
+              </button>
+
+              <label className="text-muted text-fine flex items-center gap-1 font-medium">
+                <Input
+                  compact
+                  type="number"
+                  min={25}
+                  max={300}
+                  step={5}
+                  value={Math.round(zoom * 100)}
+                  onChange={(event) => {
+                    const val = Number(event.target.value);
+                    if (Number.isFinite(val) && val >= 25 && val <= 300) {
+                      setZoom(Math.round(val) / 100);
+                    }
+                  }}
+                  aria-label="Zoom percentage"
+                  className="w-16 text-center tabular-nums font-semibold"
+                />
+                <span className="tabular-nums text-muted">%</span>
+              </label>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setZoom((z) => Math.min(3, Math.round((z + 0.1) * 100) / 100))
+                }
+                disabled={zoom >= 3}
+                aria-label="Zoom in"
+                title="Zoom in (10%)"
+                className="border-border text-ink hover:bg-surface flex size-8 items-center justify-center rounded-lg border text-base font-semibold shadow-xs disabled:opacity-40 transition-colors"
+              >
+                +
+              </button>
+            </div>
+
+            {/* Quick Presets Dropdown */}
+            <Select
+              compact
+              value={Math.round(zoom * 100)}
+              onChange={(e) => setZoom(Number(e.target.value) / 100)}
+              aria-label="Zoom preset"
             >
-              −
-            </button>
-            <span className="text-muted text-fine w-12 text-center tabular-nums">
-              {Math.round(zoom * 100)}%
-            </span>
-            <button
-              type="button"
-              onClick={() =>
-                setZoom((z) => Math.min(3, Math.round((z + 0.25) * 100) / 100))
-              }
-              disabled={zoom >= 3}
-              aria-label="Zoom in"
-              className="border-border text-ink hover:bg-surface min-h-9 min-w-9 rounded-md border disabled:opacity-40"
-            >
-              +
-            </button>
+              <option value={50}>50%</option>
+              <option value={75}>75%</option>
+              <option value={90}>90%</option>
+              <option value={100}>100% (Fit Width)</option>
+              <option value={125}>125%</option>
+              <option value={150}>150%</option>
+              <option value={175}>175%</option>
+              <option value={200}>200%</option>
+              <option value={250}>250%</option>
+              <option value={300}>300%</option>
+              {![50, 75, 90, 100, 125, 150, 175, 200, 250, 300].includes(
+                Math.round(zoom * 100),
+              ) && (
+                <option value={Math.round(zoom * 100)}>
+                  {Math.round(zoom * 100)}% (Custom)
+                </option>
+              )}
+            </Select>
+
             {zoom !== 1 && (
               <button
                 type="button"
                 onClick={() => setZoom(1)}
-                className="text-muted hover:text-ink text-fine ml-1 underline underline-offset-2"
+                className="text-primary hover:underline text-fine px-1.5 py-1 font-medium transition-colors cursor-pointer"
+                title="Reset zoom to 100%"
               >
-                Fit to width
+                Reset
               </button>
             )}
           </div>
@@ -711,18 +830,6 @@ export function PdfDocument({
         </p>
       )}
 
-      {/*
-        The document scrolls in its own window.
-
-        Reading a 40-page paper used to scroll the whole application — header,
-        project nav and all — and left the annotation list a full document
-        below the text it describes.
-
-        The ground behind the pages is deliberately the app's own surface
-        rather than a neutral grey: in dark mode a white page on a light grey
-        mat is a lamp pointed at the reader, and the page has to be white
-        because it is paper.
-      */}
       <div
         ref={scrollRef}
         data-testid="pdf-scroll"
@@ -734,12 +841,124 @@ export function PdfDocument({
           onMouseUp={handleSelection}
           onKeyUp={handleSelection}
           data-testid="pdf-document"
-          // `pageTexts` is not read here — it is the anchor substrate, used by
-          // the caller to build selectors — but it is taken as a prop so the
-          // component cannot be mounted without the text its offsets belong to.
           data-pages={pageTexts.length}
         />
       </div>
+
+      {/* Note Details Popup */}
+      {activeHighlight && popupPos && (
+        <div
+          data-testid="annotation-popup"
+          className="fixed z-50 animate-in fade-in zoom-in-95 duration-150"
+          style={{
+            top: `${popupPos.top}px`,
+            left: `${popupPos.left}px`,
+            width: "min(340px, calc(100vw - 32px))",
+          }}
+        >
+          {/* Backdrop overlay for dismissing */}
+          <div
+            className="fixed inset-0 -z-10 bg-black/25 backdrop-blur-[1px]"
+            onClick={() => setActiveHighlight(null)}
+          />
+
+          <div className="bg-raised border-border rounded-2xl border p-4 shadow-2xl ring-1 ring-black/5 flex flex-col gap-3">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className="size-3.5 shrink-0 rounded-full shadow-sm"
+                  style={{ background: colourFor(activeHighlight.authorId).solid }}
+                />
+                <div>
+                  <h4 className="text-ink text-ui font-semibold leading-none">
+                    {activeHighlight.authorName}
+                  </h4>
+                  {activeHighlight.createdAt && (
+                    <p className="text-muted text-fine mt-1 leading-tight">
+                      {formatAnnotationTime(activeHighlight.createdAt).full}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                {activeHighlight.isPrivate && (
+                  <span className="border-border text-muted text-fine rounded-md border px-1.5 py-0.5 text-[11px]">
+                    Private
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setActiveHighlight(null)}
+                  className="text-muted hover:text-ink hover:bg-subtle rounded-lg p-1 transition-colors text-ui leading-none"
+                  aria-label="Close note popup"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Quoted passage */}
+            {activeHighlight.quote && (
+              <div className="border-border/80 bg-subtle/50 rounded-xl border p-2.5">
+                <p className="text-muted text-fine font-medium mb-1">
+                  Page {activeHighlight.page} highlight:
+                </p>
+                <blockquote
+                  className="text-ink text-fine line-clamp-4 border-l-2 pl-2 italic"
+                  style={{ borderColor: colourFor(activeHighlight.authorId).solid }}
+                >
+                  “{activeHighlight.quote}”
+                </blockquote>
+              </div>
+            )}
+
+            {/* Note Body */}
+            <div>
+              {activeHighlight.body ? (
+                <div>
+                  <p className="text-muted text-fine font-medium mb-1">Note:</p>
+                  <p className="text-ink text-ui whitespace-pre-wrap rounded-xl bg-surface/60 p-2.5 border border-border/50">
+                    {activeHighlight.body}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-muted text-fine italic bg-subtle/30 rounded-lg p-2 text-center">
+                  Highlight only (no attached note)
+                </p>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/60">
+              {activeHighlight.isMine && onDeleteHighlight ? (
+                <Button
+                  variant="danger"
+                  className="text-fine"
+                  onClick={() => {
+                    const id = activeHighlight.id;
+                    setActiveHighlight(null);
+                    onDeleteHighlight(id);
+                  }}
+                >
+                  Delete
+                </Button>
+              ) : (
+                <span />
+              )}
+              <Button
+                variant="ghost"
+                className="text-fine"
+                onClick={() => setActiveHighlight(null)}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

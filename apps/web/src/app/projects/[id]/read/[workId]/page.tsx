@@ -21,6 +21,7 @@ interface AnnotationRow {
   body: string | null;
   visibility: string;
   author_id: string;
+  created_at: string;
   deleted_at: string | null;
   anchors: {
     quote: string;
@@ -113,7 +114,7 @@ export default async function ReadPage({
   const { data: annotationData, error: annotationError } = await supabase
     .from("annotations")
     .select(
-      "id, kind, body, visibility, author_id, deleted_at, anchors(quote, prefix, suffix, start_off, end_off, page)",
+      "id, kind, body, visibility, author_id, created_at, deleted_at, anchors(quote, prefix, suffix, start_off, end_off, page)",
     )
     .eq("project_work_id", workId)
     .is("deleted_at", null)
@@ -173,6 +174,7 @@ export default async function ReadPage({
         authorId: row.author_id,
         authorName: authorNames.get(row.author_id) ?? "Unknown",
         isMine: row.author_id === user.id,
+        createdAt: row.created_at,
         status: resolution.status,
         start: resolution.status === "BROKEN" ? null : resolution.start,
         end: resolution.status === "BROKEN" ? null : resolution.end,
@@ -313,6 +315,7 @@ export default async function ReadPage({
           sizeBytes={paper.file.sizeBytes}
           uploadedAt={paper.file.createdAt}
           hasText={readingFullText}
+          storagePath={paper.file.storagePath}
         />
       ) : (
         <Card className="p-6">

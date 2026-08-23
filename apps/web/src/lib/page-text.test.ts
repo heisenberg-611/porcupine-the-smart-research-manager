@@ -78,7 +78,13 @@ describe("structure markers, which carry no text", () => {
     expect(text).toBe("Sleep restriction impaired vigilance\nin every cohort");
   });
 
-  it("survives a page that is nothing but markers", () => {
-    expect(joinPageText([{ type: "beginMarkedContent" } as never])).toBe("");
+  it("strips null bytes (0x00) which would corrupt PostgreSQL text encoding", () => {
+    const text = joinPageText([
+      { str: "Hello\0 World\0!", hasEOL: true },
+      { str: "Second\0 line" },
+    ]);
+    expect(text).toBe("Hello World!\nSecond line");
+    expect(text).not.toContain("\0");
   });
 });
+

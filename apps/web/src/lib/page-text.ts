@@ -66,7 +66,8 @@ export function joinPageText(items: readonly TextRun[]): string {
      * be written for it.
      */
     if (typeof item.str !== "string") continue;
-    text += item.str;
+    // Strip null bytes (0x00) which are forbidden in PostgreSQL UTF-8 text
+    text += item.str.replace(/\0/g, "");
     if (item.hasEOL) text += "\n";
   }
   return text;

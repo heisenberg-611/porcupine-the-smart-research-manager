@@ -2,6 +2,7 @@
 
 import {
   MAX_PAPER_BYTES,
+  PAPER_BUCKET,
   PAPER_MIME,
   PDF_MAGIC_BYTES,
   TEXT_CHUNK_PAGES,
@@ -280,7 +281,6 @@ export function UploadPaperForm({
   );
 }
 
-/** Shown once a file is attached, in place of the form. */
 export function AttachedPaper({
   projectId,
   projectWorkId,
@@ -288,6 +288,7 @@ export function AttachedPaper({
   sizeBytes,
   uploadedAt,
   hasText,
+  storagePath,
 }: {
   projectId: string;
   projectWorkId: string;
@@ -295,11 +296,69 @@ export function AttachedPaper({
   sizeBytes: number;
   uploadedAt: string;
   hasText: boolean;
+  storagePath?: string | null;
 }) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [extracting, setExtracting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function reExtract() {
+    if (!storagePath) return;
+    setExtracting(true);
+    setError(null);
+    try {
+      const supabase = createClient();
+      const { data: blob, error: dlError } = await supabase.storage
+        .from(PAPER_BUCKET)
+        .download(storagePath);
+      if (dlError || !blob) {
+        throw new Error(dlError?.message ?? "Could not download attached PDF.");
+      }
+
+      const extracted = await extractPdfText(blob);
+      if (!extracted.ok) {
+        await markPaperTextFailed({ projectId, projectWorkId, fileId });
+        setError(`${extracted.error}`);
+        setExtracting(false);
+        return;
+      }
+
+      for (let i = 0; i < extracted.pages.length; i += TEXT_CHUNK_PAGES) {
+        const chunk = extracted.pages.slice(i, i + TEXT_CHUNK_PAGES);
+        const sent = await storePaperTextChunk({
+          projectId,
+          fileId,
+          pages: chunk,
+        });
+        if (!sent.ok) {
+          await markPaperTextFailed({ projectId, projectWorkId, fileId });
+          setError(`${sent.error}`);
+          setExtracting(false);
+          return;
+        }
+      }
+
+      const done = await finishPaperText({
+        projectId,
+        projectWorkId,
+        fileId,
+        pageCount: extracted.pages.length,
+      });
+
+      if (!done.ok) {
+        setError(`${done.error}`);
+        setExtracting(false);
+        return;
+      }
+
+      startTransition(() => router.refresh());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Text extraction failed.");
+      setExtracting(false);
+    }
+  }
 
   async function remove() {
     setRemoving(true);
@@ -335,33 +394,46 @@ export function AttachedPaper({
           question. The second step is where the consequence is stated, because
           that is the moment somebody is deciding.
         */}
-        {confirming ? (
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {!hasText && storagePath && !confirming && (
             <Button
-              variant="danger"
-              onClick={remove}
-              busy={removing}
-              busyLabel="Removing…"
+              variant="primary"
+              onClick={reExtract}
+              busy={extracting}
+              busyLabel="Reading PDF…"
             >
-              Yes, remove it
+              Extract text again
             </Button>
+          )}
+
+          {confirming ? (
+            <>
+              <Button
+                variant="danger"
+                onClick={remove}
+                busy={removing}
+                busyLabel="Removing…"
+              >
+                Yes, remove it
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => setConfirming(false)}
+                disabled={removing}
+              >
+                Cancel
+              </Button>
+            </>
+          ) : (
             <Button
               variant="ghost"
-              onClick={() => setConfirming(false)}
-              disabled={removing}
+              onClick={() => setConfirming(true)}
+              disabled={extracting}
             >
-              Cancel
+              Remove the PDF
             </Button>
-          </div>
-        ) : (
-          <Button
-            variant="ghost"
-            onClick={() => setConfirming(true)}
-            className="shrink-0"
-          >
-            Remove the PDF
-          </Button>
-        )}
+          )}
+        </div>
       </div>
 
       {confirming && (
