@@ -128,7 +128,7 @@ export default async function ScreenPage({
   const caps = capabilities(project.kind as ProjectKind);
 
   return (
-    <main id="main" className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-12">
+    <main id="main" className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-10">
       <PageHeader
         backHref={`/projects/${id}`}
         backLabel={project.title}

@@ -663,3 +663,120 @@ export function parseMarkdown(text: string): BlockNode[] {
 
   return blocks;
 }
+
+/**
+ * Flattens an array of inline nodes into clean, recognizable plain text
+ * with formatting markers stripped (e.g. bold, italic, code delimiters removed).
+ */
+export function inlineToPlainText(nodes: InlineNode[]): string {
+  let result = "";
+  for (const node of nodes) {
+    switch (node.type) {
+      case "text":
+        result += node.value;
+        break;
+      case "bold":
+      case "italic":
+      case "bold_italic":
+      case "strike":
+        result += inlineToPlainText(node.children);
+        break;
+      case "code":
+        result += node.value;
+        break;
+      case "link": {
+        const label = inlineToPlainText(node.children).trim();
+        if (!label || label === node.href) {
+          result += node.href;
+        } else {
+          result += `${label} (${node.href})`;
+        }
+        break;
+      }
+      case "br":
+        result += "\n";
+        break;
+    }
+  }
+  return result;
+}
+
+/**
+ * Converts a Markdown string into clean, legible, human-friendly spreadsheet plain text
+ * suitable for CSV and Excel (.xlsx) cells.
+ *
+ * It converts Markdown tables into clean key-value / column entries,
+ * strips markdown syntax markers (hashes, asterisks, fences, HTML tags),
+ * normalizes line breaks, and turns bullet lists into standard bullet points.
+ */
+export function markdownToSpreadsheetText(markdown: string): string {
+  if (!markdown || markdown.trim() === "") return "";
+
+  const blocks = parseMarkdown(markdown);
+  if (blocks.length === 0) return markdown.trim();
+
+  const parts: string[] = [];
+
+  for (const block of blocks) {
+    switch (block.type) {
+      case "paragraph":
+      case "heading": {
+        const text = inlineToPlainText(block.inline).trim();
+        if (text) parts.push(text);
+        break;
+      }
+      case "blockquote": {
+        const text = inlineToPlainText(block.inline).trim();
+        if (text) parts.push(`"${text}"`);
+        break;
+      }
+      case "ul": {
+        const items = block.items
+          .map((it) => `• ${inlineToPlainText(it.inline).trim()}`)
+          .filter((t) => t.length > 2);
+        if (items.length > 0) parts.push(items.join("\n"));
+        break;
+      }
+      case "ol": {
+        const items = block.items
+          .map((it, idx) => `${idx + 1}. ${inlineToPlainText(it.inline).trim()}`)
+          .filter((t) => t.length > 3);
+        if (items.length > 0) parts.push(items.join("\n"));
+        break;
+      }
+      case "code_block": {
+        const code = block.code.trim();
+        if (code) parts.push(code);
+        break;
+      }
+      case "table": {
+        const isTwoColumn = block.headers.length === 2;
+        const rowTexts: string[] = [];
+
+        for (const row of block.rows) {
+          if (isTwoColumn && row.length === 2 && row[0] && row[1]) {
+            const key = inlineToPlainText(row[0].inline).replace(/\n+/g, " ").trim();
+            const val = inlineToPlainText(row[1].inline).trim();
+            if (key && val) {
+              rowTexts.push(`${key}: ${val}`);
+            } else if (key || val) {
+              rowTexts.push(key || val);
+            }
+          } else {
+            const cells = row.map((c) => inlineToPlainText(c.inline).replace(/\n+/g, " ").trim());
+            rowTexts.push(cells.join(" | "));
+          }
+        }
+
+        if (rowTexts.length > 0) {
+          parts.push(rowTexts.join("\n"));
+        }
+        break;
+      }
+      case "hr":
+        break;
+    }
+  }
+
+  return parts.join("\n\n").trim();
+}

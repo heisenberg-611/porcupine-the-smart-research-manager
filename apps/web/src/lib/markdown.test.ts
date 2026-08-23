@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   isSafeUrl,
+  markdownToSpreadsheetText,
   parseInline,
   parseMarkdown,
   sanitizeHref,
@@ -348,5 +349,47 @@ This is regular text. <!-- inline comment -->`;
       expect(blocks[0].rows[0]?.[0]?.content).toBe("First | Part");
       expect(blocks[0].rows[0]?.[1]?.content).toBe("Second Part");
     }
+  });
+
+  describe("markdownToSpreadsheetText", () => {
+    it("converts complex markdown with headings, bold, and tables into clean readable spreadsheet plain text", () => {
+      const md = `## 4. The Numbers: Metrics, Multipliers, and Hardware Limits
+
+### 4.1 Hardware & Computing Limits
+
+| Metric | Value |
+| :--- | :--- |
+| AI Edge Performance | **60 TOPS** on NVIDIA Jetson AGX Orin |
+| Edge AI Parameters & Latency | 260,000 parameters, quantized to INT8, with **9 ms** inference latency |
+| Accuracy Retention | Maintains **99.8%** of the system's energy |
+| Digital Twin Prediction Validation | Modulus prediction error: **4.8%** <br> Temperature RMSE: **1.2 °C** |`;
+
+      const result = markdownToSpreadsheetText(md);
+
+      expect(result).toContain("4. The Numbers: Metrics, Multipliers, and Hardware Limits");
+      expect(result).toContain("4.1 Hardware & Computing Limits");
+      expect(result).toContain("AI Edge Performance: 60 TOPS on NVIDIA Jetson AGX Orin");
+      expect(result).toContain("Edge AI Parameters & Latency: 260,000 parameters, quantized to INT8, with 9 ms inference latency");
+      expect(result).toContain("Accuracy Retention: Maintains 99.8% of the system's energy");
+      expect(result).toContain("Modulus prediction error: 4.8%");
+      expect(result).not.toContain("**");
+      expect(result).not.toContain("##");
+      expect(result).not.toContain("| :---");
+      expect(result).not.toContain("<br>");
+    });
+
+    it("converts lists, quotes, and links into clean spreadsheet text", () => {
+      const md = `> Important study finding
+
+- Item **one**
+- Item *two*
+- See [Study Page](https://example.com)`;
+
+      const result = markdownToSpreadsheetText(md);
+      expect(result).toContain('"Important study finding"');
+      expect(result).toContain("• Item one");
+      expect(result).toContain("• Item two");
+      expect(result).toContain("• See Study Page (https://example.com)");
+    });
   });
 });

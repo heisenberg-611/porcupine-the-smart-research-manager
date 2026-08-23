@@ -5,11 +5,12 @@ import {
   screenStatusLabel,
   type ExclusionReason,
 } from "@Porcupine/shared";
+import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 
 import { AccessHelp, type AccessRoute } from "@/components/access-route";
 import { SourceLinks } from "@/components/source-links";
-import { Button, Input, Select } from "@/components/ui";
+import { Button, FormattedText, Input, Select } from "@/components/ui";
 
 import { assignWork, recordDecision } from "./actions";
 
@@ -38,12 +39,6 @@ export interface Member {
 /**
  * The queue orders, as data rather than as a string union repeated in three
  * places.
- *
- * The options are derived from this list and the value is narrowed back
- * through it, so a mode cannot exist in the dropdown without a matching
- * `case` below — the failure this replaces was an `as any` on the change
- * handler, which would have taken a renamed option, typechecked, and sorted
- * by nothing.
  */
 const SORT_MODES = [
   { value: "unscreened", label: "Unscreened first" },
@@ -56,14 +51,8 @@ type SortMode = (typeof SORT_MODES)[number]["value"];
 /**
  * The screening surface.
  *
- * One paper at a time, with the abstract visible and Include/Exclude the
- * primary actions. That shape is deliberate: screening 300 papers is
- * repetitive work where the cost is per-decision, so anything that adds a
- * click or a scroll per paper multiplies by 300.
- *
- * The exclusion reason appears only when Exclude is chosen, and for a
- * systematic review it is required — enforced by the database, not by this
- * form, so a bulk action or import cannot route around it.
+ * One paper at a time, with formatted abstract and Include/Exclude as primary actions.
+ * Supports keyboard shortcuts, in-queue live search, and real-time session progress tracking.
  */
 export function ScreenClient({
   projectId,
@@ -90,19 +79,13 @@ export function ScreenClient({
   const [showKeys, setShowKeys] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>("unscreened");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
+  const [queueSearch, setQueueSearch] = useState<string>("");
   /** Assignee and due date per paper, while the write is in flight. */
   const [edits, setEdits] = useState<
     Record<string, { assigneeId: string; dueAt: string }>
   >({});
   const [pending, startTransition] = useTransition();
 
-  /*
-   * Deferred papers sort to the END; they do not leave.
-   *
-   * Skip means "not now", and a queue that removes what you skipped has
-   * quietly turned that into "never" — you would have to go and find the paper
-   * again through the library to give it the second look you asked for.
-   */
   const remaining = rows
     .filter((row) => !done[row.id])
     .filter((row) => {
@@ -111,7 +94,6 @@ export function ScreenClient({
       return row.assigneeId === assigneeFilter;
     })
     .sort((a, b) => {
-      // Deferred items always sort to the very end
       const aDef = Number(!!deferred[a.id]);
       const bDef = Number(!!deferred[b.id]);
       if (aDef !== bDef) return aDef - bDef;
@@ -122,54 +104,31 @@ export function ScreenClient({
         case "oldest":
           return (a.year ?? 0) - (b.year ?? 0);
         case "unscreened": {
-          // Untouched papers first; everything already looked at keeps its
-          // relative order behind them.
           const aNew = Number(a.screenStatus === "IDENTIFIED");
           const bNew = Number(b.screenStatus === "IDENTIFIED");
           return bNew - aNew;
         }
       }
     });
+
+  const filteredQueue = remaining.filter((row) => {
+    if (!queueSearch.trim()) return true;
+    const q = queueSearch.toLowerCase();
+    return (
+      row.title.toLowerCase().includes(q) ||
+      row.authors.toLowerCase().includes(q) ||
+      (row.year ? String(row.year).includes(q) : false) ||
+      (row.venue ? row.venue.toLowerCase().includes(q) : false)
+    );
+  });
+
   const current = remaining[Math.min(index, Math.max(remaining.length - 1, 0))];
 
-  /** Jump to a paper picked from the list rather than the one next in order. */
   function select(id: string) {
     const at = remaining.findIndex((row) => row.id === id);
     if (at >= 0) setIndex(at);
   }
 
-  /**
-   * Record a decision and move on IMMEDIATELY, without waiting for the server.
-   *
-   * The round trip is 100–250 ms. One paper, that is imperceptible; three
-   * hundred papers in an afternoon, it is a minute of thumb-twiddling
-   * distributed into three hundred separate pauses, each one landing exactly
-   * where the person had built up rhythm. Screening is the most repetitive
-   * thing this product asks of anyone, and the cost is per-decision.
-   *
-   * Optimism is safe here specifically because the failure case is already
-   * solved. `recordDecision` is a compare-and-swap against the status this
-   * screen was showing, so a colleague deciding the same paper first is
-   * refused by the database rather than silently overwritten — the
-   * lost-update guard proved in pgtap.mjs. That gives a real answer to roll
-   * back to, which is the thing most optimistic UIs do not have.
-   *
-   * Plain state rather than `useOptimistic`: `done` is client-only and does
-   * not come back from the server, so there is nothing for React to reconcile
-   * against. `useOptimistic` would add a rollback we would then have to
-   * suppress.
-   */
-  /**
-   * Defer: record that this paper was LOOKED AT and not decided.
-   *
-   * This button existed before and did `setIndex((i) => i + 1)` — nothing
-   * else. Nothing was written, so a reload brought every skipped paper back in
-   * its original place with no trace that anyone had opened it, and a
-   * colleague sharing the queue could not tell either. It is also the whole
-   * reason the Pipeline's SCREENING bar was always empty: the schema, the
-   * transition table, the queue query and the PRISMA view all handle that
-   * status, and the one control whose meaning IS that status never wrote it.
-   */
   function skip() {
     if (!current) return;
     setDeferred((prev) => ({ ...prev, [current.id]: true }));
@@ -182,16 +141,13 @@ export function ScreenClient({
     setError(null);
 
     if (toStatus === "EXCLUDED" && reasonRequired && !reason) {
-      setError("Choose a reason before excluding — this is a systematic review.");
+      setError("Choose an exclusion reason before excluding this paper.");
       return;
     }
 
-    // Captured before the queue advances: by the time the response lands,
-    // `current` is a different paper.
     const target = current;
     const chosenReason = toStatus === "EXCLUDED" ? reason || null : null;
 
-    // A deferral stays in the queue; a verdict leaves it.
     if (toStatus !== "SCREENING") {
       setDone((prev) => ({ ...prev, [target.id]: toStatus }));
       setIndex(0);
@@ -199,11 +155,6 @@ export function ScreenClient({
     setReason("");
     setStatus(null);
 
-    // Put it back. The paper returns to the queue and, because the queue is
-    // shown from the top, becomes the current one again — which is abrupt, and
-    // is why the message names the paper rather than saying "failed". An
-    // optimistic UI that swallows its own rollback is worse than no optimism,
-    // because the decision looks recorded and is not.
     const rollBack = (why: string) => {
       setDone((prev) => {
         const next = { ...prev };
@@ -221,16 +172,10 @@ export function ScreenClient({
           projectWorkId: target.id,
           toStatus,
           excludeReason: chosenReason,
-          // Compare-and-swap: the status this screen was SHOWING when the
-          // person decided. If the paper has moved since, the server refuses
-          // rather than letting this decision overwrite a colleague's.
           seenStatus: target.screenStatus as typeof toStatus,
         });
 
         if (response.ok) {
-          // Not an error — the paper is simply already handled. Naming who did
-          // it explains why it left the queue, instead of leaving the person
-          // wondering whether their click registered.
           if (response.data.conflict) {
             setConflicts((n) => n + 1);
             setStatus(`Already screened by ${response.data.conflict.by} — moved on.`);
@@ -240,34 +185,11 @@ export function ScreenClient({
 
         rollBack(response.error);
       } catch {
-        // The case the first draft of this missed entirely, and the reason the
-        // rollback test aborts the request rather than mocking a failed
-        // response. A server action that cannot REACH the server throws; it
-        // does not return `{ ok: false }`. Without this catch the rejection
-        // escaped the transition, the paper stayed optimistically decided, and
-        // the person was told nothing — the exact failure optimism is accused
-        // of and usually guilty of. A dropped connection is the likeliest way
-        // to lose a decision, not a refusal.
         rollBack("the server could not be reached.");
       }
     });
   }
 
-  /**
-   * Who, and by when — sent together, always, and held locally in between.
-   *
-   * `assignWork` writes both columns on every call: an omitted `dueAt` is
-   * written as null, not left alone. So each control has to send the other's
-   * value, and reading that value straight off `current` is a race. Picking an
-   * assignee and then a date fires two requests, and the second one reads a
-   * prop that only updates when `revalidatePath` has been round-tripped — so
-   * the date would post `assigneeId: null` and quietly undo the assignment a
-   * second earlier.
-   *
-   * The edit is therefore kept here, keyed by paper, and is what both controls
-   * render from. It is the same shape as `done`: optimistic, with the server's
-   * answer as the thing that rolls it back.
-   */
   const assignment = current
     ? (edits[current.id] ?? {
         assigneeId: current.assigneeId ?? "",
@@ -290,9 +212,6 @@ export function ScreenClient({
         dueAt: dueAt || null,
       });
 
-      // Confirm it landed. A select that silently posts gives the user no way
-      // to know whether the assignment took — and "did that save?" is the
-      // question people answer by clicking it again.
       if (response.ok) {
         const name = members.find((m) => m.userId === assigneeId)?.name;
         const who = name ? `Assigned to ${name}` : "Assignment cleared";
@@ -300,8 +219,6 @@ export function ScreenClient({
         return;
       }
 
-      // Drop the edit so both controls fall back to what the server actually
-      // holds, rather than showing a change that was refused.
       setEdits((prev) => {
         const next = { ...prev };
         delete next[target.id];
@@ -312,24 +229,9 @@ export function ScreenClient({
   }
 
   const decided = Object.keys(done).length;
+  const totalPool = remaining.length + decided;
+  const progressPercent = totalPool > 0 ? Math.round((decided / totalPool) * 100) : 100;
 
-  /**
-   * Screening without a mouse.
-   *
-   * Three hundred papers is three hundred round trips between the keyboard and
-   * the pointer if the only way to include something is to click a button. The
-   * shortcuts are single letters because that is what the hand can do without
-   * looking: `i` and `e` for the two decisions, `s` to skip, digits to pick an
-   * exclusion reason, `?` for the list.
-   *
-   * Not registered while focus is in a field. Typing "site" into the assignee
-   * box should not include, exclude, skip and then exclude again — which is
-   * what a naive document listener does, and it is the reason so many apps
-   * quietly abandoned their shortcuts.
-   *
-   * Modifier chords are left alone too, so ⌘I and Ctrl+E still belong to the
-   * browser.
-   */
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
@@ -364,8 +266,6 @@ export function ScreenClient({
         if (picked) {
           event.preventDefault();
           setReason(picked.code);
-          // Announced, because otherwise pressing 3 changes a select the user
-          // may not be looking at and nothing says which reason they armed.
           setStatus(`Exclusion reason: ${picked.label}. Press E to exclude.`);
         }
       }
@@ -373,211 +273,304 @@ export function ScreenClient({
 
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-    // `decide` closes over `current` and `reason`, so the listener has to be
-    // re-registered when they change. Omitting them is how a shortcut ends up
-    // deciding on the paper before last.
   });
 
   if (!current) {
     return (
-      <div className="border-border/80 bg-surface/30 rounded-2xl border-2 border-dashed p-10 text-center">
-        <p className="text-ink font-semibold text-heading">
-          {decided > 0 ? "That is everything for now." : "Nothing to screen."}
-        </p>
-        <p className="text-muted text-ui mt-1.5">
+      <div className="border-border/70 bg-surface/40 flex flex-col items-center justify-center rounded-3xl border-2 border-dashed p-10 sm:p-16 text-center shadow-xs">
+        <div className="bg-accent/10 text-accent mb-4 flex size-14 items-center justify-center rounded-2xl ring-1 ring-accent/20">
+          <CheckCircleIcon className="size-8" />
+        </div>
+        <h3 className="text-ink text-xl font-bold font-serif sm:text-2xl">
+          {decided > 0 ? "Screening Queue Completed!" : "No Papers to Screen"}
+        </h3>
+        <p className="text-muted text-ui mt-2 max-w-md">
           {decided > 0
-            ? `${decided} ${decided === 1 ? "decision" : "decisions"} recorded.`
-            : "Papers appear here once they are added to the library."}
+            ? `Fantastic work! You have recorded ${decided} ${decided === 1 ? "decision" : "decisions"} in this session. All papers in this queue are screened.`
+            : "There are currently no papers in the screening queue. Add papers from search or import to begin screening."}
         </p>
+
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <Link href={`/projects/${projectId}/evidence`}>
+            <Button variant="primary">
+              <span>View Evidence Table</span>
+            </Button>
+          </Link>
+          <Link href={`/projects/${projectId}/extract`}>
+            <Button variant="ghost">
+              <span>Go to Extraction</span>
+            </Button>
+          </Link>
+          <Link href={`/projects/${projectId}/search`}>
+            <Button variant="ghost">
+              <span>Find More Papers</span>
+            </Button>
+          </Link>
+        </div>
       </div>
     );
   }
 
   return (
-    <section className="space-y-4">
-      <p className="text-muted text-ui" aria-live="polite">
-        {remaining.length} left{decided > 0 && ` · ${decided} decided this session`}
-        {/* Duplicated effort is worth showing. Four people sharing one queue
-            will land on the same papers, and a screener who cannot see that
-            has no way to know their afternoon overlapped a colleague's. */}
-        {conflicts > 0 && ` · ${conflicts} already handled by someone else`}
-      </p>
+    <section className="space-y-6">
+      {/* Session Progress Header */}
+      <div className="border-border/70 bg-surface/50 rounded-2xl border p-4 sm:p-5 shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-3 text-fine">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="bg-accent/15 text-accent font-semibold px-2.5 py-1 rounded-lg">
+              {remaining.length} to screen
+            </span>
+            {decided > 0 && (
+              <span className="bg-surface text-ink font-medium px-2.5 py-1 rounded-lg border border-border/70">
+                ✓ {decided} decided this session
+              </span>
+            )}
+            {Object.keys(deferred).length > 0 && (
+              <span className="bg-surface text-muted px-2.5 py-1 rounded-lg border border-border/70">
+                ↷ {Object.keys(deferred).length} skipped
+              </span>
+            )}
+            {conflicts > 0 && (
+              <span className="bg-danger/10 text-danger font-medium px-2.5 py-1 rounded-lg border border-danger/20">
+                ⚠ {conflicts} handled by colleague
+              </span>
+            )}
+          </div>
+          <span className="text-muted font-medium">
+            Session Progress: <strong className="text-ink">{progressPercent}%</strong>
+          </span>
+        </div>
 
-      {/* The pile, and the paper.
+        {/* Animated Progress Bar */}
+        <div className="bg-surface/80 border-border/60 mt-3 h-2 w-full overflow-hidden rounded-full border">
+          <div
+            className="bg-accent h-full transition-all duration-300 ease-out"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+      </div>
 
-          The list is the part that was missing. This screen rendered exactly
-          one <article> and a "{n} left" counter, which is the entire model of
-          scope it offered for a task people do three hundred times in an
-          afternoon: you could not see what was coming, could not tell whether
-          the queue was one search or five, and could not pick the paper you
-          were actually ready to judge.
-
-          It is `lg` and up only. On a phone the one-at-a-time flow is right —
-          there is no room for a column, and a list that pushes the abstract
-          below the fold makes the common case worse to fix the rare one. */}
-      <div className="lg:grid lg:grid-cols-[16rem_1fr] lg:gap-8">
+      {/* Main Screening Layout: Queue Column + Paper Detail */}
+      <div className="lg:grid lg:grid-cols-[18rem_1fr] lg:gap-8 items-start">
+        {/* Queue Navigation Column */}
         <nav
           aria-label="Screening queue"
-          className="border-rule sticky top-[var(--app-header-h)] hidden max-h-[calc(100dvh-var(--app-header-h)-2rem)] overflow-y-auto border-r pr-3 lg:block"
+          className="border-border/60 sticky top-[calc(var(--app-header-h)+1rem)] hidden max-h-[calc(100dvh-var(--app-header-h)-3rem)] flex-col gap-3 overflow-y-auto rounded-2xl border bg-surface/40 p-3.5 lg:flex shadow-xs"
         >
-          {/* What the queue contains, and in what order. Both narrow the list
-              below, so they sit above it rather than in a settings menu. */}
-          <div className="mb-4 flex flex-col gap-2">
-            <Select
-              value={sortMode}
-              onChange={(event) => {
-                const picked = SORT_MODES.find((m) => m.value === event.target.value);
-                if (picked) setSortMode(picked.value);
-              }}
-              aria-label="Sort queue"
-            >
-              {SORT_MODES.map((mode) => (
-                <option key={mode.value} value={mode.value}>
-                  {mode.label}
-                </option>
-              ))}
-            </Select>
-            <Select
-              value={assigneeFilter}
-              onChange={(event) => setAssigneeFilter(event.target.value)}
-              aria-label="Filter queue by assignee"
-            >
-              <option value="all">All assignees</option>
-              <option value="unassigned">Unassigned</option>
-              {members.map((member) => (
-                <option key={member.userId} value={member.userId}>
-                  {member.name}
-                </option>
-              ))}
-            </Select>
+          {/* Filter & Sort Controls */}
+          <div className="space-y-2">
+            <Input
+              type="search"
+              value={queueSearch}
+              onChange={(e) => setQueueSearch(e.target.value)}
+              placeholder="Search queue…"
+              aria-label="Filter queue papers"
+              className="text-xs py-1.5"
+            />
+            <div className="grid grid-cols-2 gap-1.5">
+              <Select
+                value={sortMode}
+                onChange={(event) => {
+                  const picked = SORT_MODES.find((m) => m.value === event.target.value);
+                  if (picked) setSortMode(picked.value);
+                }}
+                aria-label="Sort queue"
+                className="text-xs py-1"
+              >
+                {SORT_MODES.map((mode) => (
+                  <option key={mode.value} value={mode.value}>
+                    {mode.label}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                value={assigneeFilter}
+                onChange={(event) => setAssigneeFilter(event.target.value)}
+                aria-label="Filter queue by assignee"
+                className="text-xs py-1"
+              >
+                <option value="all">All assignees</option>
+                <option value="unassigned">Unassigned</option>
+                {members.map((member) => (
+                  <option key={member.userId} value={member.userId}>
+                    {member.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
           </div>
 
-          <ul className="flex flex-col gap-1">
-            {remaining.map((row) => {
-              const isCurrent = row.id === current.id;
-              return (
-                <li key={row.id}>
-                  <button
-                    type="button"
-                    onClick={() => select(row.id)}
-                    aria-current={isCurrent ? "true" : undefined}
-                    className={cx(
-                      "focus-visible:ring-accent w-full rounded-xl px-3 py-2.5 text-left transition-all",
-                      "focus-visible:ring-2 focus-visible:outline-none",
-                      isCurrent
-                        ? "bg-accent-soft text-ink font-medium shadow-xs border border-accent/30"
-                        : "hover:bg-surface/80 text-muted",
-                    )}
-                  >
-                    <span
+          <div className="text-muted text-[0.7rem] px-1 font-semibold uppercase tracking-wider">
+            Queue ({filteredQueue.length})
+          </div>
+
+          {filteredQueue.length === 0 ? (
+            <p className="text-muted text-fine py-4 text-center italic">
+              No matching papers in queue
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-1.5">
+              {filteredQueue.map((row) => {
+                const isCurrent = row.id === current.id;
+                return (
+                  <li key={row.id}>
+                    <button
+                      type="button"
+                      onClick={() => select(row.id)}
+                      aria-current={isCurrent ? "true" : undefined}
                       className={cx(
-                        "text-fine block leading-snug text-pretty",
-                        isCurrent ? "text-ink font-semibold" : "text-ink/80",
+                        "focus-visible:ring-accent w-full rounded-xl px-3 py-2.5 text-left transition-all",
+                        "focus-visible:ring-2 focus-visible:outline-none",
+                        isCurrent
+                          ? "bg-accent/15 border-accent/40 text-ink shadow-xs border"
+                          : "hover:bg-surface/80 border-transparent border text-muted",
                       )}
                     >
-                      {row.title}
-                    </span>
-                    <span className="text-muted text-fine mt-0.5 block opacity-80">
-                      {row.year ?? "no year"}
-                      {/* Saying which ones you have already put off is the
-                          point of putting them at the end. */}
-                      {deferred[row.id] && " · skipped"}
-                      {row.screenStatus !== "IDENTIFIED" &&
-                        ` · ${screenStatusLabel(row.screenStatus)}`}
-                      {row.assigneeId &&
-                        ` · ${members.find((m) => m.userId === row.assigneeId)?.name ?? "assigned"}`}
-                      {/* The day, not whether it has passed. Comparing against
-                          `Date.now()` here would render differently on the
-                          server and on the client and risk a hydration
-                          mismatch; /assigned is a server component and is
-                          where "Overdue" is said in red. */}
-                      {row.dueAt && ` · due ${dueDayLabel(dueDayValue(row.dueAt))}`}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+                      <span
+                        className={cx(
+                          "text-fine block leading-snug line-clamp-2",
+                          isCurrent ? "text-ink font-semibold" : "text-ink/80",
+                        )}
+                      >
+                        {row.title}
+                      </span>
+                      <span className="text-muted text-[0.72rem] mt-1 flex flex-wrap items-center gap-1.5 opacity-90">
+                        <span>{row.year ?? "No year"}</span>
+                        {deferred[row.id] && (
+                          <span className="text-amber-500 font-medium">· skipped</span>
+                        )}
+                        {row.assigneeId && (
+                          <span>
+                            · {members.find((m) => m.userId === row.assigneeId)?.name ?? "assigned"}
+                          </span>
+                        )}
+                        {row.dueAt && <span>· due {dueDayLabel(dueDayValue(row.dueAt))}</span>}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </nav>
 
+        {/* Paper Detail & Decision Workspace */}
         <div className="flex min-w-0 flex-col gap-6">
-          <article className="border-border/70 bg-raised/90 rounded-2xl border p-6 sm:p-8 shadow-xs">
-            <h2 className="text-ink text-title font-serif">{current.title}</h2>
-            <p className="meta mt-2">
-              {current.authors}
-              {current.venue && ` · ${current.venue}`}
-              {current.year && ` · ${current.year}`}
-            </p>
+          <article className="border-border/70 bg-raised rounded-2xl border p-6 sm:p-8 shadow-xs">
+            {/* Status chip + Year */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="bg-accent/10 text-accent ring-accent/20 text-fine rounded-md px-2.5 py-0.5 font-semibold uppercase tracking-wider ring-1">
+                {screenStatusLabel(current.screenStatus)}
+              </span>
+              {current.year && (
+                <span className="text-muted text-fine font-medium">
+                  Year: {current.year}
+                </span>
+              )}
+            </div>
 
-            {/* The link belongs HERE, next to the decision. This screen used to
-            advise opening the paper first and then offer no way to do it. */}
-            <SourceLinks className="mt-3" title={current.title} work={current} />
-            {/* Paywalls are the everyday reality here, and the moment someone
-                needs a way past one is the moment they are deciding about
-                the paper. */}
-            <AccessHelp
-              className="mt-2"
-              route={accessRoute}
-              doi={current.doi}
-              title={current.title}
-              oaPdfUrl={current.oaPdfUrl}
-            />
+            <h2 className="text-ink text-xl sm:text-2xl font-bold font-serif leading-snug mt-3">
+              {current.title}
+            </h2>
 
-            {current.abstract ? (
-              <p className="prose-body mt-5">{current.abstract}</p>
-            ) : (
-              <p className="text-muted measure text-ui mt-5 italic">
-                No abstract on record — decide from the title, or open the paper above.
-              </p>
-            )}
+            <div className="text-muted text-fine mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span>{current.authors}</span>
+              {current.venue && (
+                <>
+                  <span>·</span>
+                  <span className="italic">{current.venue}</span>
+                </>
+              )}
+            </div>
 
-            <p className="meta mt-6 uppercase">
-              {screenStatusLabel(current.screenStatus)}
-            </p>
+            {/* Quick Links & Paywall Access */}
+            <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border/50 pt-3">
+              <SourceLinks title={current.title} work={current} />
+              <AccessHelp
+                route={accessRoute}
+                doi={current.doi}
+                title={current.title}
+                oaPdfUrl={current.oaPdfUrl}
+              />
+            </div>
+
+            {/* Abstract with rich formatting */}
+            <div className="mt-6 border-t border-border/50 pt-5">
+              <h4 className="text-ink text-fine font-semibold uppercase tracking-wider mb-2">
+                Abstract
+              </h4>
+              {current.abstract ? (
+                <div className="prose-porcupine text-ink/90 text-sm leading-relaxed max-w-none">
+                  <FormattedText text={current.abstract} />
+                </div>
+              ) : (
+                <p className="text-muted text-fine italic">
+                  No abstract on record for this paper. Review the title or open the source links above.
+                </p>
+              )}
+            </div>
           </article>
 
-          <div className="flex flex-wrap items-end gap-3">
-            {/* Deliberately NOT disabled while a request is in flight. Blocking
-            the next decision on the previous one's round trip is precisely
-            the pause the optimistic path exists to remove, and each request
-            targets a different paper so they cannot race each other. */}
-            <Button onClick={() => decide("INCLUDED")}>Include</Button>
+          {/* Decision Actions Bar */}
+          <div className="border-border/70 bg-surface/50 rounded-2xl border p-5 shadow-xs flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Include */}
+              <Button
+                variant="primary"
+                onClick={() => decide("INCLUDED")}
+                className="font-semibold shadow-xs"
+              >
+                <CheckIcon className="size-4" />
+                <span>Include</span>
+                <Key>I</Key>
+              </Button>
 
-            {/* The reason sits NEXT TO Exclude, not in a dialog after it.
-                For a systematic review it is required, so a person who has
-                to click Exclude before being told that has been made to do
-                the decision twice. The 1–9 shortcuts set this same value. */}
-            <div className="flex items-end gap-2">
-              <label className="text-muted text-fine flex flex-col gap-1">
-                Exclusion reason
+              {/* Exclude with Reason */}
+              <div className="flex items-center gap-2 bg-surface border-border/70 rounded-xl border p-1 shadow-2xs">
                 <Select
                   value={reason}
                   onChange={(event) =>
                     setReason(event.target.value as ExclusionReason | "")
                   }
+                  aria-label="Exclusion reason"
+                  className="text-xs py-1.5 max-w-[13rem]"
                 >
-                  <option value="">{reasonRequired ? "Choose one…" : "None"}</option>
+                  <option value="">{reasonRequired ? "Exclusion reason…" : "No reason"}</option>
                   {EXCLUSION_REASONS.map((r) => (
                     <option key={r.code} value={r.code}>
                       {r.label}
                     </option>
                   ))}
                 </Select>
-              </label>
 
-              <Button variant="danger" onClick={() => decide("EXCLUDED")}>
-                Exclude
+                <Button
+                  variant="danger"
+                  onClick={() => decide("EXCLUDED")}
+                  className="text-xs font-semibold"
+                >
+                  <CrossIcon className="size-3.5" />
+                  <span>Exclude</span>
+                  <Key>E</Key>
+                </Button>
+              </div>
+
+              {/* Skip */}
+              <Button
+                variant="ghost"
+                disabled={pending}
+                onClick={skip}
+                className="text-xs font-medium"
+              >
+                <span>Skip</span>
+                <Key>S</Key>
               </Button>
             </div>
-
-            <Button variant="ghost" disabled={pending} onClick={skip}>
-              Skip for now
-            </Button>
           </div>
 
-          <div className="flex max-w-lg flex-wrap items-end gap-3">
+          {/* Assignment & Due Date Settings */}
+          <div className="border-border/60 bg-surface/30 rounded-xl border p-4 flex flex-wrap items-center gap-4">
             <label className="text-muted text-fine flex min-w-[12rem] flex-1 flex-col gap-1">
-              Assign to
+              <span>Assign paper to</span>
               <Select
                 value={assignment.assigneeId}
                 onChange={(event) => assign(event.target.value, assignment.dueAt)}
@@ -594,12 +587,8 @@ export function ScreenClient({
               </Select>
             </label>
 
-            {/* The deadline is stated on the control, not left to be
-                inferred. "Due the 20th" is ambiguous across four timezones in
-                a way nobody discovers until the day someone is called late by
-                it — which is the hazard B-07 is about. */}
             <label className="text-muted text-fine flex flex-col gap-1">
-              Due by (23:59 UTC)
+              <span>Due by (23:59 UTC)</span>
               <Input
                 type="date"
                 value={assignment.dueAt}
@@ -608,57 +597,107 @@ export function ScreenClient({
               />
             </label>
           </div>
+
+          {/* Inline Feedback Alerts */}
+          <div aria-live="polite">
+            {status && (
+              <div className="border-accent/30 bg-accent-soft text-ink text-fine rounded-xl border p-3">
+                {status}
+              </div>
+            )}
+            {error && (
+              <div role="alert" className="border-danger/30 bg-danger-soft text-danger text-fine rounded-xl border p-3">
+                {error}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="border-rule border-t pt-3">
+      {/* Keyboard Shortcuts Helper */}
+      <div className="border-border/60 border-t pt-4">
         <button
           type="button"
           onClick={() => setShowKeys((v) => !v)}
           aria-expanded={showKeys}
-          className="text-muted hover:text-ink text-fine focus-visible:ring-accent inline-flex min-h-11 items-center rounded focus-visible:ring-2 focus-visible:outline-none"
+          className="text-muted hover:text-ink text-fine focus-visible:ring-accent inline-flex items-center gap-2 rounded focus-visible:ring-2 focus-visible:outline-none"
         >
-          {/* Visible, not hidden. A shortcut nobody is told about is a feature
-              for the person who wrote it. */}
-          Keyboard: <Key>I</Key> include · <Key>E</Key> exclude · <Key>S</Key> skip ·{" "}
-          <Key>?</Key> all
+          <span>⌨️ Keyboard Shortcuts:</span>
+          <span><Key>I</Key> Include</span>
+          <span><Key>E</Key> Exclude</span>
+          <span><Key>S</Key> Skip</span>
+          <span><Key>1</Key>–<Key>9</Key> Reason</span>
+          <span className="text-accent underline ml-1">{showKeys ? "Hide Guide" : "Show Guide (?)"}</span>
         </button>
 
         {showKeys && (
-          <dl className="text-muted text-fine mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-            <dt>
-              <Key>I</Key>
-            </dt>
-            <dd>Include this paper</dd>
-            <dt>
-              <Key>E</Key>
-            </dt>
-            <dd>Exclude it, using the reason currently chosen</dd>
-            <dt>
-              <Key>S</Key>
-            </dt>
-            <dd>Skip for now — records that you looked, and moves it to the end</dd>
-            <dt>
-              <Key>1</Key>–<Key>9</Key>
-            </dt>
-            <dd>Choose an exclusion reason, in the order listed</dd>
-            <dt>
-              <Key>?</Key>
-            </dt>
-            <dd>Show or hide this list</dd>
-          </dl>
-        )}
-      </div>
-
-      <div aria-live="polite">
-        {status && <p className="text-muted text-ui">{status}</p>}
-        {error && (
-          <p role="alert" className="text-danger text-ui">
-            {error}
-          </p>
+          <div className="border-border/60 bg-surface/60 mt-3 rounded-2xl border p-4 shadow-xs">
+            <dl className="text-muted text-fine grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
+              <dt><Key>I</Key></dt>
+              <dd className="text-ink">Include this paper into the project</dd>
+              <dt><Key>E</Key></dt>
+              <dd className="text-ink">Exclude paper using the selected exclusion reason</dd>
+              <dt><Key>S</Key></dt>
+              <dd className="text-ink">Skip for now — records you looked and puts it at the end of the queue</dd>
+              <dt><Key>1</Key>–<Key>9</Key></dt>
+              <dd className="text-ink">Arm an exclusion reason by number</dd>
+              <dt><Key>?</Key></dt>
+              <dd className="text-ink">Toggle keyboard shortcuts guide</dd>
+            </dl>
+          </div>
         )}
       </div>
     </section>
+  );
+}
+
+function CheckCircleIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      <path
+        fillRule="evenodd"
+        d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      <path
+        fillRule="evenodd"
+        d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+function CrossIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+    </svg>
   );
 }
 

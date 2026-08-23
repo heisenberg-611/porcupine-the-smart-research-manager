@@ -1,5 +1,6 @@
 import "server-only";
 
+import { markdownToSpreadsheetText } from "@/lib/markdown";
 import { must } from "@/lib/supabase/query";
 import { createClient } from "@/lib/supabase/server";
 
@@ -218,7 +219,9 @@ export function exportValue(cell: EvidenceCell | undefined): string | number | n
 
   // A NUMBER field whose stored value is not a number — 'not reported' and the
   // like — falls through to text rather than becoming NaN or an empty cell.
-  return cell.text ?? null;
+  if (!cell.text) return null;
+
+  return markdownToSpreadsheetText(cell.text);
 }
 
 export interface ProtocolChoice {
