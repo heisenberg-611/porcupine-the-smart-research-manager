@@ -54,7 +54,7 @@ export function ProjectSidebar({
   return (
     <nav
       aria-label={`${projectTitle} sections`}
-      className="bg-surface border-border hidden h-[calc(100vh-theme(spacing.16))] w-64 shrink-0 flex-col border-r lg:flex"
+      className="bg-surface border-border hidden h-full w-64 shrink-0 flex-col border-r lg:flex"
     >
       <div className="bg-surface z-10 shrink-0 px-4 pt-8 pb-4">
         <Link

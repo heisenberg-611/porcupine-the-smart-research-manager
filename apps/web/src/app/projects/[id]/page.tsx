@@ -232,7 +232,7 @@ export default async function ProjectPage({
   }
 
   return (
-    <main id="main" className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 py-12">
+    <main id="main" className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 pb-12 pt-2">
       <PageHeader
         backHref="/projects"
         backLabel="All projects"
