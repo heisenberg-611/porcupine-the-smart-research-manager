@@ -83,22 +83,17 @@ export async function extractPdfText(file: Blob): Promise<ExtractionResult> {
   const bytes = new Uint8Array(await file.arrayBuffer());
 
   /*
-   * Every option here is about NOT doing something.
-   *
-   * `standardFontDataUrl` and `cMapUrl` are absent deliberately: pdf.js warns
-   * and carries on, because that data exists to DRAW glyphs, and shipping
-   * hundreds of kilobytes of font metrics to extract text would be paying for
-   * a feature this does not use. `wasmUrl` is absent for the reason in the
-   * header. Nothing enables scripting, because `getDocument` has no such
-   * option — embedded JavaScript actions live in the viewer layer, which this
-   * never constructs.
+   * Standard fonts and CMaps are provided so ToUnicode CMap streams on pages with
+   * embedded figures, diagrams, and math symbols decode reliably.
+   * `wasmUrl` remains absent so no unverified WebAssembly decoding is performed.
    */
   const loadingTask = pdfjs.getDocument({
     data: bytes,
-    // The whole file is already in memory; there is nothing to stream from and
-    // no range requests to make.
     disableAutoFetch: true,
     disableStream: true,
+    standardFontDataUrl: "/pdfjs/standard_fonts/",
+    cMapUrl: "/pdfjs/cmaps/",
+    cMapPacked: true,
   });
 
   let doc;
@@ -122,31 +117,35 @@ export async function extractPdfText(file: Blob): Promise<ExtractionResult> {
 
   try {
     for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber++) {
-      const page = await doc.getPage(pageNumber);
-      const content = await page.getTextContent();
+      let text = "";
+      try {
+        const page = await doc.getPage(pageNumber);
+        try {
+          const content = await page.getTextContent({
+            includeMarkedContent: false,
+          });
 
-      /*
-       * Joined by the shared rule, not here.
-       *
-       * pdf.js emits one item per run of glyphs, and a run ends wherever the
-       * text matrix moves — mid-word as often as between words, because that
-       * is how kerning and ligatures are encoded. Joining on " " turns
-       * "efficiency" into "ef ficiency"; joining on "" runs the last word of a
-       * line into the first of the next.
-       *
-       * `joinPageText` is that rule, and the viewer's selection walker is its
-       * mirror image. They have to agree exactly: a quote captured from the
-       * rendered page is measured against the string written here, and a
-       * one-character disagreement per line is a silent loss of precision
-       * rather than an error. That is why the rule is not written twice.
-       */
-      const text = joinPageText(content.items as TextRun[]);
+          /*
+           * Joined by the shared rule, not here.
+           *
+           * pdf.js emits one item per run of glyphs, and a run ends wherever the
+           * text matrix moves — mid-word as often as between words, because that
+           * is how kerning and ligatures are encoded.
+           */
+          text = joinPageText(content.items as TextRun[]);
+        } catch {
+          // If a page has an unparseable image/graphic stream operator, fallback to empty or partial text
+          text = "";
+        } finally {
+          // Free the page as we go. A long document held entirely in memory is how
+          // a tab dies on a phone.
+          page.cleanup();
+        }
+      } catch {
+        text = "";
+      }
 
       pages.push({ pageNumber, text });
-
-      // Free the page as we go. A long document held entirely in memory is how
-      // a tab dies on a phone.
-      page.cleanup();
     }
   } catch {
     return { ok: false, error: "That PDF could not be read all the way through." };
@@ -155,6 +154,16 @@ export async function extractPdfText(file: Blob): Promise<ExtractionResult> {
     // as well, and leaking one worker per PDF opened is how a long reading
     // session ends up with thirty of them.
     await loadingTask.destroy();
+  }
+
+  // Check if any meaningful text was extracted across the document.
+  // If the total text length across all pages is 0, this is an image-only scan or completely unreadable.
+  const totalChars = pages.reduce((sum, p) => sum + p.text.trim().length, 0);
+  if (totalChars === 0) {
+    return {
+      ok: false,
+      error: "This PDF has no extractable text (it appears to be a scanned image).",
+    };
   }
 
   return { ok: true, pages };
