@@ -1,6 +1,10 @@
 import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 
+import { FormattedText } from "./formatted-text";
+
+export { FormattedText } from "./formatted-text";
+
 /**
  * Phase 0 primitives.
  *
@@ -438,8 +442,8 @@ export function PageHeader({
   return (
     // A rule under the header rather than a card around it. Elevation from
     // lines and space is quieter than a box and does the same work.
-    <header className="border-rule flex flex-wrap items-end justify-between gap-4 border-b pb-5">
-      <div className="min-w-0">
+    <header className="border-rule flex flex-wrap items-start justify-between gap-4 border-b pb-5">
+      <div className="min-w-0 flex-1">
         {backHref && backLabel && (
           <Link
             href={backHref}
@@ -450,10 +454,16 @@ export function PageHeader({
         )}
         <h1 className="text-ink text-display mt-1">{title}</h1>
         {description && (
-          <div className="text-muted measure text-ui mt-2 text-pretty">{description}</div>
+          <div className="text-muted measure text-ui mt-2 text-pretty">
+            {typeof description === "string" ? (
+              <FormattedText text={description} collapsible />
+            ) : (
+              description
+            )}
+          </div>
         )}
       </div>
-      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
     </header>
   );
 }

@@ -73,14 +73,14 @@ export default async function ProjectLayout({
         projectTitle={project.title}
         sections={sections}
       />
-      <div className="flex w-full lg:h-[calc(100dvh-var(--app-header-h))] lg:overflow-hidden">
+      <div className="flex w-full lg:h-[calc(100dvh-var(--app-header-h))] lg:overflow-hidden overscroll-none">
         <ProjectSidebar
           projectId={project.id}
           projectTitle={project.title}
           sections={sections}
           isOwner={isOwner}
         />
-        <div className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:overflow-y-auto lg:px-12">
+        <div className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:overflow-y-auto lg:overscroll-y-contain lg:px-12">
           {children}
         </div>
       </div>

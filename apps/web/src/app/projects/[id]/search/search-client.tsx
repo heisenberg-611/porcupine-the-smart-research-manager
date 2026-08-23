@@ -108,7 +108,7 @@ export function SearchClient({
 
   return (
     <section className="flex flex-col gap-6">
-      <div className="from-ui/5 to-surface ring-border relative rounded-[--radius-card] border-t border-white/5 bg-gradient-to-br p-6 shadow-sm ring-1">
+      <div className="from-surface/80 via-raised/60 to-surface border-border/70 relative rounded-2xl border p-6 shadow-sm ring-1 ring-white/5 bg-gradient-to-br">
         <form onSubmit={onSubmit} className="relative z-10 flex flex-col gap-4">
           <Field
             label="Search terms"
@@ -125,12 +125,12 @@ export function SearchClient({
                 required
                 autoComplete="off"
                 placeholder="e.g. spaced repetition medical education"
-                className="border-border bg-raised text-ink text-ui focus:border-accent focus:ring-accent min-h-12 w-full flex-1 rounded-xl border px-4 shadow-sm transition-all"
+                className="border-border/70 bg-surface text-ink text-ui focus:border-accent focus:ring-accent min-h-12 w-full flex-1 rounded-2xl border px-4 shadow-xs transition-all focus:outline-none focus:ring-2"
               />
               <Button
                 type="submit"
                 variant="primary"
-                className="rounded-xl px-6 font-medium shadow-sm transition-all hover:shadow-md"
+                className="rounded-2xl px-6 font-medium shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5"
                 busy={pending}
                 busyLabel="Searching…"
               >
@@ -150,7 +150,7 @@ export function SearchClient({
                 placeholder="Any"
                 value={fromYear}
                 onChange={(e) => setFromYear(e.target.value)}
-                className="border-border bg-raised text-ink text-ui focus:border-accent min-h-11 w-28 rounded-xl border px-3 shadow-sm transition-all"
+                className="border-border/70 bg-surface text-ink text-ui focus:border-accent min-h-11 w-28 rounded-2xl border px-3 shadow-xs transition-all focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </Field>
             <Field label="To year" id="toYear">
@@ -163,7 +163,7 @@ export function SearchClient({
                 placeholder="Any"
                 value={toYear}
                 onChange={(e) => setToYear(e.target.value)}
-                className="border-border bg-raised text-ink text-ui focus:border-accent min-h-11 w-28 rounded-xl border px-3 shadow-sm transition-all"
+                className="border-border/70 bg-surface text-ink text-ui focus:border-accent min-h-11 w-28 rounded-2xl border px-3 shadow-xs transition-all focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </Field>
           </div>
@@ -234,7 +234,7 @@ export function SearchClient({
         {!pending && results && (
           <>
             {results.failures.length > 0 && (
-              <div className="border-border bg-surface text-ui rounded-lg border p-3">
+              <div className="border-border/70 bg-surface text-ui rounded-2xl border p-4 shadow-xs">
                 <p className="text-ink font-medium">Some sources did not respond</p>
                 <ul className="text-muted mt-1 space-y-0.5">
                   {results.failures.map((failure) => (
@@ -250,7 +250,7 @@ export function SearchClient({
             )}
 
             {results.ranked.length === 0 ? (
-              <div className="border-rule rounded-[--radius-card] border border-dashed p-8 text-center">
+              <div className="border-rule/80 bg-surface/30 rounded-2xl border border-dashed p-8 text-center shadow-xs">
                 <p className="text-ink text-ui font-medium">
                   Nothing matched “{searched}”.
                 </p>
@@ -302,7 +302,7 @@ export function SearchClient({
         )}
 
         {!pending && !results && !error && (
-          <div className="border-rule rounded-[--radius-card] border border-dashed p-8 text-center">
+          <div className="border-rule/80 bg-surface/30 rounded-2xl border border-dashed p-8 text-center shadow-xs">
             <p className="text-ink text-ui font-medium">
               Five databases, one search box.
             </p>
@@ -323,7 +323,7 @@ function ResultsSkeleton() {
   return (
     <ul className="flex flex-col gap-3" aria-hidden>
       {[0, 1, 2].map((i) => (
-        <li key={i} className="border-rule rounded-[--radius-card] border p-4">
+        <li key={i} className="border-rule/70 bg-surface/30 rounded-2xl border p-5 shadow-xs">
           <Skeleton className="h-5 w-3/4" />
           <Skeleton className="mt-2 h-4 w-1/2" />
           <Skeleton className="mt-3 h-4 w-full" />
@@ -396,13 +396,13 @@ function ResultCard({
   return (
     <li
       className={cx(
-        "rounded-xl border p-5 transition-all duration-300",
+        "rounded-2xl border p-6 transition-all duration-300 shadow-xs",
         // An added paper stays in the list rather than vanishing — you are
         // reading a ranking, and having rows disappear underneath you loses
         // your place. It just stops looking like something to act on.
         added
-          ? "border-rule bg-surface/40 opacity-70"
-          : "border-border bg-raised hover:border-accent/40 hover:-translate-y-0.5 hover:shadow-md",
+          ? "border-rule/60 bg-surface/40 opacity-70"
+          : "border-border/70 bg-raised/70 hover:border-accent/40 hover:bg-raised hover:-translate-y-0.5 hover:shadow-md",
       )}
     >
       <div className="flex items-start justify-between gap-5">
