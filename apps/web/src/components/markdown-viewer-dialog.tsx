@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Button, FormattedText, Skeleton, Textarea } from "@/components/ui";
+import { Button, FormattedText, Input, Skeleton, Textarea } from "@/components/ui";
 
 function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -24,7 +24,8 @@ export interface MarkdownViewerDialogProps {
 
 /**
  * A rich Markdown viewer dialog with interactive Rendered Preview and editable Raw Markdown,
- * live two-way synchronization, instant copy to clipboard, and one-click file download.
+ * live in-document search with match navigation and keyword highlighting,
+ * instant copy to clipboard, and one-click file download.
  */
 export function MarkdownViewerDialog({
   content,
@@ -36,6 +37,9 @@ export function MarkdownViewerDialog({
   triggerClassName,
 }: MarkdownViewerDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"preview" | "edit">("preview");
   const [markdown, setMarkdown] = useState<string>(content ?? "");
@@ -44,8 +48,16 @@ export function MarkdownViewerDialog({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [activeMatchIndex, setActiveMatchIndex] = useState<number>(0);
+  const [matchCount, setMatchCount] = useState<number>(0);
+
   const open = async () => {
     setIsOpen(true);
+    setSearchQuery("");
+    setActiveMatchIndex(0);
+    setMatchCount(0);
 
     if (fetchUrl && !content) {
       setLoading(true);
@@ -124,6 +136,46 @@ export function MarkdownViewerDialog({
         .split(/\s+/)
         .filter(Boolean).length
     : 0;
+
+  const handleNextMatch = () => {
+    if (matchCount <= 0) return;
+    setActiveMatchIndex((prev) => (prev + 1) % matchCount);
+  };
+
+  const handlePrevMatch = () => {
+    if (matchCount <= 0) return;
+    setActiveMatchIndex((prev) => (prev - 1 + matchCount) % matchCount);
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!searchQuery.trim() || activeTab !== "preview") return;
+
+    const timer = setTimeout(() => {
+      const activeEl = viewportRef.current?.querySelector(
+        `[data-match-index="${activeMatchIndex}"]`,
+      );
+      if (activeEl) {
+        activeEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 50);
+
+    return () => clearTimeout(timer);
+  }, [activeMatchIndex, searchQuery, activeTab]);
 
   return (
     <>
@@ -237,8 +289,91 @@ export function MarkdownViewerDialog({
               </div>
             </div>
 
+            {/* Search Bar Toolbar */}
+            <div className="border-border/60 bg-surface/70 flex flex-wrap items-center justify-between gap-3 border-b px-6 py-2.5 shadow-2xs">
+              <div className="flex items-center gap-2 flex-1 max-w-md">
+                <div className="relative flex-1">
+                  <SearchIcon className="text-muted absolute left-3 top-1/2 -translate-y-1/2 size-3.5 pointer-events-none" />
+                  <Input
+                    ref={searchInputRef}
+                    type="search"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setActiveMatchIndex(0);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        if (e.shiftKey) {
+                          handlePrevMatch();
+                        } else {
+                          handleNextMatch();
+                        }
+                      } else if (e.key === "Escape") {
+                        setSearchQuery("");
+                      }
+                    }}
+                    placeholder="Search in document (⌘F)…"
+                    className="pl-8 pr-7 text-xs py-1.5 w-full"
+                    aria-label="Find in document"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery("");
+                        setActiveMatchIndex(0);
+                        setMatchCount(0);
+                      }}
+                      className="text-muted hover:text-ink absolute right-2.5 top-1/2 -translate-y-1/2 text-xs"
+                      aria-label="Clear search"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                {searchQuery.trim() && (
+                  <div className="flex items-center gap-1 text-fine">
+                    <span className="text-muted font-medium px-1 whitespace-nowrap">
+                      {matchCount > 0
+                        ? `${activeMatchIndex + 1} of ${matchCount}`
+                        : "No matches"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handlePrevMatch}
+                      disabled={matchCount === 0}
+                      className="text-muted hover:text-ink hover:bg-surface border-border/70 disabled:opacity-40 size-6 inline-flex items-center justify-center rounded border text-xs transition-colors"
+                      aria-label="Previous match (Shift+Enter)"
+                      title="Previous match (Shift+Enter)"
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleNextMatch}
+                      disabled={matchCount === 0}
+                      className="text-muted hover:text-ink hover:bg-surface border-border/70 disabled:opacity-40 size-6 inline-flex items-center justify-center rounded border text-xs transition-colors"
+                      aria-label="Next match (Enter)"
+                      title="Next match (Enter)"
+                    >
+                      ▼
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {searchQuery.trim() && (
+                <span className="text-muted text-[0.72rem] hidden sm:inline-block">
+                  Press <kbd className="font-mono text-ink bg-surface border border-border/70 px-1 py-0.5 rounded text-[0.7rem]">Enter</kbd> next · <kbd className="font-mono text-ink bg-surface border border-border/70 px-1 py-0.5 rounded text-[0.7rem]">Shift+Enter</kbd> previous
+                </span>
+              )}
+            </div>
+
             {/* Body Viewport */}
-            <div className="flex-1 overflow-y-auto p-6 sm:p-8">
+            <div ref={viewportRef} className="flex-1 overflow-y-auto p-6 sm:p-8">
               {loading && (
                 <div className="space-y-4 py-8">
                   <Skeleton className="h-8 w-2/3" />
@@ -260,7 +395,12 @@ export function MarkdownViewerDialog({
 
               {!loading && !error && activeTab === "preview" && (
                 <div className="prose-porcupine text-ink max-w-none">
-                  <FormattedText text={markdown} />
+                  <FormattedText
+                    text={markdown}
+                    searchQuery={searchQuery}
+                    activeMatchIndex={activeMatchIndex}
+                    onMatchCountChange={setMatchCount}
+                  />
                 </div>
               )}
 
@@ -405,6 +545,24 @@ function DownloadIcon({ className }: { className?: string }) {
       <path
         fillRule="evenodd"
         d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.378 2H4.5Zm4.75 6.75a.75.75 0 0 1 1.5 0v3.94l1.22-1.22a.75.75 0 1 1 1.06 1.06l-2.5 2.5a.75.75 0 0 1-1.06 0l-2.5-2.5a.75.75 0 1 1 1.06-1.06l1.22 1.22V8.75Z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+function SearchIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      <path
+        fillRule="evenodd"
+        d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z"
         clipRule="evenodd"
       />
     </svg>
