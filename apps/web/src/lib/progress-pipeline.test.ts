@@ -12,9 +12,15 @@ interface ExtractionRow {
   submitted_at: string | null;
 }
 
+interface AnnotationRow {
+  id: string;
+  project_work_id: string;
+}
+
 export function computePipelineCounts(
   progressRows: ProgressRow[],
   extractions: ExtractionRow[],
+  annotations: AnnotationRow[] = [],
 ) {
   const countOf = (status: string) =>
     progressRows.find((r) => r.screen_status === status)?.count ?? 0;
@@ -27,6 +33,16 @@ export function computePipelineCounts(
       .filter((e) => e.status === "DRAFT" && !completedExtractionWorks.has(e.project_work_id))
       .map((e) => e.project_work_id),
   );
+  const annotatedWorks = new Set(
+    annotations
+      .filter((a) => !completedExtractionWorks.has(a.project_work_id))
+      .map((a) => a.project_work_id),
+  );
+
+  const activeReadingWorks = new Set([
+    ...draftExtractionWorks,
+    ...annotatedWorks,
+  ]);
 
   const rawExtracted = countOf("EXTRACTED");
   const rawReading = countOf("READING");
@@ -37,7 +53,7 @@ export function computePipelineCounts(
   const rawScreening = countOf("SCREENING");
 
   const extractedCount = Math.max(rawExtracted, completedExtractionWorks.size);
-  const readingCount = Math.max(rawReading, draftExtractionWorks.size);
+  const readingCount = Math.max(rawReading, activeReadingWorks.size);
 
   const deltaExtracted = extractedCount - rawExtracted;
   const deltaReading = readingCount - rawReading;
@@ -130,6 +146,29 @@ describe("Progress Pipeline & Extraction Count Computations", () => {
 
     expect(result.EXTRACTED).toBe(2); // w1 and w2
     expect(result.INCLUDED).toBe(3); // 5 - 2
+  });
+
+  it("tracks papers with active annotations as READING stage", () => {
+    const progressRows: ProgressRow[] = [
+      { screen_status: "INCLUDED", count: 6 },
+    ];
+
+    // Paper w1 has an annotation by an assigned/non-assigned researcher
+    const annotations = [
+      { id: "a1", project_work_id: "w1" },
+      { id: "a2", project_work_id: "w1" },
+    ];
+
+    // Paper w2 is in draft extraction
+    const extractions: ExtractionRow[] = [
+      { id: "e1", status: "DRAFT", project_work_id: "w2", submitted_at: null },
+    ];
+
+    const result = computePipelineCounts(progressRows, extractions, annotations);
+
+    expect(result.READING).toBe(2); // w1 (annotated) and w2 (draft extraction)
+    expect(result.INCLUDED).toBe(4); // 6 - 2 reading
+    expect(result.EXTRACTED).toBe(0);
   });
 
   it("accurately advances next action when all papers are extracted", () => {
