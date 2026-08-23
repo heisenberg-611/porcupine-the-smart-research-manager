@@ -6,7 +6,15 @@ import type { ReaderSection } from "@/lib/reader-document";
 import { fieldTypeLabel, needsOptions } from "@Porcupine/shared";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
-import { Banner, Button, Checkbox, Input, Select, Textarea } from "@/components/ui";
+import {
+  Banner,
+  Button,
+  Checkbox,
+  FormattedText,
+  Input,
+  Select,
+  Textarea,
+} from "@/components/ui";
 
 import { reopenExtraction, saveDraft, submitExtraction } from "./actions";
 
@@ -545,6 +553,486 @@ export function ExtractClient({
   );
 }
 
+function cx(...parts: Array<string | false | null | undefined>) {
+  return parts.filter(Boolean).join(" ");
+}
+
+function applyFormatToElement(
+  el: HTMLTextAreaElement | HTMLInputElement,
+  prefix: string,
+  suffix: string = prefix,
+  placeholder = "text",
+  onChange: (val: string) => void,
+) {
+  const start = el.selectionStart ?? 0;
+  const end = el.selectionEnd ?? 0;
+  const val = el.value;
+  const selected = val.substring(start, end);
+  const textToWrap = selected || placeholder;
+  const replacement = `${prefix}${textToWrap}${suffix}`;
+
+  const nextVal = val.substring(0, start) + replacement + val.substring(end);
+  onChange(nextVal);
+
+  requestAnimationFrame(() => {
+    el.focus();
+    if (selected) {
+      el.setSelectionRange(start + prefix.length, start + prefix.length + selected.length);
+    } else {
+      el.setSelectionRange(start + prefix.length, start + prefix.length + placeholder.length);
+    }
+  });
+}
+
+function applyPrefixToLines(
+  el: HTMLTextAreaElement,
+  linePrefix: string,
+  onChange: (val: string) => void,
+) {
+  const start = el.selectionStart ?? 0;
+  const end = el.selectionEnd ?? 0;
+  const val = el.value;
+
+  const startOfLine = val.lastIndexOf("\n", start - 1) + 1;
+  const endOfLine = val.indexOf("\n", end);
+  const actualEnd = endOfLine === -1 ? val.length : endOfLine;
+
+  const selectedLines = val.substring(startOfLine, actualEnd).split("\n");
+  const formattedLines = selectedLines.map((line, idx) => {
+    const cleanLine = line.replace(/^(\d+[.)]\s*|[*+•-]\s*|>\s*)/, "");
+    if (linePrefix === "1. ") {
+      return `${idx + 1}. ${cleanLine}`;
+    }
+    return `${linePrefix}${cleanLine}`;
+  });
+
+  const replacement = formattedLines.join("\n");
+  const nextVal = val.substring(0, startOfLine) + replacement + val.substring(actualEnd);
+  onChange(nextVal);
+
+  requestAnimationFrame(() => {
+    el.focus();
+    el.setSelectionRange(startOfLine, startOfLine + replacement.length);
+  });
+}
+
+function applyLinkToElement(
+  el: HTMLTextAreaElement | HTMLInputElement,
+  onChange: (val: string) => void,
+) {
+  const start = el.selectionStart ?? 0;
+  const end = el.selectionEnd ?? 0;
+  const val = el.value;
+  const selected = val.substring(start, end) || "link text";
+  const replacement = `[${selected}](https://example.com)`;
+
+  const nextVal = val.substring(0, start) + replacement + val.substring(end);
+  onChange(nextVal);
+
+  requestAnimationFrame(() => {
+    el.focus();
+    const urlStart = start + selected.length + 3;
+    const urlEnd = urlStart + "https://example.com".length;
+    el.setSelectionRange(urlStart, urlEnd);
+  });
+}
+
+function handleFormattingKeyDown(
+  e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>,
+  el: HTMLTextAreaElement | HTMLInputElement | null,
+  onChange: (val: string) => void,
+) {
+  if (!el) return;
+  const isMac =
+    typeof navigator !== "undefined" &&
+    /Mac|iPod|iPhone|iPad/.test(navigator.platform || "");
+  const mod = isMac ? e.metaKey : e.ctrlKey;
+
+  if (mod && !e.shiftKey && !e.altKey) {
+    if (e.key === "b" || e.key === "B") {
+      e.preventDefault();
+      applyFormatToElement(el, "**", "**", "bold text", onChange);
+    } else if (e.key === "i" || e.key === "I") {
+      e.preventDefault();
+      applyFormatToElement(el, "*", "*", "italic text", onChange);
+    } else if (e.key === "k" || e.key === "K") {
+      e.preventDefault();
+      applyLinkToElement(el, onChange);
+    } else if (e.key === "`") {
+      e.preventDefault();
+      applyFormatToElement(el, "`", "`", "code", onChange);
+    }
+  }
+}
+
+/**
+ * Rich multiline text box with markdown toolbar, keyboard shortcuts, and live preview.
+ */
+function FormattedTextareaField({
+  id,
+  value,
+  disabled,
+  onChange,
+}: {
+  id: string;
+  value: string;
+  disabled: boolean;
+  onChange: (value: unknown, text: string) => void;
+}) {
+  const [tab, setTab] = useState<"write" | "preview">("write");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  if (disabled) {
+    return (
+      <div className="border-border/70 bg-surface/60 rounded-2xl border p-4 text-ink text-ui shadow-xs">
+        {value.trim() ? (
+          <FormattedText text={value} />
+        ) : (
+          <span className="text-muted italic">Not answered</span>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="border-border/80 focus-within:border-accent bg-surface/40 flex flex-col overflow-hidden rounded-2xl border shadow-xs transition-colors focus-within:ring-2 focus-within:ring-accent/20">
+      {/* Toolbar header */}
+      <div className="border-border/60 bg-raised/80 flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
+        <div className="flex flex-wrap items-center gap-1">
+          <button
+            type="button"
+            title="Bold (Cmd+B / Ctrl+B)"
+            onClick={() =>
+              textareaRef.current &&
+              applyFormatToElement(
+                textareaRef.current,
+                "**",
+                "**",
+                "bold text",
+                (t) => onChange(t || null, t),
+              )
+            }
+            className="text-ink hover:bg-surface hover:text-accent focus-visible:ring-accent inline-flex size-7 items-center justify-center rounded-lg text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:outline-none"
+          >
+            B
+          </button>
+          <button
+            type="button"
+            title="Italic (Cmd+I / Ctrl+I)"
+            onClick={() =>
+              textareaRef.current &&
+              applyFormatToElement(
+                textareaRef.current,
+                "*",
+                "*",
+                "italic text",
+                (t) => onChange(t || null, t),
+              )
+            }
+            className="text-ink hover:bg-surface hover:text-accent focus-visible:ring-accent inline-flex size-7 items-center justify-center rounded-lg font-serif text-xs italic transition-colors focus-visible:ring-2 focus-visible:outline-none"
+          >
+            I
+          </button>
+          <button
+            type="button"
+            title="Strikethrough"
+            onClick={() =>
+              textareaRef.current &&
+              applyFormatToElement(
+                textareaRef.current,
+                "~~",
+                "~~",
+                "strikethrough",
+                (t) => onChange(t || null, t),
+              )
+            }
+            className="text-ink hover:bg-surface hover:text-accent focus-visible:ring-accent inline-flex size-7 items-center justify-center rounded-lg text-xs line-through transition-colors focus-visible:ring-2 focus-visible:outline-none"
+          >
+            S
+          </button>
+          <span className="bg-border/60 mx-1 h-4 w-px" aria-hidden="true" />
+          <button
+            type="button"
+            title="Inline code (Cmd+` / Ctrl+`)"
+            onClick={() =>
+              textareaRef.current &&
+              applyFormatToElement(
+                textareaRef.current,
+                "`",
+                "`",
+                "code",
+                (t) => onChange(t || null, t),
+              )
+            }
+            className="text-ink hover:bg-surface hover:text-accent focus-visible:ring-accent inline-flex size-7 items-center justify-center rounded-lg font-mono text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
+          >
+            &lt;/&gt;
+          </button>
+          <button
+            type="button"
+            title="Link (Cmd+K / Ctrl+K)"
+            onClick={() =>
+              textareaRef.current &&
+              applyLinkToElement(textareaRef.current, (t) =>
+                onChange(t || null, t),
+              )
+            }
+            className="text-ink hover:bg-surface hover:text-accent focus-visible:ring-accent inline-flex size-7 items-center justify-center rounded-lg text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
+          >
+            🔗
+          </button>
+          <span className="bg-border/60 mx-1 h-4 w-px" aria-hidden="true" />
+          <button
+            type="button"
+            title="Bullet list"
+            onClick={() =>
+              textareaRef.current &&
+              applyPrefixToLines(textareaRef.current, "- ", (t) =>
+                onChange(t || null, t),
+              )
+            }
+            className="text-ink hover:bg-surface hover:text-accent focus-visible:ring-accent inline-flex size-7 items-center justify-center rounded-lg text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
+          >
+            •
+          </button>
+          <button
+            type="button"
+            title="Numbered list"
+            onClick={() =>
+              textareaRef.current &&
+              applyPrefixToLines(textareaRef.current, "1. ", (t) =>
+                onChange(t || null, t),
+              )
+            }
+            className="text-ink hover:bg-surface hover:text-accent focus-visible:ring-accent inline-flex size-7 items-center justify-center rounded-lg font-mono text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
+          >
+            1.
+          </button>
+          <button
+            type="button"
+            title="Quote"
+            onClick={() =>
+              textareaRef.current &&
+              applyPrefixToLines(textareaRef.current, "> ", (t) =>
+                onChange(t || null, t),
+              )
+            }
+            className="text-ink hover:bg-surface hover:text-accent focus-visible:ring-accent inline-flex size-7 items-center justify-center rounded-lg font-serif text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
+          >
+            “
+          </button>
+        </div>
+
+        {/* Tab switcher: Write / Preview */}
+        <div className="bg-surface/80 border-border/70 inline-flex rounded-lg border p-0.5 shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setTab("write")}
+            className={cx(
+              "focus-visible:ring-accent rounded-md px-2.5 py-1 text-xs font-medium transition-all focus-visible:ring-2 focus-visible:outline-none",
+              tab === "write"
+                ? "bg-accent text-accent-ink shadow-xs"
+                : "text-muted hover:text-ink",
+            )}
+          >
+            Write
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("preview")}
+            className={cx(
+              "focus-visible:ring-accent rounded-md px-2.5 py-1 text-xs font-medium transition-all focus-visible:ring-2 focus-visible:outline-none",
+              tab === "preview"
+                ? "bg-accent text-accent-ink shadow-xs"
+                : "text-muted hover:text-ink",
+            )}
+          >
+            Preview
+          </button>
+        </div>
+      </div>
+
+      {/* Editor or Preview area */}
+      {tab === "write" ? (
+        <Textarea
+          id={id}
+          ref={textareaRef}
+          rows={5}
+          disabled={disabled}
+          value={value}
+          onChange={(e) => onChange(e.target.value || null, e.target.value)}
+          onKeyDown={(e) =>
+            handleFormattingKeyDown(e, textareaRef.current, (t) =>
+              onChange(t || null, t),
+            )
+          }
+          placeholder="Type markdown or format using toolbar above..."
+          className="border-0 bg-transparent text-ink text-ui w-full rounded-none px-4 py-3 shadow-none focus:ring-0 focus:outline-none placeholder:text-muted/60"
+        />
+      ) : (
+        <div className="min-h-[7.5rem] p-4 text-ink text-ui">
+          {value.trim() ? (
+            <FormattedText text={value} />
+          ) : (
+            <p className="text-muted text-fine italic">
+              Nothing to preview yet. Switch back to Write to add formatted text.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Short text field with inline formatting helpers, keyboard shortcuts, and live preview.
+ */
+function FormattedTextField({
+  id,
+  value,
+  disabled,
+  onChange,
+}: {
+  id: string;
+  value: string;
+  disabled: boolean;
+  onChange: (value: unknown, text: string) => void;
+}) {
+  const [showPreview, setShowPreview] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  if (disabled) {
+    return (
+      <div className="border-border/70 bg-surface/60 rounded-xl border px-4 py-2.5 text-ink text-ui shadow-xs">
+        {value.trim() ? (
+          <FormattedText text={value} />
+        ) : (
+          <span className="text-muted italic">Not answered</span>
+        )}
+      </div>
+    );
+  }
+
+  const hasFormatting =
+    value.includes("*") ||
+    value.includes("`") ||
+    value.includes("[") ||
+    value.includes("~");
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="border-border/80 focus-within:border-accent bg-surface/40 flex flex-col overflow-hidden rounded-xl border shadow-xs transition-colors focus-within:ring-2 focus-within:ring-accent/20">
+        <div className="flex items-center">
+          <Input
+            id={id}
+            ref={inputRef}
+            type="text"
+            disabled={disabled}
+            value={value}
+            onChange={(e) => onChange(e.target.value || null, e.target.value)}
+            onKeyDown={(e) =>
+              handleFormattingKeyDown(e, inputRef.current, (t) =>
+                onChange(t || null, t),
+              )
+            }
+            placeholder="Type short text or format with **bold**, *italic*, `code`..."
+            className="border-0 bg-transparent text-ink text-ui min-h-11 w-full rounded-none px-4 shadow-none focus:ring-0 focus:outline-none placeholder:text-muted/60"
+          />
+
+          <div className="flex shrink-0 items-center gap-1 pr-2">
+            <button
+              type="button"
+              title="Bold (Cmd+B / Ctrl+B)"
+              onClick={() =>
+                inputRef.current &&
+                applyFormatToElement(
+                  inputRef.current,
+                  "**",
+                  "**",
+                  "bold",
+                  (t) => onChange(t || null, t),
+                )
+              }
+              className="text-ink hover:bg-surface hover:text-accent focus-visible:ring-accent inline-flex size-7 items-center justify-center rounded-md text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:outline-none"
+            >
+              B
+            </button>
+            <button
+              type="button"
+              title="Italic (Cmd+I / Ctrl+I)"
+              onClick={() =>
+                inputRef.current &&
+                applyFormatToElement(
+                  inputRef.current,
+                  "*",
+                  "*",
+                  "italic",
+                  (t) => onChange(t || null, t),
+                )
+              }
+              className="text-ink hover:bg-surface hover:text-accent focus-visible:ring-accent inline-flex size-7 items-center justify-center rounded-md font-serif text-xs italic transition-colors focus-visible:ring-2 focus-visible:outline-none"
+            >
+              I
+            </button>
+            <button
+              type="button"
+              title="Inline code (Cmd+` / Ctrl+`)"
+              onClick={() =>
+                inputRef.current &&
+                applyFormatToElement(
+                  inputRef.current,
+                  "`",
+                  "`",
+                  "code",
+                  (t) => onChange(t || null, t),
+                )
+              }
+              className="text-ink hover:bg-surface hover:text-accent focus-visible:ring-accent inline-flex size-7 items-center justify-center rounded-md font-mono text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
+            >
+              &lt;&gt;
+            </button>
+            <button
+              type="button"
+              title="Link (Cmd+K / Ctrl+K)"
+              onClick={() =>
+                inputRef.current &&
+                applyLinkToElement(inputRef.current, (t) =>
+                  onChange(t || null, t),
+                )
+              }
+              className="text-ink hover:bg-surface hover:text-accent focus-visible:ring-accent inline-flex size-7 items-center justify-center rounded-md text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
+            >
+              🔗
+            </button>
+            {hasFormatting && (
+              <button
+                type="button"
+                title={showPreview ? "Hide preview" : "Show formatted preview"}
+                onClick={() => setShowPreview((v) => !v)}
+                className={cx(
+                  "focus-visible:ring-accent ml-1 rounded-md px-2 py-1 text-xs font-medium transition-all focus-visible:ring-2 focus-visible:outline-none",
+                  showPreview
+                    ? "bg-accent text-accent-ink"
+                    : "text-muted hover:text-ink bg-surface/70 border border-border/50",
+                )}
+              >
+                {showPreview ? "Edit" : "Preview"}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {showPreview && hasFormatting && (
+        <div className="border-border/60 bg-surface/70 text-ink text-ui rounded-xl border px-3.5 py-2 text-sm shadow-2xs">
+          <span className="text-muted text-fine block mb-0.5">Preview:</span>
+          <FormattedText text={value} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
  * The right control for the declared type.
  *
@@ -583,12 +1071,11 @@ function FieldInput({
 
   if (field.type === "LONG_TEXT") {
     return (
-      <Textarea
+      <FormattedTextareaField
         id={id}
-        rows={4}
-        disabled={disabled}
         value={answer?.text ?? ""}
-        onChange={(e) => onChange(e.target.value || null, e.target.value)}
+        disabled={disabled}
+        onChange={onChange}
       />
     );
   }
@@ -631,6 +1118,17 @@ function FieldInput({
           </option>
         ))}
       </Select>
+    );
+  }
+
+  if (field.type === "TEXT" || !field.type) {
+    return (
+      <FormattedTextField
+        id={id}
+        value={answer?.text ?? ""}
+        disabled={disabled}
+        onChange={onChange}
+      />
     );
   }
 
