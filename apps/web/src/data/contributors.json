@@ -1,20 +1,3 @@
-// ══════════════════════════════════════════════════════════════════════════════
-// 🎖️ AVAILABLE CONTRIBUTOR BADGES (Copy & paste any into "badge" field):
-// ══════════════════════════════════════════════════════════════════════════════
-// • "🌟 Core Advisor"              -> Domain & strategic guidance
-// • "💡 Feature Architect"         -> Ideated new features or workflows
-// • "🔍 UX & Usability Hero"       -> Feedback on UI, shortcuts & usability
-// • "⚡ Performance Champion"      -> Speed, caching & export optimizations
-// • "🛡️ Security & Privacy Guard"  -> Cryptography, device keys & security
-// • "🧪 Bug Hunter & QA"           -> Discovered edge cases & bugs
-// • "📚 Review Methodology Pioneer"-> PRISMA & literature review compliance
-// • "🚀 Early Adopter"             -> Beta tester & early feedback
-// • "🤝 Community Champion"        -> Mentoring, advocacy & outreach
-// • "📝 Docs & Guides Contributor" -> Guides & documentation contributions
-//
-// 📂 AVAILABLE TYPES: "Feedback" | "Feature Suggestion" | "Code" | "Design" | "Research" | "Documentation"
-// ══════════════════════════════════════════════════════════════════════════════
-
 [
   {
     "id": "1",

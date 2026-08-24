@@ -1,3 +1,7 @@
+/**
+ * Contributor Types and Styles
+ * For instructions on adding new contributors, see docs/CONTRIBUTORS_GUIDE.md
+ */
 import rawContributors from "@/data/contributors.json";
 
 export type ContributionCategory =
