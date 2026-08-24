@@ -91,6 +91,7 @@ describe("XLSX", () => {
       "[Content_Types].xml",
       "_rels/.rels",
       "xl/_rels/workbook.xml.rels",
+      "xl/styles.xml",
       "xl/workbook.xml",
       "xl/worksheets/sheet1.xml",
     ]);
@@ -108,8 +109,8 @@ describe("XLSX", () => {
     // 412 is a bare <v>, with no t="inlineStr". This is the assertion the
     // whole file exists for: written as a string it would open fine and be
     // impossible to average.
-    expect(sheet).toContain('<c r="A2"><v>412</v></c>');
-    expect(sheet).toContain('<c r="A3" t="inlineStr">');
+    expect(sheet).toContain('<c r="A2" s="2"><v>412</v></c>');
+    expect(sheet).toContain('<c r="A3" s="0" t="inlineStr">');
   });
 
   it("drops control characters that would make Excel reject the workbook", () => {

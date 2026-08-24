@@ -25,6 +25,13 @@ export interface EvidenceRowData {
   extractor_id?: string;
   group_label?: string | null;
   total_rows?: number;
+  authors?: string | null;
+  venue?: string | null;
+  doi?: string | null;
+  doi_url?: string | null;
+  arxiv_id?: string | null;
+  pmid?: string | null;
+  oa_pdf_url?: string | null;
 }
 
 export interface EvidenceMarkdownOptions {
@@ -71,6 +78,7 @@ function formatSummaryCell(value: string | number | null | undefined): string {
 
 /**
  * Format the entire evidence synthesis table into a comprehensive Markdown document
+ * with complete paper metadata (DOI, authors, year, venue, arXiv, PMID, PDF links)
  * optimized for AI analysis, LLM meta-synthesis, and human review.
  */
 export function toEvidenceMarkdown(options: EvidenceMarkdownOptions): string {
@@ -120,7 +128,11 @@ export function toEvidenceMarkdown(options: EvidenceMarkdownOptions): string {
     const tableHeaders = [
       "#",
       "Paper Title",
+      "Authors",
       "Year",
+      "Venue",
+      "DOI",
+      "PDF",
       "Status",
       "Progress",
       ...fields.map((f) => f.label),
@@ -128,15 +140,28 @@ export function toEvidenceMarkdown(options: EvidenceMarkdownOptions): string {
     lines.push(`| ${tableHeaders.join(" | ")} |`);
     lines.push(
       `| ${tableHeaders
-        .map((_, i) => (i === 0 || i === 2 || i === 3 || i === 4 ? ":---:" : ":---"))
+        .map((_, i) =>
+          i === 0 || i === 3 || i === 5 || i === 6 || i === 7 || i === 8 ? ":---:" : ":---",
+        )
         .join(" | ")} |`,
     );
 
     rows.forEach((row, idx) => {
+      const doiLink = row.doi
+        ? `[DOI](https://doi.org/${row.doi})`
+        : "—";
+      const pdfLink = row.oa_pdf_url
+        ? `[PDF](${row.oa_pdf_url})`
+        : "—";
+
       const cells = [
         String(idx + 1),
         row.work_title.replace(/\|/g, "\\|").replace(/\r?\n/g, " ").trim(),
+        row.authors ? formatSummaryCell(row.authors) : "—",
         row.published_year ? String(row.published_year) : "—",
+        row.venue ? formatSummaryCell(row.venue) : "—",
+        doiLink,
+        pdfLink,
         row.status,
         `${row.answered}/${row.field_total}`,
         ...fields.map((f) => {
@@ -165,8 +190,38 @@ export function toEvidenceMarkdown(options: EvidenceMarkdownOptions): string {
       lines.push(
         `### ${idx + 1}. ${row.work_title}${row.published_year ? ` (${row.published_year})` : ""}`,
       );
+      lines.push("");
+
+      // Bibliographic metadata
+      const authorsText = row.authors ? row.authors : "Unknown authors";
+      lines.push(`- **Authors:** ${authorsText}`);
+
+      const pubParts: string[] = [];
+      if (row.published_year) pubParts.push(String(row.published_year));
+      if (row.venue) pubParts.push(`Venue: *${row.venue}*`);
       lines.push(
-        `- **Status**: \`${row.status}\` · **Answered**: ${row.answered} / ${row.field_total} fields`,
+        `- **Publication:** ${pubParts.length > 0 ? pubParts.join(" · ") : "Not specified"}`,
+      );
+
+      // Links & Identifiers
+      const links: string[] = [];
+      if (row.doi) {
+        links.push(`[DOI: ${row.doi}](https://doi.org/${row.doi})`);
+      }
+      if (row.arxiv_id) {
+        links.push(`[arXiv: ${row.arxiv_id}](https://arxiv.org/abs/${row.arxiv_id})`);
+      }
+      if (row.pmid) {
+        links.push(`[PMID: ${row.pmid}](https://pubmed.ncbi.nlm.nih.gov/${row.pmid})`);
+      }
+      if (row.oa_pdf_url) {
+        links.push(`[Open Access PDF](${row.oa_pdf_url})`);
+      }
+      const linksText = links.length > 0 ? links.join(" · ") : "None reported";
+      lines.push(`- **Identifiers & Links:** ${linksText}`);
+
+      lines.push(
+        `- **Status:** \`${row.status}\` · **Answered:** ${row.answered} / ${row.field_total} fields`,
       );
       lines.push("");
 
