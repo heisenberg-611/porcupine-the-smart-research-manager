@@ -91,7 +91,7 @@ export default async function Home() {
 
           <Link
             href="/feedback-and-contributions"
-            className="text-accent hover:text-accent-ink hover:underline font-mono text-xs font-semibold shrink-0"
+            className="text-accent hover:text-ink hover:underline font-mono text-xs font-semibold shrink-0 transition-colors"
           >
             View all contributors ({getContributors().length}) →
           </Link>
