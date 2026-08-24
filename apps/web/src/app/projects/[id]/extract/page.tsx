@@ -478,12 +478,20 @@ function PaperRow({ projectId, paper }: { projectId: string; paper: Paper }) {
       ? `/projects/${projectId}/evidence?q=${encodeURIComponent(paper.title)}`
       : `/projects/${projectId}/extract/${paper.id}`;
 
+  const readHref = `/projects/${projectId}/read/${paper.id}`;
+
   return (
     <li className="border-border/60 bg-surface/70 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border p-3.5 shadow-xs">
-      <span className="text-ink text-ui min-w-0 flex-1 text-pretty font-medium">
-        {paper.title}
-        {paper.year ? <span className="text-muted font-normal"> · {paper.year}</span> : null}
-      </span>
+      <div className="min-w-0 flex-1">
+        <Link
+          href={readHref}
+          className="text-ink hover:text-accent text-ui font-medium underline-offset-2 hover:underline transition-colors block text-pretty"
+          title="Open paper page"
+        >
+          {paper.title}
+          {paper.year ? <span className="text-muted font-normal"> · {paper.year}</span> : null}
+        </Link>
+      </div>
 
       <span className="meta shrink-0">
         {paper.state === "done"
@@ -500,12 +508,20 @@ function PaperRow({ projectId, paper }: { projectId: string; paper: Paper }) {
           : ""}
       </span>
 
-      <Link
-        href={href}
-        className="border-border text-ink hover:bg-surface hover:border-accent/40 focus-visible:ring-accent text-ui inline-flex min-h-9 shrink-0 items-center rounded-xl border px-3.5 font-medium transition-all focus-visible:ring-2 focus-visible:outline-none"
-      >
-        {label}
-      </Link>
+      <div className="flex shrink-0 items-center gap-2">
+        <Link
+          href={readHref}
+          className="border-border text-muted hover:text-ink hover:bg-surface focus-visible:ring-accent text-ui inline-flex min-h-9 shrink-0 items-center rounded-xl border px-3 font-medium transition-all focus-visible:ring-2 focus-visible:outline-none"
+        >
+          Read paper
+        </Link>
+        <Link
+          href={href}
+          className="border-border text-ink hover:bg-surface hover:border-accent/40 focus-visible:ring-accent text-ui inline-flex min-h-9 shrink-0 items-center rounded-xl border px-3.5 font-medium transition-all focus-visible:ring-2 focus-visible:outline-none"
+        >
+          {label}
+        </Link>
+      </div>
     </li>
   );
 }

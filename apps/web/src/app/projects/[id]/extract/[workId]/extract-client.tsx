@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { createSelector, type AnchorSelector } from "@Porcupine/anchoring";
 
 import type { ReaderSection } from "@/lib/reader-document";
@@ -341,7 +342,14 @@ export function ExtractClient({
           ) : (
             <p className="text-muted text-ui mt-3">
               This record has no abstract and no attached PDF, so there is no text to
-              quote from yet. Attach the paper from the reader and its pages appear here.
+              quote from yet.{" "}
+              <Link
+                href={`/projects/${projectId}/read/${projectWorkId}`}
+                className="text-ink underline hover:text-accent font-medium transition-colors"
+              >
+                Attach the paper from the reader
+              </Link>{" "}
+              and its pages appear here.
             </p>
           )}
 

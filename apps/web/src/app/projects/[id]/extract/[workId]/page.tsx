@@ -83,7 +83,7 @@ export default async function ExtractPage({
 
   const header = (
     <PageHeader
-      backHref={`/projects/${id}/library`}
+      backHref={`/projects/${id}/extract`}
       backLabel={projectTitle}
       title={work?.title ?? "Untitled"}
       description={
@@ -91,6 +91,11 @@ export default async function ExtractPage({
           {work?.venue}
           {work?.published_year && ` · ${work.published_year}`}
         </>
+      }
+      actions={
+        <ButtonLink href={`/projects/${id}/read/${workId}`} variant="ghost">
+          Open paper page
+        </ButtonLink>
       }
     />
   );
