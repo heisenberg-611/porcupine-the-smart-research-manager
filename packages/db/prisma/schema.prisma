@@ -284,6 +284,7 @@ model User {
 
   @@map("users")
   messageReactions MessageReaction[]
+  authEvents       MemberAuthEvent[]
 }
 
 model Device {
@@ -1168,3 +1169,18 @@ model Annotation {
   @@index([anchorId])
   @@map("annotations")
 }
+
+model MemberAuthEvent {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  eventType   String   @map("event_type")
+  action      String
+  deviceLabel String?  @map("device_label")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("member_auth_events")
+}
+

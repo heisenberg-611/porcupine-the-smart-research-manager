@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { recordUserSignIn } from "@/server/auth-audit";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -25,6 +26,10 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     return NextResponse.redirect(`${origin}/sign-in?error=exchange_failed`);
+  }
+
+  if (data.user) {
+    await recordUserSignIn(data.user.id);
   }
 
   const response = NextResponse.redirect(
