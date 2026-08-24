@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { recordUserSignOut } from "@/server/auth-audit";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -8,6 +9,14 @@ import { createClient } from "@/lib/supabase/server";
  */
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) {
+    await recordUserSignOut(user.id);
+  }
+
   await supabase.auth.signOut();
 
   return NextResponse.redirect(new URL("/", request.url), {
