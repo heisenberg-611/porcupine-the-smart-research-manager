@@ -21,6 +21,7 @@ export const PUBLIC_PATHS = [
   "/pricing",
   "/security",
   "/guides",
+  "/feedback-and-contributions",
   "/api",
   "/changelog",
   "/blog",

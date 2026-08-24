@@ -1,0 +1,101 @@
+[
+  {
+    "id": "1",
+    "name": "Sarah Connor",
+    "role": "Postdoctoral Researcher · BioMed Institute",
+    "avatar": "",
+    "link": "https://github.com",
+    "type": "Feedback",
+    "badge": "🔍 UX & Usability Hero",
+    "contribution": "Suggested granular activity auditing, 15-minute deduplication windows, and keyboard shortcuts for rapid literature screening.",
+    "date": "August 2026"
+  },
+  {
+    "id": "2",
+    "name": "Marcus Vance",
+    "role": "Lead Reviewer & Systematic Synthesis Specialist",
+    "avatar": "",
+    "link": "https://linkedin.com",
+    "type": "Feature Suggestion",
+    "badge": "💡 Feature Architect",
+    "contribution": "Ideated the dual-extractor reconciliation matrix and suggested weighted scoring for individual extracted data fields.",
+    "date": "August 2026"
+  },
+  {
+    "id": "3",
+    "name": "Elena Rostova",
+    "role": "Software Engineer & Open Source Contributor",
+    "avatar": "",
+    "link": "https://github.com",
+    "type": "Code",
+    "badge": "⚡ Performance Champion",
+    "contribution": "Contributed fast client-side tsvector indexing and performance optimizations for large PDF evidence exports.",
+    "date": "July 2026"
+  },
+  {
+    "id": "4",
+    "name": "David Kim",
+    "role": "PhD Candidate · NLP & Information Retrieval",
+    "avatar": "",
+    "link": "https://github.com",
+    "type": "Research",
+    "badge": "📚 Review Methodology Pioneer",
+    "contribution": "Advised on PRISMA-2020 diagram flow compliance and multi-database search deduplication algorithms.",
+    "date": "July 2026"
+  },
+  {
+    "id": "5",
+    "name": "Alex Mercer",
+    "role": "Cryptography & Systems Advisor",
+    "avatar": "",
+    "link": "https://github.com",
+    "type": "Feedback",
+    "badge": "🛡️ Security & Privacy Guard",
+    "contribution": "Reviewed zero-knowledge client device key wrapping and recommended strict per-device revocation policies.",
+    "date": "June 2026"
+  },
+  {
+    "id": "6",
+    "name": "Rachel Zane",
+    "role": "Medical Librarian & Thesis Mentor",
+    "avatar": "",
+    "link": "https://linkedin.com",
+    "type": "Feedback",
+    "badge": "🌟 Core Advisor",
+    "contribution": "Provided continuous feedback on research question formulation and user onboarding for non-technical researchers.",
+    "date": "June 2026"
+  },
+  {
+    "id": "7",
+    "name": "Liam Thorne",
+    "role": "Biostatistics Researcher",
+    "avatar": "",
+    "link": "https://github.com",
+    "type": "Feedback",
+    "badge": "🧪 Bug Hunter & QA",
+    "contribution": "Reported edge-case timestamp boundary offsets in calendar heatmap and validated timezone fixes.",
+    "date": "August 2026"
+  },
+  {
+    "id": "8",
+    "name": "Maya Lin",
+    "role": "Epidemiology Graduate Student",
+    "avatar": "",
+    "link": "https://linkedin.com",
+    "type": "Feature Suggestion",
+    "badge": "🚀 Early Adopter",
+    "contribution": "Tested multi-database search queries across IEEE Xplore, PubMed, and arXiv in early beta trials.",
+    "date": "July 2026"
+  },
+  {
+    "id": "9",
+    "name": "Carlos Gomez",
+    "role": "Open Science Advocate",
+    "avatar": "",
+    "link": "https://github.com",
+    "type": "Documentation",
+    "badge": "📝 Docs & Guides Contributor",
+    "contribution": "Created step-by-step guides for systematic review protocol registration on PROSPERO.",
+    "date": "June 2026"
+  }
+]

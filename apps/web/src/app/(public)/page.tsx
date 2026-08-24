@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ButtonLink } from "@/components/ui";
+import { getContributors, BADGE_STYLES } from "@/lib/contributors";
 import { getCurrentUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -9,34 +10,9 @@ export const metadata: Metadata = {
     "Run a systematic review or a thesis literature search end to end: find papers across five databases, screen them with your reasons recorded, extract the same questions from every one, and get the evidence table and PRISMA diagram out at the end.",
 };
 
-/*
- * Signed in, this page still renders.
- *
- * It used to redirect straight to /dashboard, which made the wordmark in the
- * header a dead control for everyone who was signed in — the one link on
- * every page that is conventionally "take me to the front" bounced you back
- * to where you already were. What the page says about the product is also
- * the thing a user shows someone else, and they should not have to sign out
- * to reach it.
- *
- * The call to action is the part that has to change: offering "Sign in" to
- * someone already signed in is the tell that a page has one audience in mind.
- *
- * ─ What was cut, and why ──────────────────────────────────────────────────
- *
- * A four-term glossary — systematic review, protocol, screening, PRISMA —
- * used to sit between the hero and the steps. The same four definitions, in
- * the same words, are on /about, which is where they were written and where
- * the reader who wants them has said so by clicking. On the front page they
- * cost a screenful before the product had said what it does, and pushed the
- * six steps — the only part that answers "what is this" — below the fold.
- *
- * The footer went the other way: it was written inline here, so the twelve
- * pages it linked to had no footer of their own and no way back. It is a
- * component now and the layout renders it on all thirteen.
- */
 export default async function Home() {
   const user = await getCurrentUser();
+  const contributors = getContributors().slice(0, 4);
 
   return (
     <main id="main" className="mx-auto max-w-5xl px-6 py-16 sm:py-13">
@@ -45,25 +21,10 @@ export default async function Home() {
           Literature review software
         </p>
 
-        {/*
-          No logo beside the headline.
-
-          It was here, and it is the site header's job now — the header carries
-          the mark and the wordmark on every public page, so a second copy
-          directly below it was the same image twice in the first 200px. The
-          headline gets the whole width instead, which is what a headline that
-          long wants.
-        */}
         <h1 className="text-ink mt-6 font-serif text-4xl leading-tight tracking-tight text-balance sm:text-6xl">
           Every paper you read, in one defensible pile.
         </h1>
 
-        {/*
-          One paragraph, not three. This said the same thing three times —
-          an eyebrow, a serif tagline, and then a paragraph that restated the
-          tagline before adding the only new information in the block, which
-          is who it is for.
-        */}
         <p className="text-ink-soft measure text-body mt-8 text-pretty">
           A literature review, from the first search to the finished evidence table. For
           teams running a systematic review that has to be reproducible, and for students
@@ -84,6 +45,7 @@ export default async function Home() {
         </div>
       </header>
 
+      {/* Six Stages */}
       <section aria-labelledby="steps" className="mt-12">
         <h2 id="steps" className="text-ink text-title font-serif">
           Six stages, in order
@@ -103,11 +65,6 @@ export default async function Home() {
               <p className="text-accent text-fine font-mono font-semibold">
                 Step {String(index + 1).padStart(2, "0")}
               </p>
-              {/*
-                h3, not h2. The section above it is the h2, and a card heading
-                that outranks the heading of the section containing it is the
-                most common way a page's outline stops describing the page.
-              */}
               <h3 className="text-ink text-heading mt-2 font-serif font-bold">{term}</h3>
               <p className="text-ink-soft text-ui mt-3 leading-relaxed text-pretty">
                 {detail}
@@ -117,7 +74,93 @@ export default async function Home() {
         </ol>
       </section>
 
-      <section aria-labelledby="honest" className="border-rule mt-15 border-t pt-12">
+      {/* Community Feedback & Contributions Showcase */}
+      <section aria-labelledby="community" className="border-rule mt-16 border-t pt-12">
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+          <div>
+            <p className="text-accent text-fine font-mono tracking-wider uppercase font-semibold">
+              Shaped by Researchers
+            </p>
+            <h2 id="community" className="text-ink text-title font-serif mt-1">
+              Feedback & Contributions
+            </h2>
+            <p className="text-muted measure text-ui mt-2 text-pretty">
+              Recognizing the beta testers, methodology advisors, and developers who have contributed ideas and feedback to upgrade porcupineResearch.
+            </p>
+          </div>
+
+          <Link
+            href="/feedback-and-contributions"
+            className="text-accent hover:text-accent-ink hover:underline font-mono text-xs font-semibold shrink-0"
+          >
+            View all contributors ({getContributors().length}) →
+          </Link>
+        </div>
+
+        <div className="mt-8 grid gap-5 sm:grid-cols-2">
+          {contributors.map((c, index) => {
+            const initials = c.name
+              .split(" ")
+              .map((n) => n[0])
+              .join("")
+              .slice(0, 2)
+              .toUpperCase();
+
+            const badgeStyle = BADGE_STYLES[c.badge] || {
+              bg: "bg-accent/15",
+              text: "text-accent",
+              border: "border-accent/25",
+            };
+
+            return (
+              <div
+                key={`${c.id || "contributor"}-${index}`}
+                className="border-border/70 bg-raised/70 flex flex-col justify-between rounded-2xl border p-5 shadow-xs transition-all hover:border-accent/40 hover:shadow-md"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-accent/15 text-accent flex h-9 w-9 shrink-0 items-center justify-center rounded-lg font-mono text-xs font-bold">
+                        {initials}
+                      </div>
+                      <div>
+                        <h4 className="text-ink font-serif font-bold text-sm">
+                          {c.name}
+                        </h4>
+                        <p className="text-muted text-[11px] truncate max-w-[200px]">
+                          {c.role}
+                        </p>
+                      </div>
+                    </div>
+
+                    <span
+                      className={`inline-flex items-center rounded-md border px-2 py-0.5 font-mono text-[10px] font-bold ${badgeStyle.bg} ${badgeStyle.text} ${badgeStyle.border}`}
+                    >
+                      {c.badge}
+                    </span>
+                  </div>
+
+                  <p className="text-ink-soft text-xs mt-3.5 leading-relaxed italic bg-surface/60 rounded-xl p-3 border border-border/50">
+                    "{c.contribution}"
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-6 flex items-center justify-center">
+          <Link
+            href="/feedback-and-contributions"
+            className="border-border bg-surface text-ink hover:bg-surface-hover hover:border-accent/40 focus-visible:ring-accent rounded-xl border px-5 py-2.5 font-mono text-xs font-semibold shadow-xs transition-all focus-visible:ring-2 focus-visible:outline-none"
+          >
+            See all contributions & leave feedback →
+          </Link>
+        </div>
+      </section>
+
+      {/* Limits / What it will not do */}
+      <section aria-labelledby="honest" className="border-rule mt-16 border-t pt-12">
         <h2 id="honest" className="text-ink text-title font-serif">
           What it will not do
         </h2>
@@ -128,12 +171,6 @@ export default async function Home() {
             </li>
           ))}
         </ul>
-        {/*
-          "The longer list", not a second "How it works". The button in the
-          hero is the one link on this page that names that destination, and
-          two links with the same accessible name pointing at the same place
-          is a duplicate entry in every screen reader's link list.
-        */}
         <p className="text-muted text-ui mt-8">
           <Link
             href="/about"
@@ -175,13 +212,6 @@ const STEPS: ReadonlyArray<{ term: string; detail: string }> = [
   },
 ];
 
-/*
- * On the front page, deliberately.
- *
- * Every one of these is a thing a reviewer might reasonably assume is here,
- * and finding out after importing three hundred papers is the expensive way
- * to learn it. Four of the six, kept short; /about carries the rest.
- */
 const LIMITS: readonly string[] = [
   "It does not decide anything. There is no automatic screening and no relevance model picking papers for you — every decision is a person's, recorded under their name.",
   "It does not read PDFs for you. The reader works on the abstract; there is no file upload yet.",
