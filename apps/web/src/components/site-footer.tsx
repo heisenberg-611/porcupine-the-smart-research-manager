@@ -151,6 +151,7 @@ const GROUPS: ReadonlyArray<{
     links: [
       { href: "/about", label: "How it works" },
       { href: "/guides", label: "Guides" },
+      { href: "/feedback-and-contributions" as Route, label: "Contributors & Feedback" },
       { href: "/api", label: "API and exports" },
       { href: "/blog", label: "Build notes" },
     ],
