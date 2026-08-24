@@ -15,24 +15,41 @@ import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 /**
- * CSV and XLSX export (4.4).
+ * CSV, XLSX and Markdown export (4.4).
  *
  * The export honours the filter, sort, grouping and COLUMN SELECTION currently
  * on the URL, so "export what I am looking at" does that rather than dumping
  * the table. It ignores paging: exporting page 2 of 6 is never what anyone
  * means.
  *
- * No authorisation logic here beyond requiring a session. Every row comes back
- * through evidence_rows(), which is SECURITY INVOKER over RLS-protected
- * tables, so a non-member gets an empty export by the same mechanism that
- * gives them an empty page. Re-checking membership here would add a second
- * rule to keep in step with the first.
+ * Includes full paper metadata (DOI, authors, year, venue, arXiv, PMID, PDF links)
+ * and formatted/colored layout for XLSX spreadsheets.
  */
 
-// The row cap. 300 x 20 is the Phase 1 trial's budget; 5,000 leaves headroom
-// for a large review while keeping the response bounded, since this builds the
-// whole file in memory before sending it.
 const EXPORT_LIMIT = 5000;
+
+interface WorkMeta {
+  title: string | null;
+  authors: unknown;
+  venue: string | null;
+  published_year: number | null;
+  doi: string | null;
+  arxiv_id: string | null;
+  pmid: string | null;
+  oa_pdf_url: string | null;
+}
+
+function formatAuthors(authors: unknown): string {
+  if (!Array.isArray(authors)) return "";
+  const names = authors
+    .map((a) => {
+      if (typeof a === "string") return a;
+      if (typeof a === "object" && a && "name" in a) return String(a.name);
+      return null;
+    })
+    .filter((n): n is string => !!n);
+  return names.join(", ");
+}
 
 export async function GET(
   request: NextRequest,
@@ -64,15 +81,6 @@ export async function GET(
     protocol_fields: FieldRow[];
   }>;
 
-  /*
-   * The same resolution the page performs, from the same function.
-   *
-   * `?protocol=` reaches here because the export links carry it. If this route
-   * resolved differently — say by keeping the old "newest active" rule — then
-   * the same URL would produce a table on screen and a CSV of different
-   * columns, and the disagreement would only surface once the numbers were in
-   * a manuscript.
-   */
   const chosen = resolveProtocol(
     protocols.map((p) => ({
       id: p.id,
@@ -91,47 +99,93 @@ export async function GET(
     (a, b) => a.order - b.order,
   );
 
-  // The columns too, not just the rows. Someone who narrows the table to five
-  // fields and clicks Export means five fields; handing them twenty is the
-  // export quietly disagreeing with the screen it came from.
   const fields = visibleFields(allFields, query);
   const rows = await fetchEvidenceRows(id, protocol.id, query, EXPORT_LIMIT);
 
+  // Fetch full bibliographic paper metadata for all exported papers
+  const projectWorkIds = [...new Set(rows.map((r) => r.project_work_id))];
+  const { data: projectWorksData } = projectWorkIds.length
+    ? await supabase
+        .from("project_works")
+        .select(
+          "id, works(title, authors, venue, published_year, doi, arxiv_id, pmid, oa_pdf_url)",
+        )
+        .in("id", projectWorkIds)
+    : { data: [] };
+
+  const worksMap = new Map<string, WorkMeta | null>(
+    (projectWorksData ?? []).map((pw: any) => [pw.id, pw.works as WorkMeta | null]),
+  );
+
   /*
-   * Column headers are the field KEYS, not the labels.
-   *
-   * This is the reason keys are immutable (week 2, 2.1). A label is prose and
-   * people improve it; if the header were the label, two exports of the same
-   * review would disagree about what a column is called and any script joining
-   * on it would break silently. The label is human-facing and lives on screen.
+   * Comprehensive columns: Paper Metadata followed by Protocol extraction field keys.
    */
   const header = [
     "title",
+    "authors",
     "year",
+    "venue",
+    "doi",
+    "doi_url",
+    "arxiv_id",
+    "pmid",
+    "pdf_url",
     "status",
-    "answered",
-    "fields",
+    "answered_fields",
+    "total_fields",
     ...fields.map((f) => f.key),
   ];
 
-  const cellsFor = (row: EvidenceRow): (string | number | null)[] => [
-    row.work_title,
-    row.published_year,
-    row.status,
-    row.answered,
-    row.field_total,
-    ...fields.map((f) => exportValue(row.cells?.[f.key])),
-  ];
+  const cellsFor = (row: EvidenceRow): (string | number | null)[] => {
+    const work = worksMap.get(row.project_work_id);
+    const authors = formatAuthors(work?.authors);
+    const year = work?.published_year ?? row.published_year ?? null;
+    const doi = work?.doi ?? null;
+    const doiUrl = doi ? `https://doi.org/${doi}` : null;
+    const arxivId = work?.arxiv_id ?? null;
+    const pmid = work?.pmid ?? null;
+    const pdfUrl = work?.oa_pdf_url ?? null;
+
+    return [
+      row.work_title || work?.title || "Untitled",
+      authors || null,
+      year,
+      work?.venue ?? null,
+      doi,
+      doiUrl,
+      arxivId,
+      pmid,
+      pdfUrl,
+      row.status,
+      row.answered,
+      row.field_total,
+      ...fields.map((f) => exportValue(row.cells?.[f.key])),
+    ];
+  };
 
   const stamp = new Date().toISOString().slice(0, 10);
   const base = `evidence-${slug(protocol.name)}-v${protocol.version}-${stamp}`;
 
   if (format === "md" || format === "markdown") {
+    const enrichedRows = rows.map((row) => {
+      const work = worksMap.get(row.project_work_id);
+      return {
+        ...row,
+        authors: formatAuthors(work?.authors) || null,
+        venue: work?.venue ?? null,
+        doi: work?.doi ?? null,
+        doi_url: work?.doi ? `https://doi.org/${work.doi}` : null,
+        arxiv_id: work?.arxiv_id ?? null,
+        pmid: work?.pmid ?? null,
+        oa_pdf_url: work?.oa_pdf_url ?? null,
+      };
+    });
+
     const md = toEvidenceMarkdown({
       protocolName: protocol.name,
       protocolVersion: protocol.version,
       fields,
-      rows,
+      rows: enrichedRows,
     });
 
     return new Response(md, {
@@ -152,8 +206,6 @@ export async function GET(
         "content-type":
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "content-disposition": `attachment; filename="${base}.xlsx"`,
-        // The table changes whenever anyone saves an extraction; a cached
-        // export is a wrong export.
         "cache-control": "no-store",
       },
     });

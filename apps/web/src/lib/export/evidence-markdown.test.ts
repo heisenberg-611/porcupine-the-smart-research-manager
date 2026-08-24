@@ -15,6 +15,13 @@ describe("toEvidenceMarkdown", () => {
       project_work_id: "pw-1",
       work_title: "Deep Learning for Structural Health",
       published_year: 2026,
+      authors: "Smith, J., Doe, A.",
+      venue: "Nature Machine Intelligence",
+      doi: "10.1038/s42256-026-001",
+      doi_url: "https://doi.org/10.1038/s42256-026-001",
+      arxiv_id: "2601.12345",
+      pmid: "39012345",
+      oa_pdf_url: "https://example.com/paper1.pdf",
       status: "DONE",
       extractor_id: "usr-1",
       group_label: null,
@@ -53,6 +60,13 @@ describe("toEvidenceMarkdown", () => {
       project_work_id: "pw-2",
       work_title: "Smart Concrete Sensors Review",
       published_year: 2025,
+      authors: "Johnson, K.",
+      venue: "IEEE Sensors Journal",
+      doi: null,
+      doi_url: null,
+      arxiv_id: null,
+      pmid: null,
+      oa_pdf_url: null,
       status: "DRAFT",
       extractor_id: "usr-1",
       group_label: null,
@@ -102,9 +116,18 @@ describe("toEvidenceMarkdown", () => {
     expect(md).toContain("## Protocol & Synthesis Overview");
     expect(md).toContain("- **Total Included Papers**: 2");
     expect(md).toContain("## Evidence Matrix Table");
-    expect(md).toContain("| Deep Learning for Structural Health |");
+    expect(md).toContain("Deep Learning for Structural Health");
+    expect(md).toContain("Smith, J., Doe, A.");
+    expect(md).toContain("[DOI](https://doi.org/10.1038/s42256-026-001)");
+    expect(md).toContain("[PDF](https://example.com/paper1.pdf)");
     expect(md).toContain("## Detailed Extractions by Paper");
     expect(md).toContain("### 1. Deep Learning for Structural Health (2026)");
+    expect(md).toContain("- **Authors:** Smith, J., Doe, A.");
+    expect(md).toContain("- **Publication:** 2026 · Venue: *Nature Machine Intelligence*");
+    expect(md).toContain("[DOI: 10.1038/s42256-026-001](https://doi.org/10.1038/s42256-026-001)");
+    expect(md).toContain("[arXiv: 2601.12345](https://arxiv.org/abs/2601.12345)");
+    expect(md).toContain("[PMID: 39012345](https://pubmed.ncbi.nlm.nih.gov/39012345)");
+    expect(md).toContain("[Open Access PDF](https://example.com/paper1.pdf)");
     expect(md).toContain("#### Key Findings (`findings`)");
     expect(md).toContain("| Metric | Value |");
     expect(md).toContain("### 2. Smart Concrete Sensors Review (2025)");

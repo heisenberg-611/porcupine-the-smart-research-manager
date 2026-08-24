@@ -3,23 +3,13 @@ import { deflateRawSync } from "node:zlib";
 import { neutralise } from "./csv";
 
 /**
- * A minimal XLSX writer (4.4).
+ * A styled XLSX writer with colors, zebra striping, frozen headers, and auto column widths.
  *
- * WHY THIS IS HAND-WRITTEN RATHER THAN A DEPENDENCY.
+ * WHY THIS IS HAND-WRITTEN RATHER THAN A HEAVY DEPENDENCY:
  *
- * The obvious choices are SheetJS or ExcelJS. Both are large, both pull in
- * transitive dependencies, and the evidence table needs roughly two percent of
- * either: one sheet, a header row, strings and numbers, no styling, no
- * formulas, no charts. An .xlsx is a ZIP of four small XML parts, and Node
- * already ships the only hard part (DEFLATE) in zlib.
- *
- * The part that genuinely matters is that NUMBERS ARE NUMERIC CELLS. Writing
- * every value as a string produces a file that opens correctly and cannot be
- * averaged, summed or charted — which would quietly undo ADR-001's decision to
- * store extraction values as typed plaintext in the first place.
- *
- * Not implemented, deliberately: styling, column widths, frozen panes, shared
- * strings. Inline strings cost bytes and save a whole part plus its index.
+ * Full Excel styling (fills, bold fonts, borders, frozen header row, zebra rows)
+ * can be implemented in pure OpenXML with zero external runtime dependencies.
+ * Numbers remain typed numeric cells for Excel arithmetic and charting.
  */
 
 /** CRC-32, as ZIP requires. Table built once at module load. */
@@ -46,9 +36,6 @@ interface Entry {
 
 /**
  * A ZIP container, STORED as DEFLATE, with no ZIP64 and no data descriptors.
- *
- * Sizes are known before writing because everything is built in memory, which
- * keeps this to the simple case: local header, data, central directory, EOCD.
  */
 function zip(entries: readonly Entry[]): Buffer {
   const locals: Buffer[] = [];
@@ -65,8 +52,7 @@ function zip(entries: readonly Entry[]): Buffer {
     local.writeUInt16LE(20, 4); // version needed
     local.writeUInt16LE(0, 6); // flags
     local.writeUInt16LE(8, 8); // method: deflate
-    // A fixed timestamp. Two exports of an unchanged review should be
-    // byte-identical, so a diff shows a changed review and nothing else.
+    // Fixed timestamp for byte-identical reproducibility
     local.writeUInt16LE(0, 10); // mod time
     local.writeUInt16LE(0x21, 12); // mod date: 1980-01-01
     local.writeUInt32LE(crc, 14);
@@ -115,19 +101,10 @@ function zip(entries: readonly Entry[]): Buffer {
 
 /**
  * XML escaping, plus the control characters XML 1.0 cannot represent AT ALL.
- *
- * Escaping is not enough for those: `&#x1;` is as illegal as a raw 0x01 byte,
- * and Excel rejects the whole workbook rather than skipping the cell. Extracted
- * text comes out of PDFs, which are a reliable source of stray control bytes,
- * so they are dropped. Tab, newline and carriage return are legal and kept.
  */
 function xmlText(value: string): string {
   return (
     value
-      // Everything below 0x20 except tab (09), newline (0A) and carriage
-      // return (0D), written as escapes: putting the raw bytes in this source
-      // file made it stop being a text file at all — `file` reported "data"
-      // and grep treated it as binary.
       // eslint-disable-next-line no-control-regex
       .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "")
       .replaceAll("&", "&amp;")
@@ -149,26 +126,63 @@ export function columnRef(index: number): string {
 
 export type XlsxCell = string | number | null;
 
-function cellXml(ref: string, value: XlsxCell): string {
-  if (value === null || value === "") return "";
+/**
+ * Renders a cell with cell reference `ref`, style index `styleId`, and value.
+ *
+ * Style indices in `styles.xml`:
+ * - 0: Default white cell
+ * - 1: Header cell (Bold white text on #1E293B dark slate)
+ * - 2: Zebra row cell (#F8FAFC light tint)
+ */
+function cellXml(ref: string, value: XlsxCell, styleId: number): string {
+  if (value === null || value === "") {
+    return `<c r="${ref}" s="${styleId}"/>`;
+  }
 
   if (typeof value === "number" && Number.isFinite(value)) {
-    // A numeric cell. This is the whole reason for typed values.
-    return `<c r="${ref}"><v>${value}</v></c>`;
+    return `<c r="${ref}" s="${styleId}"><v>${value}</v></c>`;
   }
 
   const text = xmlText(neutralise(String(value)));
-  return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${text}</t></is></c>`;
+  return `<c r="${ref}" s="${styleId}" t="inlineStr"><is><t xml:space="preserve">${text}</t></is></c>`;
 }
 
 export function toXlsx(
   rows: readonly (readonly XlsxCell[])[],
   sheetName = "Evidence",
 ): Buffer {
+  // Determine column count and calculate column widths
+  const maxCols = rows.reduce((max, r) => Math.max(max, r.length), 0);
+  const colWidths = new Array<number>(maxCols).fill(12);
+
+  for (let c = 0; c < maxCols; c++) {
+    let maxLen = 10;
+    for (let r = 0; r < Math.min(rows.length, 100); r++) {
+      const val = rows[r]?.[c];
+      if (val !== null && val !== undefined) {
+        const len = String(val).length;
+        if (len > maxLen) maxLen = len;
+      }
+    }
+    colWidths[c] = Math.min(50, Math.max(12, maxLen + 3));
+  }
+
+  const colsXml =
+    maxCols > 0
+      ? `<cols>${colWidths
+          .map(
+            (w, i) =>
+              `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`,
+          )
+          .join("")}</cols>`
+      : "";
+
   const sheetRows = rows
     .map((row, r) => {
+      // Row 0 is the header (styleId 1), alternating rows use styleId 2 (zebra) or 0 (white)
+      const styleId = r === 0 ? 1 : r % 2 === 1 ? 2 : 0;
       const cells = row
-        .map((value, c) => cellXml(`${columnRef(c)}${r + 1}`, value))
+        .map((value, c) => cellXml(`${columnRef(c)}${r + 1}`, value, styleId))
         .join("");
       return `<row r="${r + 1}">${cells}</row>`;
     })
@@ -177,7 +191,44 @@ export function toXlsx(
   const sheet =
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
     `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
+    `<sheetViews><sheetView tabSelected="1" workbookViewId="0">` +
+    `<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>` +
+    `</sheetView></sheetViews>` +
+    colsXml +
     `<sheetData>${sheetRows}</sheetData></worksheet>`;
+
+  // ── styles.xml with Colors, Fonts, and Borders ───────────────────────────
+  const stylesXml =
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
+    `<fonts count="2">` +
+    `<font><sz val="11"/><name val="Segoe UI"/><color rgb="FF0F172A"/></font>` +
+    `<font><b/><sz val="11"/><name val="Segoe UI"/><color rgb="FFFFFFFF"/></font>` +
+    `</fonts>` +
+    `<fills count="4">` +
+    `<fill><patternFill patternType="none"/></fill>` +
+    `<fill><patternFill patternType="gray125"/></fill>` +
+    `<fill><patternFill patternType="solid"><fgColor rgb="FF1E293B"/></patternFill></fill>` + // 2: Header Dark Slate
+    `<fill><patternFill patternType="solid"><fgColor rgb="FFF8FAFC"/></patternFill></fill>` + // 3: Zebra Light Tint
+    `</fills>` +
+    `<borders count="2">` +
+    `<border><left/><right/><top/><bottom/></border>` +
+    `<border>` +
+    `<left style="thin"><color rgb="FFE2E8F0"/></left>` +
+    `<right style="thin"><color rgb="FFE2E8F0"/></right>` +
+    `<top style="thin"><color rgb="FFE2E8F0"/></top>` +
+    `<bottom style="thin"><color rgb="FFE2E8F0"/></bottom>` +
+    `</border>` +
+    `</borders>` +
+    `<cellStyleXfs count="1">` +
+    `<xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>` +
+    `</cellStyleXfs>` +
+    `<cellXfs count="3">` +
+    `<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/>` + // 0: Normal
+    `<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>` + // 1: Header
+    `<xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFill="1" applyBorder="1"/>` + // 2: Zebra
+    `</cellXfs>` +
+    `</styleSheet>`;
 
   const contentTypes =
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
@@ -186,6 +237,7 @@ export function toXlsx(
     `<Default Extension="xml" ContentType="application/xml"/>` +
     `<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>` +
     `<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` +
+    `<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>` +
     `</Types>`;
 
   const rels =
@@ -208,6 +260,7 @@ export function toXlsx(
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
     `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
     `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>` +
+    `<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>` +
     `</Relationships>`;
 
   const utf8 = (s: string) => Buffer.from(s, "utf8");
@@ -217,6 +270,7 @@ export function toXlsx(
     { name: "_rels/.rels", data: utf8(rels) },
     { name: "xl/workbook.xml", data: utf8(workbook) },
     { name: "xl/_rels/workbook.xml.rels", data: utf8(workbookRels) },
+    { name: "xl/styles.xml", data: utf8(stylesXml) },
     { name: "xl/worksheets/sheet1.xml", data: utf8(sheet) },
   ]);
 }
