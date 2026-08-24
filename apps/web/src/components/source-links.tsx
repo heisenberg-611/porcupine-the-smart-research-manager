@@ -38,18 +38,26 @@ interface Target {
 
 export function sourceTargets(work: WorkIdentifiers): Target[] {
   const targets: Target[] = [];
+  const seenHrefs = new Set<string>();
 
-  if (work.doi) targets.push({ href: `https://doi.org/${work.doi}`, label: "DOI" });
+  const add = (target: Target) => {
+    const trimmed = target.href.trim();
+    if (!trimmed || seenHrefs.has(trimmed)) return;
+    seenHrefs.add(trimmed);
+    targets.push({ ...target, href: trimmed });
+  };
+
+  if (work.doi) add({ href: `https://doi.org/${work.doi.trim()}`, label: "DOI" });
   if (work.arxivId) {
-    targets.push({ href: `https://arxiv.org/abs/${work.arxivId}`, label: "arXiv" });
+    add({ href: `https://arxiv.org/abs/${work.arxivId.trim()}`, label: "arXiv" });
   }
   if (work.pmid) {
-    targets.push({
-      href: `https://pubmed.ncbi.nlm.nih.gov/${work.pmid}/`,
+    add({
+      href: `https://pubmed.ncbi.nlm.nih.gov/${work.pmid.trim()}/`,
       label: "PubMed",
     });
   }
-  if (work.oaPdfUrl) targets.push({ href: work.oaPdfUrl, label: "PDF", full: true });
+  if (work.oaPdfUrl) add({ href: work.oaPdfUrl.trim(), label: "PDF", full: true });
 
   return targets;
 }
@@ -76,9 +84,9 @@ export function SourceLinks({
 
   return (
     <span className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${className}`}>
-      {targets.map((target) => (
+      {targets.map((target, idx) => (
         <a
-          key={target.href}
+          key={`${target.label}-${target.href}-${idx}`}
           href={target.href}
           target="_blank"
           rel="noopener noreferrer"

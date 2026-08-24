@@ -15,7 +15,7 @@ import {
 } from "@/lib/project-sections";
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
-import { calculateWorkflowPipeline } from "@/lib/workflow-pipeline";
+import { getProjectWorkflowPipeline } from "@/lib/workflow-pipeline-server";
 
 import { AccessForm } from "./access-form";
 import { InviteMemberForm } from "./invite-member-form";
@@ -32,10 +32,6 @@ interface MemberRow {
   users: { display_name: string; email: string } | null;
 }
 
-interface ProgressRow {
-  screen_status: string;
-  count: number;
-}
 
 /**
  * The project overview.
@@ -83,15 +79,7 @@ export default async function ProjectPage({
   const caps = capabilities(kind);
   const sections = projectSections(kind);
 
-  // In parallel: independent reads, none of which needs another's result.
-  const [
-    memberData,
-    progressData,
-    protocolCount,
-    reconcileCount,
-    questionData,
-    extractionsData,
-  ] = await Promise.all([
+  const [memberData, { pipeline, counts }] = await Promise.all([
     must(
       supabase
         .from("project_members")
@@ -106,36 +94,10 @@ export default async function ProjectPage({
         .order("joined_at", { ascending: true }),
       "project members",
     ),
-    must(
-      supabase
-        .from("v_project_progress")
-        .select("screen_status, count")
-        .eq("project_id", id),
-      "screening progress",
-    ),
-    supabase
-      .from("protocols")
-      .select("id", { count: "exact", head: true })
-      .eq("project_id", id),
-    // Only asked for when the project has the feature: a THESIS querying a
-    // reconciliation view it can never use is a round trip spent on nothing.
-    caps.dualExtraction
-      ? supabase
-          .from("v_reconciliation_queue")
-          .select("project_work_id", { count: "exact", head: true })
-          .eq("project_id", id)
-          .eq("reconciled", false)
-      : Promise.resolve({ count: 0, error: null }),
-    supabase
-      .from("questions")
-      .select("id", { count: "exact", head: true })
-      .eq("project_id", id),
-    supabase
-      .from("extractions")
-      .select("project_work_id")
-      .eq("project_id", id)
-      .neq("status", "DRAFT"),
+    getProjectWorkflowPipeline(id, kind),
   ]);
+
+  const { papers, unscreened, included, excluded } = counts;
 
   const members = (memberData ?? []) as unknown as MemberRow[];
   const me = members.find((m) => m.user_id === user.id);
@@ -143,43 +105,6 @@ export default async function ProjectPage({
 
   const { checkProjectAutomationState } = await import("../actions");
   const { isDisconnected } = await checkProjectAutomationState(id);
-
-  const progress = (progressData ?? []) as unknown as ProgressRow[];
-  const countOf = (...statuses: string[]) =>
-    progress
-      .filter((r) => statuses.includes(r.screen_status))
-      .reduce((sum, r) => sum + r.count, 0);
-
-  const papers = progress.reduce((sum, r) => sum + r.count, 0);
-  const unscreened = countOf("IDENTIFIED", "SCREENING");
-  const included = countOf("INCLUDED", "READING", "EXTRACTED", "SYNTHESIZED");
-  const excluded = countOf("EXCLUDED");
-
-  // Distinct completed/submitted extracted papers
-  const extractedWorks = new Set(
-    ((extractionsData?.data ?? []) as Array<{ project_work_id: string }>).map(
-      (e) => e.project_work_id,
-    ),
-  );
-  const dbExtracted = countOf("EXTRACTED", "SYNTHESIZED");
-  const extracted = Math.max(extractedWorks.size, dbExtracted);
-
-  const hasProtocol = (protocolCount.count ?? 0) > 0;
-  const questionCount = questionData.count ?? 0;
-  const awaiting = reconcileCount.count ?? 0;
-
-  const pipeline = calculateWorkflowPipeline({
-    projectId: id,
-    questionCount,
-    papers,
-    unscreened,
-    included,
-    excluded,
-    hasProtocol,
-    extracted,
-    awaiting,
-    dualExtraction: caps.dualExtraction,
-  });
 
   const byGroup = new Map<SectionGroup, typeof sections>();
   for (const section of sections) {

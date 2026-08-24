@@ -5,30 +5,28 @@ import {
 } from "@Porcupine/shared";
 
 /**
- * Which screens a project has, in workflow order — the single source of truth.
+ * The map of what a project contains, in the order the work happens.
  *
- * Two things used to decide this independently and neither was right.
- *
- * The project page listed nine destinations in a flat row, in an order that
- * was neither the workflow's nor alphabetical, and offered every one of them
- * regardless of project kind. So a THESIS showed links to Reconcile and
- * PRISMA, and clicking either cost a page load to be told the feature is for
- * systematic reviews. `capabilities()` was being enforced at the destination
- * instead of at the door: the gate worked, and the user still paid for it.
- *
- * Meanwhile the app header offered no project links at all, so every lateral
- * move between those nine screens went back through the hub.
- *
- * Both now read this. A section that is not in this list for a given kind
- * cannot be linked to from anywhere, which is a stronger guarantee than
- * remembering to check.
+ * Replaces hardcoded nav lists in three different files that were slowly
+ * drifting apart. The source of truth for:
+ *   - which screens a project kind gets (via shared capabilities)
+ *   - the human-facing label for each
+ *   - the grouped order in the sidebar
+ *   - the active state in the narrow-screen project nav
  *
  * The DESTINATIONS still check capabilities themselves and must keep doing so
  * — a URL typed by hand is not a link, and R-06 is a security boundary rather
  * than a navigation convenience.
  */
 
-export type SectionGroup = "Collect" | "Screen" | "Extract" | "Synthesise";
+export type SectionGroup =
+  | "1. Questions"
+  | "2. Collect"
+  | "3. Screen"
+  | "4. Protocol"
+  | "5. Extract"
+  | "6. Synthesis"
+  | "Workspace";
 
 export interface ProjectSection {
   /** Path segment under /projects/[id], or "" for the overview itself. */
@@ -41,10 +39,13 @@ export interface ProjectSection {
 
 /** The groups in the order work actually happens. */
 export const SECTION_GROUPS: readonly SectionGroup[] = [
-  "Collect",
-  "Screen",
-  "Extract",
-  "Synthesise",
+  "1. Questions",
+  "2. Collect",
+  "3. Screen",
+  "4. Protocol",
+  "5. Extract",
+  "6. Synthesis",
+  "Workspace",
 ];
 
 const ALL_SECTIONS: ReadonlyArray<
@@ -53,110 +54,91 @@ const ALL_SECTIONS: ReadonlyArray<
   {
     // First in the workflow, because it is first in the work: the keywords
     // here are what search ranks against, so a project that skips this ranks
-    // nothing. It used to have no screen at all — see the actions file.
+    // nothing.
     slug: "questions",
     label: "Research questions",
-    group: "Collect",
+    group: "1. Questions",
     blurb: "What the review asks. Search is ranked against these.",
   },
   {
     slug: "search",
     label: "Find papers",
-    group: "Collect",
+    group: "2. Collect",
     blurb: "Search five sources at once. Duplicates are merged.",
   },
   {
     slug: "import",
     label: "Import",
-    group: "Collect",
+    group: "2. Collect",
     blurb: "Paste BibTeX or RIS from a reference manager.",
   },
   {
     slug: "library",
     label: "Library",
-    group: "Collect",
+    group: "2. Collect",
     blurb: "Everything in the project, filterable by status.",
   },
   {
     slug: "screen",
     label: "Screen",
-    group: "Screen",
+    group: "3. Screen",
     blurb: "Decide what is in, one paper at a time.",
   },
   {
     slug: "progress",
     label: "Progress",
-    group: "Screen",
+    group: "3. Screen",
     blurb: "How much is done, by whom, and how fast.",
   },
   {
     slug: "prisma",
     label: "PRISMA",
-    group: "Screen",
+    group: "3. Screen",
     blurb: "The flow diagram, built from real decisions.",
-    // NOT gated, despite `capabilities().prismaDiagram` existing and being
-    // false for a thesis. The page renders the diagram for every project kind;
-    // the flag only controls a note saying exclusion reasons were optional
-    // here, so the boxes may be sparse. Hiding the section on the strength of
-    // the flag's NAME removed a working feature from three project kinds —
-    // caught by an existing e2e test that clicks through to PRISMA in a
-    // THESIS. Read what the destination does, not what the capability is
-    // called.
   },
   {
-    // "Protocol" is the methodology term, and it hid the feature from the
-    // person who asked for it: what this screen defines is the set of things
-    // everyone records about every paper. The route, the table and the docs
-    // keep the word; the label says what it does.
-    //
-    // In Collect, not Extract. It must exist before any extraction happens,
-    // and it should shape what you collect — meeting it after screening is
-    // meeting it too late to change anything.
+    // Extraction Protocol: What everyone records about every paper.
+    // In its true methodological position after screening and before extraction.
     slug: "protocol",
     label: "Protocol",
-    group: "Collect",
+    group: "4. Protocol",
     blurb: "What everyone records about every paper, so papers can be compared.",
   },
   {
     slug: "extract",
     label: "Extract papers",
-    group: "Extract",
+    group: "5. Extract",
     blurb: "Track and manage paper extractions by member.",
   },
   {
     slug: "reconcile",
     label: "Reconcile",
-    group: "Extract",
+    group: "5. Extract",
     blurb: "Resolve where two extractors disagreed.",
     requires: "dualExtraction",
   },
   {
     slug: "evidence",
     label: "Evidence",
-    group: "Synthesise",
+    group: "6. Synthesis",
     blurb: "Papers as rows, protocol fields as columns. Exports.",
   },
   {
     slug: "docs",
     label: "Collaboration Docs",
-    group: "Synthesise",
+    group: "Workspace",
     blurb: "Shared Google Docs and Sheets for this project.",
   },
   {
     slug: "messages",
     label: "Messages",
-    group: "Synthesise",
+    group: "Workspace",
     blurb: "Encrypted conversation. The server cannot read it.",
   },
   {
-    // Named after the job, not the mechanism. It was "Encryption", which is
-    // what the page uses rather than what it is for — and it stopped being a
-    // stop on the way to a conversation when messages absorbed setup, so what
-    // is left here is the administrative work: rotation, removal, devices,
-    // safety numbers.
     slug: "keys",
     label: "Keys & members",
-    group: "Synthesise",
+    group: "Workspace",
     blurb: "The project's content key, and who holds a copy.",
   },
 ];
@@ -179,16 +161,15 @@ export function sectionHref(projectId: string, slug: string): string {
 /**
  * Which section a pathname is in, for the header's active state.
  *
- * Matches the FIRST segment after the project id, so /read/[workId] and
- * /extract/[workId] — screens reached from the library rather than from the
- * nav — resolve to no section rather than to a wrong one. Highlighting
- * "Library" while someone is in the reader would be a lie about where they
- * are, which is the failure this whole module exists to fix.
+ * Exact match for the overview, prefix match for everything else —
+ * `/projects/123/library/456` is inside the library.
  */
 export function activeSection(pathname: string, projectId: string): string | null {
-  const prefix = `/projects/${projectId}`;
-  if (!pathname.startsWith(prefix)) return null;
-  const rest = pathname.slice(prefix.length).replace(/^\//, "");
-  if (rest === "") return "";
-  return rest.split("/")[0] ?? null;
+  const base = `/projects/${projectId}`;
+  if (pathname === base || pathname === `${base}/`) return "";
+  if (!pathname.startsWith(`${base}/`)) return null;
+
+  const rest = pathname.slice(base.length + 1);
+  const first = rest.split("/")[0];
+  return first ?? null;
 }
