@@ -4,7 +4,7 @@ import { createAdminClient } from "./admin";
 
 /**
  * Inserts a LOGIN audit event row into the permanent `member_auth_events` database table.
- * Executed every time a user authenticates / signs in.
+ * Deduplicates rapid concurrent triggers within 30 seconds to prevent double-logging.
  */
 export async function recordUserSignIn(
   userId: string,
@@ -14,6 +14,18 @@ export async function recordUserSignIn(
   try {
     const admin = createAdminClient();
     if (!admin) return;
+
+    // Check if a login was already logged for this user in the last 30 seconds
+    const thirtySecondsAgo = new Date(Date.now() - 30 * 1000).toISOString();
+    const { data: recent } = await admin
+      .from("member_auth_events")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("event_type", "LOGIN")
+      .gte("created_at", thirtySecondsAgo)
+      .limit(1);
+
+    if (recent && recent.length > 0) return;
 
     await admin.from("member_auth_events").insert({
       user_id: userId,
@@ -29,7 +41,6 @@ export async function recordUserSignIn(
 
 /**
  * Inserts a LOGOUT audit event row into the permanent `member_auth_events` database table.
- * Executed every time a user signs out.
  */
 export async function recordUserSignOut(
   userId: string,

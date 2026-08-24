@@ -573,34 +573,6 @@ export function aggregateProjectContributions(
     });
   }
 
-  for (const d of devices) {
-    const user = getUser(d.user_id, d.users);
-    events.push({
-      id: `device-login-${d.id}`,
-      type: "LOGIN",
-      actorId: d.user_id,
-      actorName: user.name,
-      actorEmail: user.email,
-      action: "Device session enrolled",
-      targetTitle: d.label || "Browser Device",
-      details: d.last_seen_at ? `Active session (last seen ${new Date(d.last_seen_at).toLocaleDateString()})` : undefined,
-      timestamp: d.created_at,
-    });
-
-    if (d.revoked_at) {
-      events.push({
-        id: `device-logout-${d.id}`,
-        type: "LOGOUT",
-        actorId: d.user_id,
-        actorName: user.name,
-        actorEmail: user.email,
-        action: "Device session revoked / signed out",
-        targetTitle: d.label || "Browser Device",
-        timestamp: d.revoked_at,
-      });
-    }
-  }
-
   // Sort events newest first
   events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 

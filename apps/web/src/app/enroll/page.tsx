@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { recordUserSignIn } from "@/server/auth-audit";
 import { getCurrentUser } from "@/lib/supabase/server";
 
 import { needsEnrollment } from "./actions";
@@ -15,6 +16,9 @@ export default async function EnrollPage({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/sign-in");
+
+  // Record login event upon landing on the post-login setup & validation route
+  await recordUserSignIn(user.id);
 
   const { next } = await searchParams;
   // Only ever redirect to a local path — an open redirect here would be a

@@ -5,7 +5,6 @@ import { startTransition, useState } from "react";
 
 import { Banner, Button, Field, Input } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
-import { recordSignInSessionAction } from "./actions";
 
 /**
  * Email OTP sign-in.
@@ -90,12 +89,6 @@ export function SignInForm() {
       setRunning(null);
       setError(error.message);
       return;
-    }
-
-    try {
-      await recordSignInSessionAction();
-    } catch {
-      // Non-blocking
     }
 
     // Enrollment decides whether this user still needs identity keys, so

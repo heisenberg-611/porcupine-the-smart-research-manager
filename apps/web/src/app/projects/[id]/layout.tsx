@@ -2,7 +2,6 @@ import { isProjectKind } from "@Porcupine/shared";
 import type { ReactNode } from "react";
 import { notFound, redirect } from "next/navigation";
 
-import { recordUserSignIn } from "@/server/auth-audit";
 import { ProjectNav } from "@/components/project-nav";
 import { ProjectSidebar } from "@/components/project-sidebar";
 import { ProjectWorkflowBar } from "@/components/project-workflow-bar";
@@ -23,9 +22,6 @@ export default async function ProjectLayout({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/sign-in");
-
-  // Record active session in member_auth_events (deduplicated within 5 minutes)
-  await recordUserSignIn(user.id);
 
   const { id } = await params;
   const project = await getProject(id);
