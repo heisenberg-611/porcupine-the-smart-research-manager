@@ -3,11 +3,11 @@ import { deflateRawSync } from "node:zlib";
 import { neutralise } from "./csv";
 
 /**
- * A styled XLSX writer with distinct paper color palettes, frozen headers, and auto column widths.
+ * A styled XLSX writer with distinct pastel paper color palettes, frozen headers, and auto column widths.
  *
  * WHY THIS IS HAND-WRITTEN RATHER THAN A HEAVY DEPENDENCY:
  *
- * Full Excel styling (fills, bold fonts, borders, frozen header row, distinct paper row colors)
+ * Full Excel styling (fills, bold fonts, borders, frozen header row, distinct pastel paper row colors)
  * can be implemented in pure OpenXML with zero external runtime dependencies.
  * Numbers remain typed numeric cells for Excel arithmetic and charting.
  */
@@ -172,12 +172,12 @@ export function toXlsx(
           .join("")}</cols>`
       : "";
 
-  // Distinct paper color styles (0: white, 2: soft blue, 3: soft emerald, 4: soft amber, 5: soft lavender, 6: soft rose, 7: soft teal, 8: soft slate)
+  // Distinct pastel paper color styles (0: soft peach, 2: soft blue, 3: soft emerald, 4: soft amber, 5: soft lavender, 6: soft rose, 7: soft teal, 8: soft slate)
   const paperStyleIds = [0, 2, 3, 4, 5, 6, 7, 8];
 
   const sheetRows = rows
     .map((row, r) => {
-      // Row 0 is the header (styleId 1), data rows cycle through distinct paper colors
+      // Row 0 is the header (styleId 1), data rows cycle through distinct pastel paper colors
       const styleId =
         r === 0 ? 1 : paperStyleIds[(r - 1) % paperStyleIds.length] ?? 0;
       const cells = row
@@ -208,10 +208,10 @@ export function toXlsx(
     `<fill><patternFill patternType="none"/></fill>` +
     `<fill><patternFill patternType="gray125"/></fill>` +
     `<fill><patternFill patternType="solid"><fgColor rgb="FF1E293B"/></patternFill></fill>` + // 2: Header Dark Slate
-    `<fill><patternFill patternType="solid"><fgColor rgb="FFFFFFFF"/></patternFill></fill>` + // 3: Paper 1 White
-    `<fill><patternFill patternType="solid"><fgColor rgb="FFF0F7FF"/></patternFill></fill>` + // 4: Paper 2 Soft Blue
+    `<fill><patternFill patternType="solid"><fgColor rgb="FFFFF7ED"/></patternFill></fill>` + // 3: Paper 1 Soft Peach
+    `<fill><patternFill patternType="solid"><fgColor rgb="FFF0F7FF"/></patternFill></fill>` + // 4: Paper 2 Soft Sky Blue
     `<fill><patternFill patternType="solid"><fgColor rgb="FFF0FDF4"/></patternFill></fill>` + // 5: Paper 3 Soft Emerald
-    `<fill><patternFill patternType="solid"><fgColor rgb="FFFFFBEB"/></patternFill></fill>` + // 6: Paper 4 Soft Amber
+    `<fill><patternFill patternType="solid"><fgColor rgb="FFFFFBEB"/></patternFill></fill>` + // 6: Paper 4 Soft Warm Amber
     `<fill><patternFill patternType="solid"><fgColor rgb="FFFAF5FF"/></patternFill></fill>` + // 7: Paper 5 Soft Lavender
     `<fill><patternFill patternType="solid"><fgColor rgb="FFFFF1F2"/></patternFill></fill>` + // 8: Paper 6 Soft Rose
     `<fill><patternFill patternType="solid"><fgColor rgb="FFF0FDFA"/></patternFill></fill>` + // 9: Paper 7 Soft Teal
@@ -230,7 +230,7 @@ export function toXlsx(
     `<xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>` +
     `</cellStyleXfs>` +
     `<cellXfs count="9">` +
-    `<xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` + // 0: White
+    `<xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` + // 0: Soft Peach
     `<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>` + // 1: Header
     `<xf numFmtId="0" fontId="0" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` + // 2: Soft Blue
     `<xf numFmtId="0" fontId="0" fillId="5" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` + // 3: Soft Emerald
