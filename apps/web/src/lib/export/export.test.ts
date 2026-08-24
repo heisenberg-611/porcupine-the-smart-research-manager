@@ -150,6 +150,23 @@ describe("XLSX", () => {
     expect(sheet).toContain(`<t xml:space="preserve">'=1+1</t>`);
   });
 
+  it("applies custom sheet name and top vertical alignment with text wrapping", () => {
+    const dir = unzipDir();
+    const file = join(dir, "evidence.xlsx");
+    writeFileSync(file, toXlsx([["Header"], ["Multi-line description"]], "Data Extraction Form"));
+
+    const workbook = execFileSync("unzip", ["-p", file, "xl/workbook.xml"], {
+      encoding: "utf8",
+    });
+    expect(workbook).toContain(`name="Data Extraction Form"`);
+
+    const styles = execFileSync("unzip", ["-p", file, "xl/styles.xml"], {
+      encoding: "utf8",
+    });
+    expect(styles).toContain(`vertical="top"`);
+    expect(styles).toContain(`wrapText="1"`);
+  });
+
   it("is byte-identical for identical input", () => {
     // A fixed mtime, so a diff of two exports shows a changed review rather
     // than a changed clock.

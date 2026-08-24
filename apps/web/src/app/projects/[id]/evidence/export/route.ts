@@ -199,7 +199,7 @@ export async function GET(
 
   if (format === "xlsx") {
     const sheet: XlsxCell[][] = [header, ...rows.map(cellsFor)];
-    const body = toXlsx(sheet, "Evidence");
+    const body = toXlsx(sheet, protocol.name || "Evidence");
 
     return new Response(new Uint8Array(body), {
       headers: {
