@@ -133,11 +133,13 @@ export default async function Home() {
                       </div>
                     </div>
 
-                    <span
-                      className={`inline-flex items-center rounded-md border px-2 py-0.5 font-mono text-[10px] font-bold ${badgeStyle.bg} ${badgeStyle.text} ${badgeStyle.border}`}
-                    >
-                      {c.badge}
-                    </span>
+                    {c.badge ? (
+                      <span
+                        className={`inline-flex items-center rounded-md border px-2 py-0.5 font-mono text-[10px] font-bold ${badgeStyle.bg} ${badgeStyle.text} ${badgeStyle.border}`}
+                      >
+                        {c.badge}
+                      </span>
+                    ) : null}
                   </div>
 
                   <p className="text-ink-soft text-xs mt-3.5 leading-relaxed italic bg-surface/60 rounded-xl p-3 border border-border/50">

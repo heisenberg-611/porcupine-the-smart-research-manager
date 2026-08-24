@@ -156,11 +156,13 @@ export function ContributorsView({
 
                   {/* Badge & Category Chips */}
                   <div className="mt-4 flex flex-wrap items-center gap-2">
-                    <span
-                      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 font-mono text-xs font-bold ${badgeStyle.bg} ${badgeStyle.text} ${badgeStyle.border}`}
-                    >
-                      {c.badge}
-                    </span>
+                    {c.badge ? (
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 font-mono text-xs font-bold ${badgeStyle.bg} ${badgeStyle.text} ${badgeStyle.border}`}
+                      >
+                        {c.badge}
+                      </span>
+                    ) : null}
 
                     <span
                       className={`rounded-md border px-2 py-0.5 font-mono text-[10px] font-bold uppercase ${catColor}`}
