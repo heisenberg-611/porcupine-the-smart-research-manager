@@ -3,11 +3,11 @@ import { deflateRawSync } from "node:zlib";
 import { neutralise } from "./csv";
 
 /**
- * A styled XLSX writer with colors, zebra striping, frozen headers, and auto column widths.
+ * A styled XLSX writer with distinct paper color palettes, frozen headers, and auto column widths.
  *
  * WHY THIS IS HAND-WRITTEN RATHER THAN A HEAVY DEPENDENCY:
  *
- * Full Excel styling (fills, bold fonts, borders, frozen header row, zebra rows)
+ * Full Excel styling (fills, bold fonts, borders, frozen header row, distinct paper row colors)
  * can be implemented in pure OpenXML with zero external runtime dependencies.
  * Numbers remain typed numeric cells for Excel arithmetic and charting.
  */
@@ -128,11 +128,6 @@ export type XlsxCell = string | number | null;
 
 /**
  * Renders a cell with cell reference `ref`, style index `styleId`, and value.
- *
- * Style indices in `styles.xml`:
- * - 0: Default white cell
- * - 1: Header cell (Bold white text on #1E293B dark slate)
- * - 2: Zebra row cell (#F8FAFC light tint)
  */
 function cellXml(ref: string, value: XlsxCell, styleId: number): string {
   if (value === null || value === "") {
@@ -177,10 +172,14 @@ export function toXlsx(
           .join("")}</cols>`
       : "";
 
+  // Distinct paper color styles (0: white, 2: soft blue, 3: soft emerald, 4: soft amber, 5: soft lavender, 6: soft rose, 7: soft teal, 8: soft slate)
+  const paperStyleIds = [0, 2, 3, 4, 5, 6, 7, 8];
+
   const sheetRows = rows
     .map((row, r) => {
-      // Row 0 is the header (styleId 1), alternating rows use styleId 2 (zebra) or 0 (white)
-      const styleId = r === 0 ? 1 : r % 2 === 1 ? 2 : 0;
+      // Row 0 is the header (styleId 1), data rows cycle through distinct paper colors
+      const styleId =
+        r === 0 ? 1 : paperStyleIds[(r - 1) % paperStyleIds.length] ?? 0;
       const cells = row
         .map((value, c) => cellXml(`${columnRef(c)}${r + 1}`, value, styleId))
         .join("");
@@ -205,11 +204,18 @@ export function toXlsx(
     `<font><sz val="11"/><name val="Segoe UI"/><color rgb="FF0F172A"/></font>` +
     `<font><b/><sz val="11"/><name val="Segoe UI"/><color rgb="FFFFFFFF"/></font>` +
     `</fonts>` +
-    `<fills count="4">` +
+    `<fills count="11">` +
     `<fill><patternFill patternType="none"/></fill>` +
     `<fill><patternFill patternType="gray125"/></fill>` +
     `<fill><patternFill patternType="solid"><fgColor rgb="FF1E293B"/></patternFill></fill>` + // 2: Header Dark Slate
-    `<fill><patternFill patternType="solid"><fgColor rgb="FFF8FAFC"/></patternFill></fill>` + // 3: Zebra Light Tint
+    `<fill><patternFill patternType="solid"><fgColor rgb="FFFFFFFF"/></patternFill></fill>` + // 3: Paper 1 White
+    `<fill><patternFill patternType="solid"><fgColor rgb="FFF0F7FF"/></patternFill></fill>` + // 4: Paper 2 Soft Blue
+    `<fill><patternFill patternType="solid"><fgColor rgb="FFF0FDF4"/></patternFill></fill>` + // 5: Paper 3 Soft Emerald
+    `<fill><patternFill patternType="solid"><fgColor rgb="FFFFFBEB"/></patternFill></fill>` + // 6: Paper 4 Soft Amber
+    `<fill><patternFill patternType="solid"><fgColor rgb="FFFAF5FF"/></patternFill></fill>` + // 7: Paper 5 Soft Lavender
+    `<fill><patternFill patternType="solid"><fgColor rgb="FFFFF1F2"/></patternFill></fill>` + // 8: Paper 6 Soft Rose
+    `<fill><patternFill patternType="solid"><fgColor rgb="FFF0FDFA"/></patternFill></fill>` + // 9: Paper 7 Soft Teal
+    `<fill><patternFill patternType="solid"><fgColor rgb="FFF8FAFC"/></patternFill></fill>` + // 10: Paper 8 Soft Slate
     `</fills>` +
     `<borders count="2">` +
     `<border><left/><right/><top/><bottom/></border>` +
@@ -223,10 +229,16 @@ export function toXlsx(
     `<cellStyleXfs count="1">` +
     `<xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>` +
     `</cellStyleXfs>` +
-    `<cellXfs count="3">` +
-    `<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` + // 0: Normal
+    `<cellXfs count="9">` +
+    `<xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` + // 0: White
     `<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>` + // 1: Header
-    `<xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` + // 2: Zebra
+    `<xf numFmtId="0" fontId="0" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` + // 2: Soft Blue
+    `<xf numFmtId="0" fontId="0" fillId="5" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` + // 3: Soft Emerald
+    `<xf numFmtId="0" fontId="0" fillId="6" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` + // 4: Soft Amber
+    `<xf numFmtId="0" fontId="0" fillId="7" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` + // 5: Soft Lavender
+    `<xf numFmtId="0" fontId="0" fillId="8" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` + // 6: Soft Rose
+    `<xf numFmtId="0" fontId="0" fillId="9" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` + // 7: Soft Teal
+    `<xf numFmtId="0" fontId="0" fillId="10" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` + // 8: Soft Slate
     `</cellXfs>` +
     `</styleSheet>`;
 
