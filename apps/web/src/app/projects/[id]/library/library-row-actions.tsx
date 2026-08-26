@@ -111,60 +111,63 @@ export function LibraryRowActions({
       : "bg-surface border-border text-muted";
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-1.5">
+    <div className="flex flex-col gap-2 items-start">
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* Status Badge */}
         <span
-          className={`inline-flex items-center rounded px-2 py-0.5 font-mono text-[10px] font-bold border ${statusTone}`}
+          className={`inline-flex h-8 items-center rounded-xl px-3 font-mono text-[11px] font-bold border tracking-wider uppercase shadow-2xs ${statusTone}`}
         >
           {currentStatus}
         </span>
-        {isExcluded && currentReason && (
-          <span
-            className="text-muted text-[10px] truncate max-w-[10rem]"
-            title={exclusionReasonLabel(currentReason)}
+
+        {/* Action Button: Exclude or Re-include & Edit Reason */}
+        {isExcluded ? (
+          <div className="inline-flex items-center gap-2">
+            <button
+              type="button"
+              disabled={pending}
+              onClick={handleReInclude}
+              className="focus-visible:ring-accent inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border border-accent/40 bg-accent/15 px-3 text-xs font-semibold text-accent hover:bg-accent hover:text-white dark:bg-accent/25 dark:text-accent-ink dark:hover:bg-accent dark:hover:text-canvas dark:border-accent/50 transition-all duration-150 shadow-xs hover:shadow-sm hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:outline-none cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+              title="Include this paper back into review"
+            >
+              <span aria-hidden="true" className="font-bold text-xs">↩</span>
+              <span>Re-include</span>
+            </button>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={openDialog}
+              className="focus-visible:ring-accent inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border border-border bg-surface px-3 text-xs font-semibold text-ink hover:bg-surface-raised hover:border-accent/50 transition-all duration-150 shadow-xs hover:shadow-sm hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:outline-none cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+              title="Change exclusion reason"
+            >
+              <span aria-hidden="true" className="text-[11px]">✎</span>
+              <span>Edit reason</span>
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={openDialog}
+            className="focus-visible:ring-danger inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border border-rose-500/40 bg-rose-500/15 px-3 text-xs font-semibold text-rose-700 hover:bg-rose-600 hover:text-white hover:border-rose-600 dark:bg-rose-500/25 dark:text-rose-200 dark:hover:bg-rose-600 dark:hover:text-white dark:border-rose-400/40 transition-all duration-150 shadow-xs hover:shadow-sm hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:outline-none cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+            title="Exclude this paper from review"
           >
-            {exclusionReasonLabel(currentReason)}
-          </span>
+            <span aria-hidden="true" className="text-xs font-bold">✕</span>
+            <span>Exclude</span>
+          </button>
         )}
       </div>
 
-      <div className="flex items-center gap-1.5">
-        {isExcluded ? (
-          <>
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={pending}
-              onClick={handleReInclude}
-              className="text-xs px-2.5 py-1 min-h-7 text-accent hover:bg-accent/10 rounded-lg"
-              title="Include this paper back into review"
-            >
-              Re-include
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={pending}
-              onClick={openDialog}
-              className="text-xs px-2.5 py-1 min-h-7 text-muted hover:text-ink hover:bg-surface rounded-lg"
-              title="Change exclusion reason"
-            >
-              Edit reason
-            </Button>
-          </>
-        ) : (
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={pending}
-            onClick={openDialog}
-            className="text-xs px-2.5 py-1 min-h-7 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 rounded-lg font-medium"
-            title="Exclude this paper from review"
-          >
-            Exclude
-          </Button>
-        )}
-      </div>
+      {/* Exclusion Reason Subtitle */}
+      {isExcluded && currentReason && (
+        <div
+          className="flex items-center gap-1.5 text-xs text-muted max-w-[17rem] bg-surface/80 border border-border/70 rounded-lg px-2.5 py-1 shadow-2xs"
+          title={`Exclusion reason: ${exclusionReasonLabel(currentReason)}`}
+        >
+          <span className="font-semibold text-ink-soft shrink-0">Reason:</span>
+          <span className="truncate">{exclusionReasonLabel(currentReason)}</span>
+        </div>
+      )}
 
       {/* Exclusion Reason Modal */}
       <dialog

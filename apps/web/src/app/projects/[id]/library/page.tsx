@@ -166,16 +166,16 @@ export default async function LibraryPage({
             <caption className="sr-only">Papers in this project, newest first</caption>
             <thead className="border-border text-muted text-fine border-b uppercase">
               <tr>
-                <th scope="col" className="px-4 py-3 font-medium">
+                <th scope="col" className="px-5 py-3.5 font-medium">
                   Title
                 </th>
-                <th scope="col" className="px-4 py-3 font-medium">
+                <th scope="col" className="px-4 py-3.5 font-medium text-center w-24">
                   Year
                 </th>
-                <th scope="col" className="px-4 py-3 font-medium">
+                <th scope="col" className="px-4 py-3.5 font-medium text-center w-28">
                   Citations
                 </th>
-                <th scope="col" className="px-4 py-3 font-medium min-w-[13rem]">
+                <th scope="col" className="px-5 py-3.5 font-medium min-w-[18rem]">
                   Status & Actions
                 </th>
               </tr>
@@ -183,63 +183,72 @@ export default async function LibraryPage({
             <tbody className="divide-border divide-y">
               {rows.map((row) => (
                 <tr key={row.id} className="hover:bg-surface/50 group transition-colors">
-                  <td className="px-4 py-4">
+                  <td className="px-5 py-4 align-top">
                     <Link
                       href={`/projects/${id}/read/${row.id}`}
-                      className="text-ink hover:text-accent text-lg font-semibold underline-offset-2 transition-colors hover:underline"
+                      className="text-ink hover:text-accent text-base font-semibold leading-snug underline-offset-2 transition-colors hover:underline line-clamp-2 block"
                     >
                       {row.works?.title ?? "Untitled"}
                     </Link>
-                    <span className="text-muted text-fine mt-0.5 block">
+                    <div className="text-muted text-fine mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                       <Link
                         href={`/projects/${id}/extract/${row.id}`}
-                        className="text-accent hover:text-ink font-medium underline underline-offset-2"
+                        className="text-accent hover:text-ink font-semibold inline-flex items-center gap-0.5 underline underline-offset-2 transition-colors"
                       >
-                        Extract Data
+                        <span>Extract Data</span>
+                        <span className="text-[10px]">→</span>
                       </Link>
-                      {" · "}
-                      {authorLine(row.works?.authors)}
-                      {row.works?.venue && ` · ${row.works.venue}`}
-                    </span>
-                    <SourceLinks
-                      className="mt-1"
-                      title={row.works?.title ?? "this paper"}
-                      work={{
-                        doi: row.works?.doi,
-                        arxivId: row.works?.arxiv_id,
-                        pmid: row.works?.pmid,
-                        oaPdfUrl: row.works?.oa_pdf_url,
-                      }}
-                    />
-                    <Cite
-                      className="mt-1"
-                      work={{
-                        title: row.works?.title ?? "Untitled",
-                        authors: parseAuthors(row.works?.authors),
-                        venue: row.works?.venue,
-                        publishedYear: row.works?.published_year,
-                        doi: row.works?.doi,
-                        arxivId: row.works?.arxiv_id,
-                      }}
-                    />
-                    <AccessHelp
-                      className="mt-1"
-                      route={{
-                        url: shell?.access_help_url ?? null,
-                        label: shell?.access_help_label ?? null,
-                      }}
-                      doi={row.works?.doi}
-                      title={row.works?.title ?? "this paper"}
-                      oaPdfUrl={row.works?.oa_pdf_url}
-                    />
+                      {Boolean(authorLine(row.works?.authors)) && (
+                        <>
+                          <span className="text-muted/50">·</span>
+                          <span>{authorLine(row.works?.authors)}</span>
+                        </>
+                      )}
+                      {Boolean(row.works?.venue) && (
+                        <>
+                          <span className="text-muted/50">·</span>
+                          <span className="italic">{row.works?.venue}</span>
+                        </>
+                      )}
+                    </div>
+                    <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                      <SourceLinks
+                        title={row.works?.title ?? "this paper"}
+                        work={{
+                          doi: row.works?.doi,
+                          arxivId: row.works?.arxiv_id,
+                          pmid: row.works?.pmid,
+                          oaPdfUrl: row.works?.oa_pdf_url,
+                        }}
+                      />
+                      <Cite
+                        work={{
+                          title: row.works?.title ?? "Untitled",
+                          authors: parseAuthors(row.works?.authors),
+                          venue: row.works?.venue,
+                          publishedYear: row.works?.published_year,
+                          doi: row.works?.doi,
+                          arxivId: row.works?.arxiv_id,
+                        }}
+                      />
+                      <AccessHelp
+                        route={{
+                          url: shell?.access_help_url ?? null,
+                          label: shell?.access_help_label ?? null,
+                        }}
+                        doi={row.works?.doi}
+                        title={row.works?.title ?? "this paper"}
+                        oaPdfUrl={row.works?.oa_pdf_url}
+                      />
+                    </div>
                   </td>
-                  <td className="text-muted px-4 py-3 tabular-nums">
+                  <td className="text-muted px-4 py-4 tabular-nums text-center text-ui font-medium align-top">
                     {row.works?.published_year ?? "—"}
                   </td>
-                  <td className="text-muted px-4 py-3 tabular-nums">
+                  <td className="text-muted px-4 py-4 tabular-nums text-center text-ui align-top">
                     {row.works?.cited_by_count ?? 0}
                   </td>
-                  <td className="px-4 py-3 align-top min-w-[13rem]">
+                  <td className="px-5 py-4 align-top min-w-[18rem]">
                     <LibraryRowActions
                       projectId={id}
                       projectWorkId={row.id}
@@ -279,13 +288,20 @@ function FilterChip({
   return (
     <Link
       href={href}
-      aria-current={active ? "page" : undefined}
-      className={`text-ui inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 ${
-        active ? "border-accent text-ink" : "border-border text-muted hover:text-ink"
+      className={`focus-visible:ring-accent inline-flex h-9 items-center gap-2 rounded-xl px-3.5 text-xs font-semibold transition-all focus-visible:ring-2 focus-visible:outline-none ${
+        active
+          ? "bg-accent text-white shadow-xs"
+          : "bg-surface text-muted hover:text-ink hover:bg-surface/80 border border-border/70"
       }`}
     >
-      {label}
-      <span className="text-muted text-fine tabular-nums">{count}</span>
+      <span>{label}</span>
+      <span
+        className={`rounded-full px-2 py-0.5 font-mono text-[10px] font-bold ${
+          active ? "bg-white/20 text-white" : "bg-raised text-muted"
+        }`}
+      >
+        {count}
+      </span>
     </Link>
   );
 }
