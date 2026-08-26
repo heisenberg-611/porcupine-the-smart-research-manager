@@ -42,8 +42,8 @@ export const ALLOWED_TRANSITIONS: Record<ScreenStatus, readonly ScreenStatus[]> 
   INCLUDED: ["READING", "EXCLUDED", "SCREENING"],
   EXCLUDED: ["SCREENING", "IDENTIFIED", "INCLUDED"],
   READING: ["EXTRACTED", "INCLUDED", "EXCLUDED"],
-  EXTRACTED: ["SYNTHESIZED", "READING"],
-  SYNTHESIZED: ["EXTRACTED"],
+  EXTRACTED: ["SYNTHESIZED", "READING", "EXCLUDED"],
+  SYNTHESIZED: ["EXTRACTED", "EXCLUDED"],
 };
 
 export function canTransition(from: ScreenStatus, to: ScreenStatus): boolean {

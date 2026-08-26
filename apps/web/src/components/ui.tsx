@@ -55,8 +55,8 @@ export function Button({
   disabled,
   ...props
 }: ComponentProps<"button"> & {
-  variant?: "primary" | "ghost" | "danger";
-  busy?: boolean;
+  variant?: "primary" | "ghost" | "danger" | "secondary" | undefined;
+  busy?: boolean | undefined;
   busyLabel?: ReactNode;
 }) {
   return (
@@ -64,7 +64,7 @@ export function Button({
       aria-busy={busy || undefined}
       disabled={disabled || busy}
       className={cx(
-        "inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5",
+        "inline-flex min-h-11 items-center justify-center gap-2 px-5",
         "text-ui font-medium transition-all duration-200",
         "focus-visible:ring-accent focus-visible:ring-2 focus-visible:ring-offset-2",
         "focus-visible:ring-offset-canvas focus-visible:outline-none",
@@ -73,12 +73,14 @@ export function Button({
           ? "cursor-wait opacity-90"
           : "disabled:cursor-not-allowed disabled:opacity-40",
         variant === "primary" &&
-          "bg-accent text-accent-ink shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:brightness-110",
+          "bg-accent text-accent-ink rounded-full shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:brightness-110",
         // Ghost is a text button with a hover ground, not an outlined box.
         // Sixteen pages of outlined ghost buttons was most of why every screen
         // read as a form.
-        variant === "ghost" && "text-ink hover:bg-surface",
-        variant === "danger" && "text-danger hover:bg-danger-soft hover:-translate-y-0.5",
+        variant === "ghost" && "text-ink hover:bg-surface rounded-full",
+        variant === "secondary" &&
+          "border-border text-ink hover:bg-surface hover:border-accent/40 border rounded-xl shadow-xs hover:-translate-y-0.5",
+        variant === "danger" && "text-danger hover:bg-danger-soft hover:-translate-y-0.5 rounded-full",
         className,
       )}
       {...props}

@@ -17,9 +17,9 @@ export interface MarkdownViewerDialogProps {
   /** Filename for download */
   filename?: string;
   /** Trigger element or custom button text */
-  triggerLabel?: string;
-  triggerVariant?: "ghost" | "primary" | "danger";
-  triggerClassName?: string;
+  triggerLabel?: string | undefined;
+  triggerVariant?: "ghost" | "primary" | "danger" | "secondary" | undefined;
+  triggerClassName?: string | undefined;
 }
 
 /**

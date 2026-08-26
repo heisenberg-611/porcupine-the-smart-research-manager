@@ -466,18 +466,8 @@ function Meter({ percent }: { percent: number }) {
 }
 
 function PaperRow({ projectId, paper }: { projectId: string; paper: Paper }) {
-  const label =
-    paper.state === "done"
-      ? "View in the evidence table"
-      : paper.state === "draft"
-        ? "Continue"
-        : "Start";
-
-  const href =
-    paper.state === "done"
-      ? `/projects/${projectId}/evidence?q=${encodeURIComponent(paper.title)}`
-      : `/projects/${projectId}/extract/${paper.id}`;
-
+  const extractHref = `/projects/${projectId}/extract/${paper.id}`;
+  const evidenceHref = `/projects/${projectId}/evidence?q=${encodeURIComponent(paper.title)}`;
   const readHref = `/projects/${projectId}/read/${paper.id}`;
 
   return (
@@ -493,18 +483,28 @@ function PaperRow({ projectId, paper }: { projectId: string; paper: Paper }) {
         </Link>
       </div>
 
-      <span className="meta shrink-0">
-        {paper.state === "done"
-          ? "Complete"
-          : paper.state === "draft"
+      <span className="meta shrink-0 flex items-center gap-1.5">
+        <span
+          className={`inline-flex items-center rounded px-2 py-0.5 font-mono text-[10px] font-bold border ${
+            paper.state === "done"
+              ? "bg-accent/15 border-accent/30 text-accent"
+              : paper.state === "draft"
+              ? "bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-300"
+              : "bg-surface border-border text-muted"
+          }`}
+        >
+          {paper.state === "done"
+            ? "Complete"
+            : paper.state === "draft"
             ? "In draft"
             : "Not started"}
+        </span>
         {/* Which protocol this answered. Without it, one paper appearing twice
             in the same person's list looks like a duplicate row rather than
             two different sets of questions. */}
-        {paper.protocol ? ` · ${paper.protocol}` : ""}
+        {paper.protocol ? `· ${paper.protocol}` : ""}
         {paper.passes && paper.passes > 1
-          ? ` · ${paper.passes} extractions of this paper`
+          ? ` · ${paper.passes} extractions`
           : ""}
       </span>
 
@@ -515,11 +515,23 @@ function PaperRow({ projectId, paper }: { projectId: string; paper: Paper }) {
         >
           Read paper
         </Link>
+        {paper.state === "done" && (
+          <Link
+            href={evidenceHref}
+            className="border-border text-muted hover:text-ink hover:bg-surface focus-visible:ring-accent text-ui inline-flex min-h-9 shrink-0 items-center rounded-xl border px-3 font-medium transition-all focus-visible:ring-2 focus-visible:outline-none"
+          >
+            Evidence table
+          </Link>
+        )}
         <Link
-          href={href}
+          href={extractHref}
           className="border-border text-ink hover:bg-surface hover:border-accent/40 focus-visible:ring-accent text-ui inline-flex min-h-9 shrink-0 items-center rounded-xl border px-3.5 font-medium transition-all focus-visible:ring-2 focus-visible:outline-none"
         >
-          {label}
+          {paper.state === "done"
+            ? "Open Extraction"
+            : paper.state === "draft"
+            ? "Continue"
+            : "Start"}
         </Link>
       </div>
     </li>

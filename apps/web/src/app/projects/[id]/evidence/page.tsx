@@ -29,6 +29,45 @@ interface FieldRow {
   order: number;
 }
 
+interface WorkMeta {
+  title: string | null;
+  authors: unknown;
+  venue: string | null;
+  published_year: number | null;
+  doi: string | null;
+  arxiv_id: string | null;
+  pmid: string | null;
+  oa_pdf_url: string | null;
+  screen_status?: string;
+}
+
+function formatAuthors(authors: unknown): string {
+  if (!Array.isArray(authors)) return "";
+  const names = authors
+    .map((a) => {
+      if (typeof a === "string") return a;
+      if (typeof a === "object" && a && "name" in a) return String(a.name);
+      return null;
+    })
+    .filter((n): n is string => !!n);
+  if (names.length === 0) return "";
+  return names.length > 2
+    ? `${names[0]}, ${names[1]} et al.`
+    : names.join(", ");
+}
+
+function fullAuthors(authors: unknown): string {
+  if (!Array.isArray(authors)) return "";
+  return authors
+    .map((a) => {
+      if (typeof a === "string") return a;
+      if (typeof a === "object" && a && "name" in a) return String(a.name);
+      return null;
+    })
+    .filter((n): n is string => !!n)
+    .join(", ");
+}
+
 interface CoverageRow {
   question_id: string;
   question_text: string;
@@ -152,6 +191,34 @@ export default async function EvidencePage({
   // columns. See visibleFields() for why order comes from the protocol.
   const fields = visibleFields(allFields, query);
   const rows = await fetchEvidenceRows(id, protocol.id, query);
+
+  // Fetch full bibliographic metadata for visible evidence papers
+  const projectWorkIds = [...new Set(rows.map((r) => r.project_work_id))];
+  const { data: projectWorksData } = projectWorkIds.length
+    ? await supabase
+        .from("project_works")
+        .select(
+          "id, screen_status, works(title, authors, venue, published_year, doi, arxiv_id, pmid, oa_pdf_url)",
+        )
+        .in("id", projectWorkIds)
+    : { data: [] };
+
+  const worksMap = new Map<string, WorkMeta>(
+    (projectWorksData ?? []).map((pw: any) => [
+      pw.id,
+      {
+        title: pw.works?.title ?? null,
+        authors: pw.works?.authors,
+        venue: pw.works?.venue ?? null,
+        published_year: pw.works?.published_year ?? null,
+        doi: pw.works?.doi ?? null,
+        arxiv_id: pw.works?.arxiv_id ?? null,
+        pmid: pw.works?.pmid ?? null,
+        oa_pdf_url: pw.works?.oa_pdf_url ?? null,
+        screen_status: pw.screen_status,
+      },
+    ]),
+  );
 
   const coverage = (await must(
     supabase
@@ -330,20 +397,35 @@ export default async function EvidencePage({
                 <thead className="border-border text-muted text-fine border-b uppercase">
                   <tr>
                     <SortableHeader
-                      label="Paper"
+                      label="Paper Title"
                       sortKey="title"
                       query={query}
                       projectId={id}
                       sticky
                     />
+                    <th scope="col" className="px-4 py-3 font-medium">
+                      Authors
+                    </th>
                     <SortableHeader
                       label="Year"
                       sortKey="year"
                       query={query}
                       projectId={id}
                     />
+                    <th scope="col" className="px-4 py-3 font-medium">
+                      Venue
+                    </th>
+                    <th scope="col" className="px-4 py-3 font-medium">
+                      DOI
+                    </th>
+                    <th scope="col" className="px-4 py-3 font-medium">
+                      PDF
+                    </th>
+                    <th scope="col" className="px-4 py-3 font-medium">
+                      Status
+                    </th>
                     <SortableHeader
-                      label="Done"
+                      label="Progress"
                       sortKey="answered"
                       query={query}
                       projectId={id}
@@ -364,6 +446,7 @@ export default async function EvidencePage({
                     <Row
                       key={row.extraction_id}
                       row={row}
+                      work={worksMap.get(row.project_work_id)}
                       previous={rows[index - 1]}
                       fields={fields}
                       projectId={id}
@@ -379,7 +462,12 @@ export default async function EvidencePage({
           <ul className="flex flex-col gap-3 md:hidden">
             {rows.map((row) => (
               <li key={row.extraction_id}>
-                <PaperCard row={row} fields={fields} projectId={id} />
+                <PaperCard
+                  row={row}
+                  work={worksMap.get(row.project_work_id)}
+                  fields={fields}
+                  projectId={id}
+                />
               </li>
             ))}
           </ul>
@@ -432,7 +520,7 @@ function SortableHeader({
       className={`px-4 py-3 font-medium ${
         // The title column: wide enough for two lines of a real paper title,
         // capped so one long title cannot push every other column off screen.
-        sticky ? "bg-canvas sticky left-0 max-w-[26rem] min-w-[20rem]" : ""
+        sticky ? "bg-canvas sticky left-0 max-w-[24rem] min-w-[18rem] shadow-[1px_0_0_0_var(--color-border)] z-10" : ""
       }`}
     >
       <Link
@@ -457,14 +545,24 @@ function Row({
   fields,
   projectId,
   grouped,
+  work,
 }: {
   row: EvidenceRow;
   previous: EvidenceRow | undefined;
   fields: FieldRow[];
   projectId: string;
   grouped: boolean;
+  work?: WorkMeta | undefined;
 }) {
   const startsGroup = grouped && (!previous || previous.group_label !== row.group_label);
+  const authorsShort = formatAuthors(work?.authors);
+  const authorsAll = fullAuthors(work?.authors);
+  const year = work?.published_year ?? row.published_year;
+  const doi = work?.doi;
+  const pdfUrl = work?.oa_pdf_url;
+  const status = row.status || work?.screen_status || "SUBMITTED";
+  const progressPercent =
+    row.field_total > 0 ? Math.round((row.answered / row.field_total) * 100) : 0;
 
   return (
     <>
@@ -472,37 +570,119 @@ function Row({
         <tr className="bg-surface">
           <th
             scope="colgroup"
-            colSpan={fields.length + 3}
+            colSpan={fields.length + 8}
             className="text-fine text-muted px-4 py-2 text-left font-medium uppercase"
           >
             {row.group_label ?? "No answer"}
           </th>
         </tr>
       )}
-      <tr data-evidence-item>
-        {/* Sticky without the `sm:` prefix it used to carry. The whole table
-            is `hidden md:block`, so a breakpoint below that could never fire —
-            it read as narrow-screen behaviour that does not exist. */}
-        <td className="bg-canvas sticky left-0 max-w-[26rem] min-w-[20rem] px-4 py-3">
-          <Link
-            href={`/projects/${projectId}/read/${row.project_work_id}`}
-            className="text-ink font-medium underline-offset-2 hover:underline"
-          >
-            {row.work_title}
-          </Link>
+      <tr data-evidence-item className="hover:bg-surface/30 transition-colors">
+        {/* Sticky Paper Title column */}
+        <td className="bg-canvas sticky left-0 max-w-[24rem] min-w-[18rem] px-4 py-3 shadow-[1px_0_0_0_var(--color-border)]">
+          <div className="flex flex-col gap-1">
+            <Link
+              href={`/projects/${projectId}/read/${row.project_work_id}`}
+              className="text-ink font-semibold underline-offset-2 hover:text-accent hover:underline line-clamp-2"
+              title={row.work_title}
+            >
+              {row.work_title}
+            </Link>
+            <div className="flex items-center gap-2 text-fine">
+              <Link
+                href={`/projects/${projectId}/extract/${row.project_work_id}`}
+                className="text-accent hover:text-ink hover:underline font-medium text-xs inline-flex items-center gap-1"
+              >
+                <span>Extract Data</span>
+                <span>→</span>
+              </Link>
+            </div>
+          </div>
         </td>
-        <td className="text-muted px-4 py-3 tabular-nums">{row.published_year ?? "—"}</td>
-        {/* Plain text, and the reason it is not a button is recorded in the
-            BUILD-LOG. A row-detail panel was built for this cell and reverted:
-            putting ANY client component inside a table row made the cells to
-            its right unclickable on a 390px viewport — reproduced with a Radix
-            dialog, with a bare button, in two different columns, with and
-            without min-height and negative margins, and with a single instance
-            rather than fifty. Removing it makes the mobile suite green again.
-            The mechanism is not understood and guessing at it further did not
-            belong on this branch. */}
-        <td className="text-muted px-4 py-3 tabular-nums">
-          {row.answered}/{row.field_total}
+        <td className="text-muted max-w-[13rem] px-4 py-3 text-fine">
+          {authorsShort ? (
+            <span title={authorsAll} className="line-clamp-2">
+              {authorsShort}
+            </span>
+          ) : (
+            "—"
+          )}
+        </td>
+        <td className="text-muted px-4 py-3 tabular-nums text-ui">{year ?? "—"}</td>
+        <td className="text-muted max-w-[12rem] px-4 py-3 text-fine">
+          {work?.venue ? (
+            <span title={work.venue} className="line-clamp-2">
+              {work.venue}
+            </span>
+          ) : (
+            "—"
+          )}
+        </td>
+        <td className="px-4 py-3 text-fine">
+          {doi ? (
+            <a
+              href={`https://doi.org/${doi}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent hover:underline font-mono text-xs inline-flex items-center gap-1 group/doi"
+              title={`Open DOI: https://doi.org/${doi}`}
+            >
+              <span className="truncate max-w-[7.5rem]">{doi}</span>
+              <span className="opacity-70 group-hover/doi:opacity-100">↗</span>
+            </a>
+          ) : (
+            <span className="text-muted">—</span>
+          )}
+        </td>
+        <td className="px-4 py-3 text-fine">
+          {pdfUrl ? (
+            <a
+              href={pdfUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="border-accent/30 bg-accent/10 hover:bg-accent/20 text-accent inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-mono text-xs font-semibold border transition-colors"
+              title="Open Open-Access PDF in new tab"
+            >
+              <span>PDF</span>
+              <span className="text-[10px]">↗</span>
+            </a>
+          ) : (
+            <Link
+              href={`/projects/${projectId}/read/${row.project_work_id}`}
+              className="text-muted hover:text-ink hover:underline text-xs"
+            >
+              Reader
+            </Link>
+          )}
+        </td>
+        <td className="px-4 py-3">
+          <span
+            className={`inline-flex items-center rounded px-2 py-0.5 font-mono text-[10px] font-bold border ${
+              status === "VERIFIED" || status === "RECONCILED"
+                ? "bg-purple-500/15 border-purple-500/30 text-purple-700 dark:text-purple-300"
+                : status === "SUBMITTED"
+                ? "bg-accent/15 border-accent/30 text-accent"
+                : "bg-surface border-border text-muted"
+            }`}
+          >
+            {status}
+          </span>
+        </td>
+        <td className="px-4 py-3 tabular-nums">
+          <div className="flex flex-col gap-1 min-w-[5.5rem]">
+            <div className="flex items-center justify-between text-fine">
+              <span className="text-ink font-medium">
+                {row.answered}/{row.field_total}
+              </span>
+              <span className="text-muted text-[10px]">{progressPercent}%</span>
+            </div>
+            <div className="bg-surface/80 border-border/50 h-1.5 w-full rounded-full border overflow-hidden">
+              <div
+                className="bg-accent h-full rounded-full transition-all"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+          </div>
         </td>
         {fields.map((f) => (
           <Cell
@@ -530,35 +710,107 @@ function PaperCard({
   row,
   fields,
   projectId,
+  work,
 }: {
   row: EvidenceRow;
   fields: FieldRow[];
   projectId: string;
+  work?: WorkMeta | undefined;
 }) {
+  const authorsShort = formatAuthors(work?.authors);
+  const year = work?.published_year ?? row.published_year;
+  const doi = work?.doi;
+  const pdfUrl = work?.oa_pdf_url;
+  const status = row.status || work?.screen_status || "SUBMITTED";
+  const progressPercent =
+    row.field_total > 0 ? Math.round((row.answered / row.field_total) * 100) : 0;
+
   return (
     <article
       data-evidence-item
       aria-label={row.work_title}
-      className="border-rule rounded-[--radius-card] border p-4"
+      className="border-border/70 bg-surface/40 rounded-2xl border p-4 shadow-xs flex flex-col gap-3"
     >
-      <Link
-        href={`/projects/${projectId}/read/${row.project_work_id}`}
-        className="text-ink font-medium underline-offset-2 hover:underline"
-      >
-        {row.work_title}
-      </Link>
-      <p className="meta mt-1">
-        {row.published_year ?? "no year"} ·{" "}
-        {/* Its own element so the count reads as one token — "3/7 answered"
-            as a single text node makes the ratio unmatchable on its own, and
-            it is the thing that says how incomplete the row is. */}
-        <span className="tabular-nums">
-          {row.answered}/{row.field_total}
-        </span>{" "}
-        answered
-      </p>
+      <div className="flex items-start justify-between gap-2">
+        <Link
+          href={`/projects/${projectId}/read/${row.project_work_id}`}
+          className="text-ink hover:text-accent font-semibold underline-offset-2 hover:underline text-base"
+        >
+          {row.work_title}
+        </Link>
+        <span
+          className={`shrink-0 inline-flex items-center rounded px-2 py-0.5 font-mono text-[10px] font-bold border ${
+            status === "VERIFIED" || status === "RECONCILED"
+              ? "bg-purple-500/15 border-purple-500/30 text-purple-700 dark:text-purple-300"
+              : status === "SUBMITTED"
+              ? "bg-accent/15 border-accent/30 text-accent"
+              : "bg-surface border-border text-muted"
+          }`}
+        >
+          {status}
+        </span>
+      </div>
 
-      <dl className="mt-3 flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-fine text-muted">
+        {authorsShort && <span>{authorsShort}</span>}
+        {year && <span>{year}</span>}
+        {work?.venue && <span>{work.venue}</span>}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/40">
+        <Link
+          href={`/projects/${projectId}/extract/${row.project_work_id}`}
+          className="border-border text-ink hover:bg-surface text-fine inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 font-medium transition-all"
+        >
+          <span>Extract Data</span>
+          <span>→</span>
+        </Link>
+        <Link
+          href={`/projects/${projectId}/read/${row.project_work_id}`}
+          className="border-border text-muted hover:text-ink hover:bg-surface text-fine inline-flex items-center rounded-lg border px-2.5 py-1 font-medium transition-all"
+        >
+          Read Paper
+        </Link>
+        {pdfUrl && (
+          <a
+            href={pdfUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="border-accent/30 bg-accent/10 hover:bg-accent/20 text-accent text-fine inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 font-mono font-semibold transition-all"
+          >
+            <span>PDF</span>
+            <span className="text-[10px]">↗</span>
+          </a>
+        )}
+        {doi && (
+          <a
+            href={`https://doi.org/${doi}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-accent hover:underline font-mono text-fine inline-flex items-center gap-0.5"
+          >
+            <span>doi:{doi}</span>
+            <span>↗</span>
+          </a>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-1 pt-1">
+        <div className="flex items-center justify-between text-fine">
+          <span className="text-muted">Protocol Progress</span>
+          <span className="text-ink font-medium">
+            {row.answered}/{row.field_total} answered ({progressPercent}%)
+          </span>
+        </div>
+        <div className="bg-surface/80 border-border/50 h-1.5 w-full rounded-full border overflow-hidden">
+          <div
+            className="bg-accent h-full rounded-full transition-all"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+      </div>
+
+      <dl className="mt-2 flex flex-col gap-2 border-t border-border/40 pt-3">
         {fields.map((field) => {
           const cell = row.cells?.[field.key];
           return (

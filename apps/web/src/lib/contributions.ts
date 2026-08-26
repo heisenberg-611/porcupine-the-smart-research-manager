@@ -57,6 +57,25 @@ export interface MemberContributionStats {
   percentageShare: number;
 }
 
+export interface ContributionPointRule {
+  action: string;
+  points: number;
+  category: ActivityActionType;
+  icon: string;
+  description: string;
+}
+
+export const CONTRIBUTION_POINT_SYSTEM: ContributionPointRule[] = [
+  { action: "Protocol Created", points: 10, category: "PROTOCOL", icon: "🏗️", description: "Created a formal review protocol specification (v1, v2...)" },
+  { action: "Research Question Formulated", points: 5, category: "QUESTION", icon: "❓", description: "Formulated a primary or secondary research objective" },
+  { action: "Paper Extracted", points: 5, category: "EXTRACTION", icon: "📑", description: "Completed and submitted structured extraction for a study" },
+  { action: "Conflict Reconciled", points: 4, category: "RECONCILIATION", icon: "⚖️", description: "Resolved dual-extraction disagreement between reviewers" },
+  { action: "Paper Screened", points: 2, category: "SCREENING", icon: "🔍", description: "Evaluated title/abstract as Include, Exclude, or Maybe with rationale" },
+  { action: "PDF Annotation / Quote Added", points: 2, category: "ANNOTATION", icon: "💬", description: "Highlighted text passage or anchored an evidence comment in PDF" },
+  { action: "Extracted Field Filled", points: 1, category: "EXTRACTION", icon: "📝", description: "Entered specific value for a protocol variable" },
+  { action: "Paper Imported to Library", points: 1, category: "COLLECTION", icon: "📥", description: "Imported via OpenAlex, Crossref, arXiv, Europe PMC or BibTeX/RIS" },
+];
+
 export interface ContributionHeatmapDay {
   date: string; // YYYY-MM-DD
   count: number;
@@ -69,6 +88,8 @@ export interface ContributionHeatmapData {
   currentStreak: number;
   longestStreak: number;
   peakDay: { date: string; count: number } | null;
+  streakStatus: "ACTIVE_TODAY" | "IN_COOLDOWN" | "INACTIVE";
+  cooldownHoursRemaining: number;
 }
 
 export interface ProjectContributionsData {
@@ -576,7 +597,7 @@ export function aggregateProjectContributions(
   // Sort events newest first
   events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-  // ── Build 35-Day Contribution Heatmap ────────────────────────────────────
+  // ── Build 53-Week Yearly Contribution Heatmap ────────────────────────────
   const heatmap = buildContributionHeatmap(events);
 
   const activeContributorsCount = memberStats.filter((m) => m.totalActionsCount > 0).length;
@@ -591,12 +612,12 @@ export function aggregateProjectContributions(
 }
 
 /**
- * Builds daily activity buckets for the specified number of days (default 35 days).
+ * Builds daily activity buckets for the specified number of days (default 371 days / 53 weeks).
  */
 export function buildContributionHeatmap(
   events: ProjectActivityEvent[],
   now = new Date(),
-  daysCount = 35,
+  daysCount = 371,
 ): ContributionHeatmapData {
   const daysMap = new Map<string, number>();
 
@@ -641,25 +662,49 @@ export function buildContributionHeatmap(
     days.push({ date, count, intensity });
   }
 
-  // Calculate current & longest streaks
+  // ── Calculate current & longest streaks with Option 2 Cooldown ───────────
+  // Cooldown rule: If today has 0 actions, but yesterday had actions,
+  // the streak is preserved in cooldown until the end of today (UTC midnight).
   let currentStreak = 0;
+  let streakStatus: "ACTIVE_TODAY" | "IN_COOLDOWN" | "INACTIVE" = "INACTIVE";
+
+  const todayIndex = days.length - 1;
+  const todayDay = days[todayIndex];
+  const yesterdayDay = todayIndex > 0 ? days[todayIndex - 1] : undefined;
+
+  if (todayDay && todayDay.count > 0) {
+    // User active today: streak is extended
+    streakStatus = "ACTIVE_TODAY";
+    currentStreak = 1;
+    for (let i = todayIndex - 1; i >= 0; i--) {
+      const day = days[i];
+      if (day && day.count > 0) {
+        currentStreak++;
+      } else {
+        break;
+      }
+    }
+  } else if (yesterdayDay && yesterdayDay.count > 0) {
+    // In cooldown: active yesterday, today is in progress
+    streakStatus = "IN_COOLDOWN";
+    currentStreak = 1;
+    for (let i = todayIndex - 2; i >= 0; i--) {
+      const day = days[i];
+      if (day && day.count > 0) {
+        currentStreak++;
+      } else {
+        break;
+      }
+    }
+  } else {
+    // Inactive (broken streak)
+    streakStatus = "INACTIVE";
+    currentStreak = 0;
+  }
+
+  // Longest streak across the whole dataset
   let longestStreak = 0;
   let tempStreak = 0;
-
-  for (let i = days.length - 1; i >= 0; i--) {
-    const day = days[i];
-    if (!day) continue;
-    if (day.count > 0) {
-      if (i === days.length - 1 || currentStreak > 0) {
-        currentStreak++;
-      }
-    } else if (i === days.length - 1) {
-      // today has 0, check yesterday
-      continue;
-    } else {
-      break;
-    }
-  }
 
   for (const day of days) {
     if (day.count > 0) {
@@ -670,11 +715,16 @@ export function buildContributionHeatmap(
     }
   }
 
+  // Hours remaining in current UTC day for cooldown timer
+  const cooldownHoursRemaining = Math.max(1, 24 - now.getUTCHours());
+
   return {
     days,
     totalActions,
     currentStreak,
     longestStreak,
     peakDay: peakDay && peakDay.count > 0 ? peakDay : null,
+    streakStatus,
+    cooldownHoursRemaining,
   };
 }

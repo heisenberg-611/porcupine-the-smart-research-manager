@@ -87,7 +87,7 @@ export function ColumnChooser({
     <Popover
       title="Columns"
       trigger={
-        <Button variant="ghost" className="border-border border">
+        <Button variant="secondary">
           Columns{" "}
           <span className="text-muted tabular-nums">
             {draft.length}/{fields.length}

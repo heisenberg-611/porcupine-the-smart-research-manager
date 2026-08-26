@@ -234,7 +234,7 @@ export function EvidenceControls({
           title="Evidence Markdown Preview"
           filename={`evidence-protocol-v${protocols.find((p) => p.id === protocolId)?.version ?? 1}`}
           triggerLabel="Preview Markdown"
-          triggerVariant="ghost"
+          triggerVariant="secondary"
         />
         <ButtonLink href={exportHref("csv")}>Export CSV</ButtonLink>
         <ButtonLink href={exportHref("xlsx")}>Export Excel</ButtonLink>

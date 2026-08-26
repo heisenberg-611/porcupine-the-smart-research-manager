@@ -217,10 +217,26 @@ describe("contributions engine", () => {
 
     const heatmap = buildContributionHeatmap(testEvents, new Date("2026-08-24T12:00:00Z"));
 
-    expect(heatmap.days.length).toBe(35);
+    expect(heatmap.days.length).toBe(371);
     expect(heatmap.totalActions).toBe(2);
     expect(heatmap.currentStreak).toBe(2);
     expect(heatmap.longestStreak).toBe(2);
     expect(heatmap.peakDay?.count).toBe(1);
+    expect(heatmap.streakStatus).toBe("ACTIVE_TODAY");
+
+    // Test Cooldown Period: Active yesterday (Aug 24) but 0 actions on current day (Aug 25)
+    const cooldownHeatmap = buildContributionHeatmap(testEvents, new Date("2026-08-25T10:00:00Z"));
+    expect(cooldownHeatmap.currentStreak).toBe(2);
+    expect(cooldownHeatmap.streakStatus).toBe("IN_COOLDOWN");
+    expect(cooldownHeatmap.cooldownHoursRemaining).toBe(14); // 24 - 10
+
+    // Test Inactive / Broken Streak: No actions on Aug 25 or Aug 26
+    const brokenHeatmap = buildContributionHeatmap(testEvents, new Date("2026-08-26T12:00:00Z"));
+    expect(brokenHeatmap.currentStreak).toBe(0);
+    expect(brokenHeatmap.streakStatus).toBe("INACTIVE");
+
+    const customHeatmap = buildContributionHeatmap(testEvents, new Date("2026-08-24T12:00:00Z"), 35);
+    expect(customHeatmap.days.length).toBe(35);
+    expect(customHeatmap.totalActions).toBe(2);
   });
 });

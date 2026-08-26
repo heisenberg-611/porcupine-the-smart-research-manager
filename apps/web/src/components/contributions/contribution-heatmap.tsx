@@ -34,6 +34,7 @@ interface CalendarDay {
   isToday: boolean;
   isFuture: boolean;
   dayOfWeek: number; // 0=Sun..6=Sat
+  monthShort: string; // "Aug"
   monthYear: string;
   fullDate: string; // "Monday, August 24, 2026"
   shortDate: string; // "Aug 24, 2026"
@@ -41,7 +42,6 @@ interface CalendarDay {
 
 interface CalendarWeek {
   weekIndex: number;
-  monthLabel: string;
   days: CalendarDay[];
 }
 
@@ -57,8 +57,22 @@ export function ContributionHeatmap({
   onNavigateToAudit?: (searchDate?: string) => void;
 }) {
   const [selectedMember, setSelectedMember] = useState<string>("ALL");
-  const [weeksCount, setWeeksCount] = useState<number>(5); // 5 or 10 weeks
+  const [selectedYear, setSelectedYear] = useState<string>("LAST_12_MONTHS");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  // Extract available years from events
+  const availableYears = useMemo(() => {
+    const years = new Set<number>();
+    const currentYear = new Date().getUTCFullYear();
+    years.add(currentYear);
+    for (const event of events) {
+      const year = parseInt(event.timestamp.slice(0, 4), 10);
+      if (!isNaN(year)) {
+        years.add(year);
+      }
+    }
+    return Array.from(years).sort((a, b) => b - a);
+  }, [events]);
 
   // Group events by YYYY-MM-DD (matches event.timestamp.slice(0, 10))
   const eventsByDate = useMemo(() => {
@@ -73,19 +87,33 @@ export function ContributionHeatmap({
     return map;
   }, [events, selectedMember]);
 
-  // Compute heatmap data for streak & peak day stats
+  // Compute heatmap data for streak & peak day stats across the selected yearly view
   const heatmap = useMemo(() => {
-    if (selectedMember === "ALL" && weeksCount === 5 && initialHeatmap) {
-      return initialHeatmap;
+    const filteredEvents =
+      selectedMember === "ALL"
+        ? events
+        : events.filter((e) => e.actorId === selectedMember);
+
+    if (selectedYear === "LAST_12_MONTHS") {
+      if (selectedMember === "ALL" && initialHeatmap) {
+        return initialHeatmap;
+      }
+      return buildContributionHeatmap(filteredEvents, new Date(), 371);
     }
-    const filteredEvents = selectedMember === "ALL"
-      ? events
-      : events.filter((e) => e.actorId === selectedMember);
 
-    return buildContributionHeatmap(filteredEvents, new Date(), weeksCount * 7);
-  }, [events, selectedMember, weeksCount, initialHeatmap]);
+    // Specific calendar year (e.g. 2026, 2025)
+    const yearNum = parseInt(selectedYear, 10);
+    const now = new Date();
+    const isCurrentYear = now.getUTCFullYear() === yearNum;
+    const refDate = isCurrentYear ? now : new Date(Date.UTC(yearNum, 11, 31));
 
-  // Build calendar weeks aligned by UTC Sunday (Row 0) through Saturday (Row 6)
+    const jan1 = new Date(Date.UTC(yearNum, 0, 1));
+    const daysInSpan = Math.ceil((refDate.getTime() - jan1.getTime()) / 86400000) + 1;
+
+    return buildContributionHeatmap(filteredEvents, refDate, Math.max(daysInSpan, 365));
+  }, [events, selectedMember, selectedYear, initialHeatmap]);
+
+  // Build GitHub-style 53 calendar weeks (Sunday=0 through Saturday=6)
   const calendarWeeks = useMemo(() => {
     const now = new Date();
     const utcYear = now.getUTCFullYear();
@@ -93,21 +121,46 @@ export function ContributionHeatmap({
     const utcDate = now.getUTCDate();
     const todayUtcMidnight = new Date(Date.UTC(utcYear, utcMonth, utcDate));
     const todayStr = todayUtcMidnight.toISOString().slice(0, 10);
-    const dayOfWeek = todayUtcMidnight.getUTCDay(); // 0=Sun..6=Sat
-    const startSunday = new Date(todayUtcMidnight.getTime() - ((weeksCount - 1) * 7 + dayOfWeek) * 86400000);
+
+    let startSunday: Date;
+    let maxUtcTime = todayUtcMidnight.getTime();
+
+    if (selectedYear === "LAST_12_MONTHS") {
+      // Trailing 53 weeks ending on the current week's Saturday
+      const dayOfWeek = todayUtcMidnight.getUTCDay(); // 0=Sun..6=Sat
+      const endWeekSunday = new Date(todayUtcMidnight.getTime() - dayOfWeek * 86400000);
+      startSunday = new Date(endWeekSunday.getTime() - 52 * 7 * 86400000);
+    } else {
+      // Specific calendar year
+      const yearNum = parseInt(selectedYear, 10);
+      const jan1 = new Date(Date.UTC(yearNum, 0, 1));
+      const jan1DayOfWeek = jan1.getUTCDay();
+      startSunday = new Date(jan1.getTime() - jan1DayOfWeek * 86400000);
+
+      const endOfYear = new Date(Date.UTC(yearNum, 11, 31, 23, 59, 59));
+      maxUtcTime = Math.min(todayUtcMidnight.getTime(), endOfYear.getTime());
+    }
 
     const weeks: CalendarWeek[] = [];
-    let prevMonth = "";
+    const totalWeeks = 53;
 
-    for (let w = 0; w < weeksCount; w++) {
+    for (let w = 0; w < totalWeeks; w++) {
       const days: CalendarDay[] = [];
 
       for (let d = 0; d < 7; d++) {
         const curDate = new Date(startSunday.getTime() + (w * 7 + d) * 86400000);
         const dateStr = curDate.toISOString().slice(0, 10);
         const isToday = dateStr === todayStr;
-        const isFuture = curDate.getTime() > todayUtcMidnight.getTime();
-        const monthYear = curDate.toLocaleDateString("en-US", { timeZone: "UTC", month: "short", year: "numeric" });
+        const isFuture = curDate.getTime() > maxUtcTime;
+        const monthShort = curDate.toLocaleDateString("en-US", {
+          timeZone: "UTC",
+          month: "short",
+        });
+        const monthYear = curDate.toLocaleDateString("en-US", {
+          timeZone: "UTC",
+          month: "short",
+          year: "numeric",
+        });
         const fullDate = curDate.toLocaleDateString("en-US", {
           timeZone: "UTC",
           weekday: "long",
@@ -127,29 +180,60 @@ export function ContributionHeatmap({
           isToday,
           isFuture,
           dayOfWeek: d,
+          monthShort,
           monthYear,
           fullDate,
           shortDate,
         });
       }
 
-      const firstDay = days[0]!;
-      let monthLabel = "";
+      weeks.push({ weekIndex: w, days });
+    }
+
+    return weeks;
+  }, [selectedYear]);
+
+  // Compute non-colliding month header labels aligned with week columns
+  const monthHeaders = useMemo(() => {
+    const headers: Array<{ weekIndex: number; label: string }> = [];
+    let lastLabeledWeek = -10;
+
+    for (let w = 0; w < calendarWeeks.length; w++) {
+      const week = calendarWeeks[w];
+      if (!week) continue;
+
+      const firstDayOfMonth = week.days.find((d) => d.date.endsWith("-01") && !d.isFuture);
+      const firstDayOfWeek = week.days[0]!;
+
       if (w === 0) {
-        monthLabel = firstDay.monthYear;
-        prevMonth = firstDay.monthYear;
+        // Show month of the first column if next month start is at least 3 weeks away
+        const nextMonthStartWeek = calendarWeeks.findIndex(
+          (cw, idx) => idx > 0 && cw.days.some((d) => d.date.endsWith("-01"))
+        );
+        if (nextMonthStartWeek === -1 || nextMonthStartWeek >= 3) {
+          headers.push({ weekIndex: 0, label: firstDayOfWeek.monthShort });
+          lastLabeledWeek = 0;
+        }
+      } else if (firstDayOfMonth) {
+        // A new month begins in this week column
+        if (w - lastLabeledWeek >= 2 && w <= calendarWeeks.length - 2) {
+          headers.push({ weekIndex: w, label: firstDayOfMonth.monthShort });
+          lastLabeledWeek = w;
+        }
       } else {
-        const newMonthDay = days.find((d) => !d.isFuture && d.monthYear !== prevMonth);
-        if (newMonthDay) {
-          monthLabel = newMonthDay.monthYear;
-          prevMonth = newMonthDay.monthYear;
+        // Month changed across weeks
+        const prevWeek = calendarWeeks[w - 1];
+        if (prevWeek && prevWeek.days[0]?.monthShort !== firstDayOfWeek.monthShort) {
+          if (w - lastLabeledWeek >= 2 && w <= calendarWeeks.length - 2) {
+            headers.push({ weekIndex: w, label: firstDayOfWeek.monthShort });
+            lastLabeledWeek = w;
+          }
         }
       }
-
-      weeks.push({ weekIndex: w, monthLabel, days });
     }
-    return weeks;
-  }, [weeksCount]);
+
+    return headers;
+  }, [calendarWeeks]);
 
   const selectedDayEvents = useMemo(() => {
     if (!selectedDate) return [];
@@ -201,15 +285,15 @@ export function ContributionHeatmap({
               Activity Heatmap & Daily Drilldown
             </h3>
             <span className="bg-accent/15 text-accent rounded-md px-2 py-0.5 font-mono text-[10px] font-bold">
-              Interactive
+              Yearly View
             </span>
           </div>
           <p className="text-muted text-fine mt-0.5">
-            Click any cell to inspect recorded micro-actions for that date.
+            53-week contribution graph. Click any square to inspect recorded micro-actions for that date.
           </p>
         </div>
 
-        {/* Filters: Contributor & Range */}
+        {/* Filters: Contributor & Year Selector */}
         <div className="flex flex-wrap items-center gap-3">
           {members.length > 0 && (
             <div className="flex items-center gap-1.5">
@@ -235,36 +319,39 @@ export function ContributionHeatmap({
             </div>
           )}
 
-          {/* Range Selector */}
+          {/* Year Range Selector */}
           <div className="border-border/70 bg-surface/80 flex items-center rounded-lg border p-0.5">
             <button
               type="button"
               onClick={() => {
-                setWeeksCount(5);
+                setSelectedYear("LAST_12_MONTHS");
                 setSelectedDate(null);
               }}
-              className={`rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-all ${
-                weeksCount === 5
+              className={`rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-all cursor-pointer ${
+                selectedYear === "LAST_12_MONTHS"
                   ? "bg-accent text-white shadow-xs"
                   : "text-muted hover:text-ink"
               }`}
             >
-              5 Weeks (35d)
+              Past 12 Months
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                setWeeksCount(10);
-                setSelectedDate(null);
-              }}
-              className={`rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-all ${
-                weeksCount === 10
-                  ? "bg-accent text-white shadow-xs"
-                  : "text-muted hover:text-ink"
-              }`}
-            >
-              10 Weeks (70d)
-            </button>
+            {availableYears.map((year) => (
+              <button
+                key={year}
+                type="button"
+                onClick={() => {
+                  setSelectedYear(String(year));
+                  setSelectedDate(null);
+                }}
+                className={`rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-all cursor-pointer ${
+                  selectedYear === String(year)
+                    ? "bg-accent text-white shadow-xs"
+                    : "text-muted hover:text-ink"
+                }`}
+              >
+                {year}
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -273,20 +360,44 @@ export function ContributionHeatmap({
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="bg-surface/80 border-border/60 rounded-xl border p-3">
           <span className="text-muted block text-[10px] uppercase font-mono tracking-wider">
-            Total Actions in Range
+            Total Actions ({selectedYear === "LAST_12_MONTHS" ? "Past Year" : selectedYear})
           </span>
           <span className="text-ink text-sm font-bold tabular-nums">
             {heatmap.totalActions} actions
           </span>
         </div>
 
-        <div className="bg-surface/80 border-border/60 rounded-xl border p-3">
-          <span className="text-muted block text-[10px] uppercase font-mono tracking-wider">
-            Current Streak
-          </span>
-          <span className="text-ink text-sm font-bold tabular-nums">
-            🔥 {heatmap.currentStreak} {heatmap.currentStreak === 1 ? "day" : "days"}
-          </span>
+        <div className="bg-surface/80 border-border/60 rounded-xl border p-3 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-muted block text-[10px] uppercase font-mono tracking-wider">
+                Current Streak
+              </span>
+              {heatmap.streakStatus === "IN_COOLDOWN" && (
+                <span className="bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 rounded px-1.5 py-0.2 font-mono text-[9px] font-bold">
+                  ⏳ Cooldown
+                </span>
+              )}
+              {heatmap.streakStatus === "ACTIVE_TODAY" && (
+                <span className="bg-accent/15 border border-accent/25 text-accent rounded px-1.5 py-0.2 font-mono text-[9px] font-bold">
+                  ✅ Active
+                </span>
+              )}
+            </div>
+            <span className="text-ink text-sm font-bold tabular-nums block mt-0.5">
+              🔥 {heatmap.currentStreak} {heatmap.currentStreak === 1 ? "day" : "days"}
+            </span>
+          </div>
+          {heatmap.streakStatus === "IN_COOLDOWN" && (
+            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-mono mt-1 block truncate">
+              ⏳ {heatmap.cooldownHoursRemaining}h left today to extend
+            </span>
+          )}
+          {heatmap.streakStatus === "ACTIVE_TODAY" && (
+            <span className="text-[10px] text-accent font-mono mt-1 block truncate">
+              Extended today!
+            </span>
+          )}
         </div>
 
         <div className="bg-surface/80 border-border/60 rounded-xl border p-3">
@@ -308,41 +419,41 @@ export function ContributionHeatmap({
         </div>
       </div>
 
-      {/* Interactive Punchcard Grid with Month and Weekday Headers */}
+      {/* GitHub-Style 53-Week Heatmap Grid */}
       <div className="mt-6 overflow-x-auto pb-2 scrollbar-thin">
         <div className="min-w-max p-1">
-          {/* Month & Year Headers across columns */}
-          <div className="flex gap-1.5 pl-8 text-[11px] font-mono font-semibold text-muted">
-            {calendarWeeks.map((week) => (
-              <div
-                key={`header-${week.weekIndex}`}
-                className="w-7.5 text-left truncate"
-                title={week.monthLabel || undefined}
+          {/* Month Headers positioned precisely above week columns */}
+          <div className="relative h-5 mb-1 select-none">
+            {monthHeaders.map((header) => (
+              <span
+                key={`${header.label}-${header.weekIndex}`}
+                className="absolute text-[10px] font-mono text-muted/90 font-semibold whitespace-nowrap overflow-visible leading-none"
+                style={{ left: `${36 + header.weekIndex * 15}px` }}
               >
-                {week.monthLabel || ""}
-              </div>
+                {header.label}
+              </span>
             ))}
           </div>
 
           {/* Grid Rows with Weekdays on the left */}
-          <div className="mt-1 flex gap-2">
-            {/* Weekday Row Labels (Aligned 1-to-1 with 7 grid rows) */}
-            <div className="grid grid-rows-7 gap-1.5 text-[10px] font-mono text-muted/70 w-6">
-              <span className="h-7.5 flex items-center justify-end">Sun</span>
-              <span className="h-7.5" />
-              <span className="h-7.5 flex items-center justify-end">Tue</span>
-              <span className="h-7.5" />
-              <span className="h-7.5 flex items-center justify-end">Thu</span>
-              <span className="h-7.5" />
-              <span className="h-7.5 flex items-center justify-end">Sat</span>
+          <div className="flex items-start gap-2">
+            {/* Weekday Row Labels (Aligned with 7 rows of 12px height + 3px gap) */}
+            <div className="grid grid-rows-7 gap-[3px] text-[9px] font-mono text-muted/70 w-7 select-none">
+              <span className="h-3 flex items-center justify-end" />
+              <span className="h-3 flex items-center justify-end leading-none pr-1">Mon</span>
+              <span className="h-3 flex items-center justify-end" />
+              <span className="h-3 flex items-center justify-end leading-none pr-1">Wed</span>
+              <span className="h-3 flex items-center justify-end" />
+              <span className="h-3 flex items-center justify-end leading-none pr-1">Fri</span>
+              <span className="h-3 flex items-center justify-end" />
             </div>
 
-            {/* Week Columns Grid */}
-            <div className="flex gap-1.5">
+            {/* 53 Week Columns Grid */}
+            <div className="flex gap-[3px]">
               {calendarWeeks.map((week) => (
                 <div
                   key={`week-${week.weekIndex}`}
-                  className="grid grid-rows-7 gap-1.5"
+                  className="grid grid-rows-7 gap-[3px]"
                 >
                   {week.days.map((day) => {
                     const dayEvents = eventsByDate.get(day.date) ?? [];
@@ -363,11 +474,17 @@ export function ContributionHeatmap({
                       return (
                         <div
                           key={day.date}
-                          className="h-7.5 w-7.5 rounded-lg border border-border/20 bg-surface/30 opacity-25"
-                          title={`${day.shortDate} (Future)`}
+                          className="h-3 w-3 rounded-[2px] opacity-0 pointer-events-none"
+                          aria-hidden="true"
                         />
                       );
                     }
+
+                    const actionLabel = count === 1 ? "action" : "actions";
+                    const tooltipText =
+                      count === 0
+                        ? `No actions on ${day.shortDate}`
+                        : `${count} ${actionLabel} on ${day.shortDate}`;
 
                     return (
                       <button
@@ -376,16 +493,14 @@ export function ContributionHeatmap({
                         onClick={() => {
                           setSelectedDate(isSelected ? null : day.date);
                         }}
-                        title={`${day.fullDate}${day.isToday ? " (Today)" : ""}: ${count} ${count === 1 ? "action" : "actions"} (click to inspect)`}
-                        aria-label={`${day.fullDate}: ${count} actions`}
-                        className={`relative flex h-7.5 w-7.5 items-center justify-center rounded-lg font-mono text-[10px] font-semibold transition-all duration-150 cursor-pointer ${intensityClass} ${
+                        title={`${tooltipText}${day.isToday ? " (Today)" : ""} (click to inspect)`}
+                        aria-label={`${tooltipText}`}
+                        className={`relative h-3 w-3 rounded-[2px] transition-transform duration-100 cursor-pointer ${intensityClass} ${
                           isSelected
-                            ? "ring-2 ring-accent ring-offset-2 ring-offset-raised scale-110 z-10 font-bold"
-                            : "hover:scale-110"
-                        } ${day.isToday ? "outline-dashed outline-1 outline-accent" : ""}`}
-                      >
-                        {count > 0 ? (count > 99 ? "99+" : count) : ""}
-                      </button>
+                            ? "ring-2 ring-accent ring-offset-1 ring-offset-raised scale-125 z-20"
+                            : "hover:scale-125 hover:z-10"
+                        } ${day.isToday ? "ring-1 ring-accent" : ""}`}
+                      />
                     );
                   })}
                 </div>
@@ -396,17 +511,17 @@ export function ContributionHeatmap({
           {/* Legend & Hint */}
           <div className="mt-4 flex flex-wrap items-center justify-between gap-4 text-xs pt-2">
             <span className="text-muted text-[11px] italic">
-              Tip: Click any colored square (including Today) to inspect detailed actions recorded on that date.
+              Tip: Click any square to inspect detailed actions recorded on that date.
             </span>
 
             <div className="text-muted flex items-center gap-2 font-mono text-[11px]">
               <span>Less</span>
               <div className="flex items-center gap-1">
-                <div className="bg-surface border-border/40 h-3 w-3 rounded border" />
-                <div className="bg-accent/25 border-accent/30 h-3 w-3 rounded border" />
-                <div className="bg-accent/50 border-accent/55 h-3 w-3 rounded border" />
-                <div className="bg-accent/75 border-accent/80 h-3 w-3 rounded border" />
-                <div className="bg-accent border-accent h-3 w-3 rounded border" />
+                <div className="bg-surface border-border/40 h-3 w-3 rounded-[2px] border" />
+                <div className="bg-accent/25 border-accent/30 h-3 w-3 rounded-[2px] border" />
+                <div className="bg-accent/50 border-accent/55 h-3 w-3 rounded-[2px] border" />
+                <div className="bg-accent/75 border-accent/80 h-3 w-3 rounded-[2px] border" />
+                <div className="bg-accent border-accent h-3 w-3 rounded-[2px] border" />
               </div>
               <span>More</span>
             </div>
@@ -452,7 +567,7 @@ export function ContributionHeatmap({
                 <button
                   type="button"
                   onClick={() => onNavigateToAudit(selectedDate)}
-                  className="bg-accent text-white hover:bg-accent/90 focus-visible:ring-accent rounded-lg px-3 py-1.5 font-mono text-xs font-semibold shadow-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                  className="bg-accent text-white hover:bg-accent/90 focus-visible:ring-accent rounded-lg px-3 py-1.5 font-mono text-xs font-semibold shadow-xs transition-colors focus-visible:ring-2 focus-visible:outline-none cursor-pointer"
                 >
                   View in Audit Log →
                 </button>
@@ -460,7 +575,7 @@ export function ContributionHeatmap({
               <button
                 type="button"
                 onClick={() => setSelectedDate(null)}
-                className="border-border bg-surface text-muted hover:text-ink hover:bg-surface-hover rounded-lg border px-3 py-1.5 font-mono text-xs font-semibold transition-colors"
+                className="border-border bg-surface text-muted hover:text-ink hover:bg-surface-hover rounded-lg border px-3 py-1.5 font-mono text-xs font-semibold transition-colors cursor-pointer"
               >
                 ✕ Close
               </button>

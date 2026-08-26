@@ -10,6 +10,8 @@ import { getProject } from "@/lib/project";
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
+import { LibraryRowActions } from "./library-row-actions";
+
 export const metadata: Metadata = { title: "Library" };
 
 const SCREEN_STATUSES = [
@@ -25,6 +27,7 @@ const SCREEN_STATUSES = [
 interface LibraryRow {
   id: string;
   screen_status: string;
+  exclude_reason: string | null;
   read_status: string;
   added_by: string;
   created_at: string;
@@ -77,7 +80,7 @@ export default async function LibraryPage({
 
   const shell = await getProject(id);
   const project = await must(
-    supabase.from("projects").select("id, title").eq("id", id).maybeSingle(),
+    supabase.from("projects").select("id, title, kind").eq("id", id).maybeSingle(),
     "the project",
   );
 
@@ -87,7 +90,7 @@ export default async function LibraryPage({
   let query = supabase
     .from("project_works")
     .select(
-      "id, screen_status, read_status, added_by, created_at, works(title, authors, venue, published_year, doi, arxiv_id, pmid, cited_by_count, oa_pdf_url)",
+      "id, screen_status, exclude_reason, read_status, added_by, created_at, works(title, authors, venue, published_year, doi, arxiv_id, pmid, cited_by_count, oa_pdf_url)",
     )
     .eq("project_id", id)
     .order("created_at", { ascending: false })
@@ -172,8 +175,8 @@ export default async function LibraryPage({
                 <th scope="col" className="px-4 py-3 font-medium">
                   Citations
                 </th>
-                <th scope="col" className="px-4 py-3 font-medium">
-                  Status
+                <th scope="col" className="px-4 py-3 font-medium min-w-[13rem]">
+                  Status & Actions
                 </th>
               </tr>
             </thead>
@@ -190,9 +193,9 @@ export default async function LibraryPage({
                     <span className="text-muted text-fine mt-0.5 block">
                       <Link
                         href={`/projects/${id}/extract/${row.id}`}
-                        className="hover:text-ink underline underline-offset-2"
+                        className="text-accent hover:text-ink font-medium underline underline-offset-2"
                       >
-                        Extract
+                        Extract Data
                       </Link>
                       {" · "}
                       {authorLine(row.works?.authors)}
@@ -236,10 +239,15 @@ export default async function LibraryPage({
                   <td className="text-muted px-4 py-3 tabular-nums">
                     {row.works?.cited_by_count ?? 0}
                   </td>
-                  <td className="px-4 py-3">
-                    <span className="text-muted text-fine font-mono">
-                      {row.screen_status}
-                    </span>
+                  <td className="px-4 py-3 align-top min-w-[13rem]">
+                    <LibraryRowActions
+                      projectId={id}
+                      projectWorkId={row.id}
+                      paperTitle={row.works?.title ?? "Untitled"}
+                      currentStatus={row.screen_status}
+                      currentReason={row.exclude_reason}
+                      isSystematicReview={project.kind === "SYSTEMATIC_REVIEW"}
+                    />
                   </td>
                 </tr>
               ))}

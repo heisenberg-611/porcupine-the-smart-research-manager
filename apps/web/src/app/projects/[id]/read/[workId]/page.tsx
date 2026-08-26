@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
-import { Banner, Card, PageHeader } from "@/components/ui";
+import { Banner, ButtonLink, Card, PageHeader } from "@/components/ui";
 import { AccessHelp } from "@/components/access-route";
 import { getProject } from "@/lib/project";
 import { SourceLinks } from "@/components/source-links";
@@ -272,6 +272,11 @@ export default async function ReadPage({
               oaPdfUrl={work?.oa_pdf_url}
             />
           </>
+        }
+        actions={
+          <ButtonLink href={`/projects/${id}/extract/${workId}`} variant="primary">
+            Extract Data
+          </ButtonLink>
         }
       />
 

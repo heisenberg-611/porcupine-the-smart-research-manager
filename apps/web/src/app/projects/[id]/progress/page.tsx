@@ -337,7 +337,7 @@ export default async function ProgressPage({
                 Member Contributions & Granular Audit Log
               </h2>
               <p className="text-muted text-fine">
-                Deep-dive into every micro-action, member workload breakdown, and 35-day activity heatmaps.
+                Track team workload, weighted provenance contribution points, 24h streak cooldowns, and yearly activity heatmaps.
               </p>
             </div>
 
