@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
+import { ContributorAvatar } from "@/components/contributor-avatar";
 import {
   BADGE_STYLES,
   CATEGORY_COLORS,
@@ -98,13 +99,6 @@ export function ContributorsView({
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {paginatedContributors.map((c, index) => {
-            const initials = c.name
-              .split(" ")
-              .map((n) => n[0])
-              .join("")
-              .slice(0, 2)
-              .toUpperCase();
-
             const badgeStyle = BADGE_STYLES[c.badge] || {
               bg: "bg-accent/15",
               text: "text-accent",
@@ -122,9 +116,7 @@ export function ContributorsView({
                   {/* Top Header: Avatar + Name + Link */}
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="bg-accent/15 text-accent flex h-11 w-11 shrink-0 items-center justify-center rounded-xl font-mono text-sm font-bold shadow-xs">
-                        {initials}
-                      </div>
+                      <ContributorAvatar name={c.name} avatar={c.avatar} size="md" />
 
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">

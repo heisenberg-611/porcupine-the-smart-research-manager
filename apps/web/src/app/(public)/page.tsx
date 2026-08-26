@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { ContributorAvatar } from "@/components/contributor-avatar";
 import { ButtonLink } from "@/components/ui";
 import { getContributors, BADGE_STYLES } from "@/lib/contributors";
 import { getCurrentUser } from "@/lib/supabase/server";
@@ -99,13 +100,6 @@ export default async function Home() {
 
         <div className="mt-8 grid gap-5 sm:grid-cols-2">
           {contributors.map((c, index) => {
-            const initials = c.name
-              .split(" ")
-              .map((n) => n[0])
-              .join("")
-              .slice(0, 2)
-              .toUpperCase();
-
             const badgeStyle = BADGE_STYLES[c.badge] || {
               bg: "bg-accent/15",
               text: "text-accent",
@@ -120,9 +114,7 @@ export default async function Home() {
                 <div>
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-3">
-                      <div className="bg-accent/15 text-accent flex h-9 w-9 shrink-0 items-center justify-center rounded-lg font-mono text-xs font-bold">
-                        {initials}
-                      </div>
+                      <ContributorAvatar name={c.name} avatar={c.avatar} size="sm" />
                       <div>
                         <h4 className="text-ink font-serif font-bold text-sm">
                           {c.name}
