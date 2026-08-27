@@ -5,7 +5,7 @@ import { createSelector, type AnchorSelector } from "@Porcupine/anchoring";
 
 import type { ReaderSection } from "@/lib/reader-document";
 import { fieldTypeLabel, needsOptions } from "@Porcupine/shared";
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import {
   Banner,
@@ -40,23 +40,18 @@ export interface ExistingValue {
 type Answer = { value: unknown; text: string; selector: AnchorSelector | null };
 
 /**
- * The protocol form.
+ * The redesigned extraction protocol workspace.
  *
- * The paper and the questions sit side by side, because the alternative is
- * scrolling between them once per field and this happens once per paper in a
- * corpus of three hundred.
- *
- * Fields that demand a quoted passage cannot be typed into. You select the
- * sentence in the paper and it becomes the answer — which is the difference
- * between a claim and a citation, and the reason the database refuses those
- * values without an anchor rather than accepting them and flagging them
- * later.
+ * Provides a spacious, high-contrast, dual-pane environment for reading papers
+ * and answering extraction questions with clear visual hierarchy, large typography,
+ * question indices, quote provenance, and quick navigation.
  */
 export function ExtractClient({
   projectId,
   projectWorkId,
   extractionId,
   status,
+  protocolName,
   sections,
   fields,
   existing,
@@ -66,11 +61,10 @@ export function ExtractClient({
   projectWorkId: string;
   extractionId: string;
   status: string;
+  protocolName?: string;
   /**
    * The paper, in the pieces it is quoted from: one section per page of the
-   * attached PDF, or a single pageless section for the abstract. Loaded by the
-   * same helper the reader uses, so a quote captured here resolves against
-   * exactly the text somebody following the evidence cell will see.
+   * attached PDF, or a single pageless section for the abstract.
    */
   sections: ReaderSection[];
   fields: ExtractField[];
@@ -97,9 +91,14 @@ export function ExtractClient({
   const [dirty, setDirty] = useState(false);
   const [pending, startTransition] = useTransition();
 
+  // Layout & Filtering state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterMode, setFilterMode] = useState<"all" | "unanswered" | "required" | "answered">("all");
+  const [viewLayout, setViewLayout] = useState<"split" | "wide-questions" | "focus-paper">("split");
+  const [mobileTab, setMobileTab] = useState<"paper" | "questions">("questions");
+
   // Save and Submit share the transition, so the busy label has to know which
-  // of the two was pressed — otherwise submitting makes "Save draft" claim to
-  // be saving. Cleared by `pending` falling, never by hand.
+  // of the two was pressed. Cleared by `pending` falling.
   const [running, setRunning] = useState<null | "save" | "submit">(null);
   const textRef = useRef<HTMLDivElement>(null);
 
@@ -112,7 +111,7 @@ export function ExtractClient({
    * "12 of 20" here and "12/20" there can never disagree. An empty string is
    * a hole: someone typing into a box and deleting it has not answered.
    */
-  const isAnswered = (fieldId: string) => {
+  const isAnswered = useCallback((fieldId: string) => {
     const answer = answers[fieldId];
     if (!answer) return false;
     const { value } = answer;
@@ -120,18 +119,52 @@ export function ExtractClient({
     if (typeof value === "string") return value.trim().length > 0;
     if (Array.isArray(value)) return value.length > 0;
     return true;
-  };
+  }, [answers]);
 
-  const answered = fields.filter((f) => isAnswered(f.id)).length;
+  const answered = useMemo(
+    () => fields.filter((f) => isAnswered(f.id)).length,
+    [fields, isAnswered],
+  );
+
+  const requiredCount = useMemo(
+    () => fields.filter((f) => f.required).length,
+    [fields],
+  );
+
+  const unansweredCount = useMemo(
+    () => fields.length - answered,
+    [fields.length, answered],
+  );
+
+  const progressPercent = useMemo(
+    () => (fields.length > 0 ? Math.round((answered / fields.length) * 100) : 0),
+    [answered, fields.length],
+  );
+
+  const activeCapturingField = useMemo(
+    () => (capturing ? fields.find((f) => f.id === capturing) : null),
+    [capturing, fields],
+  );
+
+  const filteredFields = useMemo(() => {
+    return fields.filter((field) => {
+      const fieldAnswered = isAnswered(field.id);
+      if (filterMode === "answered" && !fieldAnswered) return false;
+      if (filterMode === "unanswered" && fieldAnswered) return false;
+      if (filterMode === "required" && (!field.required || fieldAnswered)) return false;
+
+      if (!searchQuery) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        field.label.toLowerCase().includes(q) ||
+        (field.helpText && field.helpText.toLowerCase().includes(q)) ||
+        field.key.toLowerCase().includes(q)
+      );
+    });
+  }, [fields, filterMode, searchQuery, isAnswered]);
 
   /**
    * Warn before leaving with unsaved answers.
-   *
-   * This form does not autosave, which is a defensible choice — a half-typed
-   * number should not become a recorded answer — but it means a closed tab
-   * loses everything typed since the last save. Twenty fields against a paper
-   * is twenty minutes of reading, and nothing on screen said the work was
-   * only in the browser.
    */
   useEffect(() => {
     if (!dirty) return;
@@ -165,9 +198,7 @@ export function ExtractClient({
 
     /*
      * Which page the quote is from, asked of the DOM where the selection
-     * STARTS. Offsets only mean anything within one page's text, so a
-     * selection dragged across a page break is truncated to the page it began
-     * on — the only reading that produces an anchor that can be resolved.
+     * STARTS. Offsets only mean anything within one page's text.
      */
     const origin =
       range.startContainer.nodeType === Node.ELEMENT_NODE
@@ -207,8 +238,6 @@ export function ExtractClient({
             fieldId: field.id,
             value: answer?.value ?? null,
             valueText: answer?.text ?? null,
-            // Only send a selector that was captured in this session; the
-            // server keeps the stored one otherwise.
             selector:
               answer?.selector && answer.selector.startOff !== undefined
                 ? {
@@ -235,22 +264,6 @@ export function ExtractClient({
     setError(null);
     setNotice(null);
 
-    /*
-     * Work out which required fields are empty, and SHOW them — but do not
-     * refuse here.
-     *
-     * The first version returned early when anything was missing, which felt
-     * obviously right and quietly broke something important: `submitExtraction`
-     * is where that rule actually lives, it is enforced in the server action
-     * rather than by a trigger, and the only thing proving it was the e2e
-     * assertion that a submission with a hole comes back refused. A client
-     * check that short-circuits the request makes the server rule untested
-     * and, eventually, untrue.
-     *
-     * So the server stays the gate and stays the message. What this adds is
-     * the part the server cannot give: EVERY missing field at once, each one a
-     * link to itself, rather than one name at a time on a twenty-field form.
-     */
     setMissing(fields.filter((f) => f.required && !isAnswered(f.id)));
     setRunning("submit");
 
@@ -293,46 +306,263 @@ export function ExtractClient({
   }
 
   return (
-    <div className="flex flex-col gap-4 lg:h-full">
-      <div className="bg-canvas sticky top-[calc(var(--app-header-h)+var(--project-nav-h))] z-30 -mx-6 px-6 pt-8 pb-4 lg:-top-8">
+    <div className="flex flex-col gap-6 lg:h-full">
+      {/* Sticky top chrome with enhanced progress and view controls */}
+      <div className="bg-canvas/95 backdrop-blur-xs sticky top-[calc(var(--app-header-h)+var(--project-nav-h))] z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-6 pb-4 border-b border-border shadow-xs lg:-top-8">
         {pageHeader}
-        <div className="border-rule mt-8 grid gap-8 border-b pb-2 lg:grid-cols-[1fr_1fr]">
-          <h2 className="text-ink text-heading">The paper</h2>
-          <div className="flex flex-wrap items-baseline justify-between gap-x-4">
-            <h2 className="text-ink text-heading">The questions</h2>
-            {/* How far through this paper you are. Twenty fields is long enough
-                that "am I nearly done" is a real question, and the answer was
-                only available by scrolling and counting. */}
-            <p className="text-muted text-fine tabular-nums" aria-live="polite">
-              {answered} of {fields.length} answered
-              {dirty && <span className="text-accent"> · unsaved changes</span>}
-            </p>
+
+        {/* Progress & Quick Control Toolbar */}
+        <div className="mt-6 flex flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span
+                className={`inline-flex items-center rounded-lg px-2.5 py-1 font-mono text-xs font-bold border ${
+                  status === "VERIFIED" || status === "RECONCILED"
+                    ? "bg-purple-500/15 border-purple-500/30 text-purple-700 dark:text-purple-300"
+                    : status === "SUBMITTED"
+                    ? "bg-accent/15 border-accent/30 text-accent"
+                    : "bg-surface border-border text-muted"
+                }`}
+              >
+                {status}
+              </span>
+              {protocolName && (
+                <span className="text-muted text-ui font-medium">
+                  {protocolName}
+                </span>
+              )}
+            </div>
+
+            {/* Answered Counter & Progress Bar */}
+            <div className="flex items-center gap-4 min-w-[16rem]">
+              <div className="flex flex-col gap-1 flex-1">
+                <div className="flex items-center justify-between text-fine">
+                  <p className="text-ink font-semibold tabular-nums" aria-live="polite">
+                    {answered} of {fields.length} answered
+                    {dirty && <span className="text-accent font-medium"> · unsaved changes</span>}
+                  </p>
+                  <span className="text-muted font-mono text-xs">{progressPercent}%</span>
+                </div>
+                <div className="bg-surface/80 border-border/70 h-2 w-full rounded-full border overflow-hidden">
+                  <div
+                    className="bg-accent h-full rounded-full transition-all duration-300"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Desktop View Mode Toggles */}
+            <div className="hidden lg:flex items-center bg-surface/80 border border-border rounded-xl p-0.5 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setViewLayout("split")}
+                className={`px-3 py-1 text-xs font-medium rounded-lg transition-all ${
+                  viewLayout === "split"
+                    ? "bg-raised text-ink shadow-xs font-semibold"
+                    : "text-muted hover:text-ink"
+                }`}
+                title="Split 50/50 view"
+              >
+                Split View
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewLayout("wide-questions")}
+                className={`px-3 py-1 text-xs font-medium rounded-lg transition-all ${
+                  viewLayout === "wide-questions"
+                    ? "bg-raised text-ink shadow-xs font-semibold"
+                    : "text-muted hover:text-ink"
+                }`}
+                title="Spacious questions view"
+              >
+                Questions Focus
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewLayout("focus-paper")}
+                className={`px-3 py-1 text-xs font-medium rounded-lg transition-all ${
+                  viewLayout === "focus-paper"
+                    ? "bg-raised text-ink shadow-xs font-semibold"
+                    : "text-muted hover:text-ink"
+                }`}
+                title="Paper reading focus"
+              >
+                Paper Focus
+              </button>
+            </div>
+          </div>
+
+          {/* Question Filter & Quick Search Controls */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-border/50">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setFilterMode("all")}
+                className={`rounded-lg px-3 py-1 text-xs font-medium transition-all ${
+                  filterMode === "all"
+                    ? "bg-accent text-accent-ink shadow-xs"
+                    : "bg-surface/70 text-muted hover:text-ink border border-border/60"
+                }`}
+              >
+                All Questions ({fields.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterMode("unanswered")}
+                className={`rounded-lg px-3 py-1 text-xs font-medium transition-all ${
+                  filterMode === "unanswered"
+                    ? "bg-accent text-accent-ink shadow-xs"
+                    : "bg-surface/70 text-muted hover:text-ink border border-border/60"
+                }`}
+              >
+                Unanswered ({unansweredCount})
+              </button>
+              {requiredCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setFilterMode("required")}
+                  className={`rounded-lg px-3 py-1 text-xs font-medium transition-all ${
+                    filterMode === "required"
+                      ? "bg-accent text-accent-ink shadow-xs"
+                      : "bg-surface/70 text-muted hover:text-ink border border-border/60"
+                  }`}
+                >
+                  Required Only ({requiredCount})
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setFilterMode("answered")}
+                className={`rounded-lg px-3 py-1 text-xs font-medium transition-all ${
+                  filterMode === "answered"
+                    ? "bg-accent text-accent-ink shadow-xs"
+                    : "bg-surface/70 text-muted hover:text-ink border border-border/60"
+                }`}
+              >
+                Completed ({answered})
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 min-w-[14rem] max-w-xs flex-1">
+              <Input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Find question..."
+                className="h-8 text-xs py-1 px-3"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="text-xs text-muted hover:text-ink font-medium"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Mobile Tab Switcher */}
+          <div className="flex lg:hidden rounded-xl bg-surface border border-border p-1 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setMobileTab("paper")}
+              className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all ${
+                mobileTab === "paper"
+                  ? "bg-raised text-ink shadow-xs font-semibold"
+                  : "text-muted"
+              }`}
+            >
+              The Paper ({sections.length} pages)
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileTab("questions")}
+              className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all ${
+                mobileTab === "questions"
+                  ? "bg-raised text-ink shadow-xs font-semibold"
+                  : "text-muted"
+              }`}
+            >
+              The Questions ({answered}/{fields.length})
+            </button>
           </div>
         </div>
       </div>
 
-      <div className="grid gap-8 lg:min-h-0 lg:flex-1 lg:grid-cols-[1fr_1fr]">
-        <section className="lg:overflow-y-auto lg:pr-2 lg:pb-8">
+      {/* Main Dual-Pane Workspace */}
+      <div
+        className={`grid gap-8 lg:min-h-0 lg:flex-1 ${
+          viewLayout === "wide-questions"
+            ? "lg:grid-cols-[0.8fr_1.4fr]"
+            : viewLayout === "focus-paper"
+            ? "lg:grid-cols-[1.4fr_0.8fr]"
+            : "lg:grid-cols-[1.05fr_1.15fr]"
+        }`}
+      >
+        {/* Left Pane: The Paper Document / Source */}
+        <section
+          className={`space-y-4 lg:overflow-y-auto lg:pr-3 lg:pb-12 ${
+            mobileTab === "questions" ? "hidden lg:block" : "block"
+          }`}
+        >
+          <div className="flex items-center justify-between border-b border-border/70 pb-3">
+            <h2 className="text-ink text-heading font-semibold tracking-tight">The Paper</h2>
+            <span className="text-muted text-fine font-mono">
+              {sections.length > 0 ? `${sections.length} section(s)` : "No document text"}
+            </span>
+          </div>
+
+          {/* Prominent Quote Capturing Alert Banner */}
+          {capturing && (
+            <div
+              role="status"
+              className="sticky top-2 z-20 bg-accent text-accent-ink rounded-2xl p-4 shadow-lg flex items-center justify-between gap-3 animate-pulse"
+            >
+              <div className="flex flex-col gap-0.5">
+                <span className="font-bold text-xs uppercase tracking-wider text-accent-ink/90">
+                  Selecting quote for: {activeCapturingField?.label ?? "Question"}
+                </span>
+                <p className="text-sm font-medium">
+                  Highlight or select any sentence in the paper text below to capture it.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setCapturing(null)}
+                className="shrink-0 text-xs bg-white/20 text-white hover:bg-white/30 border-white/30"
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
+
           {sections.length > 0 ? (
             <div
               ref={textRef}
               onMouseUp={capture}
               onKeyUp={capture}
-              className={
-                capturing ? "ring-accent bg-accent-soft/40 rounded-2xl px-4 py-2 ring-2 transition-all" : ""
-              }
+              className={`border border-border/70 bg-raised/70 rounded-2xl p-6 shadow-2xs transition-all ${
+                capturing ? "ring-4 ring-accent/30 bg-accent/5 border-accent" : ""
+              }`}
             >
               {sections.map((section, index) => (
-                <div key={section.page ?? "abstract"}>
+                <div key={section.page ?? `abstract-${index}`}>
                   {sections.length > 1 && section.page !== null && (
-                    <p className="text-muted text-fine border-rule mt-4 border-t pt-3">
-                      Page {section.page}
-                    </p>
+                    <div className="flex items-center gap-3 my-6">
+                      <span className="bg-surface border border-border/80 text-muted px-3 py-1 rounded-full font-mono text-xs font-semibold">
+                        Page {section.page}
+                      </span>
+                      <div className="h-px flex-1 bg-border/60" />
+                    </div>
                   )}
                   <div
                     data-testid="extract-source"
                     data-section-index={index}
-                    className="prose-body border-rule py-4"
+                    className="prose-body py-2 text-ink text-base leading-relaxed selection:bg-accent/25 selection:text-ink font-serif"
                   >
                     {section.text}
                   </div>
@@ -340,46 +570,43 @@ export function ExtractClient({
               ))}
             </div>
           ) : (
-            <p className="text-muted text-ui mt-3">
-              This record has no abstract and no attached PDF, so there is no text to
-              quote from yet.{" "}
+            <div className="border border-dashed border-border rounded-2xl p-8 text-center bg-raised/40">
+              <p className="text-muted text-ui">
+                This record has no abstract and no attached PDF, so there is no text to
+                quote from yet.
+              </p>
               <Link
                 href={`/projects/${projectId}/read/${projectWorkId}`}
-                className="text-ink underline hover:text-accent font-medium transition-colors"
+                className="text-accent hover:underline font-medium text-sm mt-2 inline-block"
               >
-                Attach the paper from the reader
-              </Link>{" "}
-              and its pages appear here.
-            </p>
-          )}
-
-          {capturing && (
-            <p role="status" className="text-accent text-ui mt-3">
-              Select the sentence in the text above.{" "}
-              <button
-                type="button"
-                onClick={() => setCapturing(null)}
-                className="underline underline-offset-2"
-              >
-                Cancel
-              </button>
-            </p>
+                Attach the paper from the reader &rarr;
+              </Link>
+            </div>
           )}
         </section>
 
-        <section className="space-y-6 lg:overflow-y-auto lg:pr-2 lg:pb-8">
+        {/* Right Pane: Redesigned Protocol Questions Menu */}
+        <section
+          className={`space-y-6 lg:overflow-y-auto lg:pl-1 lg:pr-2 lg:pb-12 ${
+            mobileTab === "paper" ? "hidden lg:block" : "block"
+          }`}
+        >
+          <div className="flex items-center justify-between border-b border-border/70 pb-3">
+            <h2 className="text-ink text-heading font-semibold tracking-tight">The Questions</h2>
+            <span className="text-muted text-fine font-mono">
+              Showing {filteredFields.length} of {fields.length}
+            </span>
+          </div>
+
           {missing.length > 0 && (
             <Banner tone="danger">
-              <p className="font-medium">These required fields are still empty:</p>
-              <ul className="mt-1 list-disc pl-5">
+              <p className="font-semibold text-base">These required fields are still unanswered:</p>
+              <ul className="mt-2 list-disc pl-5 space-y-1">
                 {missing.map((field) => (
                   <li key={field.id}>
-                    {/* A link to the field, not just its name. On a twenty-field
-                      form, naming a field the reader then has to hunt for is
-                      most of the work left undone. */}
                     <a
                       href={`#field-${field.id}`}
-                      className="underline underline-offset-2"
+                      className="underline underline-offset-2 font-medium hover:text-danger-ink transition-colors"
                     >
                       {field.label}
                     </a>
@@ -392,168 +619,250 @@ export function ExtractClient({
           {frozen && (
             <Banner>
               This extraction is submitted and frozen. Reopen it as a draft to change an
-              answer — the change is deliberate, not forbidden.
+              answer.
             </Banner>
           )}
 
+          {/* Questions Cards List */}
           <div className="space-y-6">
-            {fields.map((field) => {
-              const answer = answers[field.id];
-              const quoted = field.requiresAnchor || field.type === "QUOTE";
-
-              return (
-                <div
-                  key={field.id}
-                  id={`field-${field.id}`}
-                  // The field's stable key, so a test — or anything else —
-                  // can address one question on a twenty-question form
-                  // without depending on the surrounding DOM shape.
-                  data-field-key={field.key}
-                  className={`border-border/70 bg-raised/70 rounded-2xl border p-5 shadow-xs scroll-mt-32 ${
-                    missing.some((m) => m.id === field.id)
-                      ? "border-danger ring-1 ring-danger/40"
-                      : ""
-                  }`}
+            {filteredFields.length === 0 ? (
+              <div className="border border-dashed border-border rounded-2xl p-8 text-center bg-raised/40">
+                <p className="text-muted text-ui">No questions match the current filter.</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilterMode("all");
+                    setSearchQuery("");
+                  }}
+                  className="text-accent hover:underline font-medium text-sm mt-2"
                 >
-                  <label
-                    htmlFor={`f-${field.id}`}
-                    className="text-ink text-ui block font-semibold"
+                  Reset filters
+                </button>
+              </div>
+            ) : (
+              filteredFields.map((field) => {
+                const answer = answers[field.id];
+                const quoted = field.requiresAnchor || field.type === "QUOTE";
+                const answeredState = isAnswered(field.id);
+                const fieldIndex = fields.findIndex((f) => f.id === field.id) + 1;
+                const isCapturing = capturing === field.id;
+
+                return (
+                  <div
+                    key={field.id}
+                    id={`field-${field.id}`}
+                    data-field-key={field.key}
+                    className={`border rounded-2xl p-6 shadow-sm transition-all scroll-mt-36 ${
+                      isCapturing
+                        ? "border-accent ring-2 ring-accent/30 bg-accent/5 shadow-md"
+                        : missing.some((m) => m.id === field.id)
+                        ? "border-danger ring-2 ring-danger/30 bg-danger/5"
+                        : "border-border/80 bg-raised/90 hover:border-border hover:shadow-md"
+                    }`}
                   >
-                    {field.label}
-                    {field.required && <span className="text-accent"> · required</span>}
-                  </label>
+                    {/* Header Row: Q# Badge, Type Tag, Required Status */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`font-mono text-xs font-bold px-2.5 py-1 rounded-lg border inline-flex items-center gap-1 shrink-0 ${
+                            answeredState
+                              ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+                              : field.required
+                              ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30"
+                              : "bg-surface border-border text-muted"
+                          }`}
+                        >
+                          <span>Q{fieldIndex}</span>
+                          {answeredState && <span aria-hidden="true">✓</span>}
+                        </span>
 
-                  <p className="meta mt-0.5">
-                    {fieldTypeLabel(field.type)}
-                    {quoted && " · answered by quoting the paper"}
-                  </p>
+                        <span className="bg-surface border border-border/70 text-muted inline-flex items-center rounded-md px-2 py-0.5 font-mono text-[11px] font-medium">
+                          {fieldTypeLabel(field.type)}
+                        </span>
 
-                  {field.helpText && (
-                    <p className="text-muted measure text-fine mt-1 text-pretty">
-                      {field.helpText}
-                    </p>
-                  )}
-
-                  <div className="mt-3">
-                    {quoted ? (
-                      <div className="space-y-2">
-                        {answer?.text ? (
-                          <blockquote className="border-accent bg-surface/80 rounded-r-xl border-l-4 p-3 text-ink text-ui shadow-xs">
-                            {answer.text}
-                          </blockquote>
-                        ) : (
-                          <p className="text-muted text-fine italic">
-                            Nothing quoted yet.
-                          </p>
+                        {field.required && (
+                          <span className="bg-danger/10 border border-danger/30 text-danger inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold">
+                            Required
+                          </span>
                         )}
 
-                        {!frozen && (
-                          <div className="flex gap-2">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              onClick={() => setCapturing(field.id)}
-                              disabled={pending || sections.length === 0}
-                            >
-                              {answer?.text
-                                ? "Quote a different passage"
-                                : "Quote from the paper"}
-                            </Button>
-                            {!answer?.text && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                onClick={() =>
-                                  setAnswer(field.id, {
-                                    value: "Not reported",
-                                    text: "Not reported",
-                                    selector: null,
-                                  })
-                                }
-                                disabled={pending}
-                              >
-                                Mark as Not reported
-                              </Button>
-                            )}
-                            {answer?.text && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                onClick={() =>
-                                  setAnswer(field.id, {
-                                    value: null,
-                                    text: "",
-                                    selector: null,
-                                  })
-                                }
-                                disabled={pending}
-                              >
-                                Clear
-                              </Button>
-                            )}
-                          </div>
+                        {quoted && (
+                          <span className="bg-accent/10 border border-accent/30 text-accent inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold">
+                            Quotes Paper
+                          </span>
                         )}
                       </div>
-                    ) : (
-                      <FieldInput
-                        field={field}
-                        answer={answer}
-                        disabled={frozen || pending}
-                        onChange={(value, text) => setAnswer(field.id, { value, text })}
-                      />
+
+                      {answeredState && (
+                        <span className="text-emerald-600 dark:text-emerald-400 font-medium text-xs flex items-center gap-1 shrink-0">
+                          <span>Answered</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Question Title / Label */}
+                    <label
+                      htmlFor={`f-${field.id}`}
+                      className="text-ink font-bold text-base sm:text-lg leading-snug tracking-tight block cursor-pointer mt-3"
+                    >
+                      {field.label}
+                      {field.required && (
+                        <span className="text-accent ml-1 font-normal text-sm">
+                          · required
+                        </span>
+                      )}
+                    </label>
+
+                    {/* Help Text Callout */}
+                    {field.helpText && (
+                      <div className="mt-3 rounded-xl bg-surface/80 border border-border/60 p-3.5 text-sm text-ink-soft leading-relaxed flex items-start gap-2.5">
+                        <span className="text-muted text-base leading-none select-none" aria-hidden="true">
+                          ℹ️
+                        </span>
+                        <p className="flex-1">{field.helpText}</p>
+                      </div>
                     )}
+
+                    {/* Question Answer Inputs */}
+                    <div className="mt-4">
+                      {quoted ? (
+                        <div className="space-y-3">
+                          {answer?.text ? (
+                            <blockquote className="border-l-4 border-accent bg-surface/90 rounded-2xl p-4 text-ink shadow-2xs border-y border-r border-border/60">
+                              <div className="flex items-center justify-between text-fine text-muted mb-1 font-mono">
+                                <span className="flex items-center gap-1 text-accent font-semibold">
+                                  <span>“ Quoted passage:</span>
+                                </span>
+                                {answer.selector?.page && <span>Page {answer.selector.page}</span>}
+                              </div>
+                              <p className="italic text-ink font-serif text-[15px] leading-relaxed">
+                                {answer.text}
+                              </p>
+                            </blockquote>
+                          ) : (
+                            <div className="border border-dashed border-border/70 bg-surface/40 rounded-xl p-4 text-center">
+                              <p className="text-muted text-sm italic">
+                                Nothing quoted yet. Highlight a passage in the paper on the left.
+                              </p>
+                            </div>
+                          )}
+
+                          {!frozen && (
+                            <div className="flex flex-wrap items-center gap-2 pt-1">
+                              <Button
+                                type="button"
+                                variant={answer?.text ? "secondary" : "primary"}
+                                onClick={() => setCapturing(field.id)}
+                                disabled={pending || sections.length === 0}
+                                className="text-sm font-medium"
+                              >
+                                {answer?.text ? "Quote a different passage" : "Quote from the paper"}
+                              </Button>
+
+                              {!answer?.text && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  onClick={() =>
+                                    setAnswer(field.id, {
+                                      value: "Not reported",
+                                      text: "Not reported",
+                                      selector: null,
+                                    })
+                                  }
+                                  disabled={pending}
+                                  className="text-sm"
+                                >
+                                  Mark as Not reported
+                                </Button>
+                              )}
+
+                              {answer?.text && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  onClick={() =>
+                                    setAnswer(field.id, {
+                                      value: null,
+                                      text: "",
+                                      selector: null,
+                                    })
+                                  }
+                                  disabled={pending}
+                                  className="text-sm text-danger hover:text-danger"
+                                >
+                                  Clear
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <FieldInput
+                          field={field}
+                          answer={answer}
+                          disabled={frozen || pending}
+                          onChange={(value, text) => setAnswer(field.id, { value, text })}
+                        />
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
 
-          {!frozen ? (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                onClick={save}
-                busy={pending && running === "save"}
-                busyLabel="Saving…"
-              >
-                Save draft
-              </Button>
+          {/* Action Buttons & Status */}
+          <div className="border-t border-border/70 pt-6 mt-8 space-y-4">
+            {!frozen ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  onClick={save}
+                  busy={pending && running === "save"}
+                  busyLabel="Saving…"
+                  className="px-6"
+                >
+                  Save draft
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={submit}
+                  disabled={pending}
+                  busy={pending && running === "submit"}
+                  busyLabel="Submitting…"
+                  className="px-6"
+                >
+                  Submit
+                </Button>
+              </div>
+            ) : (
               <Button
                 variant="ghost"
-                onClick={submit}
-                disabled={pending}
-                busy={pending && running === "submit"}
-                busyLabel="Submitting…"
+                busy={pending}
+                busyLabel="Reopening…"
+                onClick={() =>
+                  startTransition(async () => {
+                    const response = await reopenExtraction({
+                      projectId,
+                      projectWorkId,
+                      extractionId,
+                    });
+                    if (!response.ok) setError(response.error);
+                  })
+                }
               >
-                Submit
+                Reopen as a draft
               </Button>
-            </div>
-          ) : (
-            <Button
-              variant="ghost"
-              busy={pending}
-              busyLabel="Reopening…"
-              onClick={() =>
-                startTransition(async () => {
-                  const response = await reopenExtraction({
-                    projectId,
-                    projectWorkId,
-                    extractionId,
-                  });
-                  if (!response.ok) setError(response.error);
-                })
-              }
-            >
-              Reopen as a draft
-            </Button>
-          )}
-
-          <div aria-live="polite">
-            {notice && <p className="text-muted text-ui">{notice}</p>}
-            {error && (
-              <p role="alert" className="text-danger text-ui">
-                {error}
-              </p>
             )}
+
+            <div aria-live="polite">
+              {notice && <p className="text-muted text-ui font-medium">{notice}</p>}
+              {error && (
+                <p role="alert" className="text-danger text-ui font-medium">
+                  {error}
+                </p>
+              )}
+            </div>
           </div>
         </section>
       </div>
@@ -692,7 +1001,7 @@ function FormattedTextareaField({
 
   if (disabled) {
     return (
-      <div className="border-border/70 bg-surface/60 rounded-2xl border p-4 text-ink text-ui shadow-xs">
+      <div className="border-border/70 bg-surface/60 rounded-2xl border p-4 text-ink text-base shadow-xs">
         {value.trim() ? (
           <FormattedText text={value} />
         ) : (
@@ -875,10 +1184,10 @@ function FormattedTextareaField({
             )
           }
           placeholder="Type markdown or format using toolbar above..."
-          className="border-0 bg-transparent text-ink text-ui w-full rounded-none px-4 py-3 shadow-none focus:ring-0 focus:outline-none placeholder:text-muted/60"
+          className="border-0 bg-transparent text-ink text-base w-full rounded-none px-4 py-3 shadow-none focus:ring-0 focus:outline-none placeholder:text-muted/60 leading-relaxed"
         />
       ) : (
-        <div className="min-h-[7.5rem] p-4 text-ink text-ui">
+        <div className="min-h-[7.5rem] p-4 text-ink text-base leading-relaxed">
           {value.trim() ? (
             <FormattedText text={value} />
           ) : (
@@ -911,7 +1220,7 @@ function FormattedTextField({
 
   if (disabled) {
     return (
-      <div className="border-border/70 bg-surface/60 rounded-xl border px-4 py-2.5 text-ink text-ui shadow-xs">
+      <div className="border-border/70 bg-surface/60 rounded-xl border px-4 py-2.5 text-ink text-base shadow-xs">
         {value.trim() ? (
           <FormattedText text={value} />
         ) : (
@@ -944,7 +1253,7 @@ function FormattedTextField({
               )
             }
             placeholder="Type short text or format with **bold**, *italic*, `code`..."
-            className="border-0 bg-transparent text-ink text-ui min-h-11 w-full rounded-none px-4 shadow-none focus:ring-0 focus:outline-none placeholder:text-muted/60"
+            className="border-0 bg-transparent text-ink text-base min-h-12 w-full rounded-none px-4 shadow-none focus:ring-0 focus:outline-none placeholder:text-muted/60"
           />
 
           <div className="flex shrink-0 items-center gap-1 pr-2">
@@ -1032,7 +1341,7 @@ function FormattedTextField({
       </div>
 
       {showPreview && hasFormatting && (
-        <div className="border-border/60 bg-surface/70 text-ink text-ui rounded-xl border px-3.5 py-2 text-sm shadow-2xs">
+        <div className="border-border/60 bg-surface/70 text-ink text-sm rounded-xl border px-3.5 py-2 shadow-2xs">
           <span className="text-muted text-fine block mb-0.5">Preview:</span>
           <FormattedText text={value} />
         </div>
@@ -1043,10 +1352,6 @@ function FormattedTextField({
 
 /**
  * The right control for the declared type.
- *
- * A number field that accepts text is a column that cannot be averaged, and
- * the evidence table sorts and filters server-side — so the type is not
- * decoration, it is what makes the column usable.
  */
 function FieldInput({
   field,
@@ -1063,7 +1368,7 @@ function FieldInput({
 
   if (field.type === "BOOLEAN") {
     return (
-      <label className="text-ink text-ui flex items-center gap-2">
+      <label className="text-ink text-base font-medium flex items-center gap-3 p-3 bg-surface/40 hover:bg-surface/80 rounded-xl border border-border/50 cursor-pointer transition-colors">
         <Checkbox
           id={id}
           checked={answer?.value === true}
@@ -1071,8 +1376,9 @@ function FieldInput({
           onChange={(e) =>
             onChange(e.target.checked || null, e.target.checked ? "yes" : "")
           }
+          className="size-5"
         />
-        Yes
+        <span>Yes / True</span>
       </label>
     );
   }
@@ -1092,9 +1398,12 @@ function FieldInput({
     if (field.type === "MULTI_ENUM") {
       const chosen = Array.isArray(answer?.value) ? (answer.value as string[]) : [];
       return (
-        <div className="space-y-1">
+        <div className="space-y-2">
           {field.options.map((option) => (
-            <label key={option} className="text-ink text-ui flex items-center gap-2">
+            <label
+              key={option}
+              className="text-ink text-base flex items-center gap-3 p-3 bg-surface/40 hover:bg-surface/80 rounded-xl border border-border/50 cursor-pointer transition-colors"
+            >
               <Checkbox
                 checked={chosen.includes(option)}
                 disabled={disabled}
@@ -1104,8 +1413,9 @@ function FieldInput({
                     : chosen.filter((c) => c !== option);
                   onChange(next.length > 0 ? next : null, next.join(", "));
                 }}
+                className="size-5"
               />
-              {option}
+              <span className="font-medium">{option}</span>
             </label>
           ))}
         </div>
@@ -1118,8 +1428,9 @@ function FieldInput({
         disabled={disabled}
         value={typeof answer?.value === "string" ? answer.value : ""}
         onChange={(e) => onChange(e.target.value || null, e.target.value)}
+        className="min-h-12 text-base px-4"
       >
-        <option value="">Not answered</option>
+        <option value="">Select an option...</option>
         {field.options.map((option) => (
           <option key={option} value={option}>
             {option}
@@ -1158,11 +1469,11 @@ function FieldInput({
       onChange={(e) => {
         const raw = e.target.value;
         if (!raw) return onChange(null, "");
-        // Numbers are stored as numbers so the evidence table can sort and
-        // average them; storing "412" as a string makes the column useless.
         const value = field.type === "NUMBER" ? Number(raw) : raw;
         onChange(Number.isNaN(value as number) ? null : value, raw);
       }}
+      placeholder={`Enter ${field.label.toLowerCase()}...`}
+      className="min-h-12 text-base px-4"
     />
   );
 }

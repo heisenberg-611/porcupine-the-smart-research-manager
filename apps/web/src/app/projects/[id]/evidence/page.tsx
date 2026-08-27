@@ -376,11 +376,11 @@ export default async function EvidencePage({
                 table grow past it when there is not, which is what the
                 horizontal scroll around it already exists to handle.
               */}
-              <table className="text-ui min-w-full text-left">
+              <table className="text-ui min-w-full text-left border-separate border-spacing-0">
                 <caption className="sr-only">
                   Extractions, one row per paper, one column per protocol field
                 </caption>
-                {/* NOT sticky, and that is a correction rather than an omission.
+                {/* NOT sticky vertically, and that is a correction rather than an omission.
                   A sticky header offset by the app header's height was tried
                   here and is wrong inside this container: `TableScroll` sets
                   `overflow-x: auto`, which makes the div a scroll container on
@@ -394,7 +394,7 @@ export default async function EvidencePage({
                   something to stick within. That changes how the whole page
                   scrolls and is too large a change to smuggle in beside a
                   column chooser. Recorded as open in the BUILD-LOG. */}
-                <thead className="border-border text-muted text-fine border-b uppercase">
+                <thead className="border-border text-muted text-fine uppercase">
                   <tr>
                     <SortableHeader
                       label="Paper Title"
@@ -403,7 +403,7 @@ export default async function EvidencePage({
                       projectId={id}
                       sticky
                     />
-                    <th scope="col" className="px-4 py-3 font-medium">
+                    <th scope="col" className="px-4 py-3 font-medium border-b border-border whitespace-nowrap">
                       Authors
                     </th>
                     <SortableHeader
@@ -412,16 +412,16 @@ export default async function EvidencePage({
                       query={query}
                       projectId={id}
                     />
-                    <th scope="col" className="px-4 py-3 font-medium">
+                    <th scope="col" className="px-4 py-3 font-medium border-b border-border whitespace-nowrap">
                       Venue
                     </th>
-                    <th scope="col" className="px-4 py-3 font-medium">
+                    <th scope="col" className="px-4 py-3 font-medium border-b border-border whitespace-nowrap">
                       DOI
                     </th>
-                    <th scope="col" className="px-4 py-3 font-medium">
+                    <th scope="col" className="px-4 py-3 font-medium border-b border-border whitespace-nowrap">
                       PDF
                     </th>
-                    <th scope="col" className="px-4 py-3 font-medium">
+                    <th scope="col" className="px-4 py-3 font-medium border-b border-border whitespace-nowrap">
                       Status
                     </th>
                     <SortableHeader
@@ -441,7 +441,7 @@ export default async function EvidencePage({
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-border divide-y">
+                <tbody>
                   {rows.map((row, index) => (
                     <Row
                       key={row.extraction_id}
@@ -517,15 +517,16 @@ function SortableHeader({
     <th
       scope="col"
       aria-sort={active ? (query.dir === "asc" ? "ascending" : "descending") : "none"}
-      className={`px-4 py-3 font-medium ${
-        // The title column: wide enough for two lines of a real paper title,
-        // capped so one long title cannot push every other column off screen.
-        sticky ? "bg-canvas sticky left-0 max-w-[24rem] min-w-[18rem] shadow-[1px_0_0_0_var(--color-border)] z-10" : ""
+      className={`px-4 py-3 font-medium whitespace-nowrap border-b border-border ${
+        // The title column: fixed on horizontal scroll with clear visual separation
+        sticky
+          ? "bg-canvas sticky left-0 z-30 w-80 min-w-[18rem] max-w-[22rem] border-r border-border shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] dark:shadow-[4px_0_16px_-4px_rgba(0,0,0,0.4)]"
+          : ""
       }`}
     >
       <Link
         href={`/projects/${projectId}/evidence${search}`}
-        className={`inline-flex min-h-11 items-center gap-1 ${active ? "text-ink" : "hover:text-ink"}`}
+        className={`inline-flex min-h-11 items-center gap-1.5 ${active ? "text-ink font-semibold" : "hover:text-ink"}`}
       >
         {label}
         <span aria-hidden="true">{active ? (query.dir === "asc" ? "↑" : "↓") : ""}</span>
@@ -571,19 +572,19 @@ function Row({
           <th
             scope="colgroup"
             colSpan={fields.length + 8}
-            className="text-fine text-muted px-4 py-2 text-left font-medium uppercase"
+            className="text-fine text-muted sticky left-0 z-20 px-4 py-2 text-left font-medium uppercase border-b border-border bg-surface"
           >
             {row.group_label ?? "No answer"}
           </th>
         </tr>
       )}
-      <tr data-evidence-item className="hover:bg-surface/30 transition-colors">
+      <tr data-evidence-item className="group hover:bg-surface/50 transition-colors">
         {/* Sticky Paper Title column */}
-        <td className="bg-canvas sticky left-0 max-w-[24rem] min-w-[18rem] px-4 py-3 shadow-[1px_0_0_0_var(--color-border)]">
+        <td className="bg-canvas group-hover:bg-surface/90 sticky left-0 z-10 w-80 min-w-[18rem] max-w-[22rem] px-4 py-3.5 border-r border-b border-border shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] dark:shadow-[4px_0_16px_-4px_rgba(0,0,0,0.4)] transition-colors">
           <div className="flex flex-col gap-1">
             <Link
               href={`/projects/${projectId}/read/${row.project_work_id}`}
-              className="text-ink font-semibold underline-offset-2 hover:text-accent hover:underline line-clamp-2"
+              className="text-ink font-semibold underline-offset-2 hover:text-accent hover:underline line-clamp-2 leading-snug"
               title={row.work_title}
             >
               {row.work_title}
@@ -599,7 +600,7 @@ function Row({
             </div>
           </div>
         </td>
-        <td className="text-muted max-w-[13rem] px-4 py-3 text-fine">
+        <td className="text-muted max-w-[13rem] px-4 py-3 text-fine border-b border-border">
           {authorsShort ? (
             <span title={authorsAll} className="line-clamp-2">
               {authorsShort}
@@ -608,8 +609,8 @@ function Row({
             "—"
           )}
         </td>
-        <td className="text-muted px-4 py-3 tabular-nums text-ui">{year ?? "—"}</td>
-        <td className="text-muted max-w-[12rem] px-4 py-3 text-fine">
+        <td className="text-muted px-4 py-3 tabular-nums text-ui border-b border-border">{year ?? "—"}</td>
+        <td className="text-muted max-w-[12rem] px-4 py-3 text-fine border-b border-border">
           {work?.venue ? (
             <span title={work.venue} className="line-clamp-2">
               {work.venue}
@@ -618,7 +619,7 @@ function Row({
             "—"
           )}
         </td>
-        <td className="px-4 py-3 text-fine">
+        <td className="px-4 py-3 text-fine border-b border-border">
           {doi ? (
             <a
               href={`https://doi.org/${doi}`}
@@ -634,7 +635,7 @@ function Row({
             <span className="text-muted">—</span>
           )}
         </td>
-        <td className="px-4 py-3 text-fine">
+        <td className="px-4 py-3 text-fine border-b border-border">
           {pdfUrl ? (
             <a
               href={pdfUrl}
@@ -655,7 +656,7 @@ function Row({
             </Link>
           )}
         </td>
-        <td className="px-4 py-3">
+        <td className="px-4 py-3 border-b border-border">
           <span
             className={`inline-flex items-center rounded px-2 py-0.5 font-mono text-[10px] font-bold border ${
               status === "VERIFIED" || status === "RECONCILED"
@@ -668,7 +669,7 @@ function Row({
             {status}
           </span>
         </td>
-        <td className="px-4 py-3 tabular-nums">
+        <td className="px-4 py-3 tabular-nums border-b border-border">
           <div className="flex flex-col gap-1 min-w-[5.5rem]">
             <div className="flex items-center justify-between text-fine">
               <span className="text-ink font-medium">
@@ -869,7 +870,7 @@ function Cell({
 }) {
   if (!cell || !cell.answered) {
     return (
-      <td className="px-4 py-3">
+      <td className="px-4 py-3 border-b border-border">
         <span className="text-muted/60" aria-hidden="true">
           —
         </span>
@@ -903,7 +904,7 @@ function Cell({
    */
   if (cell.anchorId) {
     return (
-      <td className="px-4 py-3">
+      <td className="px-4 py-3 border-b border-border">
         <Link
           href={`/projects/${projectId}/read/${projectWorkId}?anchor=${cell.anchorId}`}
           className="text-ink block max-w-[18rem] truncate underline decoration-dotted underline-offset-4"
@@ -916,7 +917,7 @@ function Cell({
   }
 
   return (
-    <td className="px-4 py-3">
+    <td className="px-4 py-3 border-b border-border">
       <span className="text-ink-soft block max-w-[18rem] truncate">{text}</span>
     </td>
   );
