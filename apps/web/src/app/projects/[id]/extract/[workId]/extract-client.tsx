@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import {
   Banner,
   Button,
+  ButtonLink,
   Checkbox,
   FormattedText,
   Input,
@@ -42,9 +43,9 @@ type Answer = { value: unknown; text: string; selector: AnchorSelector | null };
 /**
  * The redesigned extraction protocol workspace.
  *
- * Provides a spacious, high-contrast, dual-pane environment for reading papers
- * and answering extraction questions with clear visual hierarchy, large typography,
- * question indices, quote provenance, and quick navigation.
+ * Maximizes vertical reading and answering space with a compact control bar,
+ * spacious dual-pane scroll areas, large question typography, question indices,
+ * quote provenance, and quick navigation.
  */
 export function ExtractClient({
   projectId,
@@ -52,24 +53,27 @@ export function ExtractClient({
   extractionId,
   status,
   protocolName,
+  paperMeta,
   sections,
   fields,
   existing,
-  pageHeader,
+  noticeNode,
 }: {
   projectId: string;
   projectWorkId: string;
   extractionId: string;
   status: string;
   protocolName?: string;
-  /**
-   * The paper, in the pieces it is quoted from: one section per page of the
-   * attached PDF, or a single pageless section for the abstract.
-   */
+  paperMeta?: {
+    title: string;
+    venue: string | null;
+    year: number | null;
+    projectTitle: string;
+  };
   sections: ReaderSection[];
   fields: ExtractField[];
   existing: ExistingValue[];
-  pageHeader: React.ReactNode;
+  noticeNode?: React.ReactNode;
 }) {
   const [answers, setAnswers] = useState<Record<string, Answer>>(() => {
     const initial: Record<string, Answer> = {};
@@ -77,7 +81,6 @@ export function ExtractClient({
       initial[value.fieldId] = {
         value: value.value,
         text: value.valueText ?? "",
-        // The stored passage, kept so re-saving does not drop provenance.
         selector: value.quote ? { quote: value.quote } : null,
       };
     }
@@ -96,21 +99,13 @@ export function ExtractClient({
   const [filterMode, setFilterMode] = useState<"all" | "unanswered" | "required" | "answered">("all");
   const [viewLayout, setViewLayout] = useState<"split" | "wide-questions" | "focus-paper">("split");
   const [mobileTab, setMobileTab] = useState<"paper" | "questions">("questions");
+  const [focusMode, setFocusMode] = useState(false);
 
-  // Save and Submit share the transition, so the busy label has to know which
-  // of the two was pressed. Cleared by `pending` falling.
   const [running, setRunning] = useState<null | "save" | "submit">(null);
   const textRef = useRef<HTMLDivElement>(null);
 
   const frozen = status !== "DRAFT";
 
-  /**
-   * What counts as answered.
-   *
-   * Deliberately the same rule the evidence table draws a dash for, so
-   * "12 of 20" here and "12/20" there can never disagree. An empty string is
-   * a hole: someone typing into a box and deleting it has not answered.
-   */
   const isAnswered = useCallback((fieldId: string) => {
     const answer = answers[fieldId];
     if (!answer) return false;
@@ -163,9 +158,6 @@ export function ExtractClient({
     });
   }, [fields, filterMode, searchQuery, isAnswered]);
 
-  /**
-   * Warn before leaving with unsaved answers.
-   */
   useEffect(() => {
     if (!dirty) return;
     const warn = (event: BeforeUnloadEvent) => event.preventDefault();
@@ -186,7 +178,6 @@ export function ExtractClient({
     }));
   }, []);
 
-  /** Capture the current selection into whichever field asked for it. */
   const capture = useCallback(() => {
     if (!capturing || !textRef.current) return;
 
@@ -196,10 +187,6 @@ export function ExtractClient({
     const range = selection.getRangeAt(0);
     if (!textRef.current.contains(range.commonAncestorContainer)) return;
 
-    /*
-     * Which page the quote is from, asked of the DOM where the selection
-     * STARTS. Offsets only mean anything within one page's text.
-     */
     const origin =
       range.startContainer.nodeType === Node.ELEMENT_NODE
         ? (range.startContainer as Element)
@@ -306,111 +293,153 @@ export function ExtractClient({
   }
 
   return (
-    <div className="flex flex-col gap-6 lg:h-full">
-      {/* Sticky top chrome with enhanced progress and view controls */}
-      <div className="bg-canvas/95 backdrop-blur-xs sticky top-[calc(var(--app-header-h)+var(--project-nav-h))] z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-6 pb-4 border-b border-border shadow-xs lg:-top-8">
-        {pageHeader}
+    <div className="flex flex-col gap-3 h-full min-h-0 flex-1">
+      {/* Compact, Space-Optimized Top Header Bar */}
+      <header className="bg-canvas/95 backdrop-blur-xs sticky top-[calc(var(--app-header-h)+var(--project-nav-h))] z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 border-b border-border shadow-xs lg:-top-4">
+        {/* Row 1: Title, Breadcrumb & Primary Actions */}
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <div className="flex flex-wrap items-center gap-2 min-w-0 flex-1">
+            <Link
+              href={`/projects/${projectId}/extract`}
+              className="text-muted hover:text-ink text-xs inline-flex items-center rounded-md px-1.5 py-0.5 hover:bg-surface/80 transition-colors font-medium shrink-0"
+              title="Back to extraction list"
+            >
+              ← {paperMeta?.projectTitle ? `${paperMeta.projectTitle} / ` : ""}Extract
+            </Link>
 
-        {/* Progress & Quick Control Toolbar */}
-        <div className="mt-6 flex flex-col gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <span
-                className={`inline-flex items-center rounded-lg px-2.5 py-1 font-mono text-xs font-bold border ${
-                  status === "VERIFIED" || status === "RECONCILED"
-                    ? "bg-purple-500/15 border-purple-500/30 text-purple-700 dark:text-purple-300"
-                    : status === "SUBMITTED"
-                    ? "bg-accent/15 border-accent/30 text-accent"
-                    : "bg-surface border-border text-muted"
-                }`}
-              >
-                {status}
+            <span className="text-border hidden sm:inline" aria-hidden="true">|</span>
+
+            <h1 className="text-ink font-bold text-base sm:text-lg truncate max-w-xl" title={paperMeta?.title ?? "Untitled"}>
+              {paperMeta?.title ?? "Untitled"}
+            </h1>
+
+            {(paperMeta?.venue || paperMeta?.year) && (
+              <span className="text-muted text-xs hidden md:inline truncate max-w-xs font-mono">
+                {paperMeta?.venue} {paperMeta?.year ? `(${paperMeta.year})` : ""}
               </span>
-              {protocolName && (
-                <span className="text-muted text-ui font-medium">
-                  {protocolName}
-                </span>
-              )}
-            </div>
+            )}
 
-            {/* Answered Counter & Progress Bar */}
-            <div className="flex items-center gap-4 min-w-[16rem]">
-              <div className="flex flex-col gap-1 flex-1">
-                <div className="flex items-center justify-between text-fine">
-                  <p className="text-ink font-semibold tabular-nums" aria-live="polite">
-                    {answered} of {fields.length} answered
-                    {dirty && <span className="text-accent font-medium"> · unsaved changes</span>}
-                  </p>
-                  <span className="text-muted font-mono text-xs">{progressPercent}%</span>
-                </div>
-                <div className="bg-surface/80 border-border/70 h-2 w-full rounded-full border overflow-hidden">
-                  <div
-                    className="bg-accent h-full rounded-full transition-all duration-300"
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
+            <span
+              className={`inline-flex items-center rounded px-2 py-0.5 font-mono text-[10px] font-bold border shrink-0 ${
+                status === "VERIFIED" || status === "RECONCILED"
+                  ? "bg-purple-500/15 border-purple-500/30 text-purple-700 dark:text-purple-300"
+                  : status === "SUBMITTED"
+                  ? "bg-accent/15 border-accent/30 text-accent"
+                  : "bg-surface border-border text-muted"
+              }`}
+            >
+              {status}
+            </span>
+
+            {protocolName && (
+              <span className="text-muted text-xs hidden xl:inline font-mono">
+                · {protocolName}
+              </span>
+            )}
+          </div>
+
+          {/* Quick Header Actions: Reader link, Save & Submit buttons, Maximize toggle */}
+          <div className="flex items-center gap-2 shrink-0">
+            <ButtonLink
+              href={`/projects/${projectId}/read/${projectWorkId}`}
+              variant="ghost"
+              className="text-xs h-8 px-2.5 hidden sm:inline-flex"
+            >
+              Open Reader ↗
+            </ButtonLink>
+
+            {!frozen ? (
+              <>
+                <Button
+                  onClick={save}
+                  busy={pending && running === "save"}
+                  busyLabel="Saving…"
+                  variant="secondary"
+                  className="text-xs h-8 px-3"
+                >
+                  Save draft
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={submit}
+                  disabled={pending}
+                  busy={pending && running === "submit"}
+                  busyLabel="Submitting…"
+                  className="text-xs h-8 px-3.5 font-semibold"
+                >
+                  Submit
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="ghost"
+                busy={pending}
+                busyLabel="Reopening…"
+                onClick={() =>
+                  startTransition(async () => {
+                    const response = await reopenExtraction({
+                      projectId,
+                      projectWorkId,
+                      extractionId,
+                    });
+                    if (!response.ok) setError(response.error);
+                  })
+                }
+                className="text-xs h-8 px-3"
+              >
+                Reopen as draft
+              </Button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setFocusMode((v) => !v)}
+              className={`p-1.5 rounded-lg border text-xs font-medium transition-all ${
+                focusMode
+                  ? "bg-accent text-accent-ink border-accent"
+                  : "bg-surface border-border text-muted hover:text-ink"
+              }`}
+              title={focusMode ? "Exit maximized focus mode" : "Maximize reading vertical space"}
+            >
+              {focusMode ? "Exit Focus" : "⛶ Maximize"}
+            </button>
+          </div>
+        </div>
+
+        {/* Row 2: Streamlined Toolbar (Progress, Question Filters, Search & View Toggles) */}
+        {!focusMode && (
+          <div className="mt-2.5 pt-2 border-t border-border/50 flex flex-wrap items-center justify-between gap-3 text-xs">
+            {/* Progress Counter & Track */}
+            <div className="flex items-center gap-3 min-w-[14rem]">
+              <p className="text-ink font-semibold tabular-nums whitespace-nowrap" aria-live="polite">
+                {answered} of {fields.length} answered ({progressPercent}%)
+                {dirty && <span className="text-accent font-medium"> · unsaved changes</span>}
+              </p>
+              <div className="bg-surface/80 border-border/70 h-1.5 w-24 rounded-full border overflow-hidden shrink-0">
+                <div
+                  className="bg-accent h-full rounded-full transition-all duration-300"
+                  style={{ width: `${progressPercent}%` }}
+                />
               </div>
             </div>
 
-            {/* Desktop View Mode Toggles */}
-            <div className="hidden lg:flex items-center bg-surface/80 border border-border rounded-xl p-0.5 shadow-2xs">
-              <button
-                type="button"
-                onClick={() => setViewLayout("split")}
-                className={`px-3 py-1 text-xs font-medium rounded-lg transition-all ${
-                  viewLayout === "split"
-                    ? "bg-raised text-ink shadow-xs font-semibold"
-                    : "text-muted hover:text-ink"
-                }`}
-                title="Split 50/50 view"
-              >
-                Split View
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewLayout("wide-questions")}
-                className={`px-3 py-1 text-xs font-medium rounded-lg transition-all ${
-                  viewLayout === "wide-questions"
-                    ? "bg-raised text-ink shadow-xs font-semibold"
-                    : "text-muted hover:text-ink"
-                }`}
-                title="Spacious questions view"
-              >
-                Questions Focus
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewLayout("focus-paper")}
-                className={`px-3 py-1 text-xs font-medium rounded-lg transition-all ${
-                  viewLayout === "focus-paper"
-                    ? "bg-raised text-ink shadow-xs font-semibold"
-                    : "text-muted hover:text-ink"
-                }`}
-                title="Paper reading focus"
-              >
-                Paper Focus
-              </button>
-            </div>
-          </div>
-
-          {/* Question Filter & Quick Search Controls */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-border/50">
-            <div className="flex flex-wrap items-center gap-1.5">
+            {/* Question Filter Pills */}
+            <div className="flex flex-wrap items-center gap-1">
               <button
                 type="button"
                 onClick={() => setFilterMode("all")}
-                className={`rounded-lg px-3 py-1 text-xs font-medium transition-all ${
+                className={`rounded-md px-2.5 py-0.5 text-xs font-medium transition-all ${
                   filterMode === "all"
                     ? "bg-accent text-accent-ink shadow-xs"
                     : "bg-surface/70 text-muted hover:text-ink border border-border/60"
                 }`}
               >
-                All Questions ({fields.length})
+                All ({fields.length})
               </button>
               <button
                 type="button"
                 onClick={() => setFilterMode("unanswered")}
-                className={`rounded-lg px-3 py-1 text-xs font-medium transition-all ${
+                className={`rounded-md px-2.5 py-0.5 text-xs font-medium transition-all ${
                   filterMode === "unanswered"
                     ? "bg-accent text-accent-ink shadow-xs"
                     : "bg-surface/70 text-muted hover:text-ink border border-border/60"
@@ -422,79 +451,110 @@ export function ExtractClient({
                 <button
                   type="button"
                   onClick={() => setFilterMode("required")}
-                  className={`rounded-lg px-3 py-1 text-xs font-medium transition-all ${
+                  className={`rounded-md px-2.5 py-0.5 text-xs font-medium transition-all ${
                     filterMode === "required"
                       ? "bg-accent text-accent-ink shadow-xs"
                       : "bg-surface/70 text-muted hover:text-ink border border-border/60"
                   }`}
                 >
-                  Required Only ({requiredCount})
+                  Required ({requiredCount})
                 </button>
               )}
               <button
                 type="button"
                 onClick={() => setFilterMode("answered")}
-                className={`rounded-lg px-3 py-1 text-xs font-medium transition-all ${
+                className={`rounded-md px-2.5 py-0.5 text-xs font-medium transition-all ${
                   filterMode === "answered"
                     ? "bg-accent text-accent-ink shadow-xs"
                     : "bg-surface/70 text-muted hover:text-ink border border-border/60"
                 }`}
               >
-                Completed ({answered})
+                Done ({answered})
               </button>
             </div>
 
-            <div className="flex items-center gap-2 min-w-[14rem] max-w-xs flex-1">
+            {/* Search Input & Desktop Layout Mode Toggles */}
+            <div className="flex items-center gap-2 flex-1 justify-end max-w-sm">
               <Input
                 type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Find question..."
-                className="h-8 text-xs py-1 px-3"
+                placeholder="Filter questions..."
+                className="h-7 text-xs py-0.5 px-2.5 w-36 sm:w-44"
               />
-              {searchQuery && (
+
+              <div className="hidden lg:flex items-center bg-surface/80 border border-border rounded-lg p-0.5 shadow-2xs">
                 <button
                   type="button"
-                  onClick={() => setSearchQuery("")}
-                  className="text-xs text-muted hover:text-ink font-medium"
+                  onClick={() => setViewLayout("split")}
+                  className={`px-2 py-0.5 text-[11px] font-medium rounded transition-all ${
+                    viewLayout === "split"
+                      ? "bg-raised text-ink shadow-xs font-semibold"
+                      : "text-muted hover:text-ink"
+                  }`}
+                  title="50/50 Split View"
                 >
-                  Clear
+                  Split
                 </button>
-              )}
+                <button
+                  type="button"
+                  onClick={() => setViewLayout("wide-questions")}
+                  className={`px-2 py-0.5 text-[11px] font-medium rounded transition-all ${
+                    viewLayout === "wide-questions"
+                      ? "bg-raised text-ink shadow-xs font-semibold"
+                      : "text-muted hover:text-ink"
+                  }`}
+                  title="Spacious Questions Focus"
+                >
+                  Questions Focus
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewLayout("focus-paper")}
+                  className={`px-2 py-0.5 text-[11px] font-medium rounded transition-all ${
+                    viewLayout === "focus-paper"
+                      ? "bg-raised text-ink shadow-xs font-semibold"
+                      : "text-muted hover:text-ink"
+                  }`}
+                  title="Paper Reading Focus"
+                >
+                  Paper Focus
+                </button>
+              </div>
             </div>
           </div>
+        )}
 
-          {/* Mobile Tab Switcher */}
-          <div className="flex lg:hidden rounded-xl bg-surface border border-border p-1 shadow-2xs">
-            <button
-              type="button"
-              onClick={() => setMobileTab("paper")}
-              className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all ${
-                mobileTab === "paper"
-                  ? "bg-raised text-ink shadow-xs font-semibold"
-                  : "text-muted"
-              }`}
-            >
-              The Paper ({sections.length} pages)
-            </button>
-            <button
-              type="button"
-              onClick={() => setMobileTab("questions")}
-              className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all ${
-                mobileTab === "questions"
-                  ? "bg-raised text-ink shadow-xs font-semibold"
-                  : "text-muted"
-              }`}
-            >
-              The Questions ({answered}/{fields.length})
-            </button>
-          </div>
+        {/* Mobile Tab Switcher */}
+        <div className="flex lg:hidden rounded-lg bg-surface border border-border p-0.5 mt-2 shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setMobileTab("paper")}
+            className={`flex-1 py-1.5 text-xs font-medium rounded transition-all ${
+              mobileTab === "paper"
+                ? "bg-raised text-ink shadow-xs font-semibold"
+                : "text-muted"
+            }`}
+          >
+            The Paper ({sections.length}p)
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileTab("questions")}
+            className={`flex-1 py-1.5 text-xs font-medium rounded transition-all ${
+              mobileTab === "questions"
+                ? "bg-raised text-ink shadow-xs font-semibold"
+                : "text-muted"
+            }`}
+          >
+            Questions ({answered}/{fields.length})
+          </button>
         </div>
-      </div>
+      </header>
 
-      {/* Main Dual-Pane Workspace */}
+      {/* Main Dual-Pane Workspace (Fills all available vertical screen space) */}
       <div
-        className={`grid gap-8 lg:min-h-0 lg:flex-1 ${
+        className={`grid gap-6 flex-1 min-h-0 h-full ${
           viewLayout === "wide-questions"
             ? "lg:grid-cols-[0.8fr_1.4fr]"
             : viewLayout === "focus-paper"
@@ -504,14 +564,16 @@ export function ExtractClient({
       >
         {/* Left Pane: The Paper Document / Source */}
         <section
-          className={`space-y-4 lg:overflow-y-auto lg:pr-3 lg:pb-12 ${
-            mobileTab === "questions" ? "hidden lg:block" : "block"
+          className={`flex flex-col h-full min-h-0 border border-border/80 bg-raised/70 rounded-2xl shadow-xs overflow-hidden ${
+            mobileTab === "questions" ? "hidden lg:flex" : "flex"
           }`}
         >
-          <div className="flex items-center justify-between border-b border-border/70 pb-3">
-            <h2 className="text-ink text-heading font-semibold tracking-tight">The Paper</h2>
-            <span className="text-muted text-fine font-mono">
-              {sections.length > 0 ? `${sections.length} section(s)` : "No document text"}
+          <div className="bg-surface/70 border-b border-border/70 px-4 py-2.5 flex items-center justify-between shrink-0">
+            <h2 className="text-ink font-bold text-sm tracking-tight flex items-center gap-2">
+              <span>📄 The Paper</span>
+            </h2>
+            <span className="text-muted text-xs font-mono">
+              {sections.length > 0 ? `${sections.length} section(s)` : "No text"}
             </span>
           </div>
 
@@ -519,13 +581,13 @@ export function ExtractClient({
           {capturing && (
             <div
               role="status"
-              className="sticky top-2 z-20 bg-accent text-accent-ink rounded-2xl p-4 shadow-lg flex items-center justify-between gap-3 animate-pulse"
+              className="bg-accent text-accent-ink px-4 py-2.5 shadow-md flex items-center justify-between gap-3 shrink-0 animate-pulse"
             >
-              <div className="flex flex-col gap-0.5">
-                <span className="font-bold text-xs uppercase tracking-wider text-accent-ink/90">
+              <div className="flex flex-col gap-0.5 text-xs">
+                <span className="font-bold uppercase tracking-wider text-accent-ink/90">
                   Selecting quote for: {activeCapturingField?.label ?? "Question"}
                 </span>
-                <p className="text-sm font-medium">
+                <p className="font-medium">
                   Highlight or select any sentence in the paper text below to capture it.
                 </p>
               </div>
@@ -533,100 +595,107 @@ export function ExtractClient({
                 type="button"
                 variant="secondary"
                 onClick={() => setCapturing(null)}
-                className="shrink-0 text-xs bg-white/20 text-white hover:bg-white/30 border-white/30"
+                className="shrink-0 text-xs py-1 px-2.5 bg-white/20 text-white hover:bg-white/30 border-white/30 h-7"
               >
                 Cancel
               </Button>
             </div>
           )}
 
-          {sections.length > 0 ? (
-            <div
-              ref={textRef}
-              onMouseUp={capture}
-              onKeyUp={capture}
-              className={`border border-border/70 bg-raised/70 rounded-2xl p-6 shadow-2xs transition-all ${
-                capturing ? "ring-4 ring-accent/30 bg-accent/5 border-accent" : ""
-              }`}
-            >
-              {sections.map((section, index) => (
-                <div key={section.page ?? `abstract-${index}`}>
-                  {sections.length > 1 && section.page !== null && (
-                    <div className="flex items-center gap-3 my-6">
-                      <span className="bg-surface border border-border/80 text-muted px-3 py-1 rounded-full font-mono text-xs font-semibold">
-                        Page {section.page}
-                      </span>
-                      <div className="h-px flex-1 bg-border/60" />
-                    </div>
-                  )}
-                  <div
-                    data-testid="extract-source"
-                    data-section-index={index}
-                    className="prose-body py-2 text-ink text-base leading-relaxed selection:bg-accent/25 selection:text-ink font-serif"
-                  >
-                    {section.text}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="border border-dashed border-border rounded-2xl p-8 text-center bg-raised/40">
-              <p className="text-muted text-ui">
-                This record has no abstract and no attached PDF, so there is no text to
-                quote from yet.
-              </p>
-              <Link
-                href={`/projects/${projectId}/read/${projectWorkId}`}
-                className="text-accent hover:underline font-medium text-sm mt-2 inline-block"
+          {/* Scrollable Paper Text Area */}
+          <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4">
+            {sections.length > 0 ? (
+              <div
+                ref={textRef}
+                onMouseUp={capture}
+                onKeyUp={capture}
+                className={`transition-all rounded-xl p-3 ${
+                  capturing ? "ring-2 ring-accent/40 bg-accent/5" : ""
+                }`}
               >
-                Attach the paper from the reader &rarr;
-              </Link>
-            </div>
-          )}
+                {sections.map((section, index) => (
+                  <div key={section.page ?? `abstract-${index}`}>
+                    {sections.length > 1 && section.page !== null && (
+                      <div className="flex items-center gap-3 my-5">
+                        <span className="bg-surface border border-border/80 text-muted px-2.5 py-0.5 rounded-full font-mono text-[11px] font-semibold">
+                          Page {section.page}
+                        </span>
+                        <div className="h-px flex-1 bg-border/60" />
+                      </div>
+                    )}
+                    <div
+                      data-testid="extract-source"
+                      data-section-index={index}
+                      className="prose-body py-1 text-ink text-base leading-relaxed selection:bg-accent/25 selection:text-ink font-serif"
+                    >
+                      {section.text}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="border border-dashed border-border rounded-xl p-8 text-center bg-surface/30">
+                <p className="text-muted text-ui">
+                  This record has no abstract and no attached PDF, so there is no text to
+                  quote from yet.
+                </p>
+                <Link
+                  href={`/projects/${projectId}/read/${projectWorkId}`}
+                  className="text-accent hover:underline font-medium text-sm mt-2 inline-block"
+                >
+                  Attach the paper from the reader &rarr;
+                </Link>
+              </div>
+            )}
+          </div>
         </section>
 
         {/* Right Pane: Redesigned Protocol Questions Menu */}
         <section
-          className={`space-y-6 lg:overflow-y-auto lg:pl-1 lg:pr-2 lg:pb-12 ${
-            mobileTab === "paper" ? "hidden lg:block" : "block"
+          className={`flex flex-col h-full min-h-0 border border-border/80 bg-raised/70 rounded-2xl shadow-xs overflow-hidden ${
+            mobileTab === "paper" ? "hidden lg:flex" : "flex"
           }`}
         >
-          <div className="flex items-center justify-between border-b border-border/70 pb-3">
-            <h2 className="text-ink text-heading font-semibold tracking-tight">The Questions</h2>
-            <span className="text-muted text-fine font-mono">
+          <div className="bg-surface/70 border-b border-border/70 px-4 py-2.5 flex items-center justify-between shrink-0">
+            <h2 className="text-ink font-bold text-sm tracking-tight flex items-center gap-2">
+              <span>📋 The Questions</span>
+            </h2>
+            <span className="text-muted text-xs font-mono">
               Showing {filteredFields.length} of {fields.length}
             </span>
           </div>
 
-          {missing.length > 0 && (
-            <Banner tone="danger">
-              <p className="font-semibold text-base">These required fields are still unanswered:</p>
-              <ul className="mt-2 list-disc pl-5 space-y-1">
-                {missing.map((field) => (
-                  <li key={field.id}>
-                    <a
-                      href={`#field-${field.id}`}
-                      className="underline underline-offset-2 font-medium hover:text-danger-ink transition-colors"
-                    >
-                      {field.label}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </Banner>
-          )}
+          {/* Scrollable Questions List Area */}
+          <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-5">
+            {noticeNode && <div className="space-y-3">{noticeNode}</div>}
 
-          {frozen && (
-            <Banner>
-              This extraction is submitted and frozen. Reopen it as a draft to change an
-              answer.
-            </Banner>
-          )}
+            {missing.length > 0 && (
+              <Banner tone="danger">
+                <p className="font-semibold text-sm">These required fields are still unanswered:</p>
+                <ul className="mt-1.5 list-disc pl-5 space-y-0.5 text-xs">
+                  {missing.map((field) => (
+                    <li key={field.id}>
+                      <a
+                        href={`#field-${field.id}`}
+                        className="underline underline-offset-2 font-medium hover:text-danger-ink transition-colors"
+                      >
+                        {field.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </Banner>
+            )}
 
-          {/* Questions Cards List */}
-          <div className="space-y-6">
+            {frozen && (
+              <Banner>
+                This extraction is submitted and frozen. Reopen it as a draft to change an answer.
+              </Banner>
+            )}
+
+            {/* Questions Cards */}
             {filteredFields.length === 0 ? (
-              <div className="border border-dashed border-border rounded-2xl p-8 text-center bg-raised/40">
+              <div className="border border-dashed border-border rounded-xl p-8 text-center bg-surface/30">
                 <p className="text-muted text-ui">No questions match the current filter.</p>
                 <button
                   type="button"
@@ -652,12 +721,12 @@ export function ExtractClient({
                     key={field.id}
                     id={`field-${field.id}`}
                     data-field-key={field.key}
-                    className={`border rounded-2xl p-6 shadow-sm transition-all scroll-mt-36 ${
+                    className={`border rounded-2xl p-5 shadow-sm transition-all scroll-mt-28 ${
                       isCapturing
                         ? "border-accent ring-2 ring-accent/30 bg-accent/5 shadow-md"
                         : missing.some((m) => m.id === field.id)
                         ? "border-danger ring-2 ring-danger/30 bg-danger/5"
-                        : "border-border/80 bg-raised/90 hover:border-border hover:shadow-md"
+                        : "border-border/80 bg-raised/95 hover:border-border hover:shadow-md"
                     }`}
                   >
                     {/* Header Row: Q# Badge, Type Tag, Required Status */}
@@ -715,7 +784,7 @@ export function ExtractClient({
 
                     {/* Help Text Callout */}
                     {field.helpText && (
-                      <div className="mt-3 rounded-xl bg-surface/80 border border-border/60 p-3.5 text-sm text-ink-soft leading-relaxed flex items-start gap-2.5">
+                      <div className="mt-2.5 rounded-xl bg-surface/80 border border-border/60 p-3 text-sm text-ink-soft leading-relaxed flex items-start gap-2.5">
                         <span className="text-muted text-base leading-none select-none" aria-hidden="true">
                           ℹ️
                         </span>
@@ -810,52 +879,9 @@ export function ExtractClient({
                 );
               })
             )}
-          </div>
 
-          {/* Action Buttons & Status */}
-          <div className="border-t border-border/70 pt-6 mt-8 space-y-4">
-            {!frozen ? (
-              <div className="flex flex-wrap items-center gap-3">
-                <Button
-                  onClick={save}
-                  busy={pending && running === "save"}
-                  busyLabel="Saving…"
-                  className="px-6"
-                >
-                  Save draft
-                </Button>
-                <Button
-                  variant="primary"
-                  onClick={submit}
-                  disabled={pending}
-                  busy={pending && running === "submit"}
-                  busyLabel="Submitting…"
-                  className="px-6"
-                >
-                  Submit
-                </Button>
-              </div>
-            ) : (
-              <Button
-                variant="ghost"
-                busy={pending}
-                busyLabel="Reopening…"
-                onClick={() =>
-                  startTransition(async () => {
-                    const response = await reopenExtraction({
-                      projectId,
-                      projectWorkId,
-                      extractionId,
-                    });
-                    if (!response.ok) setError(response.error);
-                  })
-                }
-              >
-                Reopen as a draft
-              </Button>
-            )}
-
-            <div aria-live="polite">
+            {/* Bottom Status Feedback */}
+            <div aria-live="polite" className="pt-2">
               {notice && <p className="text-muted text-ui font-medium">{notice}</p>}
               {error && (
                 <p role="alert" className="text-danger text-ui font-medium">

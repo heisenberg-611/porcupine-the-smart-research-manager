@@ -235,20 +235,21 @@ export default async function ExtractPage({
   return (
     <main
       id="main"
-      className="mx-auto flex w-full max-w-[100rem] flex-col px-4 sm:px-6 lg:px-8 pb-12 lg:h-[calc(100dvh-var(--app-header-h)-4rem)] lg:pb-0"
+      className="mx-auto flex w-full max-w-[100rem] flex-1 flex-col px-4 sm:px-6 lg:px-8 pb-8 lg:h-[calc(100dvh-var(--app-header-h)-var(--project-nav-h)-3.5rem)] lg:pb-0"
     >
       <ExtractClient
-        pageHeader={
-          <>
-            {header}
-            <OtherProtocolNotice protocols={otherProtocols} />
-          </>
-        }
         projectId={id}
         projectWorkId={workId}
         extractionId={extraction.id}
         status={extraction.status}
         protocolName={`${protocol.name} v${protocol.version}`}
+        paperMeta={{
+          title: work?.title ?? "Untitled",
+          venue: work?.venue ?? null,
+          year: work?.published_year ?? null,
+          projectTitle,
+        }}
+        noticeNode={<OtherProtocolNotice protocols={otherProtocols} />}
         sections={paper.sections}
         fields={fields}
         existing={existing}
