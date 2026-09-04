@@ -101,11 +101,11 @@ export function LibraryRowActions({
 
   const statusTone =
     currentStatus === "EXCLUDED"
-      ? "bg-rose-500/15 border-rose-500/30 text-rose-700 dark:text-rose-300"
+      ? "bg-danger-soft border-danger/30 text-danger"
       : currentStatus === "INCLUDED" ||
         currentStatus === "EXTRACTED" ||
         currentStatus === "SYNTHESIZED"
-      ? "bg-accent/15 border-accent/30 text-accent"
+      ? "bg-accent-soft border-accent/30 text-accent"
       : currentStatus === "READING"
       ? "bg-purple-500/15 border-purple-500/30 text-purple-700 dark:text-purple-300"
       : "bg-surface border-border text-muted";
@@ -127,7 +127,7 @@ export function LibraryRowActions({
               type="button"
               disabled={pending}
               onClick={handleReInclude}
-              className="focus-visible:ring-accent inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border border-accent/40 bg-accent/15 px-3 text-xs font-semibold text-accent hover:bg-accent hover:text-white dark:bg-accent/25 dark:text-accent-ink dark:hover:bg-accent dark:hover:text-canvas dark:border-accent/50 transition-all duration-150 shadow-xs hover:shadow-sm hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:outline-none cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+              className="focus-visible:ring-accent inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border border-accent/30 bg-accent-soft px-3 text-xs font-semibold text-accent hover:bg-accent hover:text-white hover:border-accent transition-all duration-150 shadow-xs hover:shadow-sm hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:outline-none cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
               title="Include this paper back into review"
             >
               <span aria-hidden="true" className="font-bold text-xs">↩</span>
@@ -149,7 +149,7 @@ export function LibraryRowActions({
             type="button"
             disabled={pending}
             onClick={openDialog}
-            className="focus-visible:ring-danger inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border border-rose-500/40 bg-rose-500/15 px-3 text-xs font-semibold text-rose-700 hover:bg-rose-600 hover:text-white hover:border-rose-600 dark:bg-rose-500/25 dark:text-rose-200 dark:hover:bg-rose-600 dark:hover:text-white dark:border-rose-400/40 transition-all duration-150 shadow-xs hover:shadow-sm hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:outline-none cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+            className="focus-visible:ring-danger inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border border-danger/30 bg-danger-soft px-3 text-xs font-semibold text-danger hover:bg-danger hover:text-white hover:border-danger transition-all duration-150 shadow-xs hover:shadow-sm hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:outline-none cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
             title="Exclude this paper from review"
           >
             <span aria-hidden="true" className="text-xs font-bold">✕</span>
