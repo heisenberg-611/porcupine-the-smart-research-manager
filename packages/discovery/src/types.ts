@@ -39,6 +39,8 @@ export const workInputSchema = z.object({
   citedByCount: z.number().int().min(0).default(0),
   referencedWorks: z.array(z.string()).default([]),
   concepts: z.unknown().nullish(),
+  /** Provider sources that returned this record (e.g. ['openalex', 'doaj']). */
+  sources: z.array(z.string()).default([]).optional(),
 
   raw: z.unknown().nullish(),
 });

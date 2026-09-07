@@ -65,6 +65,7 @@ function merge(a: WorkInput, b: WorkInput): WorkInput {
         ? a.referencedWorks
         : b.referencedWorks,
     concepts: a.concepts ?? b.concepts ?? null,
+    sources: [...new Set([...(a.sources ?? []), ...(b.sources ?? [])])],
     raw: a.raw ?? b.raw ?? null,
   };
 }

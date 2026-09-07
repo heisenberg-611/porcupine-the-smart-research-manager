@@ -144,8 +144,14 @@ export async function federatedSearch(
         let rejected = 0;
         for (const work of found) {
           const checked = parseWorkInput(work);
-          if (checked) valid.push(checked);
-          else rejected++;
+          if (checked) {
+            valid.push({
+              ...checked,
+              sources: checked.sources && checked.sources.length > 0 ? checked.sources : [id],
+            });
+          } else {
+            rejected++;
+          }
         }
 
         if (rejected > 0) {
