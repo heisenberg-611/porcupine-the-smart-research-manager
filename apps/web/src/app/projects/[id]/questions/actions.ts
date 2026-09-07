@@ -38,6 +38,26 @@ const QuestionInput = z.object({
     .default([]),
 });
 
+const BulkQuestionsInput = z.object({
+  projectId: z.uuid(),
+  questions: z
+    .array(
+      z.object({
+        text: z
+          .string()
+          .trim()
+          .min(1, "Write the question.")
+          .max(500, "That is longer than a question; put the detail in the protocol."),
+        keywords: z
+          .array(z.string().trim().min(1).max(60))
+          .max(30, "Thirty keywords is more than a ranking can use.")
+          .default([]),
+      }),
+    )
+    .min(1, "Provide at least one question.")
+    .max(100, "You can add up to 100 questions at once."),
+});
+
 export interface QuestionRow {
   id: string;
   order: number;
@@ -113,6 +133,55 @@ export async function addQuestion(
     // RLS refuses a non-member. Nothing here distinguishes that from a write
     // failure, deliberately.
     return { ok: false, error: "Could not add the question." };
+  }
+}
+
+export async function addQuestionsBulk(
+  input: z.input<typeof BulkQuestionsInput>,
+): Promise<ActionResult<QuestionRow[]>> {
+  const parsed = BulkQuestionsInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Malformed questions." };
+  }
+
+  const claims = await getUserClaims();
+  if (!claims) return { ok: false, error: "Not signed in." };
+
+  const { projectId, questions } = parsed.data;
+
+  try {
+    const createdList = await withUserContext(claims, async (tx) => {
+      const last = await tx.question.findFirst({
+        where: { projectId },
+        orderBy: { order: "desc" },
+        select: { order: true },
+      });
+
+      let currentOrder = last?.order ?? 0;
+      const createdRows: QuestionRow[] = [];
+
+      for (const q of questions) {
+        currentOrder += 1;
+        const created = await tx.question.create({
+          data: {
+            projectId,
+            order: currentOrder,
+            text: q.text,
+            keywords: normalise(q.keywords),
+          },
+          select: { id: true, order: true, text: true, keywords: true },
+        });
+        createdRows.push(created);
+      }
+
+      return createdRows;
+    });
+
+    revalidatePath(`/projects/${projectId}/questions`);
+    revalidatePath(`/projects/${projectId}/search`);
+    return { ok: true, data: createdList };
+  } catch {
+    return { ok: false, error: "Could not add the questions." };
   }
 }
 
