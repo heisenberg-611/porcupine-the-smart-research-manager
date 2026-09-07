@@ -77,6 +77,7 @@ export const PROVIDER_IDS = [
   "arxiv",
   "europepmc",
   "semanticscholar",
+  "doaj",
 ] as const;
 
 export type ProviderId = (typeof PROVIDER_IDS)[number];

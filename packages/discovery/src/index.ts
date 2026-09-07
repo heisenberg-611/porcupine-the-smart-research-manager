@@ -15,5 +15,6 @@ export { crossref } from "./providers/crossref";
 export { arxiv, arxivByIds } from "./providers/arxiv";
 export { europepmc } from "./providers/europepmc";
 export { semanticscholar } from "./providers/semanticscholar";
+export { doaj } from "./providers/doaj";
 export * from "./relevance";
 export * from "./import";

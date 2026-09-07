@@ -203,6 +203,41 @@ describe("scoreWork", () => {
     expect(scored.signals.titleMatch).toBe(0);
     expect(scored.signals.abstractMatch).toBe(0);
   });
+
+  it("prioritizes research domain concordance over cross-domain homonyms (psychology vs ML model external validation)", () => {
+    const questions = [
+      {
+        text: "Why do humans seek external validation and social approval?",
+        keywords: ["human", "seeking", "external validation", "social approval", "self-esteem", "psychology"],
+      },
+    ];
+
+    const psychologyPaper = work({
+      title: "Seeking External Validation: Social Approval, Human Self-Esteem, and Psychological Need",
+      abstract: "An empirical investigation into why humans constantly seek external validation from peers.",
+      publishedYear: 2024,
+      citedByCount: 15,
+    });
+
+    const mlModelPaper = work({
+      title: "Development and External Validation of a Deep Learning Model for Sepsis Prediction",
+      abstract: "We report the external validation of machine learning algorithms on 10,000 ICU patients.",
+      publishedYear: 2024,
+      citedByCount: 450,
+    });
+
+    const ranked = rankWorks([mlModelPaper, psychologyPaper], {
+      query: "external validation",
+      questions,
+      now: NOW,
+    });
+
+    expect(ranked[0]?.work.title).toBe(
+      "Seeking External Validation: Social Approval, Human Self-Esteem, and Psychological Need",
+    );
+    expect(ranked[0]?.score).toBeGreaterThan(0.65);
+    expect(ranked[1]?.score).toBeLessThan(0.3);
+  });
 });
 
 describe("rankWorks", () => {

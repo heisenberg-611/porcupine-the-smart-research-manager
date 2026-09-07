@@ -6,6 +6,7 @@ import {
   arxivUserAgent,
 } from "../src/providers/arxiv";
 import { stripJats } from "../src/providers/crossref";
+import { toWorkInput as doajToWorkInput } from "../src/providers/doaj";
 import { splitAuthorString } from "../src/providers/europepmc";
 import { rebuildAbstract } from "../src/providers/openalex";
 import { federatedSearch, InProcessRateLimiter } from "../src/search";
@@ -233,5 +234,54 @@ describe("federated search partial failure", () => {
       { registry: { openalex: ok }, limiter: new InProcessRateLimiter() },
     );
     expect(result.failures).toEqual([]);
+  });
+});
+
+describe("DOAJ article normalization", () => {
+  const doajArticle = {
+    id: "doaj-12345",
+    created_date: "2024-05-10T12:00:00Z",
+    bibjson: {
+      title: "Self-Esteem and Social Seeking Behaviors in Human Relationships",
+      abstract: "An empirical investigation into human interpersonal validation.",
+      year: "2024",
+      month: "05",
+      journal: {
+        title: "Frontiers in Psychology",
+        publisher: "Frontiers",
+        language: ["EN"],
+      },
+      identifier: [
+        { id: "10.3389/fpsyg.2024.123456", type: "doi" },
+        { id: "1664-1078", type: "eissn" },
+      ],
+      author: [
+        { name: "Jane Doe", affiliation: "Dept of Psychology, Stanford" },
+        { name: "John Smith", affiliation: "Dept of Sociology, Harvard" },
+      ],
+      link: [
+        { type: "fulltext", url: "https://frontiersin.org/articles/10.3389/fpsyg.2024.123456/pdf" },
+      ],
+    },
+  };
+
+  it("extracts DOI, title, abstract, authors, venue and open access URL", () => {
+    const work = doajToWorkInput(doajArticle);
+    expect(work).not.toBeNull();
+    expect(work?.doi).toBe("10.3389/fpsyg.2024.123456");
+    expect(work?.title).toBe("Self-Esteem and Social Seeking Behaviors in Human Relationships");
+    expect(work?.abstract).toBe("An empirical investigation into human interpersonal validation.");
+    expect(work?.venue).toBe("Frontiers in Psychology");
+    expect(work?.publishedYear).toBe(2024);
+    expect(work?.publishedOn).toBe("2024-05-01");
+    expect(work?.oaStatus).toBe("gold");
+    expect(work?.oaPdfUrl).toBe("https://frontiersin.org/articles/10.3389/fpsyg.2024.123456/pdf");
+    expect(work?.authors).toHaveLength(2);
+    expect(work?.authors[0]?.name).toBe("Jane Doe");
+    expect(work?.authors[0]?.affiliation).toBe("Dept of Psychology, Stanford");
+  });
+
+  it("skips records with missing title", () => {
+    expect(doajToWorkInput({ id: "x", bibjson: { year: "2024" } })).toBeNull();
   });
 });

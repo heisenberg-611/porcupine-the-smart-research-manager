@@ -417,8 +417,12 @@ export function scoreWork(
   const hasKeywords = rawKeywords.length > 0;
 
   if (hasQuestions) {
-    // Per-question max pooling: a paper that answers Question 1 with 100% precision
+    // Per-question max pooling: a paper that answers Question 1 with high precision
     // gets full credit, rather than having its score diluted across all project questions.
+    const normQueryTokens = new Set(
+      hasQuery ? extractMeaningfulTokens(rawQuery) : [],
+    );
+
     for (const q of rawQuestions) {
       const qKeywords = [
         ...(q.keywords ?? []),
@@ -428,7 +432,30 @@ export function scoreWork(
 
       const tOverlap = checkOverlap(titleData.normalized, titleData.tokens, qKeywords);
       const aOverlap = checkOverlap(abstractData.normalized, abstractData.tokens, qKeywords);
-      const qCombined = tOverlap.score * 0.7 + aOverlap.score * 0.3;
+      let qCombined = tOverlap.score * 0.7 + aOverlap.score * 0.3;
+
+      // If a search query is active, check if the paper matches context keywords
+      // beyond just repeating the user's search query terms.
+      if (hasQuery && normQueryTokens.size > 0) {
+        const contextKeywords = qKeywords.filter((k) => {
+          const normK = normalizeTitle(k);
+          return !normQueryTokens.has(normK) && !normK.split(" ").every((part) => normQueryTokens.has(part));
+        });
+
+        if (contextKeywords.length > 0) {
+          const tContext = checkOverlap(titleData.normalized, titleData.tokens, contextKeywords);
+          const aContext = checkOverlap(abstractData.normalized, abstractData.tokens, contextKeywords);
+          const contextOverlap = tContext.score * 0.7 + aContext.score * 0.3;
+
+          // If the paper matched 0 context keywords, it only matched the query term itself
+          // (a potential cross-domain homonym). Heavily discount the question score.
+          if (contextOverlap === 0) {
+            qCombined = 0;
+          } else {
+            qCombined = qCombined * 0.4 + contextOverlap * 0.6;
+          }
+        }
+      }
 
       if (qCombined > questionScore) {
         questionScore = qCombined;
@@ -472,7 +499,21 @@ export function scoreWork(
   let totalRelevance = 0;
 
   if (hasQuery && (hasQuestions || hasKeywords)) {
-    totalRelevance = queryScore * 0.6 + questionScore * 0.4;
+    if (questionScore > 0) {
+      // Paper matches active query and has domain overlap with research questions.
+      // Non-linear concordance: high domain overlap (answering the question) is strongly rewarded,
+      // while superficial single-keyword overlaps (cross-domain homonyms) are scaled down.
+      const domainConcordance = Math.pow(questionScore, 1.2);
+      totalRelevance =
+        queryScore * 0.35 +
+        domainConcordance * 0.5 +
+        Math.min(0.2, queryScore * domainConcordance * 0.3);
+    } else {
+      // Paper matches search terms, but matches 0% of the project's research domain.
+      // E.g., searching "external validation" in a project about "human seeking validation"
+      // matches ML statistical validation papers. Down-weight cross-domain homonyms.
+      totalRelevance = queryScore * 0.15;
+    }
   } else if (hasQuery) {
     totalRelevance = queryScore;
   } else if (hasQuestions || hasKeywords) {

@@ -1,6 +1,7 @@
 "use server";
 
 import {
+  dedupe,
   extractMeaningfulTokens,
   federatedSearch,
   PROVIDER_IDS,
@@ -102,7 +103,15 @@ export async function searchWorks(
     ),
   ];
 
-  const { works, counts, failures } = await federatedSearch(
+  // Pick top domain tokens from questions that are not already present in search terms
+  const termsTokens = new Set(extractMeaningfulTokens(terms));
+  const domainContextTokens = keywords
+    .flatMap((k) => extractMeaningfulTokens(k))
+    .filter((t) => !termsTokens.has(t));
+  const uniqueDomainTokens = [...new Set(domainContextTokens)].slice(0, 3);
+
+  // Execute primary search
+  const primarySearch = federatedSearch(
     {
       terms,
       ...(fromYear !== undefined ? { fromYear } : {}),
@@ -113,6 +122,45 @@ export async function searchWorks(
       limiter: rateLimiter,
       ...(providers ? { providers } : {}),
     },
+  );
+
+  // If the project has research questions and search terms don't include all domain tokens,
+  // execute domain-contextualized retrieval in parallel to fetch discipline-specific papers
+  // (e.g. searching "external validation human seeking" alongside "external validation")
+  const searchPromises = [primarySearch];
+  if (uniqueDomainTokens.length > 0) {
+    const contextualTerms = `${terms} ${uniqueDomainTokens.join(" ")}`;
+    searchPromises.push(
+      federatedSearch(
+        {
+          terms: contextualTerms,
+          ...(fromYear !== undefined ? { fromYear } : {}),
+          ...(toYear !== undefined ? { toYear } : {}),
+          limit: 25,
+        },
+        {
+          limiter: rateLimiter,
+          ...(providers ? { providers } : {}),
+        },
+      ),
+    );
+  }
+
+  const searchResults = await Promise.all(searchPromises);
+  const allWorks = searchResults.flatMap((r) => r.works);
+  const works = dedupe(allWorks);
+
+  // Merge counts and failures
+  const countMap = new Map<string, number>();
+  for (const r of searchResults) {
+    for (const c of r.counts) {
+      countMap.set(c.provider, (countMap.get(c.provider) ?? 0) + c.count);
+    }
+  }
+  const counts = [...countMap.entries()].map(([provider, count]) => ({ provider, count }));
+
+  const failures = searchResults.flatMap((r) => r.failures).filter(
+    (f, idx, arr) => arr.findIndex((x) => x.provider === f.provider) === idx,
   );
 
   const alreadyAdded = context.existing.flatMap(({ work }) =>

@@ -1,6 +1,7 @@
 import { dedupe } from "./dedupe";
 import { arxiv } from "./providers/arxiv";
 import { crossref } from "./providers/crossref";
+import { doaj } from "./providers/doaj";
 import { europepmc } from "./providers/europepmc";
 import { openalex } from "./providers/openalex";
 import { semanticscholar } from "./providers/semanticscholar";
@@ -21,6 +22,7 @@ export const PROVIDERS: Record<ProviderId, Provider> = {
   arxiv,
   europepmc,
   semanticscholar,
+  doaj,
 };
 
 /**
