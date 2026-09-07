@@ -131,6 +131,7 @@ export function PdfDocument({
   onSelection,
   onDeleteHighlight,
   focusPage,
+  onFullScreenChange,
 }: {
   storagePath: string;
   /** The stored page strings, index 0 = page 1. Offsets are measured here. */
@@ -142,12 +143,15 @@ export function PdfDocument({
   onDeleteHighlight?: (id: string) => void;
   /** Scroll this page into view once, when the document is ready. */
   focusPage: number | null;
+  /** Notified when full screen reading mode is entered or exited. */
+  onFullScreenChange?: (isFullscreen: boolean) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const [pageCount, setPageCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   // Read inside the render loop, which must not be rebuilt to change scale.
   const zoomRef = useRef(zoom);
   /** Set by the load effect, so zoom can ask for a redraw without owning one. */
@@ -162,6 +166,28 @@ export function PdfDocument({
   const [error, setError] = useState<string | null>(null);
   const [activeHighlight, setActiveHighlight] = useState<PdfHighlight | null>(null);
   const [popupPos, setPopupPos] = useState<{ top: number; left: number } | null>(null);
+
+  // Lock body scrolling when in full screen mode
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isFullscreen]);
+
+  // Exit fullscreen on Escape
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !activeHighlight) {
+        setIsFullscreen(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isFullscreen, activeHighlight]);
 
   /*
    * The latest highlights, without rebuilding the document to get them.
@@ -317,7 +343,7 @@ export function PdfDocument({
   }, []);
 
   /*
-   * Zoom resizes every page and redraws the ones on screen.
+   * Zoom & layout width updater resizes every page and redraws the ones on screen.
    *
    * `--total-scale-factor`, the canvas bitmap and every run's font size are
    * all expressed in the scale, so a page drawn at the old one is wrong in
@@ -330,12 +356,11 @@ export function PdfDocument({
    * jump to page 200 land somewhere else. Redrawing bitmaps is the expensive
    * half and stays lazy: the observer asks for each page as it is reached.
    */
-  useEffect(() => {
-    zoomRef.current = zoom;
+  const updateLayoutWidths = useCallback(() => {
     const slots = slotsRef.current;
-    if (slots.size === 0) return;
+    if (slots.size === 0 || !rootRef.current) return;
 
-    const width = (rootRef.current?.clientWidth ?? 0) - GUTTER;
+    const width = (rootRef.current.clientWidth ?? 0) - GUTTER;
 
     for (const slot of slots.values()) {
       slot.rendered = false;
@@ -346,13 +371,46 @@ export function PdfDocument({
         drawn.remove();
       }
 
-      const scale = (Math.max(width, 200) / slot.baseWidth) * zoom;
+      const scale = (Math.max(width, 200) / slot.baseWidth) * zoomRef.current;
       slot.paper.style.width = `${slot.baseWidth * scale}px`;
       slot.container.style.width = `${slot.baseWidth * scale + GUTTER}px`;
+      slot.container.style.setProperty("--total-scale-factor", String(scale));
     }
 
     rerenderRef.current?.();
-  }, [zoom]);
+  }, []);
+
+  useEffect(() => {
+    zoomRef.current = zoom;
+    updateLayoutWidths();
+  }, [zoom, updateLayoutWidths]);
+
+  // Handle responsive layout resizing when entering/exiting fullscreen
+  useEffect(() => {
+    onFullScreenChange?.(isFullscreen);
+    const timer = setTimeout(() => {
+      updateLayoutWidths();
+      goToPageRef.current?.(currentPage);
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [isFullscreen, updateLayoutWidths, currentPage, onFullScreenChange]);
+
+  // Handle container / window resize
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    let timeoutId: NodeJS.Timeout;
+    const observer = new ResizeObserver(() => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        updateLayoutWidths();
+      }, 100);
+    });
+    observer.observe(scrollRef.current);
+    return () => {
+      clearTimeout(timeoutId);
+      observer.disconnect();
+    };
+  }, [updateLayoutWidths]);
 
   // Repaint in place when the annotations change — no rebuild, no scroll jump.
   useEffect(() => {
@@ -695,7 +753,10 @@ export function PdfDocument({
     layer?.classList.add("selecting");
   }, []);
 
-  const handleSelection = useCallback(() => onSelection(), [onSelection]);
+  const handleSelection = useCallback(() => {
+    if (isFullscreen) return;
+    onSelection();
+  }, [isFullscreen, onSelection]);
 
   useEffect(() => {
     if (!activeHighlight) return;
@@ -709,33 +770,94 @@ export function PdfDocument({
   }, [activeHighlight]);
 
   return (
-    <div className="relative">
+    <div
+      className={
+        isFullscreen
+          ? "fixed inset-0 z-50 flex flex-col bg-canvas backdrop-blur-md overflow-hidden animate-in fade-in duration-150"
+          : "relative"
+      }
+    >
       {status === "ready" && (
-        <div className="border-border bg-raised/95 sticky top-0 z-10 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-2.5 shadow-sm backdrop-blur-md">
+        <div
+          className={
+            isFullscreen
+              ? "w-full border-b border-border bg-raised/95 px-4 sm:px-6 py-3 shrink-0 flex flex-wrap items-center justify-between gap-3 shadow-md backdrop-blur-md z-10"
+              : "border-border bg-raised/95 sticky top-0 z-10 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-2.5 shadow-sm backdrop-blur-md"
+          }
+        >
           {/* Page navigation */}
-          <label className="text-muted text-fine flex items-center gap-2 font-medium">
-            <span>Page</span>
-            <Input
-              compact
-              type="number"
-              min={1}
-              max={pageCount}
-              value={currentPage}
-              onChange={(event) => {
-                const wanted = Number(event.target.value);
-                if (!Number.isFinite(wanted) || wanted < 1) return;
-                const clamped = Math.min(Math.max(1, wanted), pageCount);
-                setCurrentPage(clamped);
-                goToPageRef.current?.(clamped);
+          <div className="flex items-center gap-1.5 font-medium">
+            <button
+              type="button"
+              onClick={() => {
+                const prev = Math.max(1, currentPage - 1);
+                setCurrentPage(prev);
+                goToPageRef.current?.(prev);
               }}
-              aria-label="Go to page"
-              className="w-16 text-center font-semibold tabular-nums"
-            />
-            <span className="text-muted tabular-nums">of {pageCount}</span>
-          </label>
+              disabled={currentPage <= 1}
+              aria-label="Previous page"
+              title="Previous page"
+              className="border-border text-ink hover:bg-surface flex size-8 items-center justify-center rounded-lg border text-sm font-semibold shadow-xs transition-colors disabled:opacity-40"
+            >
+              <svg
+                className="size-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.5}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+              </svg>
+            </button>
 
-          {/* Fine-tuning Zoom Controls */}
-          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-muted text-fine flex items-center gap-1.5 font-medium">
+              <span>Page</span>
+              <Input
+                compact
+                type="number"
+                min={1}
+                max={pageCount}
+                value={currentPage}
+                onChange={(event) => {
+                  const wanted = Number(event.target.value);
+                  if (!Number.isFinite(wanted) || wanted < 1) return;
+                  const clamped = Math.min(Math.max(1, wanted), pageCount);
+                  setCurrentPage(clamped);
+                  goToPageRef.current?.(clamped);
+                }}
+                aria-label="Go to page"
+                className="w-16 text-center font-semibold tabular-nums"
+              />
+              <span className="text-muted tabular-nums">of {pageCount}</span>
+            </label>
+
+            <button
+              type="button"
+              onClick={() => {
+                const next = Math.min(pageCount, currentPage + 1);
+                setCurrentPage(next);
+                goToPageRef.current?.(next);
+              }}
+              disabled={currentPage >= pageCount}
+              aria-label="Next page"
+              title="Next page"
+              className="border-border text-ink hover:bg-surface flex size-8 items-center justify-center rounded-lg border text-sm font-semibold shadow-xs transition-colors disabled:opacity-40"
+            >
+              <svg
+                className="size-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.5}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Zoom controls & Fullscreen toggle */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Fine-tuning Zoom Controls */}
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
@@ -820,6 +942,60 @@ export function PdfDocument({
                 Reset
               </button>
             )}
+
+            <div className="bg-border hidden h-5 w-px sm:block" />
+
+            {/* Full Screen Toggle Button */}
+            {!isFullscreen ? (
+              <button
+                type="button"
+                onClick={() => setIsFullscreen(true)}
+                aria-label="Expand to full screen"
+                title="Expand to full screen"
+                className="border-border text-ink hover:bg-surface hover:border-accent/40 active:scale-95 flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-fine font-semibold shadow-xs transition-all cursor-pointer"
+              >
+                <svg
+                  className="size-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15M3.75 20.25h4.5m-4.5 0v-4.5m0 4.5L9 15"
+                  />
+                </svg>
+                <span className="hidden sm:inline">Full Screen</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsFullscreen(false)}
+                aria-label="Exit full screen"
+                title="Exit full screen (Esc)"
+                className="bg-accent text-accent-ink hover:brightness-110 active:scale-95 flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-fine font-semibold shadow-sm transition-all cursor-pointer"
+              >
+                <svg
+                  className="size-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 3.75v4.5m0 0H4.5M9 8.25L3.75 3M15 3.75v4.5m0 0h4.5M15 8.25L20.25 3M9 20.25v-4.5m0 0H4.5M9 15.75L3.75 21M15 20.25v-4.5m0 0h4.5M15 15.75L20.25 21"
+                  />
+                </svg>
+                <span>Exit Full Screen</span>
+                <kbd className="bg-black/20 text-accent-ink rounded px-1.5 py-0.5 text-[10px] font-mono uppercase">
+                  Esc
+                </kbd>
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -836,7 +1012,11 @@ export function PdfDocument({
       <div
         ref={scrollRef}
         data-testid="pdf-scroll"
-        className="bg-surface h-[min(84vh,1100px)] overflow-auto px-4 py-6"
+        className={
+          isFullscreen
+            ? "bg-surface flex-1 w-full overflow-auto px-4 py-8 sm:px-12"
+            : "bg-surface h-[min(84vh,1100px)] overflow-auto px-4 py-6 rounded-2xl border border-border"
+        }
       >
         <div
           ref={rootRef}
@@ -852,7 +1032,7 @@ export function PdfDocument({
       {activeHighlight && popupPos && (
         <div
           data-testid="annotation-popup"
-          className="animate-in fade-in zoom-in-95 fixed z-50 duration-150"
+          className="animate-in fade-in zoom-in-95 fixed z-[60] duration-150"
           style={{
             top: `${popupPos.top}px`,
             left: `${popupPos.left}px`,
