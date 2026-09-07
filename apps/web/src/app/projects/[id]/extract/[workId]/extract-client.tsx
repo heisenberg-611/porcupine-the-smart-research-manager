@@ -613,7 +613,7 @@ export function ExtractClient({
                 type="button"
                 variant="secondary"
                 onClick={() => setCapturing(null)}
-                className="h-7 shrink-0 border-white/30 bg-white/20 px-2.5 py-1 text-xs text-white hover:bg-white/30"
+                className="h-7 shrink-0 border-accent-ink/30 bg-accent-ink/10 px-2.5 py-1 text-xs font-semibold text-accent-ink hover:bg-accent-ink/20"
               >
                 Cancel
               </Button>

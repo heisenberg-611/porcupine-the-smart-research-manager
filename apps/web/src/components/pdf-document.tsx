@@ -310,9 +310,9 @@ export function PdfDocument({
        * as an edge, which reads either way.
        */
       tag.className =
-        "text-fine text-ink bg-raised pointer-events-auto cursor-pointer select-none absolute overflow-hidden " +
-        "text-ellipsis whitespace-nowrap rounded-r-lg px-2 py-0.5 leading-tight shadow-sm hover:shadow-md " +
-        "hover:bg-subtle active:scale-95 transition-all text-left border-l-[3px]";
+        "text-fine text-ink bg-raised/95 border-border/80 ring-1 ring-black/5 dark:ring-white/5 pointer-events-auto cursor-pointer select-none absolute overflow-hidden " +
+        "text-ellipsis whitespace-nowrap rounded-r-lg px-2.5 py-1 leading-tight shadow-xs hover:shadow-md " +
+        "hover:bg-surface active:scale-95 transition-all text-left border-l-[3px] backdrop-blur-xs";
       tag.style.borderLeftColor = colour.solid;
       tag.style.left = `${slot.paper.clientWidth + 10}px`;
       tag.style.top = `${at}px`;
@@ -530,10 +530,10 @@ export function PdfDocument({
         container.className = "relative mx-auto mb-8";
 
         const paper = document.createElement("div");
-        // A page is paper: white in both themes, with a shadow that reads
-        // against a light mat and a dark one.
+        // A page is paper: comfortable reading tone with calibrated ambient shadow
+        // that reads cleanly against light and dark obsidian mats without eye strain.
         paper.className =
-          "relative bg-white shadow-[0_2px_12px_rgba(0,0,0,0.18)] ring-1 ring-black/10";
+          "relative bg-[#fdfdfb] shadow-[0_4px_24px_rgba(0,0,0,0.14)] dark:shadow-[0_4px_32px_rgba(0,0,0,0.45)] ring-1 ring-black/10 dark:ring-white/10 rounded-[2px]";
         paper.style.aspectRatio = `${viewport.width} / ${viewport.height}`;
 
         const canvas = document.createElement("canvas");
@@ -1033,7 +1033,7 @@ export function PdfDocument({
             onClick={() => setActiveHighlight(null)}
           />
 
-          <div className="bg-raised border-border flex flex-col gap-3 rounded-2xl border p-4 shadow-2xl ring-1 ring-black/5">
+          <div className="bg-raised border-border/80 ring-1 ring-black/10 dark:ring-white/10 flex flex-col gap-3 rounded-2xl border p-4 shadow-2xl backdrop-blur-md">
             {/* Header */}
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -1056,14 +1056,14 @@ export function PdfDocument({
 
               <div className="flex items-center gap-1.5">
                 {activeHighlight.isPrivate && (
-                  <span className="border-border text-muted text-fine rounded-md border px-1.5 py-0.5 text-[11px]">
+                  <span className="border-border/80 text-muted text-fine rounded-md border px-1.5 py-0.5 text-[11px]">
                     Private
                   </span>
                 )}
                 <button
                   type="button"
                   onClick={() => setActiveHighlight(null)}
-                  className="text-muted hover:text-ink hover:bg-subtle text-ui rounded-lg p-1 leading-none transition-colors"
+                  className="text-muted hover:text-ink hover:bg-surface text-ui rounded-lg p-1 leading-none transition-colors"
                   aria-label="Close note popup"
                 >
                   ✕
@@ -1073,7 +1073,7 @@ export function PdfDocument({
 
             {/* Quoted passage */}
             {activeHighlight.quote && (
-              <div className="border-border/80 bg-subtle/50 rounded-xl border p-2.5">
+              <div className="border-border/80 bg-surface/60 rounded-xl border p-2.5">
                 <p className="text-muted text-fine mb-1 font-medium">
                   Page {activeHighlight.page} highlight:
                 </p>
@@ -1091,12 +1091,12 @@ export function PdfDocument({
               {activeHighlight.body ? (
                 <div>
                   <p className="text-muted text-fine mb-1 font-medium">Note:</p>
-                  <p className="text-ink text-ui bg-surface/60 border-border/50 rounded-xl border p-2.5 whitespace-pre-wrap">
+                  <p className="text-ink text-ui bg-surface/80 border-border/60 rounded-xl border p-2.5 whitespace-pre-wrap">
                     {activeHighlight.body}
                   </p>
                 </div>
               ) : (
-                <p className="text-muted text-fine bg-subtle/30 rounded-lg p-2 text-center italic">
+                <p className="text-muted text-fine bg-surface/40 rounded-lg p-2 text-center italic">
                   Highlight only (no attached note)
                 </p>
               )}

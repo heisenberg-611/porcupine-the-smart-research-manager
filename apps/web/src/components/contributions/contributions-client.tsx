@@ -388,15 +388,15 @@ function TabButton({
       onClick={onClick}
       className={`focus-visible:ring-accent inline-flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all focus-visible:ring-2 focus-visible:outline-none ${
         active
-          ? "bg-accent text-white shadow-xs"
-          : "bg-surface text-muted hover:text-ink hover:bg-surface/80"
+          ? "bg-accent text-accent-ink shadow-xs"
+          : "bg-surface text-muted hover:text-ink hover:bg-surface/80 border-border/80 border"
       }`}
     >
       <span>{label}</span>
       {badge && (
         <span
           className={`rounded-full px-2 py-0.5 font-mono text-[10px] font-bold ${
-            active ? "bg-white/20 text-white" : "bg-raised text-muted"
+            active ? "bg-black/15 dark:bg-black/25 text-accent-ink" : "bg-raised text-muted"
           }`}
         >
           {badge}
@@ -427,7 +427,7 @@ function StatCard({
         : "bg-surface border-border text-muted";
 
   return (
-    <div className="border-border/70 bg-raised/70 flex flex-col justify-between rounded-2xl border p-4 shadow-xs">
+    <div className="border-border/80 bg-raised/80 ring-1 ring-black/5 dark:ring-white/5 flex flex-col justify-between rounded-2xl border p-4 shadow-xs">
       <div>
         <div className="flex items-center justify-between gap-1">
           <div className="text-muted text-fine font-medium">{label}</div>

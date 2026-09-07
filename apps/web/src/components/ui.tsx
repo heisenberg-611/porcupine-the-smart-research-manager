@@ -73,15 +73,15 @@ export function Button({
           ? "cursor-wait opacity-90"
           : "disabled:cursor-not-allowed disabled:opacity-40",
         variant === "primary" &&
-          "bg-accent text-accent-ink rounded-full shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:brightness-110",
+          "bg-accent text-accent-ink font-semibold rounded-full shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:brightness-105 active:scale-95",
         // Ghost is a text button with a hover ground, not an outlined box.
         // Sixteen pages of outlined ghost buttons was most of why every screen
         // read as a form.
-        variant === "ghost" && "text-ink hover:bg-surface rounded-full",
+        variant === "ghost" && "text-ink hover:bg-surface/80 rounded-full active:scale-95",
         variant === "secondary" &&
-          "border-border text-ink hover:bg-surface hover:border-accent/40 rounded-xl border shadow-xs hover:-translate-y-0.5",
+          "border-border/80 bg-raised/70 text-ink hover:bg-surface hover:border-accent/40 rounded-xl border shadow-xs hover:-translate-y-0.5 active:scale-95",
         variant === "danger" &&
-          "text-danger hover:bg-danger-soft rounded-full hover:-translate-y-0.5",
+          "text-danger hover:bg-danger-soft/80 rounded-full hover:-translate-y-0.5 active:scale-95",
         className,
       )}
       {...props}
@@ -192,11 +192,11 @@ export function Input({
   return (
     <input
       className={cx(
-        "border-border bg-raised text-ink rounded-xl border shadow-sm",
-        "transition-colors duration-200",
-        "placeholder:text-muted/70",
+        "border-border/80 bg-surface/50 text-ink rounded-xl border shadow-2xs",
+        "transition-all duration-200",
+        "placeholder:text-muted/60",
         "hover:border-accent/40",
-        "focus:border-accent focus-visible:outline-none",
+        "focus:border-accent focus:bg-surface/90 focus:ring-2 focus:ring-accent/20 focus-visible:outline-none",
         compact ? "text-fine h-7 rounded-md px-1" : "text-ui min-h-12 w-full px-4",
         className,
       )}
@@ -241,11 +241,11 @@ export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
   return (
     <textarea
       className={cx(
-        "border-border bg-raised text-ink text-ui w-full rounded-xl border px-4 shadow-sm",
-        "py-3 transition-colors duration-200",
-        "placeholder:text-muted/70",
+        "border-border/80 bg-surface/50 text-ink text-ui w-full rounded-xl border px-4 shadow-2xs",
+        "py-3 transition-all duration-200",
+        "placeholder:text-muted/60",
         "hover:border-accent/40",
-        "focus:border-accent focus-visible:outline-none",
+        "focus:border-accent focus:bg-surface/90 focus:ring-2 focus:ring-accent/20 focus-visible:outline-none",
         className,
       )}
       {...props}
@@ -278,10 +278,10 @@ export function Select({
   return (
     <select
       className={cx(
-        "border-border bg-raised text-ink rounded-xl border shadow-sm",
+        "border-border/80 bg-surface/50 text-ink rounded-xl border shadow-2xs",
         "transition-all duration-200",
         "hover:border-accent/40",
-        "focus:border-accent focus-visible:outline-none",
+        "focus:border-accent focus:bg-surface/90 focus:ring-2 focus:ring-accent/20 focus-visible:outline-none",
         compact ? "text-ui min-h-9 rounded-lg px-2" : "text-ui min-h-12 w-full px-4",
         className,
       )}
@@ -376,7 +376,7 @@ export function TableScroll({
       aria-label={label}
       tabIndex={0}
       className={cx(
-        "border-border/70 bg-raised/50 relative overflow-x-auto rounded-2xl border shadow-xs",
+        "border-border/80 bg-raised/70 ring-1 ring-black/5 dark:ring-white/5 relative overflow-x-auto rounded-2xl border shadow-xs",
         "focus-visible:ring-accent focus-visible:ring-2 focus-visible:outline-none",
         className,
       )}
@@ -389,7 +389,7 @@ export function Card({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       className={cx(
-        "border-rule/70 bg-raised/90 rounded-2xl border p-6 shadow-xs backdrop-blur-xs transition-all duration-200",
+        "border-border/80 bg-raised/85 ring-1 ring-black/5 dark:ring-white/5 rounded-2xl border p-6 shadow-xs backdrop-blur-xs transition-all duration-200",
         className,
       )}
       {...props}
@@ -494,11 +494,11 @@ export function ButtonLink({
       href={href}
       className={cx(
         "focus-visible:ring-accent text-ui inline-flex min-h-11 items-center justify-center rounded-xl px-5 font-medium shadow-xs",
-        "transition-all duration-200 hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:outline-none",
+        "transition-all duration-200 hover:-translate-y-0.5 active:scale-95 focus-visible:ring-2 focus-visible:outline-none",
         variant === "primary" &&
-          "bg-accent text-accent-ink hover:opacity-90 hover:shadow-sm",
+          "bg-accent text-accent-ink font-semibold hover:brightness-105 hover:shadow-sm",
         variant === "ghost" &&
-          "border-border text-ink hover:bg-surface hover:border-accent/40 border",
+          "border-border/80 bg-raised/70 text-ink hover:bg-surface hover:border-accent/40 border shadow-2xs",
         className,
       )}
     >
@@ -525,7 +525,7 @@ export function Skeleton({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       aria-hidden
-      className={cx("bg-surface animate-pulse rounded-xl", className)}
+      className={cx("bg-surface/80 animate-pulse rounded-xl", className)}
       {...props}
     />
   );
@@ -565,7 +565,7 @@ export function PageSkeleton({
       </div>
 
       {shape === "table" && (
-        <div className="border-border overflow-hidden rounded-2xl border shadow-xs">
+        <div className="border-border/80 overflow-hidden rounded-2xl border shadow-xs">
           <div className="border-rule bg-surface/60 flex gap-4 border-b p-3">
             {Array.from({ length: 5 }, (_, i) => (
               <Skeleton key={i} className="h-4 flex-1 rounded-md" />
@@ -628,9 +628,9 @@ export function Banner({
     <div
       role={tone === "danger" ? "alert" : "status"}
       className={cx(
-        "text-ui rounded-2xl p-5 shadow-xs transition-all",
-        tone === "info" && "border-accent/40 bg-accent-soft text-ink border",
-        tone === "danger" && "border-danger/40 bg-danger-soft text-danger border",
+        "text-ui rounded-2xl p-5 shadow-2xs transition-all",
+        tone === "info" && "border-accent/30 bg-accent-soft/80 text-ink border",
+        tone === "danger" && "border-danger/30 bg-danger-soft/80 text-danger border",
       )}
     >
       {children}

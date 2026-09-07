@@ -40,8 +40,8 @@ export function highlightText(
           className={cx(
             "rounded-xs px-0.5 transition-all",
             isActive
-              ? "ring-accent bg-amber-400 font-bold text-black shadow-xs ring-2 ring-offset-1 dark:bg-amber-300"
-              : "dark:text-ink bg-amber-200/90 font-medium text-black dark:bg-amber-400/40",
+              ? "ring-accent bg-amber-400 font-bold text-black shadow-xs ring-2 ring-offset-1 dark:bg-amber-300 dark:text-black"
+              : "bg-amber-200/90 font-medium text-black dark:bg-amber-400/30 dark:text-amber-200",
           )}
         >
           {part}

@@ -334,9 +334,6 @@ export function QuestionsClient({
                 }`}
               >
                 <span>Bulk Paste</span>
-                <span className="bg-white/20 rounded px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider">
-                  .env
-                </span>
               </button>
             </div>
           </div>
@@ -414,7 +411,7 @@ export function QuestionsClient({
             <form onSubmit={onAddBulk} className="relative z-10 mt-5 flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <label htmlFor="bulk-raw" className="text-ink text-ui font-medium">
-                  Paste .env or multi-line questions
+                  Paste multi-line questions
                 </label>
                 <button
                   type="button"

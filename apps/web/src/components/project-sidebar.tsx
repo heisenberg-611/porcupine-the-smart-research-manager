@@ -104,8 +104,8 @@ export function ProjectSidebar({
                             "text-ui flex min-h-10 items-center rounded-xl px-3.5 font-medium transition-all duration-200 active:scale-95",
                             "focus-visible:ring-accent focus-visible:ring-2 focus-visible:outline-none",
                             current
-                              ? "bg-raised text-ink font-semibold shadow-xs"
-                              : "text-muted hover:text-ink hover:bg-surface/80 hover:translate-x-1",
+                              ? "bg-raised text-ink font-semibold shadow-xs ring-1 ring-black/5 dark:ring-white/5"
+                              : "text-muted hover:text-ink hover:bg-surface/80 hover:translate-x-0.5",
                           )}
                         >
                           <span
