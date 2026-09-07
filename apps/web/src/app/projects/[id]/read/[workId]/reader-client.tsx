@@ -383,7 +383,7 @@ export function ReaderClient({
         {selection && (
           <div
             data-testid="annotate-panel"
-            className="border-accent/40 bg-raised fixed z-40 max-h-[80vh] w-[340px] max-w-[calc(100vw-24px)] space-y-3 overflow-y-auto rounded-2xl border p-4 shadow-xl"
+            className="border-accent/40 bg-raised fixed z-[70] max-h-[80vh] w-[340px] max-w-[calc(100vw-24px)] space-y-3 overflow-y-auto rounded-2xl border p-4 shadow-2xl backdrop-blur-md"
             style={{ top: anchor?.top ?? 0, left: anchor?.left ?? 0 }}
           >
             <p className="text-muted text-fine font-medium">Selected text</p>
@@ -411,6 +411,12 @@ export function ReaderClient({
               {/* PRIVATE excludes the project owner too — see the RLS policy. */}
               Private to me — nobody else on the project can read this
             </label>
+
+            {error && (
+              <p role="alert" className="text-danger text-fine">
+                {error}
+              </p>
+            )}
 
             <div className="flex gap-2 pt-1">
               <Button
@@ -451,109 +457,111 @@ export function ReaderClient({
         )}
       </div>
 
-      <section>
-        <h2 className="text-ink text-heading mb-3 font-medium">
-          Annotations{" "}
-          <span className="text-muted font-normal">({annotations.length})</span>
-        </h2>
+      {!pdfPath && (
+        <section>
+          <h2 className="text-ink text-heading mb-3 font-medium">
+            Annotations{" "}
+            <span className="text-muted font-normal">({annotations.length})</span>
+          </h2>
 
-        {annotations.length === 0 ? (
-          <p className="text-muted text-ui">
-            Select any passage above to highlight it or attach a note.
-          </p>
-        ) : (
-          <ul className="space-y-3">
-            {annotations.map((annotation) => (
-              <li
-                key={annotation.id}
-                className="border-border bg-raised/50 rounded-2xl border p-4 shadow-sm"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <blockquote className="border-border text-ink text-ui border-l-2 pl-3 italic">
-                    {annotation.quote}
-                  </blockquote>
-                  {annotation.isMine && (
-                    <Button
-                      variant="ghost"
-                      onClick={() => remove(annotation.id)}
-                      disabled={pending}
-                      busy={pending && running === `remove:${annotation.id}`}
-                      busyLabel="Deleting…"
-                      className="text-fine shrink-0"
-                    >
-                      Delete
-                    </Button>
-                  )}
-                </div>
-
-                {annotation.body && (
-                  <p className="text-ink/90 text-ui bg-surface/60 border-border/50 mt-2.5 rounded-xl border p-2.5 whitespace-pre-wrap">
-                    {annotation.body}
-                  </p>
-                )}
-
-                <p className="text-muted text-fine mt-2.5 flex flex-wrap items-center gap-2">
-                  {/* The same colour the mark is drawn in, so the list and the
-                      page identify people the same way. */}
-                  <span
-                    aria-hidden="true"
-                    className="inline-block size-2.5 shrink-0 rounded-full shadow-sm"
-                    style={{ background: colourFor(annotation.authorId).solid }}
-                  />
-                  <span className="text-ink font-medium">{annotation.authorName}</span>
-                  {annotation.createdAt && (
-                    <>
-                      <span>·</span>
-                      <time
-                        dateTime={annotation.createdAt}
-                        title={new Date(annotation.createdAt).toLocaleString()}
-                        className="text-muted"
+          {annotations.length === 0 ? (
+            <p className="text-muted text-ui">
+              Select any passage above to highlight it or attach a note.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {annotations.map((annotation) => (
+                <li
+                  key={annotation.id}
+                  className="border-border bg-raised/50 rounded-2xl border p-4 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <blockquote className="border-border text-ink text-ui border-l-2 pl-3 italic">
+                      {annotation.quote}
+                    </blockquote>
+                    {annotation.isMine && (
+                      <Button
+                        variant="ghost"
+                        onClick={() => remove(annotation.id)}
+                        disabled={pending}
+                        busy={pending && running === `remove:${annotation.id}`}
+                        busyLabel="Deleting…"
+                        className="text-fine shrink-0"
                       >
-                        {formatAnnotationTime(annotation.createdAt).full}
-                      </time>
-                    </>
-                  )}
-                  <span>·</span>
-                  <span className="capitalize">{annotation.kind.toLowerCase()}</span>
-                  {annotation.page !== null && (
-                    <>
-                      <span>·</span>
-                      <span>page {annotation.page}</span>
-                    </>
-                  )}
-                  {annotation.visibility === "PRIVATE" && (
-                    <>
-                      <span>·</span>
-                      <span className="border-border rounded border px-1 py-0.5 text-[10px]">
-                        private
-                      </span>
-                    </>
-                  )}
-                </p>
+                        Delete
+                      </Button>
+                    )}
+                  </div>
 
-                {/* The whole point of the DRIFTED state: say it, do not hide it. */}
-                {annotation.status !== "OK" && (
-                  <p
-                    className={`text-fine mt-2 rounded-lg px-2.5 py-1.5 ${
-                      annotation.status === "DRIFTED"
-                        ? "bg-accent/10 text-ink"
-                        : "bg-danger/10 text-danger"
-                    }`}
-                  >
-                    {annotation.status === "DRIFTED"
-                      ? `Possibly moved${
-                          annotation.similarity
-                            ? ` (${Math.round(annotation.similarity * 100)}% match)`
-                            : ""
-                        } — ${annotation.driftReason ?? "check the passage"}`
-                      : `Lost in this document — ${annotation.driftReason ?? "the passage is gone"}`}
+                  {annotation.body && (
+                    <p className="text-ink/90 text-ui bg-surface/60 border-border/50 mt-2.5 rounded-xl border p-2.5 whitespace-pre-wrap">
+                      {annotation.body}
+                    </p>
+                  )}
+
+                  <p className="text-muted text-fine mt-2.5 flex flex-wrap items-center gap-2">
+                    {/* The same colour the mark is drawn in, so the list and the
+                        page identify people the same way. */}
+                    <span
+                      aria-hidden="true"
+                      className="inline-block size-2.5 shrink-0 rounded-full shadow-sm"
+                      style={{ background: colourFor(annotation.authorId).solid }}
+                    />
+                    <span className="text-ink font-medium">{annotation.authorName}</span>
+                    {annotation.createdAt && (
+                      <>
+                        <span>·</span>
+                        <time
+                          dateTime={annotation.createdAt}
+                          title={new Date(annotation.createdAt).toLocaleString()}
+                          className="text-muted"
+                        >
+                          {formatAnnotationTime(annotation.createdAt).full}
+                        </time>
+                      </>
+                    )}
+                    <span>·</span>
+                    <span className="capitalize">{annotation.kind.toLowerCase()}</span>
+                    {annotation.page !== null && (
+                      <>
+                        <span>·</span>
+                        <span>page {annotation.page}</span>
+                      </>
+                    )}
+                    {annotation.visibility === "PRIVATE" && (
+                      <>
+                        <span>·</span>
+                        <span className="border-border rounded border px-1 py-0.5 text-[10px]">
+                          private
+                        </span>
+                      </>
+                    )}
                   </p>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+
+                  {/* The whole point of the DRIFTED state: say it, do not hide it. */}
+                  {annotation.status !== "OK" && (
+                    <p
+                      className={`text-fine mt-2 rounded-lg px-2.5 py-1.5 ${
+                        annotation.status === "DRIFTED"
+                          ? "bg-accent/10 text-ink"
+                          : "bg-danger/10 text-danger"
+                      }`}
+                    >
+                      {annotation.status === "DRIFTED"
+                        ? `Possibly moved${
+                            annotation.similarity
+                              ? ` (${Math.round(annotation.similarity * 100)}% match)`
+                              : ""
+                          } — ${annotation.driftReason ?? "check the passage"}`
+                        : `Lost in this document — ${annotation.driftReason ?? "the passage is gone"}`}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
     </div>
   );
 }
