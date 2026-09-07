@@ -14,6 +14,7 @@ import {
   type EvidenceRow,
 } from "@/lib/evidence";
 import { must } from "@/lib/supabase/query";
+import { getProject } from "@/lib/project";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 import { ColumnChooser } from "./column-chooser";
@@ -91,10 +92,7 @@ export default async function EvidencePage({
   const sp = await searchParams;
   const supabase = await createClient();
 
-  const project = await must(
-    supabase.from("projects").select("id, title").eq("id", id).maybeSingle(),
-    "the project",
-  );
+  const project = await getProject(id);
   if (!project) notFound();
 
   const query = parseEvidenceQuery(sp);

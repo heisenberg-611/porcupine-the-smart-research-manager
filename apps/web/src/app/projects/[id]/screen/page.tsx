@@ -52,12 +52,7 @@ export default async function ScreenPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const shell = await getProject(id);
-  const project = await must(
-    supabase.from("projects").select("id, title, kind").eq("id", id).maybeSingle(),
-    "the project",
-  );
-
+  const project = await getProject(id);
   if (!project) notFound();
 
   const data = await must(
@@ -143,10 +138,9 @@ export default async function ScreenPage({
       />
 
       <ScreenClient
-        // Cached by the layout above, so this costs nothing.
         accessRoute={{
-          url: shell?.access_help_url ?? null,
-          label: shell?.access_help_label ?? null,
+          url: project.access_help_url ?? null,
+          label: project.access_help_label ?? null,
         }}
         projectId={id}
         rows={rows}

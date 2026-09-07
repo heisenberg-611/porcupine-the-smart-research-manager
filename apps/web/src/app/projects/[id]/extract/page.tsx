@@ -4,8 +4,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { LiveRefresh } from "@/components/live-refresh";
 import { Banner, EmptyState, Input, PageHeader } from "@/components/ui";
-import { getProjectRole } from "@/lib/project";
-import { must } from "@/lib/supabase/query";
+import { getProject, getProjectRole } from "@/lib/project";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 import { TargetForm } from "./target-form";
@@ -52,20 +51,11 @@ export default async function ExtractDashboardPage({
   const query = (q ?? "").trim();
   const supabase = await createClient();
 
-  const project = await must(
-    supabase
-      .from("projects")
-      .select("title, extraction_target")
-      .eq("id", id)
-      .maybeSingle(),
-    "the project",
-  );
+  const project = await getProject(id);
   if (!project) notFound();
 
-  const { title: projectTitle, extraction_target: target } = project as {
-    title: string;
-    extraction_target: number | null;
-  };
+  const projectTitle = project.title;
+  const target = project.extraction_target;
 
   const [role, extractionsResult, worksResult, membersResult] = await Promise.all([
     getProjectRole(id, user.id),

@@ -6,7 +6,7 @@ import { ContributionsClient } from "@/components/contributions/contributions-cl
 import { LiveRefresh } from "@/components/live-refresh";
 import { ButtonLink, EmptyState, PageHeader } from "@/components/ui";
 import { getProjectContributions } from "@/lib/contributions-server";
-import { must } from "@/lib/supabase/query";
+import { getProject } from "@/lib/project";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Progress & Contributions" };
@@ -58,11 +58,7 @@ export default async function ProgressPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const project = await must(
-    supabase.from("projects").select("id, title, created_at").eq("id", id).maybeSingle(),
-    "the project",
-  );
-
+  const project = await getProject(id);
   if (!project) notFound();
 
   const [progressData, decisionData, extractionData, annotationData, contributionsData] =

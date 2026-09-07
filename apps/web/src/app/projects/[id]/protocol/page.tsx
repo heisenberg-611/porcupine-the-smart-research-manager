@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { PageHeader } from "@/components/ui";
+import { getProject } from "@/lib/project";
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -39,10 +40,7 @@ export default async function ProtocolPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const project = await must(
-    supabase.from("projects").select("id, title, kind").eq("id", id).maybeSingle(),
-    "the project",
-  );
+  const project = await getProject(id);
   if (!project) notFound();
 
   const protocolRows = await must(

@@ -13,6 +13,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { ButtonLink, EmptyState, PageHeader, TableScroll } from "@/components/ui";
+import { getProject } from "@/lib/project";
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -48,10 +49,7 @@ export default async function ReconcilePage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const project = await must(
-    supabase.from("projects").select("id, title, kind").eq("id", id).maybeSingle(),
-    "the project",
-  );
+  const project = await getProject(id);
   if (!project) notFound();
 
   // R-06. The database refuses a reconciliation in a thesis project; this is

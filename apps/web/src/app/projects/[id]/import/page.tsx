@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { PageHeader } from "@/components/ui";
-import { must } from "@/lib/supabase/query";
-import { createClient, getCurrentUser } from "@/lib/supabase/server";
+import { getProject } from "@/lib/project";
+import { getCurrentUser } from "@/lib/supabase/server";
 
 import { ImportClient } from "./import-client";
 
@@ -18,13 +18,7 @@ export default async function ImportPage({
   if (!user) redirect("/sign-in");
 
   const { id } = await params;
-  const supabase = await createClient();
-
-  const project = await must(
-    supabase.from("projects").select("id, title").eq("id", id).maybeSingle(),
-    "the project",
-  );
-
+  const project = await getProject(id);
   if (!project) notFound();
 
   return (

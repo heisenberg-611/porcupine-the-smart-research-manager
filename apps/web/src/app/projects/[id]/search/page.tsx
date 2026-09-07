@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { PageHeader } from "@/components/ui";
+import { getProject } from "@/lib/project";
 import { must } from "@/lib/supabase/query";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -20,15 +21,7 @@ export default async function SearchPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  // As elsewhere: no membership check here. RLS returns nothing for a project
-  // this user is not a member of, so "not found" and "not permitted" give the
-  // same response — which is what we want, since telling them apart confirms
-  // the project exists.
-  const project = await must(
-    supabase.from("projects").select("id, title").eq("id", id).maybeSingle(),
-    "the project",
-  );
-
+  const project = await getProject(id);
   if (!project) notFound();
 
   // The keywords are already on the questions — the ranking uses them — so

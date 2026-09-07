@@ -15,6 +15,8 @@ export interface ProjectShell {
   access_help_url: string | null;
   access_help_label: string | null;
   drive_folder_id: string | null;
+  extraction_target: number | null;
+  created_at: string;
 }
 
 /**
@@ -42,7 +44,7 @@ export const getProject = cache(async (id: string): Promise<ProjectShell | null>
     supabase
       .from("projects")
       .select(
-        "id, title, description, kind, ownership_model, access_help_url, access_help_label, drive_folder_id",
+        "id, title, description, kind, ownership_model, access_help_url, access_help_label, drive_folder_id, extraction_target, created_at",
       )
       .eq("id", id)
       .maybeSingle(),

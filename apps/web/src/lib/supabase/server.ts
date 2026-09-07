@@ -2,6 +2,7 @@ import "server-only";
 
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { cache } from "react";
 
 /**
  * Server Supabase client for RSCs, route handlers, and server actions.
@@ -43,18 +44,21 @@ export async function createClient() {
  * Always `getUser()`, never `getSession()`: getSession reads the cookie
  * without verifying it, so it can be forged. getUser revalidates against
  * the auth server.
+ *
+ * Memoized with `cache()` so multiple layout and page components within
+ * the same request lifecycle do not trigger duplicate network roundtrips.
  */
-export async function getCurrentUser() {
+export const getCurrentUser = cache(async () => {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   return user;
-}
+});
 
 /** Claims shaped for `withUserContext`. Null when unauthenticated. */
-export async function getUserClaims() {
+export const getUserClaims = cache(async () => {
   const user = await getCurrentUser();
   if (!user) return null;
   return { sub: user.id, role: "authenticated", email: user.email ?? "" };
-}
+});

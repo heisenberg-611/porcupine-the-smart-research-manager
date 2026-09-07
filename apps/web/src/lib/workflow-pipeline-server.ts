@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { capabilities, type ProjectKind } from "@Porcupine/shared";
 import { must } from "@/lib/supabase/query";
 import { createClient } from "@/lib/supabase/server";
@@ -21,11 +22,15 @@ export interface ProjectWorkflowData {
 
 /**
  * Server-side loader to fetch live project counts and compute the 6-stage workflow pipeline.
+ *
+ * Memoized with `cache()` so when called from both layout and overview pages within
+ * the same request, it runs once and shares the result.
  */
-export async function getProjectWorkflowPipeline(
-  projectId: string,
-  kind: ProjectKind,
-): Promise<ProjectWorkflowData> {
+export const getProjectWorkflowPipeline = cache(
+  async (
+    projectId: string,
+    kind: ProjectKind,
+  ): Promise<ProjectWorkflowData> => {
   const supabase = await createClient();
   const caps = capabilities(kind);
 
@@ -112,4 +117,4 @@ export async function getProjectWorkflowPipeline(
       extracted,
     },
   };
-}
+});

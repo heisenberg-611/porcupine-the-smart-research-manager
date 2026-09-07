@@ -241,7 +241,7 @@ export function ContributorsView({
             Send Feedback ✉️
           </a>
           <a
-            href="https://github.com/heisenberg-611"
+            href="https://github.com/heisenberg-611/porcupine-the-smart-research-manager"
             target="_blank"
             rel="noreferrer"
             className="border-border text-ink hover:bg-surface-hover focus-visible:ring-accent rounded-xl border px-5 py-2.5 font-semibold shadow-xs transition-all focus-visible:ring-2 focus-visible:outline-none inline-block text-xs"

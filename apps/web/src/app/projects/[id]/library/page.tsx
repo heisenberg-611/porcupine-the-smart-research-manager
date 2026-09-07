@@ -78,12 +78,7 @@ export default async function LibraryPage({
   const { status } = await searchParams;
   const supabase = await createClient();
 
-  const shell = await getProject(id);
-  const project = await must(
-    supabase.from("projects").select("id, title, kind").eq("id", id).maybeSingle(),
-    "the project",
-  );
-
+  const project = await getProject(id);
   if (!project) notFound();
 
   // RLS scopes this to the project; the filter is a view concern only.
@@ -233,8 +228,8 @@ export default async function LibraryPage({
                       />
                       <AccessHelp
                         route={{
-                          url: shell?.access_help_url ?? null,
-                          label: shell?.access_help_label ?? null,
+                          url: project?.access_help_url ?? null,
+                          label: project?.access_help_label ?? null,
                         }}
                         doi={row.works?.doi}
                         title={row.works?.title ?? "this paper"}

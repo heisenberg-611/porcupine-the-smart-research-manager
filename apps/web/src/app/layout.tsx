@@ -1,12 +1,12 @@
 import type { Metadata, Viewport } from "next";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 
 import { AppHeader } from "@/components/app-header";
+import { AppHeaderVisibility } from "@/components/app-header-visibility";
 import { CookieNotice } from "@/components/cookie-notice";
+import { NavigationProgressBar } from "@/components/navigation-progress-bar";
 import { CryptoSessionProvider } from "@/lib/crypto/session";
 import { THEME_SCRIPT } from "@/lib/theme";
-
-import { AppHeaderVisibility } from "@/components/app-header-visibility";
 
 import "./globals.css";
 
@@ -49,6 +49,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             navigation between project screens. It holds nothing until someone
             unlocks, and holds it only in memory — see the provider. */}
         <CryptoSessionProvider>
+          <Suspense fallback={null}>
+            <NavigationProgressBar />
+          </Suspense>
           <AppHeaderVisibility>
             <AppHeader />
           </AppHeaderVisibility>
