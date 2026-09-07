@@ -1,6 +1,7 @@
 "use server";
 
 import {
+  extractMeaningfulTokens,
   federatedSearch,
   PROVIDER_IDS,
   rankWorks,
@@ -85,14 +86,18 @@ export async function searchWorks(
 
   if (!context) return { ok: false, error: "Project not found." };
 
-  // Keywords seed the ranking. Question text is included as a fallback so a
-  // project that wrote questions but never tagged them still gets ordering
-  // better than "whatever the providers returned first".
+  // Keywords seed the ranking suggestions. Meaningful question tokens are included
+  // as suggestions so a project without tags still gets relevant keyword hints.
+  const structuredQuestions = context.questions.map((q) => ({
+    text: q.text,
+    keywords: q.keywords,
+  }));
+
   const keywords = [
     ...new Set(
       context.questions.flatMap((q) => [
         ...q.keywords,
-        ...q.text.split(/\s+/).filter((w) => w.length > 5),
+        ...extractMeaningfulTokens(q.text),
       ]),
     ),
   ];
@@ -116,10 +121,16 @@ export async function searchWorks(
     ),
   );
 
+  const ranked = rankWorks(works, {
+    query: terms,
+    questions: structuredQuestions,
+    now: new Date().getFullYear(),
+  });
+
   return {
     ok: true,
     data: {
-      ranked: rankWorks(works, keywords),
+      ranked,
       counts,
       failures,
       alreadyAdded,

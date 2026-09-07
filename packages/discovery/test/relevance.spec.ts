@@ -126,6 +126,83 @@ describe("scoreWork", () => {
     }
     expect(scored.score).toBeLessThanOrEqual(1);
   });
+
+  it("scores active search query terms directly", () => {
+    const scored = scoreWork(
+      work({
+        title: "Advances in Spaced Repetition for Medical Education",
+        abstract: "We evaluate flashcard schedules in residency training.",
+        publishedYear: 2024,
+      }),
+      { query: "spaced repetition medical education", now: NOW },
+    );
+
+    expect(scored.score).toBeGreaterThan(0.6);
+    expect(scored.matched).toContain("spaced repetition");
+    expect(scored.matched).toContain("medical");
+    expect(scored.matched).toContain("education");
+  });
+
+  it("gates relevance so an unrelated paper with 100k citations never outranks a matching paper", () => {
+    const relevantPaper = scoreWork(
+      work({
+        title: "ECG Classification using Convolutional Neural Networks",
+        abstract: "A study on arrhythmia detection.",
+        publishedYear: 2024,
+        citedByCount: 2,
+      }),
+      { query: "ECG classification neural networks", now: NOW },
+    );
+
+    const unrelatedPaperWithHugeCitations = scoreWork(
+      work({
+        title: "Discovery of Penicillin and Early Antibiotics History",
+        abstract: "A comprehensive historical review of infectious disease treatments.",
+        publishedYear: 2023,
+        citedByCount: 150_000,
+      }),
+      { query: "ECG classification neural networks", now: NOW },
+    );
+
+    expect(relevantPaper.score).toBeGreaterThan(0.6);
+    expect(unrelatedPaperWithHugeCitations.score).toBeLessThan(0.02);
+    expect(relevantPaper.score).toBeGreaterThan(unrelatedPaperWithHugeCitations.score);
+  });
+
+  it("avoids multi-question keyword dilution using per-question max pooling", () => {
+    const questions = [
+      { text: "How does spaced repetition impact medical retention?", keywords: ["spaced repetition", "retention"] },
+      { text: "What are best surgical simulation practices?", keywords: ["surgical simulation", "virtual reality", "laparoscopy"] },
+      { text: "How does burnout affect clinical empathy?", keywords: ["burnout", "empathy", "wellbeing", "stress"] },
+      { text: "What is the role of ultrasound in emergency care?", keywords: ["ultrasound", "emergency", "point of care"] },
+    ];
+
+    const paper = work({
+      title: "Spaced Repetition and Knowledge Retention in Medical Students",
+      abstract: "Long term evaluation of memory retention.",
+      publishedYear: 2024,
+    });
+
+    const scoredWithQuestions = scoreWork(paper, { questions, now: NOW });
+    // In the old algorithm, 2 matching keywords out of 12 total project keywords gave 2/12 = 0.16.
+    // In the new algorithm with per-question max pooling, Question 1 is matched at 100%, yielding a high score.
+    expect(scoredWithQuestions.score).toBeGreaterThan(0.65);
+  });
+
+  it("filters conversational stopwords from triggering bogus hits", () => {
+    const scored = scoreWork(
+      work({
+        title: "How Does One Study and Review Modern Chemistry?",
+        abstract: "During this investigation we approach the effects.",
+      }),
+      ["how", "does", "during", "study", "approach"],
+      NOW,
+    );
+
+    expect(scored.matched).toEqual([]);
+    expect(scored.signals.titleMatch).toBe(0);
+    expect(scored.signals.abstractMatch).toBe(0);
+  });
 });
 
 describe("rankWorks", () => {
@@ -140,6 +217,26 @@ describe("rankWorks", () => {
     );
 
     expect(ranked[0]?.work.title).toBe("Genomics Explained");
+  });
+
+  it("ranks by search query when project has no research questions", () => {
+    const ranked = rankWorks(
+      [
+        work({
+          title: "General Physics and Astrophysics Review",
+          publishedYear: 2024,
+          citedByCount: 10_000,
+        }),
+        work({
+          title: "Deep Reinforcement Learning for Robot Manipulation",
+          publishedYear: 2024,
+          citedByCount: 5,
+        }),
+      ],
+      { query: "robot manipulation reinforcement learning", now: NOW },
+    );
+
+    expect(ranked[0]?.work.title).toBe("Deep Reinforcement Learning for Robot Manipulation");
   });
 
   it("is stable, so screening position does not shift between renders", () => {

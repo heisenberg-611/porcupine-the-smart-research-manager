@@ -668,7 +668,14 @@ function ResultCard({
         {/* The "why is this here?" affordance. Without it the ranking is a
             black box, and a black box cannot go in a methods section. */}
         {matched.length > 0 && <Chip tone="accent">Matched: {matched.join(", ")}</Chip>}
-        {signals.titleMatch > 0 && <Chip>title match</Chip>}
+        {signals.titleMatch > 0 && (
+          <Chip tone={signals.titleMatch >= 0.7 ? "accent" : "muted"}>
+            Title match {(signals.titleMatch * 100).toFixed(0)}%
+          </Chip>
+        )}
+        {signals.abstractMatch > 0 && (
+          <Chip>Abstract match {(signals.abstractMatch * 100).toFixed(0)}%</Chip>
+        )}
         {work.oaPdfUrl && <Chip tone="accent">Open access</Chip>}
         {work.citedByCount > 0 && (
           <Chip>{work.citedByCount.toLocaleString()} citations</Chip>
