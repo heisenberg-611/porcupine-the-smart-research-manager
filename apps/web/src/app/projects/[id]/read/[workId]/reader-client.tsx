@@ -124,7 +124,6 @@ export function ReaderClient({
 }) {
   const router = useRouter();
   const [selection, setSelection] = useState<AnchorSelector | null>(null);
-  const [isPdfFullScreen, setIsPdfFullScreen] = useState(false);
   const [note, setNote] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -220,10 +219,6 @@ export function ReaderClient({
   );
 
   const captureSelection = useCallback(() => {
-    if (isPdfFullScreen) {
-      setSelection(null);
-      return;
-    }
     const active = window.getSelection();
     if (!active || active.isCollapsed || !documentRef.current) {
       setSelection(null);
@@ -355,10 +350,6 @@ export function ReaderClient({
               onSelection={captureSelection}
               onDeleteHighlight={remove}
               focusPage={focusPage}
-              onFullScreenChange={(fullscreen) => {
-                setIsPdfFullScreen(fullscreen);
-                if (fullscreen) setSelection(null);
-              }}
             />
           ) : (
             sections.map((section, index) => (
@@ -389,7 +380,7 @@ export function ReaderClient({
           )}
         </div>
 
-        {!isPdfFullScreen && selection && (
+        {selection && (
           <div
             data-testid="annotate-panel"
             className="border-accent/40 bg-raised fixed z-40 max-h-[80vh] w-[340px] max-w-[calc(100vw-24px)] space-y-3 overflow-y-auto rounded-2xl border p-4 shadow-xl"

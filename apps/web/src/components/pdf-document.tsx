@@ -131,7 +131,6 @@ export function PdfDocument({
   onSelection,
   onDeleteHighlight,
   focusPage,
-  onFullScreenChange,
 }: {
   storagePath: string;
   /** The stored page strings, index 0 = page 1. Offsets are measured here. */
@@ -143,8 +142,6 @@ export function PdfDocument({
   onDeleteHighlight?: (id: string) => void;
   /** Scroll this page into view once, when the document is ready. */
   focusPage: number | null;
-  /** Notified when full screen reading mode is entered or exited. */
-  onFullScreenChange?: (isFullscreen: boolean) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -343,7 +340,7 @@ export function PdfDocument({
   }, []);
 
   /*
-   * Zoom & layout width updater resizes every page and redraws the ones on screen.
+   * Zoom resizes every page and redraws the ones on screen.
    *
    * `--total-scale-factor`, the canvas bitmap and every run's font size are
    * all expressed in the scale, so a page drawn at the old one is wrong in
@@ -356,11 +353,12 @@ export function PdfDocument({
    * jump to page 200 land somewhere else. Redrawing bitmaps is the expensive
    * half and stays lazy: the observer asks for each page as it is reached.
    */
-  const updateLayoutWidths = useCallback(() => {
+  useEffect(() => {
+    zoomRef.current = zoom;
     const slots = slotsRef.current;
-    if (slots.size === 0 || !rootRef.current) return;
+    if (slots.size === 0) return;
 
-    const width = (rootRef.current.clientWidth ?? 0) - GUTTER;
+    const width = (rootRef.current?.clientWidth ?? 0) - GUTTER;
 
     for (const slot of slots.values()) {
       slot.rendered = false;
@@ -371,46 +369,39 @@ export function PdfDocument({
         drawn.remove();
       }
 
-      const scale = (Math.max(width, 200) / slot.baseWidth) * zoomRef.current;
+      const scale = (Math.max(width, 200) / slot.baseWidth) * zoom;
       slot.paper.style.width = `${slot.baseWidth * scale}px`;
       slot.container.style.width = `${slot.baseWidth * scale + GUTTER}px`;
-      slot.container.style.setProperty("--total-scale-factor", String(scale));
     }
 
     rerenderRef.current?.();
-  }, []);
+  }, [zoom]);
 
+  // Adjust page slot dimensions when entering or exiting full screen
   useEffect(() => {
-    zoomRef.current = zoom;
-    updateLayoutWidths();
-  }, [zoom, updateLayoutWidths]);
+    const slots = slotsRef.current;
+    if (slots.size === 0 || !rootRef.current) return;
 
-  // Handle responsive layout resizing when entering/exiting fullscreen
-  useEffect(() => {
-    onFullScreenChange?.(isFullscreen);
     const timer = setTimeout(() => {
-      updateLayoutWidths();
-      goToPageRef.current?.(currentPage);
-    }, 50);
-    return () => clearTimeout(timer);
-  }, [isFullscreen, updateLayoutWidths, currentPage, onFullScreenChange]);
+      const width = (rootRef.current?.clientWidth ?? 0) - GUTTER;
+      for (const slot of slots.values()) {
+        slot.rendered = false;
+        slot.layer.replaceChildren();
+        for (const drawn of slot.container.querySelectorAll(
+          "[data-highlight], [data-highlight-author]",
+        )) {
+          drawn.remove();
+        }
 
-  // Handle container / window resize
-  useEffect(() => {
-    if (!scrollRef.current) return;
-    let timeoutId: NodeJS.Timeout;
-    const observer = new ResizeObserver(() => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        updateLayoutWidths();
-      }, 100);
-    });
-    observer.observe(scrollRef.current);
-    return () => {
-      clearTimeout(timeoutId);
-      observer.disconnect();
-    };
-  }, [updateLayoutWidths]);
+        const scale = (Math.max(width, 200) / slot.baseWidth) * zoomRef.current;
+        slot.paper.style.width = `${slot.baseWidth * scale}px`;
+        slot.container.style.width = `${slot.baseWidth * scale + GUTTER}px`;
+      }
+      rerenderRef.current?.();
+    }, 60);
+
+    return () => clearTimeout(timer);
+  }, [isFullscreen]);
 
   // Repaint in place when the annotations change — no rebuild, no scroll jump.
   useEffect(() => {
@@ -753,10 +744,7 @@ export function PdfDocument({
     layer?.classList.add("selecting");
   }, []);
 
-  const handleSelection = useCallback(() => {
-    if (isFullscreen) return;
-    onSelection();
-  }, [isFullscreen, onSelection]);
+  const handleSelection = useCallback(() => onSelection(), [onSelection]);
 
   useEffect(() => {
     if (!activeHighlight) return;
