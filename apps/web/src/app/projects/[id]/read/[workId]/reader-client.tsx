@@ -47,49 +47,38 @@ export interface RenderedAnnotation {
  * highlight whose passage has changed is shown with a warning instead of
  * being silently drawn somewhere plausible.
  */
-const PANEL_WIDTH = 340;
-const PANEL_HEIGHT = 268;
 const PANEL_MARGIN = 12;
 
 /**
- * Where the compose panel goes for a given selection, in viewport coordinates.
+ * Where the lightweight floating toolbar or note popover goes for a given selection.
  *
- * Below the passage when there is room and above it when there is not: a
- * selection near the foot of the window would otherwise put the buttons
- * off-screen, which is the original "I have to scroll to the end" complaint in
- * a smaller form.
+ * Positions centered ABOVE the selection by default so the lines below are never
+ * obscured while reading. Flips smoothly below when near the top of the viewport.
  */
-function placeBeside(range: Range): { top: number; left: number } {
+function placeBeside(range: Range, isNoteMode = false): { top: number; left: number } {
   const rects = Array.from(range.getClientRects());
+  const first = rects[0] ?? range.getBoundingClientRect();
   const last = rects.at(-1) ?? range.getBoundingClientRect();
 
-  const roomBelow = window.innerHeight - last.bottom;
-  const wanted =
-    roomBelow > PANEL_HEIGHT
-      ? last.bottom + 8
-      : Math.max(PANEL_MARGIN, last.top - PANEL_HEIGHT);
+  const targetWidth = isNoteMode ? 320 : 230;
+  const targetHeight = isNoteMode ? 210 : 44;
 
-  /*
-   * Clamped so the whole panel is on screen, not just its top edge.
-   *
-   * A FIXED element hanging below the fold cannot be scrolled into view —
-   * scrolling moves the document under it and the element stays put — so its
-   * buttons become permanently unreachable rather than one scroll away. The
-   * panel also carries a max-height with its own scrollbar, because
-   * PANEL_HEIGHT is an estimate and this must hold when the estimate is wrong.
-   */
-  const top = Math.max(
-    PANEL_MARGIN,
-    Math.min(wanted, window.innerHeight - PANEL_HEIGHT - PANEL_MARGIN),
-  );
+  // Prefer positioning above the first line of the selection to keep text below visible
+  let top = first.top - targetHeight - 8;
+  if (top < PANEL_MARGIN) {
+    // If near the top edge of viewport, place just below the selection
+    top = last.bottom + 8;
+  }
 
-  return {
-    top,
-    left: Math.max(
-      PANEL_MARGIN,
-      Math.min(last.left, window.innerWidth - PANEL_WIDTH - PANEL_MARGIN),
-    ),
-  };
+  // Center horizontally on the selection
+  const midX = (first.left + Math.min(first.right, first.left + 200)) / 2;
+  let left = midX - targetWidth / 2;
+
+  // Clamp to viewport
+  left = Math.max(PANEL_MARGIN, Math.min(left, window.innerWidth - targetWidth - PANEL_MARGIN));
+  top = Math.max(PANEL_MARGIN, Math.min(top, window.innerHeight - targetHeight - PANEL_MARGIN));
+
+  return { top, left };
 }
 
 export function ReaderClient({
@@ -124,6 +113,8 @@ export function ReaderClient({
 }) {
   const router = useRouter();
   const [selection, setSelection] = useState<AnchorSelector | null>(null);
+  const [isNoteMode, setIsNoteMode] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [note, setNote] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -135,44 +126,10 @@ export function ReaderClient({
   // of the row, since each annotation has its own Delete.
   const [running, setRunning] = useState<string | null>(null);
   const documentRef = useRef<HTMLDivElement>(null);
-  /*
-   * Where to put the compose panel: just under the selection, in VIEWPORT
-   * coordinates.
-   *
-   * It used to sit after the document in normal flow, which on a one-page
-   * abstract was fine and on a 300-page PDF meant scrolling to the end of the
-   * paper to click Highlight, then scrolling back to carry on reading.
-   *
-   * The first fix used the document's own coordinates so the panel would
-   * travel with the passage. That stopped working when the PDF moved into its
-   * own scrolling window: the passage now moves inside a box the panel is not
-   * in, so a coordinate measured against the document means nothing a moment
-   * later. Fixed positioning does not care which container scrolled.
-   *
-   * Scrolling re-places it rather than dismissing it. Dismissing was tried
-   * and is wrong twice over: a stray wheel nudge while reaching for the button
-   * throws the selection away, and Playwright's own scroll-into-view before a
-   * click did exactly that, which is how the fault was found.
-   */
   const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
 
   /*
-   * Derived once per annotation change, not once per render.
-   *
-   * Built inline, this array had a new identity on every render — and the
-   * reader re-renders on every selection change — so the viewer repainted, and
-   * previously rebuilt, the whole document while somebody was dragging over a
-   * word.
-   */
-  /*
    * Follow the passage when anything scrolls.
-   *
-   * Capture phase and on `document`, because the PDF scrolls inside its own
-   * container now and a listener on `window` never hears about it.
-   *
-   * Only while a live, uncollapsed selection exists: clicking into the note
-   * field collapses it, and recomputing from a collapsed range would throw the
-   * panel to the top-left corner mid-typing.
    */
   useEffect(() => {
     if (!selection) return;
@@ -180,7 +137,7 @@ export function ReaderClient({
     const follow = () => {
       const live = window.getSelection();
       if (!live || live.isCollapsed || live.rangeCount === 0) return;
-      setAnchor(placeBeside(live.getRangeAt(0)));
+      setAnchor(placeBeside(live.getRangeAt(0), isNoteMode));
     };
 
     document.addEventListener("scroll", follow, { capture: true, passive: true });
@@ -189,7 +146,16 @@ export function ReaderClient({
       document.removeEventListener("scroll", follow, { capture: true });
       window.removeEventListener("resize", follow);
     };
-  }, [selection]);
+  }, [selection, isNoteMode]);
+
+  // Recalculate anchor when switching between toolbar mode and note mode
+  useEffect(() => {
+    if (!selection) return;
+    const live = window.getSelection();
+    if (live && !live.isCollapsed && live.rangeCount > 0) {
+      setAnchor(placeBeside(live.getRangeAt(0), isNoteMode));
+    }
+  }, [isNoteMode, selection]);
 
   const pdfHighlights = useMemo<PdfHighlight[]>(
     () =>
@@ -222,22 +188,13 @@ export function ReaderClient({
     const active = window.getSelection();
     if (!active || active.isCollapsed || !documentRef.current) {
       setSelection(null);
+      setIsNoteMode(false);
       return;
     }
 
     const range = active.getRangeAt(0);
     if (!documentRef.current.contains(range.commonAncestorContainer)) return;
 
-    /*
-     * Which page the selection is on, asked of the DOM rather than tracked.
-     *
-     * A selection can begin in one section and end in another, and character
-     * offsets only mean anything within one page's text. Climbing to the
-     * nearest section element from where the selection STARTS gives both the
-     * page and the string those offsets belong to; a selection dragged across
-     * a page boundary is truncated to the page it started on, which is the
-     * only interpretation that produces a resolvable anchor.
-     */
     const origin =
       range.startContainer.nodeType === Node.ELEMENT_NODE
         ? (range.startContainer as Element)
@@ -249,19 +206,6 @@ export function ReaderClient({
     const section = sections[index];
     if (!section) return;
 
-    /*
-     * Offsets through the shared walker, for both renderings.
-     *
-     * `Range.toString()` was fine while a section was one text node, and is
-     * wrong the moment the section is pdf.js's text layer: that layer marks
-     * line breaks with `<br>`, which contributes nothing to `toString()` while
-     * the stored page string has a "\n" there. The drift is one character per
-     * line, and it would not raise anything — `resolveAnchor` would simply
-     * stop hitting its fast path and start guessing between repeated phrases.
-     *
-     * `offsetInPageText` mirrors `joinPageText`, so both renderings measure
-     * against the string the anchor is stored in.
-     */
     const start = offsetInPageText(host, range.startContainer, range.startOffset);
     const finish = offsetInPageText(host, range.endContainer, range.endOffset);
     if (start === null || finish === null) return;
@@ -270,17 +214,19 @@ export function ReaderClient({
 
     if (end - start < 3) {
       setSelection(null);
+      setIsNoteMode(false);
       return;
     }
 
     setNote("");
     setIsPrivate(false);
+    setIsNoteMode(false);
     setError(null);
     setStatus(null);
 
     const selector = createSelector(section.text, start, end, section.page ?? undefined);
     setSelection(selector);
-    setAnchor(placeBeside(range));
+    setAnchor(placeBeside(range, false));
   }, [sections]);
 
   async function save(kind: "HIGHLIGHT" | "NOTE") {
@@ -307,12 +253,54 @@ export function ReaderClient({
     }
 
     setSelection(null);
+    setIsNoteMode(false);
     setNote("");
     setStatus("Saved.");
     startTransition(() => {
       router.refresh();
     });
   }
+
+  async function copyQuote() {
+    if (!selection?.quote) return;
+    try {
+      await navigator.clipboard.writeText(selection.quote);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  }
+
+  // Keyboard shortcuts: H = Highlight, N = Note, Esc = Dismiss
+  useEffect(() => {
+    if (!selection) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.tagName === "TEXTAREA" || target?.tagName === "INPUT") {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setIsNoteMode(false);
+          setSelection(null);
+        }
+        return;
+      }
+
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setIsNoteMode(false);
+        setSelection(null);
+      } else if ((e.key === "h" || e.key === "H") && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        void save("HIGHLIGHT");
+      } else if ((e.key === "n" || e.key === "N") && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        setIsNoteMode(true);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selection, isNoteMode, note, isPrivate, projectId, projectWorkId]);
 
   async function remove(annotationId: string) {
     setError(null);
@@ -380,70 +368,169 @@ export function ReaderClient({
           )}
         </div>
 
+        {/* ── 2-Tier Annotation System (Mini Floating Toolbar + Focused Note Popover) ── */}
         {selection && (
           <div
             data-testid="annotate-panel"
-            className="border-accent/40 bg-raised fixed z-[70] max-h-[80vh] w-[340px] max-w-[calc(100vw-24px)] space-y-3 overflow-y-auto rounded-2xl border p-4 shadow-2xl backdrop-blur-md"
+            className="fixed z-[70] animate-in fade-in zoom-in-95 duration-150"
             style={{ top: anchor?.top ?? 0, left: anchor?.left ?? 0 }}
           >
-            <p className="text-muted text-fine font-medium">Selected text</p>
-            <blockquote className="text-ink border-accent text-ui border-l-2 pl-3 italic">
-              {selection.quote}
-            </blockquote>
+            {!isNoteMode ? (
+              /* Tier 1: Mini Floating Toolbar */
+              <div className="bg-raised/95 border-border/80 ring-1 ring-black/10 dark:ring-white/10 shadow-2xl backdrop-blur-md rounded-2xl border p-1 flex items-center gap-1">
+                {/* 1-Click Highlight button */}
+                <button
+                  type="button"
+                  onClick={() => save("HIGHLIGHT")}
+                  disabled={pending}
+                  className="bg-accent text-accent-ink hover:brightness-105 active:scale-95 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                  title="Highlight selected text (H)"
+                >
+                  <svg className="size-3.5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="m5.433 13.917 1.262-3.155A4 4 0 0 1 7.58 9.42l6.92-6.918a2.121 2.121 0 0 1 3 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 0 1-.65-.65Z" />
+                    <path d="M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0 0 10 3H4.75A2.75 2.75 0 0 0 2 5.75v9.5A2.75 2.75 0 0 0 4.75 18h9.5A2.75 2.75 0 0 0 17 15.25V10a.75.75 0 0 0-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5Z" />
+                  </svg>
+                  <span>{running === "highlight" ? "Saving…" : "Highlight"}</span>
+                  <kbd className="bg-black/20 text-accent-ink rounded px-1 py-0.2 text-[9px] font-mono">
+                    H
+                  </kbd>
+                </button>
 
-            <label className="text-muted text-fine flex flex-col gap-1.5">
-              Note (optional)
-              <Textarea
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                rows={3}
-                placeholder="Add your note or insights here..."
-                className="border-border bg-surface text-ink text-ui rounded-xl border p-2.5"
-              />
-            </label>
+                {/* Add note button */}
+                <button
+                  type="button"
+                  onClick={() => setIsNoteMode(true)}
+                  disabled={pending}
+                  className="text-ink hover:bg-surface active:scale-95 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer"
+                  title="Add note to selection (N)"
+                >
+                  <svg className="size-3.5 text-muted" viewBox="0 0 20 20" fill="currentColor">
+                    <path
+                      fillRule="evenodd"
+                      d="M10 2c-4.418 0-8 3.134-8 7 0 1.76.743 3.37 1.97 4.6-.097 1.016-.417 2.13-.771 2.966-.079.186.074.394.276.368 1.488-.19 3.003-.81 3.864-1.344.836.266 1.733.41 2.661.41 4.418 0 8-3.134 8-7s-3.582-7-8-7Zm0 12.5c-.808 0-1.591-.122-2.32-.349a.75.75 0 0 0-.64.085c-.672.434-1.749.882-2.853 1.082.262-.756.495-1.637.56-2.45a.75.75 0 0 0-.256-.59C3.473 11.232 3 9.946 3 8.75 3 5.574 6.134 3 10 3s7 2.574 7 5.75-3.134 5.75-7 5.75Z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <span>Note</span>
+                  <kbd className="text-muted bg-surface rounded px-1 py-0.2 text-[9px] font-mono">
+                    N
+                  </kbd>
+                </button>
 
-            <label className="text-muted text-fine flex items-center gap-2">
-              <Checkbox
-                checked={isPrivate}
-                onChange={(e) => setIsPrivate(e.target.checked)}
-                className="size-4"
-              />
-              {/* PRIVATE excludes the project owner too — see the RLS policy. */}
-              Private to me — nobody else on the project can read this
-            </label>
+                {/* Copy quote button */}
+                <button
+                  type="button"
+                  onClick={copyQuote}
+                  className="text-muted hover:text-ink hover:bg-surface inline-flex size-7 items-center justify-center rounded-lg transition-colors cursor-pointer"
+                  title="Copy selected text"
+                  aria-label="Copy quote"
+                >
+                  {copied ? (
+                    <svg className="size-3.5 text-accent" viewBox="0 0 20 20" fill="currentColor">
+                      <path
+                        fillRule="evenodd"
+                        d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  ) : (
+                    <svg className="size-3.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M7 3.5A1.5 1.5 0 0 1 8.5 2h3.879a1.5 1.5 0 0 1 1.06.44l3.122 3.12a1.5 1.5 0 0 1 .439 1.061V14.5A1.5 1.5 0 0 1 15.5 16h-7A1.5 1.5 0 0 1 7 14.5v-11Z" />
+                      <path d="M5 6a1.5 1.5 0 0 0-1.5 1.5v9A1.5 1.5 0 0 0 5 18h7a1.5 1.5 0 0 0 1.5-1.5v-.5H7A2.5 2.5 0 0 1 4.5 13.5V6H5Z" />
+                    </svg>
+                  )}
+                </button>
 
-            {error && (
-              <p role="alert" className="text-danger text-fine">
-                {error}
-              </p>
+                <span className="bg-border/60 mx-0.5 h-4 w-px" />
+
+                {/* Dismiss button */}
+                <button
+                  type="button"
+                  onClick={() => setSelection(null)}
+                  className="text-muted hover:text-ink hover:bg-surface inline-flex size-7 items-center justify-center rounded-lg text-xs transition-colors cursor-pointer"
+                  title="Dismiss (Esc)"
+                  aria-label="Dismiss selection"
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              /* Tier 2: Compact Focused Note Popover */
+              <div className="bg-raised border-border/80 ring-1 ring-black/10 dark:ring-white/10 shadow-2xl backdrop-blur-md flex w-[320px] max-w-[calc(100vw-24px)] flex-col gap-3 rounded-2xl border p-4 animate-in fade-in zoom-in-95 duration-100">
+                <div className="flex items-center justify-between">
+                  <div className="text-ink flex items-center gap-2 text-xs font-semibold">
+                    <span className="bg-accent size-2 rounded-full" />
+                    <span>Attach Note</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsNoteMode(false)}
+                    className="text-muted hover:text-ink p-1 text-xs"
+                    title="Back to toolbar"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <Textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  rows={3}
+                  autoFocus
+                  placeholder="Add note or research insight..."
+                  className="min-h-[70px] p-2.5 text-xs"
+                />
+
+                <label className="text-muted text-fine flex cursor-pointer select-none items-center gap-2">
+                  <Checkbox
+                    checked={isPrivate}
+                    onChange={(e) => setIsPrivate(e.target.checked)}
+                    className="size-3.5"
+                  />
+                  <span>Private to me — nobody else can read this</span>
+                </label>
+
+                {error && (
+                  <p role="alert" className="text-danger text-fine">
+                    {error}
+                  </p>
+                )}
+
+                <div className="border-border/60 flex items-center justify-between gap-2 border-t pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsNoteMode(false)}
+                    className="text-muted hover:text-ink px-2 py-1 text-xs font-medium"
+                  >
+                    ← Back
+                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        setSelection(null);
+                        setIsNoteMode(false);
+                      }}
+                      className="h-8 px-3 text-xs"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="primary"
+                      onClick={() => save("NOTE")}
+                      disabled={pending || !note.trim()}
+                      busy={pending && running === "note"}
+                      busyLabel="Saving…"
+                      className="h-8 px-4 text-xs font-semibold"
+                    >
+                      Save Note
+                    </Button>
+                  </div>
+                </div>
+              </div>
             )}
-
-            <div className="flex gap-2 pt-1">
-              <Button
-                onClick={() => save("HIGHLIGHT")}
-                disabled={pending}
-                busy={pending && running === "highlight"}
-                busyLabel="Saving…"
-              >
-                Highlight
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => save("NOTE")}
-                disabled={pending || !note.trim()}
-                busy={pending && running === "note"}
-                busyLabel="Saving…"
-              >
-                Save note
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => setSelection(null)}
-                disabled={pending}
-              >
-                Cancel
-              </Button>
-            </div>
           </div>
         )}
       </div>
