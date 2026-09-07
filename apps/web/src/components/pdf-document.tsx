@@ -16,7 +16,10 @@ import { rangeForPageText } from "@/lib/page-text";
 import "@/styles/pdf-text-layer.css";
 
 /** Format ISO timestamp for annotation display */
-export function formatAnnotationTime(isoString?: string): { relative: string; full: string } {
+export function formatAnnotationTime(isoString?: string): {
+  relative: string;
+  full: string;
+} {
   if (!isoString) return { relative: "", full: "" };
   const date = new Date(isoString);
   if (isNaN(date.getTime())) return { relative: "", full: "" };
@@ -708,7 +711,7 @@ export function PdfDocument({
   return (
     <div className="relative">
       {status === "ready" && (
-        <div className="border-border bg-raised/95 backdrop-blur-md sticky top-0 z-10 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-2.5 shadow-sm">
+        <div className="border-border bg-raised/95 sticky top-0 z-10 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-2.5 shadow-sm backdrop-blur-md">
           {/* Page navigation */}
           <label className="text-muted text-fine flex items-center gap-2 font-medium">
             <span>Page</span>
@@ -726,9 +729,9 @@ export function PdfDocument({
                 goToPageRef.current?.(clamped);
               }}
               aria-label="Go to page"
-              className="w-16 text-center tabular-nums font-semibold"
+              className="w-16 text-center font-semibold tabular-nums"
             />
-            <span className="tabular-nums text-muted">of {pageCount}</span>
+            <span className="text-muted tabular-nums">of {pageCount}</span>
           </label>
 
           {/* Fine-tuning Zoom Controls */}
@@ -742,7 +745,7 @@ export function PdfDocument({
                 disabled={zoom <= 0.25}
                 aria-label="Zoom out"
                 title="Zoom out (10%)"
-                className="border-border text-ink hover:bg-surface flex size-8 items-center justify-center rounded-lg border text-base font-semibold shadow-xs disabled:opacity-40 transition-colors"
+                className="border-border text-ink hover:bg-surface flex size-8 items-center justify-center rounded-lg border text-base font-semibold shadow-xs transition-colors disabled:opacity-40"
               >
                 −
               </button>
@@ -762,9 +765,9 @@ export function PdfDocument({
                     }
                   }}
                   aria-label="Zoom percentage"
-                  className="w-16 text-center tabular-nums font-semibold"
+                  className="w-16 text-center font-semibold tabular-nums"
                 />
-                <span className="tabular-nums text-muted">%</span>
+                <span className="text-muted tabular-nums">%</span>
               </label>
 
               <button
@@ -775,7 +778,7 @@ export function PdfDocument({
                 disabled={zoom >= 3}
                 aria-label="Zoom in"
                 title="Zoom in (10%)"
-                className="border-border text-ink hover:bg-surface flex size-8 items-center justify-center rounded-lg border text-base font-semibold shadow-xs disabled:opacity-40 transition-colors"
+                className="border-border text-ink hover:bg-surface flex size-8 items-center justify-center rounded-lg border text-base font-semibold shadow-xs transition-colors disabled:opacity-40"
               >
                 +
               </button>
@@ -811,7 +814,7 @@ export function PdfDocument({
               <button
                 type="button"
                 onClick={() => setZoom(1)}
-                className="text-primary hover:underline text-fine px-1.5 py-1 font-medium transition-colors cursor-pointer"
+                className="text-primary text-fine cursor-pointer px-1.5 py-1 font-medium transition-colors hover:underline"
                 title="Reset zoom to 100%"
               >
                 Reset
@@ -849,7 +852,7 @@ export function PdfDocument({
       {activeHighlight && popupPos && (
         <div
           data-testid="annotation-popup"
-          className="fixed z-50 animate-in fade-in zoom-in-95 duration-150"
+          className="animate-in fade-in zoom-in-95 fixed z-50 duration-150"
           style={{
             top: `${popupPos.top}px`,
             left: `${popupPos.left}px`,
@@ -862,7 +865,7 @@ export function PdfDocument({
             onClick={() => setActiveHighlight(null)}
           />
 
-          <div className="bg-raised border-border rounded-2xl border p-4 shadow-2xl ring-1 ring-black/5 flex flex-col gap-3">
+          <div className="bg-raised border-border flex flex-col gap-3 rounded-2xl border p-4 shadow-2xl ring-1 ring-black/5">
             {/* Header */}
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -872,7 +875,7 @@ export function PdfDocument({
                   style={{ background: colourFor(activeHighlight.authorId).solid }}
                 />
                 <div>
-                  <h4 className="text-ink text-ui font-semibold leading-none">
+                  <h4 className="text-ink text-ui leading-none font-semibold">
                     {activeHighlight.authorName}
                   </h4>
                   {activeHighlight.createdAt && (
@@ -892,7 +895,7 @@ export function PdfDocument({
                 <button
                   type="button"
                   onClick={() => setActiveHighlight(null)}
-                  className="text-muted hover:text-ink hover:bg-subtle rounded-lg p-1 transition-colors text-ui leading-none"
+                  className="text-muted hover:text-ink hover:bg-subtle text-ui rounded-lg p-1 leading-none transition-colors"
                   aria-label="Close note popup"
                 >
                   ✕
@@ -903,7 +906,7 @@ export function PdfDocument({
             {/* Quoted passage */}
             {activeHighlight.quote && (
               <div className="border-border/80 bg-subtle/50 rounded-xl border p-2.5">
-                <p className="text-muted text-fine font-medium mb-1">
+                <p className="text-muted text-fine mb-1 font-medium">
                   Page {activeHighlight.page} highlight:
                 </p>
                 <blockquote
@@ -919,20 +922,20 @@ export function PdfDocument({
             <div>
               {activeHighlight.body ? (
                 <div>
-                  <p className="text-muted text-fine font-medium mb-1">Note:</p>
-                  <p className="text-ink text-ui whitespace-pre-wrap rounded-xl bg-surface/60 p-2.5 border border-border/50">
+                  <p className="text-muted text-fine mb-1 font-medium">Note:</p>
+                  <p className="text-ink text-ui bg-surface/60 border-border/50 rounded-xl border p-2.5 whitespace-pre-wrap">
                     {activeHighlight.body}
                   </p>
                 </div>
               ) : (
-                <p className="text-muted text-fine italic bg-subtle/30 rounded-lg p-2 text-center">
+                <p className="text-muted text-fine bg-subtle/30 rounded-lg p-2 text-center italic">
                   Highlight only (no attached note)
                 </p>
               )}
             </div>
 
             {/* Actions */}
-            <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/60">
+            <div className="border-border/60 flex items-center justify-between gap-2 border-t pt-2">
               {activeHighlight.isMine && onDeleteHighlight ? (
                 <Button
                   variant="danger"

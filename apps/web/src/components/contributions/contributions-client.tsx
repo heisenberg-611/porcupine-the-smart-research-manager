@@ -9,12 +9,10 @@ import { ActivityAuditFeed } from "./activity-audit-feed";
 import { ContributionHeatmap } from "./contribution-heatmap";
 import { MemberBreakdownTable } from "./member-breakdown-table";
 
-export function ContributionsClient({
-  data,
-}: {
-  data: ProjectContributionsData;
-}) {
-  const [activeTab, setActiveTab] = useState<"overview" | "breakdown" | "audit" | "heatmap">("overview");
+export function ContributionsClient({ data }: { data: ProjectContributionsData }) {
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "breakdown" | "audit" | "heatmap"
+  >("overview");
   const [showGuide, setShowGuide] = useState<boolean>(false);
 
   const topContributors = data.members.slice(0, 3);
@@ -28,15 +26,15 @@ export function ContributionsClient({
     data.heatmap.streakStatus === "IN_COOLDOWN"
       ? `⏳ ${data.heatmap.currentStreak}d (in cooldown)`
       : data.heatmap.streakStatus === "ACTIVE_TODAY"
-      ? `🔥 ${data.heatmap.currentStreak}d streak`
-      : `${data.heatmap.currentStreak}d streak`;
+        ? `🔥 ${data.heatmap.currentStreak}d streak`
+        : `${data.heatmap.currentStreak}d streak`;
 
   const streakCardHint =
     data.heatmap.streakStatus === "IN_COOLDOWN"
       ? `⏳ In cooldown: ${data.heatmap.cooldownHoursRemaining}h left today to extend streak`
       : data.heatmap.streakStatus === "ACTIVE_TODAY"
-      ? "🔥 Active today · streak extended!"
-      : "Complete an action today to start a streak";
+        ? "🔥 Active today · streak extended!"
+        : "Complete an action today to start a streak";
 
   return (
     <div className="flex flex-col gap-6">
@@ -72,9 +70,9 @@ export function ContributionsClient({
         <button
           type="button"
           onClick={() => setShowGuide(!showGuide)}
-          className={`border rounded-xl px-3.5 py-2 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shrink-0 ${
+          className={`flex shrink-0 cursor-pointer items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-all ${
             showGuide
-              ? "bg-accent text-white border-accent shadow-xs"
+              ? "bg-accent border-accent text-white shadow-xs"
               : "border-border/70 bg-surface text-ink hover:bg-raised hover:border-border"
           }`}
         >
@@ -84,10 +82,7 @@ export function ContributionsClient({
       </div>
 
       {/* Expandable Contribution Points & Streak Cooldown Guide */}
-      <ContributionPointGuide
-        isOpen={showGuide}
-        onClose={() => setShowGuide(false)}
-      />
+      <ContributionPointGuide isOpen={showGuide} onClose={() => setShowGuide(false)} />
 
       {/* Tab Content: Overview */}
       {activeTab === "overview" && (
@@ -111,10 +106,12 @@ export function ContributionsClient({
                 data.heatmap.streakStatus === "IN_COOLDOWN"
                   ? "⏳ In Cooldown"
                   : data.heatmap.streakStatus === "ACTIVE_TODAY"
-                  ? "✅ Active Today"
-                  : undefined
+                    ? "✅ Active Today"
+                    : undefined
               }
-              badgeTone={data.heatmap.streakStatus === "IN_COOLDOWN" ? "warning" : "success"}
+              badgeTone={
+                data.heatmap.streakStatus === "IN_COOLDOWN" ? "warning" : "success"
+              }
               hint={streakCardHint}
             />
             <StatCard
@@ -135,8 +132,9 @@ export function ContributionsClient({
                   <div className="text-ink text-xs font-semibold">
                     How do members earn contribution points and streaks?
                   </div>
-                  <div className="text-muted text-[11px] mt-0.5">
-                    Protocols (+10), Questions (+5), Extractions (+5), Reconciliations (+4), Screenings (+2), Quotes (+2), and Library imports (+1).
+                  <div className="text-muted mt-0.5 text-[11px]">
+                    Protocols (+10), Questions (+5), Extractions (+5), Reconciliations
+                    (+4), Screenings (+2), Quotes (+2), and Library imports (+1).
                   </div>
                 </div>
               </div>
@@ -144,7 +142,7 @@ export function ContributionsClient({
               <button
                 type="button"
                 onClick={() => setShowGuide(true)}
-                className="text-accent hover:text-ink hover:underline font-mono text-xs font-semibold shrink-0 cursor-pointer text-left sm:text-right"
+                className="text-accent hover:text-ink shrink-0 cursor-pointer text-left font-mono text-xs font-semibold hover:underline sm:text-right"
               >
                 View Full Point Matrix & Cooldown Rules →
               </button>
@@ -160,14 +158,15 @@ export function ContributionsClient({
                     Contribution Leaderboard
                   </h3>
                   <p className="text-muted text-fine mt-0.5">
-                    Top contributors ranked by total verified points from screening, extraction, questions, and protocol formulation.
+                    Top contributors ranked by total verified points from screening,
+                    extraction, questions, and protocol formulation.
                   </p>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => setShowGuide(true)}
-                  className="text-muted hover:text-ink text-xs font-mono underline-offset-2 hover:underline hidden sm:block cursor-pointer"
+                  className="text-muted hover:text-ink hidden cursor-pointer font-mono text-xs underline-offset-2 hover:underline sm:block"
                 >
                   Scoring breakdown ℹ️
                 </button>
@@ -188,15 +187,16 @@ export function ContributionsClient({
                             {member.name}
                           </span>
                         </div>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 border border-accent/25 px-2.5 py-0.5 font-mono text-xs font-bold text-accent tabular-nums">
+                        <span className="bg-accent/15 border-accent/25 text-accent inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 font-mono text-xs font-bold tabular-nums">
                           <span>{member.contributionScore}</span>
-                          <span className="text-[10px] uppercase font-semibold">pts</span>
+                          <span className="text-[10px] font-semibold uppercase">pts</span>
                         </span>
                       </div>
 
                       <div className="mt-3 flex items-center justify-between text-xs">
                         <span className="text-muted font-mono text-[11px]">
-                          {member.screenedTotal} screened · {member.extractedPapers} extracted
+                          {member.screenedTotal} screened · {member.extractedPapers}{" "}
+                          extracted
                         </span>
                         <span className="text-ink font-bold tabular-nums">
                           {member.percentageShare}%
@@ -230,9 +230,7 @@ export function ContributionsClient({
       )}
 
       {/* Tab Content: Detailed Breakdown Matrix */}
-      {activeTab === "breakdown" && (
-        <MemberBreakdownTable members={data.members} />
-      )}
+      {activeTab === "breakdown" && <MemberBreakdownTable members={data.members} />}
 
       {/* Tab Content: Granular Audit Feed */}
       {activeTab === "audit" && (
@@ -262,8 +260,8 @@ export function ContributionPointGuide({
   if (!isOpen) return null;
 
   return (
-    <div className="border-border/80 bg-raised/95 rounded-2xl border p-6 shadow-sm transition-all animate-in fade-in slide-in-from-top-2 duration-200">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/50 pb-4">
+    <div className="border-border/80 bg-raised/95 animate-in fade-in slide-in-from-top-2 rounded-2xl border p-6 shadow-sm transition-all duration-200">
+      <div className="border-border/50 flex flex-wrap items-center justify-between gap-3 border-b pb-4">
         <div>
           <div className="flex items-center gap-2">
             <span className="text-xl">🏆</span>
@@ -275,14 +273,15 @@ export function ContributionPointGuide({
             </span>
           </div>
           <p className="text-muted text-fine mt-1">
-            Points and streaks in porcupineResearch are derived directly from verified review actions in the database.
+            Points and streaks in porcupineResearch are derived directly from verified
+            review actions in the database.
           </p>
         </div>
 
         <button
           type="button"
           onClick={onClose}
-          className="border-border bg-surface text-muted hover:text-ink hover:bg-surface-hover rounded-lg border px-3 py-1.5 font-mono text-xs font-semibold transition-colors cursor-pointer"
+          className="border-border bg-surface text-muted hover:text-ink hover:bg-surface-hover cursor-pointer rounded-lg border px-3 py-1.5 font-mono text-xs font-semibold transition-colors"
         >
           ✕ Dismiss Guide
         </button>
@@ -290,30 +289,34 @@ export function ContributionPointGuide({
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Left Column: Point System Table (7 cols) */}
-        <div className="lg:col-span-7 flex flex-col gap-3">
+        <div className="flex flex-col gap-3 lg:col-span-7">
           <div className="flex items-center justify-between">
-            <h4 className="text-ink text-ui font-semibold flex items-center gap-1.5">
+            <h4 className="text-ink text-ui flex items-center gap-1.5 font-semibold">
               <span>🎖️</span>
               <span>Point Value Breakdown</span>
             </h4>
-            <span className="text-muted font-mono text-[11px]">8 Weighted Action Types</span>
+            <span className="text-muted font-mono text-[11px]">
+              8 Weighted Action Types
+            </span>
           </div>
 
-          <div className="border-border/60 bg-surface/70 divide-y divide-border/40 overflow-hidden rounded-xl border">
+          <div className="border-border/60 bg-surface/70 divide-border/40 divide-y overflow-hidden rounded-xl border">
             {CONTRIBUTION_POINT_SYSTEM.map((rule) => (
               <div
                 key={rule.action}
-                className="flex items-center justify-between gap-3 px-3.5 py-2.5 text-xs hover:bg-raised/40 transition-colors"
+                className="hover:bg-raised/40 flex items-center justify-between gap-3 px-3.5 py-2.5 text-xs transition-colors"
               >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="text-base shrink-0">{rule.icon}</span>
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <span className="shrink-0 text-base">{rule.icon}</span>
                   <div className="min-w-0">
-                    <div className="font-semibold text-ink truncate">{rule.action}</div>
-                    <div className="text-muted text-[11px] truncate">{rule.description}</div>
+                    <div className="text-ink truncate font-semibold">{rule.action}</div>
+                    <div className="text-muted truncate text-[11px]">
+                      {rule.description}
+                    </div>
                   </div>
                 </div>
 
-                <span className="shrink-0 font-mono font-bold text-xs bg-accent/15 text-accent border border-accent/25 rounded-md px-2 py-0.5 tabular-nums">
+                <span className="bg-accent/15 text-accent border-accent/25 shrink-0 rounded-md border px-2 py-0.5 font-mono text-xs font-bold tabular-nums">
                   +{rule.points} pts
                 </span>
               </div>
@@ -322,37 +325,44 @@ export function ContributionPointGuide({
         </div>
 
         {/* Right Column: Streaks & Cooldown Rules (5 cols) */}
-        <div className="lg:col-span-5 flex flex-col gap-4">
+        <div className="flex flex-col gap-4 lg:col-span-5">
           <div className="bg-surface/70 border-border/60 flex flex-col gap-2.5 rounded-xl border p-4">
-            <h4 className="text-ink text-ui font-semibold flex items-center gap-1.5">
+            <h4 className="text-ink text-ui flex items-center gap-1.5 font-semibold">
               <span>🔥</span>
               <span>Activity Streaks</span>
             </h4>
             <p className="text-muted text-xs leading-relaxed">
-              Performing <strong>at least 1 verified micro-action</strong> (screening a paper, extracting data, annotating PDF, or creating questions) on any day increments your daily streak by 1.
+              Performing <strong>at least 1 verified micro-action</strong> (screening a
+              paper, extracting data, annotating PDF, or creating questions) on any day
+              increments your daily streak by 1.
             </p>
           </div>
 
-          <div className="bg-amber-500/10 border-amber-500/25 dark:bg-amber-500/5 flex flex-col gap-2 rounded-xl border p-4 text-xs">
-            <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 font-semibold">
+          <div className="flex flex-col gap-2 rounded-xl border border-amber-500/25 bg-amber-500/10 p-4 text-xs dark:bg-amber-500/5">
+            <div className="flex items-center gap-2 font-semibold text-amber-700 dark:text-amber-300">
               <span>⏳</span>
               <span>Daily Grace Cooldown Rule</span>
             </div>
-            <p className="text-amber-900/80 dark:text-amber-200/80 text-[11px] leading-relaxed">
-              If you performed actions <strong>yesterday</strong>, your streak is protected in <strong>Cooldown</strong> throughout today until <strong>23:59 UTC</strong>.
+            <p className="text-[11px] leading-relaxed text-amber-900/80 dark:text-amber-200/80">
+              If you performed actions <strong>yesterday</strong>, your streak is
+              protected in <strong>Cooldown</strong> throughout today until{" "}
+              <strong>23:59 UTC</strong>.
             </p>
-            <p className="text-amber-900/80 dark:text-amber-200/80 text-[11px] leading-relaxed font-medium">
-              Complete any micro-action before midnight to extend your streak to the next day without losing progress!
+            <p className="text-[11px] leading-relaxed font-medium text-amber-900/80 dark:text-amber-200/80">
+              Complete any micro-action before midnight to extend your streak to the next
+              day without losing progress!
             </p>
           </div>
 
           <div className="bg-surface/50 border-border/50 rounded-xl border p-3.5 text-xs">
-            <div className="flex items-center gap-2 font-semibold text-ink">
+            <div className="text-ink flex items-center gap-2 font-semibold">
               <span>🛡️</span>
               <span>Anti-Gaming Integrity</span>
             </div>
-            <p className="text-muted text-[11px] mt-1 leading-relaxed">
-              Repeated empty clicks or rapid spamming are rejected. Points are awarded solely for immutable schema operations recorded in the cryptographic audit feed.
+            <p className="text-muted mt-1 text-[11px] leading-relaxed">
+              Repeated empty clicks or rapid spamming are rejected. Points are awarded
+              solely for immutable schema operations recorded in the cryptographic audit
+              feed.
             </p>
           </div>
         </div>
@@ -376,7 +386,7 @@ function TabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`focus-visible:ring-accent inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all focus-visible:ring-2 focus-visible:outline-none cursor-pointer ${
+      className={`focus-visible:ring-accent inline-flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all focus-visible:ring-2 focus-visible:outline-none ${
         active
           ? "bg-accent text-white shadow-xs"
           : "bg-surface text-muted hover:text-ink hover:bg-surface/80"
@@ -413,25 +423,23 @@ function StatCard({
     badgeTone === "warning"
       ? "bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-300"
       : badgeTone === "success"
-      ? "bg-accent/15 border-accent/25 text-accent"
-      : "bg-surface border-border text-muted";
+        ? "bg-accent/15 border-accent/25 text-accent"
+        : "bg-surface border-border text-muted";
 
   return (
-    <div className="border-border/70 bg-raised/70 rounded-2xl border p-4 shadow-xs flex flex-col justify-between">
+    <div className="border-border/70 bg-raised/70 flex flex-col justify-between rounded-2xl border p-4 shadow-xs">
       <div>
         <div className="flex items-center justify-between gap-1">
           <div className="text-muted text-fine font-medium">{label}</div>
           {badge && (
             <span
-              className={`rounded px-1.5 py-0.2 font-mono text-[9px] font-bold border ${badgeClasses}`}
+              className={`py-0.2 rounded border px-1.5 font-mono text-[9px] font-bold ${badgeClasses}`}
             >
               {badge}
             </span>
           )}
         </div>
-        <div className="text-title text-ink mt-1 font-bold tabular-nums">
-          {value}
-        </div>
+        <div className="text-title text-ink mt-1 font-bold tabular-nums">{value}</div>
       </div>
       {hint && <div className="text-muted mt-2 text-[11px]">{hint}</div>}
     </div>

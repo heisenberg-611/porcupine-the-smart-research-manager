@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { Button, Checkbox, Textarea } from "@/components/ui";
-import { PdfDocument, formatAnnotationTime, type PdfHighlight } from "@/components/pdf-document";
+import {
+  PdfDocument,
+  formatAnnotationTime,
+  type PdfHighlight,
+} from "@/components/pdf-document";
 import { colourFor } from "@/lib/annotation-colour";
 import { offsetInPageText } from "@/lib/page-text";
 import type { ReaderSection } from "@/lib/reader-document";
@@ -460,7 +464,10 @@ export function ReaderClient({
         ) : (
           <ul className="space-y-3">
             {annotations.map((annotation) => (
-              <li key={annotation.id} className="border-border bg-raised/50 rounded-2xl border p-4 shadow-sm">
+              <li
+                key={annotation.id}
+                className="border-border bg-raised/50 rounded-2xl border p-4 shadow-sm"
+              >
                 <div className="flex items-start justify-between gap-3">
                   <blockquote className="border-border text-ink text-ui border-l-2 pl-3 italic">
                     {annotation.quote}
@@ -480,7 +487,7 @@ export function ReaderClient({
                 </div>
 
                 {annotation.body && (
-                  <p className="text-ink/90 text-ui mt-2.5 rounded-xl bg-surface/60 p-2.5 border border-border/50 whitespace-pre-wrap">
+                  <p className="text-ink/90 text-ui bg-surface/60 border-border/50 mt-2.5 rounded-xl border p-2.5 whitespace-pre-wrap">
                     {annotation.body}
                   </p>
                 )}
@@ -493,7 +500,7 @@ export function ReaderClient({
                     className="inline-block size-2.5 shrink-0 rounded-full shadow-sm"
                     style={{ background: colourFor(annotation.authorId).solid }}
                   />
-                  <span className="font-medium text-ink">{annotation.authorName}</span>
+                  <span className="text-ink font-medium">{annotation.authorName}</span>
                   {annotation.createdAt && (
                     <>
                       <span>·</span>

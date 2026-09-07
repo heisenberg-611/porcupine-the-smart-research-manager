@@ -66,14 +66,62 @@ export interface ContributionPointRule {
 }
 
 export const CONTRIBUTION_POINT_SYSTEM: ContributionPointRule[] = [
-  { action: "Protocol Created", points: 10, category: "PROTOCOL", icon: "🏗️", description: "Created a formal review protocol specification (v1, v2...)" },
-  { action: "Research Question Formulated", points: 5, category: "QUESTION", icon: "❓", description: "Formulated a primary or secondary research objective" },
-  { action: "Paper Extracted", points: 5, category: "EXTRACTION", icon: "📑", description: "Completed and submitted structured extraction for a study" },
-  { action: "Conflict Reconciled", points: 4, category: "RECONCILIATION", icon: "⚖️", description: "Resolved dual-extraction disagreement between reviewers" },
-  { action: "Paper Screened", points: 2, category: "SCREENING", icon: "🔍", description: "Evaluated title/abstract as Include, Exclude, or Maybe with rationale" },
-  { action: "PDF Annotation / Quote Added", points: 2, category: "ANNOTATION", icon: "💬", description: "Highlighted text passage or anchored an evidence comment in PDF" },
-  { action: "Extracted Field Filled", points: 1, category: "EXTRACTION", icon: "📝", description: "Entered specific value for a protocol variable" },
-  { action: "Paper Imported to Library", points: 1, category: "COLLECTION", icon: "📥", description: "Imported via OpenAlex, Crossref, arXiv, Europe PMC or BibTeX/RIS" },
+  {
+    action: "Protocol Created",
+    points: 10,
+    category: "PROTOCOL",
+    icon: "🏗️",
+    description: "Created a formal review protocol specification (v1, v2...)",
+  },
+  {
+    action: "Research Question Formulated",
+    points: 5,
+    category: "QUESTION",
+    icon: "❓",
+    description: "Formulated a primary or secondary research objective",
+  },
+  {
+    action: "Paper Extracted",
+    points: 5,
+    category: "EXTRACTION",
+    icon: "📑",
+    description: "Completed and submitted structured extraction for a study",
+  },
+  {
+    action: "Conflict Reconciled",
+    points: 4,
+    category: "RECONCILIATION",
+    icon: "⚖️",
+    description: "Resolved dual-extraction disagreement between reviewers",
+  },
+  {
+    action: "Paper Screened",
+    points: 2,
+    category: "SCREENING",
+    icon: "🔍",
+    description: "Evaluated title/abstract as Include, Exclude, or Maybe with rationale",
+  },
+  {
+    action: "PDF Annotation / Quote Added",
+    points: 2,
+    category: "ANNOTATION",
+    icon: "💬",
+    description: "Highlighted text passage or anchored an evidence comment in PDF",
+  },
+  {
+    action: "Extracted Field Filled",
+    points: 1,
+    category: "EXTRACTION",
+    icon: "📝",
+    description: "Entered specific value for a protocol variable",
+  },
+  {
+    action: "Paper Imported to Library",
+    points: 1,
+    category: "COLLECTION",
+    icon: "📥",
+    description: "Imported via OpenAlex, Crossref, arXiv, Europe PMC or BibTeX/RIS",
+  },
 ];
 
 export interface ContributionHeatmapDay {
@@ -237,7 +285,10 @@ export function aggregateProjectContributions(
   } = inputs;
 
   // Build map of users for fast lookups
-  const userMap = new Map<string, { name: string; email: string; role: string; joinedAt: string | null }>();
+  const userMap = new Map<
+    string,
+    { name: string; email: string; role: string; joinedAt: string | null }
+  >();
   for (const m of members) {
     userMap.set(m.user_id, {
       name: m.users?.display_name || m.users?.email?.split("@")[0] || "Unknown",
@@ -247,11 +298,17 @@ export function aggregateProjectContributions(
     });
   }
 
-  const getUser = (userId: string | null | undefined, fallback?: { display_name?: string | null; email?: string } | null) => {
+  const getUser = (
+    userId: string | null | undefined,
+    fallback?: { display_name?: string | null; email?: string } | null,
+  ) => {
     if (userId && userMap.has(userId)) {
       return userMap.get(userId)!;
     }
-    const name = fallback?.display_name || fallback?.email?.split("@")[0] || (userId ? "Member" : "System");
+    const name =
+      fallback?.display_name ||
+      fallback?.email?.split("@")[0] ||
+      (userId ? "Member" : "System");
     const email = fallback?.email || "";
     return { name, email, role: "MEMBER", joinedAt: null };
   };
@@ -300,7 +357,12 @@ export function aggregateProjectContributions(
     if (s) {
       s.screenedTotal += 1;
       const statusUpper = sd.to_status?.toUpperCase() || "";
-      if (statusUpper === "INCLUDED" || statusUpper === "READING" || statusUpper === "EXTRACTED" || statusUpper === "SYNTHESIZED") {
+      if (
+        statusUpper === "INCLUDED" ||
+        statusUpper === "READING" ||
+        statusUpper === "EXTRACTED" ||
+        statusUpper === "SYNTHESIZED"
+      ) {
         s.screenedIncluded += 1;
       } else if (statusUpper === "EXCLUDED") {
         s.screenedExcluded += 1;
@@ -595,12 +657,16 @@ export function aggregateProjectContributions(
   }
 
   // Sort events newest first
-  events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  events.sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+  );
 
   // ── Build 53-Week Yearly Contribution Heatmap ────────────────────────────
   const heatmap = buildContributionHeatmap(events);
 
-  const activeContributorsCount = memberStats.filter((m) => m.totalActionsCount > 0).length;
+  const activeContributorsCount = memberStats.filter(
+    (m) => m.totalActionsCount > 0,
+  ).length;
 
   return {
     members: memberStats,

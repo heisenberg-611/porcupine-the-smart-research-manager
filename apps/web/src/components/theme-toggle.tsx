@@ -73,7 +73,7 @@ export function ThemeToggle() {
             "inline-flex size-8 items-center justify-center rounded-lg transition-all",
             "focus-visible:ring-accent focus-visible:ring-2 focus-visible:outline-none",
             theme === value
-              ? "bg-raised text-ink shadow-xs font-semibold"
+              ? "bg-raised text-ink font-semibold shadow-xs"
               : "text-muted hover:text-ink hover:bg-surface/50",
           )}
         >

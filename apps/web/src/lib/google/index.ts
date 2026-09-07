@@ -71,18 +71,18 @@ export async function ensurePersonalFallbackFolder(
   projectName: string,
 ): Promise<string> {
   const drive = getDriveClient(accessToken);
-  
+
   const response = await drive.files.list({
     q: `mimeType = 'application/vnd.google-apps.folder' and appProperties has { key='PorcupineFallbackProjectId' and value='${projectId}' } and trashed = false`,
     fields: "files(id)",
   });
-  
+
   const existingFolders = response.data.files;
   if (existingFolders && existingFolders.length > 0) {
     const folderId = existingFolders[0]?.id;
     if (folderId) return folderId;
   }
-  
+
   const createResponse = await drive.files.create({
     requestBody: {
       name: `Porcupine: ${projectName} (Personal)`,
@@ -91,7 +91,7 @@ export async function ensurePersonalFallbackFolder(
     },
     fields: "id",
   });
-  
+
   if (!createResponse.data.id) {
     throw new Error("Failed to create fallback folder");
   }
@@ -200,16 +200,16 @@ export async function shareGoogleFile(
   role: "reader" | "commenter" | "writer",
 ) {
   const drive = getDriveClient(accessToken);
-  
+
   // First, check if the permission already exists
   const listResponse = await drive.permissions.list({
     fileId,
     fields: "permissions(id, emailAddress, role)",
   });
-  
+
   const permissions = listResponse.data.permissions || [];
   const existingPermission = permissions.find(
-    (p) => p.emailAddress?.toLowerCase() === emailAddress.toLowerCase()
+    (p) => p.emailAddress?.toLowerCase() === emailAddress.toLowerCase(),
   );
 
   if (existingPermission?.id) {
@@ -217,7 +217,7 @@ export async function shareGoogleFile(
     if (existingPermission.role === role) {
       return existingPermission;
     }
-    
+
     // Update the existing permission
     const updateResponse = await drive.permissions.update({
       fileId,
@@ -252,30 +252,15 @@ export async function revokeGoogleFileAccess(
   });
 
   const permissions = response.data.permissions || [];
-  console.log(
-    `[revokeGoogleFileAccess] Found ${permissions.length} permissions for file ${fileId}`,
+  const targetPermission = permissions.find(
+    (p) => p.emailAddress?.toLowerCase() === emailAddress.toLowerCase(),
   );
 
-  const targetPermission = permissions.find((p) => {
-    console.log(
-      `[revokeGoogleFileAccess] Checking permission id=${p.id} email=${p.emailAddress}`,
-    );
-    return p.emailAddress?.toLowerCase() === emailAddress.toLowerCase();
-  });
-
   if (targetPermission?.id) {
-    console.log(
-      `[revokeGoogleFileAccess] Deleting permission id=${targetPermission.id} for email=${emailAddress}`,
-    );
     await drive.permissions.delete({
       fileId,
       permissionId: targetPermission.id,
     });
-    console.log(`[revokeGoogleFileAccess] Successfully deleted permission.`);
-  } else {
-    console.log(
-      `[revokeGoogleFileAccess] Could not find permission for email=${emailAddress}`,
-    );
   }
 }
 

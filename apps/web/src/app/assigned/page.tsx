@@ -150,8 +150,10 @@ export default async function AssignedPage() {
         <div className="flex flex-col gap-10">
           {openRows.length > 0 && (
             <section>
-              <h2 className="text-display text-ink mb-4 font-serif font-semibold">Open</h2>
-              <ul className="border-border/70 divide-border/60 bg-raised/70 divide-y rounded-2xl border overflow-hidden shadow-xs">
+              <h2 className="text-display text-ink mb-4 font-serif font-semibold">
+                Open
+              </h2>
+              <ul className="border-border/70 divide-border/60 bg-raised/70 divide-y overflow-hidden rounded-2xl border shadow-xs">
                 {openRows.map((row) => {
                   const isOverdue = row.due_at
                     ? new Date(row.due_at).getTime() < now
@@ -159,7 +161,7 @@ export default async function AssignedPage() {
                   return (
                     <li
                       key={row.id}
-                      className="flex items-start justify-between gap-4 p-5 transition-colors hover:bg-surface/50"
+                      className="hover:bg-surface/50 flex items-start justify-between gap-4 p-5 transition-colors"
                     >
                       <div className="min-w-0">
                         <Link
@@ -198,8 +200,8 @@ export default async function AssignedPage() {
                               href={action.href}
                               className={
                                 action.primary
-                                  ? "bg-accent text-accent-ink text-fine font-medium focus-visible:ring-accent inline-flex min-h-9 items-center rounded-xl px-3.5 shadow-xs transition-all hover:shadow-sm focus-visible:ring-2 focus-visible:outline-none"
-                                  : "border-border/80 text-muted hover:text-ink hover:bg-surface text-fine font-medium focus-visible:ring-accent inline-flex min-h-9 items-center rounded-xl border px-3.5 transition-all focus-visible:ring-2 focus-visible:outline-none"
+                                  ? "bg-accent text-accent-ink text-fine focus-visible:ring-accent inline-flex min-h-9 items-center rounded-xl px-3.5 font-medium shadow-xs transition-all hover:shadow-sm focus-visible:ring-2 focus-visible:outline-none"
+                                  : "border-border/80 text-muted hover:text-ink hover:bg-surface text-fine focus-visible:ring-accent inline-flex min-h-9 items-center rounded-xl border px-3.5 font-medium transition-all focus-visible:ring-2 focus-visible:outline-none"
                               }
                             >
                               {action.label}
@@ -240,8 +242,10 @@ export default async function AssignedPage() {
 
           {closedRows.length > 0 && (
             <section>
-              <h2 className="text-display text-ink mb-4 font-serif font-semibold opacity-70">Closed</h2>
-              <ul className="border-border/70 divide-border/60 bg-raised/50 divide-y rounded-2xl border overflow-hidden shadow-xs opacity-70">
+              <h2 className="text-display text-ink mb-4 font-serif font-semibold opacity-70">
+                Closed
+              </h2>
+              <ul className="border-border/70 divide-border/60 bg-raised/50 divide-y overflow-hidden rounded-2xl border opacity-70 shadow-xs">
                 {closedRows.map((row) => {
                   return (
                     <li

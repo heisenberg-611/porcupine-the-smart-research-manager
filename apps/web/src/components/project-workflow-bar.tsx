@@ -21,14 +21,13 @@ export function ProjectWorkflowBar({
 
   // Do not render on the overview dashboard, as it already contains the full pipeline widget
   const isDashboard =
-    pathname === `/projects/${projectId}` ||
-    pathname === `/projects/${projectId}/`;
+    pathname === `/projects/${projectId}` || pathname === `/projects/${projectId}/`;
 
   if (isDashboard) return null;
 
   return (
     <div className="border-rule bg-canvas/95 sticky top-0 z-20 w-full border-b backdrop-blur-md transition-all">
-      <div className="flex items-center justify-between gap-3 overflow-x-auto px-4 py-2.5 sm:px-6 lg:px-12 scrollbar-none">
+      <div className="flex scrollbar-none items-center justify-between gap-3 overflow-x-auto px-4 py-2.5 sm:px-6 lg:px-12">
         {/* Left: Workflow Stages Stepper connected with Arrows */}
         <nav aria-label="Research workflow progress" className="min-w-max flex-1">
           <ol className="flex items-center gap-1.5 sm:gap-2">
@@ -49,10 +48,7 @@ export function ProjectWorkflowBar({
 
               return (
                 <li key={step.id} className="flex items-center gap-1.5 sm:gap-2">
-                  <WorkflowStepPill
-                    step={step}
-                    isCurrentRoute={isCurrentRoute}
-                  />
+                  <WorkflowStepPill step={step} isCurrentRoute={isCurrentRoute} />
                   {!isLast && (
                     <span
                       aria-hidden="true"
@@ -117,11 +113,11 @@ function WorkflowStepPill({
       title={`${step.label}: ${step.metric}`}
       className={`group focus-visible:ring-accent inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-all duration-200 focus-visible:ring-2 focus-visible:outline-none ${
         isCompleted
-          ? "bg-accent/10 text-ink hover:bg-accent/20 border border-accent/25"
+          ? "bg-accent/10 text-ink hover:bg-accent/20 border-accent/25 border"
           : isCurrentStep
-            ? "bg-raised text-ink ring-accent/60 shadow-xs ring-1.5 font-semibold"
+            ? "bg-raised text-ink ring-accent/60 ring-1.5 font-semibold shadow-xs"
             : "text-muted hover:text-ink hover:bg-raised/70 border border-transparent"
-      } ${isCurrentRoute ? "ring-1 ring-ink/20 dark:ring-white/20" : ""}`}
+      } ${isCurrentRoute ? "ring-ink/20 ring-1 dark:ring-white/20" : ""}`}
     >
       {/* Status icon / dot / step number */}
       {isCompleted ? (
@@ -143,9 +139,7 @@ function WorkflowStepPill({
       )}
 
       {/* Label */}
-      <span className="truncate">
-        {step.shortLabel}
-      </span>
+      <span className="truncate">{step.shortLabel}</span>
 
       {/* In-progress percentage badge if partial */}
       {isCurrentStep && step.percent > 0 && step.percent < 100 && (

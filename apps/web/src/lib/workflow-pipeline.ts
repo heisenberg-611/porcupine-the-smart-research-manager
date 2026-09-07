@@ -1,10 +1,5 @@
 export type WorkflowStepId =
-  | "questions"
-  | "search"
-  | "screen"
-  | "protocol"
-  | "extract"
-  | "evidence";
+  "questions" | "search" | "screen" | "protocol" | "extract" | "evidence";
 
 export type WorkflowStepStatus = "completed" | "current" | "upcoming";
 
@@ -53,7 +48,9 @@ export interface PipelineInputs {
  * Calculates the status, percentage, and live metrics for each of the 6 core research
  * workflow steps, plus the weighted overall completion percentage.
  */
-export function calculateWorkflowPipeline(inputs: PipelineInputs): WorkflowPipelineResult {
+export function calculateWorkflowPipeline(
+  inputs: PipelineInputs,
+): WorkflowPipelineResult {
   const {
     projectId,
     questionCount,
@@ -101,7 +98,10 @@ export function calculateWorkflowPipeline(inputs: PipelineInputs): WorkflowPipel
 
   // ── Step 5: Data Extraction ─────────────────────────────────────────────
   const extractionFinished =
-    included > 0 && hasProtocol && extracted >= included && (dualExtraction ? awaiting === 0 : true);
+    included > 0 &&
+    hasProtocol &&
+    extracted >= included &&
+    (dualExtraction ? awaiting === 0 : true);
   const extractionPercent =
     included > 0
       ? Math.min(100, Math.round((Math.min(extracted, included) / included) * 100))
@@ -195,10 +195,7 @@ export function calculateWorkflowPipeline(inputs: PipelineInputs): WorkflowPipel
   }
 
   // ── Step Statuses ───────────────────────────────────────────────────────
-  const getStatus = (
-    isDone: boolean,
-    stepId: WorkflowStepId,
-  ): WorkflowStepStatus => {
+  const getStatus = (isDone: boolean, stepId: WorkflowStepId): WorkflowStepStatus => {
     if (isDone) return "completed";
     if (nextAction.stepId === stepId) return "current";
     return "upcoming";
@@ -259,7 +256,10 @@ export function calculateWorkflowPipeline(inputs: PipelineInputs): WorkflowPipel
       label: "Extract Data",
       shortLabel: "Extraction",
       description: "Extract answers and quoted anchors from included papers.",
-      href: dualExtraction && awaiting > 0 ? `/projects/${projectId}/reconcile` : `/projects/${projectId}/extract`,
+      href:
+        dualExtraction && awaiting > 0
+          ? `/projects/${projectId}/reconcile`
+          : `/projects/${projectId}/extract`,
       status: getStatus(step5Done, "extract"),
       percent: step5Percent,
       metric: step5Metric,

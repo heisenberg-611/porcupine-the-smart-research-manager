@@ -97,12 +97,17 @@ export function MemberRowActions({
       >
         <div className="flex flex-col gap-5">
           <div>
-            <h3 className="text-danger mb-2 text-lg font-semibold tracking-tight">Warning: Google Drive Limitation</h3>
+            <h3 className="text-danger mb-2 text-lg font-semibold tracking-tight">
+              Warning: Google Drive Limitation
+            </h3>
             <p className="text-muted text-sm leading-relaxed">
-              Google Drive prevents permission changes if a member creates a file. If this member creates a file in the shared folder, Google will block you from downgrading OR removing ANY members in the future.
+              Google Drive prevents permission changes if a member creates a file. If this
+              member creates a file in the shared folder, Google will block you from
+              downgrading OR removing ANY members in the future.
             </p>
             <p className="text-muted mt-2 text-sm leading-relaxed">
-              Please set other users' permissions properly before promoting anyone to an Editor.
+              Please set other users' permissions properly before promoting anyone to an
+              Editor.
             </p>
           </div>
           <div className="flex justify-end gap-3">

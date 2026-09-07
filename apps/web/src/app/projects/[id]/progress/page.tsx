@@ -71,7 +71,10 @@ export default async function ProgressPage({
         .from("screening_decisions")
         .select("created_at, to_status")
         .eq("project_id", id)
-        .gte("created_at", new Date(Date.now() - VELOCITY_DAYS * 86_400_000).toISOString())
+        .gte(
+          "created_at",
+          new Date(Date.now() - VELOCITY_DAYS * 86_400_000).toISOString(),
+        )
         .order("created_at", { ascending: true }),
       supabase
         .from("extractions")
@@ -100,7 +103,9 @@ export default async function ProgressPage({
   );
   const draftExtractionWorks = new Set(
     extractions
-      .filter((e) => e.status === "DRAFT" && !completedExtractionWorks.has(e.project_work_id))
+      .filter(
+        (e) => e.status === "DRAFT" && !completedExtractionWorks.has(e.project_work_id),
+      )
       .map((e) => e.project_work_id),
   );
   const annotatedWorks = new Set(
@@ -109,10 +114,7 @@ export default async function ProgressPage({
       .map((a) => a.project_work_id),
   );
 
-  const activeReadingWorks = new Set([
-    ...draftExtractionWorks,
-    ...annotatedWorks,
-  ]);
+  const activeReadingWorks = new Set([...draftExtractionWorks, ...annotatedWorks]);
 
   const rawExtracted = countOf(rows, "EXTRACTED");
   const rawReading = countOf(rows, "READING");
@@ -170,7 +172,8 @@ export default async function ProgressPage({
   );
   const extractPerDay = recentSubmissions.length / observedDays;
   const remainingToExtract = Math.max(0, totalIncluded - extractedCount);
-  const enoughToExtrapolateExtract = recentSubmissions.length >= 3 && extractPerDay >= 0.3;
+  const enoughToExtrapolateExtract =
+    recentSubmissions.length >= 3 && extractPerDay >= 0.3;
   const extractDaysLeft =
     enoughToExtrapolateExtract && remainingToExtract > 0
       ? Math.ceil(remainingToExtract / extractPerDay)
@@ -205,11 +208,15 @@ export default async function ProgressPage({
           {/* ── 1. Research Pipeline Diagnostics (AT THE VERY TOP) ─────────── */}
           <section aria-labelledby="pipeline-diagnostics" className="flex flex-col gap-6">
             <div>
-              <h2 id="pipeline-diagnostics" className="text-ink text-heading font-semibold">
+              <h2
+                id="pipeline-diagnostics"
+                className="text-ink text-heading font-semibold"
+              >
                 Research Pipeline & Velocity
               </h2>
               <p className="text-muted text-fine mt-0.5">
-                Current status distribution across PRISMA stages and completion projections.
+                Current status distribution across PRISMA stages and completion
+                projections.
               </p>
             </div>
 
@@ -217,7 +224,11 @@ export default async function ProgressPage({
             <dl className="grid grid-cols-2 gap-4 sm:grid-cols-5">
               <Stat label="Papers" value={total} />
               <Stat label="Decided" value={screened} hint="in or out" />
-              <Stat label="Extracted" value={extractedCount} hint={`of ${totalIncluded} included`} />
+              <Stat
+                label="Extracted"
+                value={extractedCount}
+                hint={`of ${totalIncluded} included`}
+              />
               <Stat label="Remaining" value={remaining} hint="to screen" />
               <Stat
                 label="Overdue"
@@ -274,8 +285,8 @@ export default async function ProgressPage({
                     "No papers included or excluded in the last fortnight."
                   ) : (
                     <>
-                      {decisions.length} {decisions.length === 1 ? "paper" : "papers"} decided
-                      in the last {Math.round(observedDays)}{" "}
+                      {decisions.length} {decisions.length === 1 ? "paper" : "papers"}{" "}
+                      decided in the last {Math.round(observedDays)}{" "}
                       {Math.round(observedDays) === 1 ? "day" : "days"} — about{" "}
                       {perDay.toFixed(1)} per day.
                       {daysLeft !== null ? (
@@ -311,7 +322,8 @@ export default async function ProgressPage({
                       {extractDaysLeft !== null ? (
                         <>
                           {" "}
-                          At that rate the remaining {remainingToExtract} would take roughly{" "}
+                          At that rate the remaining {remainingToExtract} would take
+                          roughly{" "}
                           <strong className="text-ink">{extractDaysLeft} days</strong>.
                         </>
                       ) : remainingToExtract > 0 ? (
@@ -327,13 +339,20 @@ export default async function ProgressPage({
           </section>
 
           {/* ── 2. Member Contributions, Leaderboard & Audit Feed ──────────── */}
-          <section aria-labelledby="contributions-section" className="flex flex-col gap-4 border-t border-border/60 pt-8">
+          <section
+            aria-labelledby="contributions-section"
+            className="border-border/60 flex flex-col gap-4 border-t pt-8"
+          >
             <div className="flex flex-col gap-1">
-              <h2 id="contributions-section" className="text-ink text-heading font-semibold">
+              <h2
+                id="contributions-section"
+                className="text-ink text-heading font-semibold"
+              >
                 Member Contributions & Granular Audit Log
               </h2>
               <p className="text-muted text-fine">
-                Track team workload, weighted provenance contribution points, 24h streak cooldowns, and yearly activity heatmaps.
+                Track team workload, weighted provenance contribution points, 24h streak
+                cooldowns, and yearly activity heatmaps.
               </p>
             </div>
 
@@ -360,7 +379,7 @@ function Stat({
     <div className="border-border/70 bg-raised/70 rounded-2xl border p-4 shadow-xs">
       <dt className="text-muted text-fine font-medium">
         {label}
-        {hint && <span className="mt-0.5 block opacity-80 font-normal">{hint}</span>}
+        {hint && <span className="mt-0.5 block font-normal opacity-80">{hint}</span>}
       </dt>
       <dd
         className={`text-title mt-1.5 font-bold tabular-nums ${

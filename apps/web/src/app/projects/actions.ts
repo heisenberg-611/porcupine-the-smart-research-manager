@@ -173,7 +173,7 @@ export async function inviteMember(
           let role: "writer" | "commenter" | "reader" = "reader";
           if (["OWNER", "ADMIN", "CONTRIBUTOR"].includes(accessRole)) role = "writer";
           else if (["REVIEWER"].includes(accessRole)) role = "commenter";
-          
+
           try {
             await shareGoogleFile(tokenToUse, project.driveFolderId, email, role);
           } catch (e) {
@@ -315,7 +315,8 @@ export async function removeMember(
       const userEmail = existing.user.email;
 
       if (driveFolderId && userEmail) {
-        const { revokeGoogleFileAccess, listProjectFiles, getAdminToken } = await import("@/lib/google");
+        const { revokeGoogleFileAccess, listProjectFiles, getAdminToken } =
+          await import("@/lib/google");
         const cookieStore = await cookies();
         const providerToken = cookieStore.get("google_provider_token")?.value;
         let tokenToUse = project.googleRefreshToken
@@ -332,21 +333,27 @@ export async function removeMember(
           try {
             // First, explicitly revoke access to all individual project files
             // to catch direct shares and circumvent drive folder propagation limits.
-            const files = await listProjectFiles(validToken, projectId, false, driveFolderId);
+            const files = await listProjectFiles(
+              validToken,
+              projectId,
+              false,
+              driveFolderId,
+            );
             for (const file of files) {
               if (file.id) {
-                await revokeGoogleFileAccess(validToken, file.id, userEmail).catch((e) => {
-                  console.error(`Failed to revoke access to file ${file.id} for ${userEmail}`, e);
-                });
+                await revokeGoogleFileAccess(validToken, file.id, userEmail).catch(
+                  (e) => {
+                    console.error(
+                      `Failed to revoke access to file ${file.id} for ${userEmail}`,
+                      e,
+                    );
+                  },
+                );
               }
             }
 
             // Then revoke access to the central folder itself
-            await revokeGoogleFileAccess(
-              validToken,
-              driveFolderId,
-              userEmail,
-            );
+            await revokeGoogleFileAccess(validToken, driveFolderId, userEmail);
           } catch (e) {
             console.error(`Failed to revoke access for ${userEmail}`, e);
           }
@@ -575,7 +582,6 @@ export async function checkGoogleConnection() {
 }
 
 export async function disconnectGoogleAccount() {
-  console.log("[disconnectGoogleAccount] Start");
   const cookieStore = await cookies();
   cookieStore.delete("google_provider_token");
   cookieStore.delete("google_provider_refresh_token");
@@ -585,7 +591,6 @@ export async function disconnectGoogleAccount() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  console.log(`[disconnectGoogleAccount] User: ${user?.email}`);
 
   if (user && user.identities) {
     const googleIdentity = user.identities.find((id) => id.provider === "google");
@@ -593,18 +598,9 @@ export async function disconnectGoogleAccount() {
     if (googleIdentity && user.identities.length > 1) {
       try {
         await supabase.auth.unlinkIdentity(googleIdentity);
-        console.log("[disconnectGoogleAccount] Unlinked google identity");
       } catch (e) {
         console.error("Failed to unlink identity:", e);
       }
-    } else if (googleIdentity && user.identities.length === 1) {
-      console.log(
-        "[disconnectGoogleAccount] Skipped unlinking Google identity because it is their only login method. Retaining session.",
-      );
-    } else {
-      console.log(
-        "[disconnectGoogleAccount] No google identity found in user.identities",
-      );
     }
 
     if (user.email) {
@@ -614,23 +610,13 @@ export async function disconnectGoogleAccount() {
           include: { project: true },
         });
 
-        console.log(
-          `[disconnectGoogleAccount] Found ${memberProjects.length} projects for user`,
-        );
-
         const { revokeGoogleFileAccess, getAdminToken } = await import("@/lib/google");
 
         for (const mp of memberProjects) {
-          console.log(
-            `[disconnectGoogleAccount] Processing project ${mp.project.id}, driveFolderId=${mp.project.driveFolderId}, hasRefreshToken=${!!mp.project.googleRefreshToken}`,
-          );
           if (mp.project.driveFolderId && mp.project.googleRefreshToken) {
             // Check if the user is the admin (owner) of this project. If they are the owner, they own the folder.
             // We shouldn't revoke their access, but we should remove the refresh token so the project loses automation capabilities!
             if (mp.accessRole === "OWNER" || mp.accessRole === "ADMIN") {
-              console.log(
-                `[disconnectGoogleAccount] User is OWNER/ADMIN of project ${mp.project.id}. Removing project.googleRefreshToken instead of revoking file access.`,
-              );
               await prisma.project.update({
                 where: { id: mp.project.id },
                 data: { googleRefreshToken: null },
@@ -640,9 +626,6 @@ export async function disconnectGoogleAccount() {
 
             const adminToken = await getAdminToken(mp.project.googleRefreshToken);
             if (adminToken) {
-              console.log(
-                `[disconnectGoogleAccount] Calling revokeGoogleFileAccess for ${user.email} on folder ${mp.project.driveFolderId}`,
-              );
               await revokeGoogleFileAccess(
                 adminToken,
                 mp.project.driveFolderId,
@@ -653,10 +636,6 @@ export async function disconnectGoogleAccount() {
                   e,
                 );
               });
-            } else {
-              console.log(
-                `[disconnectGoogleAccount] Failed to get admin token for project ${mp.project.id}`,
-              );
             }
           }
         }
@@ -665,7 +644,6 @@ export async function disconnectGoogleAccount() {
       }
     }
   }
-  console.log("[disconnectGoogleAccount] Done");
   return { ok: true };
 }
 
@@ -714,19 +692,19 @@ export async function deleteProject(
 export async function checkProjectAutomationState(projectId: string) {
   const cookieStore = await cookies();
   const providerToken = cookieStore.get("google_provider_token")?.value;
-  
+
   const claims = await getUserClaims();
   if (!claims) return { isDisconnected: false };
 
   return await withUserContext(claims, async (tx) => {
     const project = await tx.project.findUnique({
-       where: { id: projectId },
-       select: { driveFolderId: true, googleRefreshToken: true }
+      where: { id: projectId },
+      select: { driveFolderId: true, googleRefreshToken: true },
     });
 
     if (!project?.driveFolderId) return { isDisconnected: false };
 
-    // If the project lacks a refresh token (due to disconnection) 
+    // If the project lacks a refresh token (due to disconnection)
     // AND the current user has no provider token, automation will fail.
     if (!providerToken && !project.googleRefreshToken) {
       return { isDisconnected: true };

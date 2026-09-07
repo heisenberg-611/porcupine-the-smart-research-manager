@@ -260,7 +260,6 @@ export default async function DashboardPage() {
               )}
             </p>
             <span className="flex flex-wrap items-center gap-4">
-
               <Link
                 href="/zotero"
                 className="text-accent text-ui font-medium underline underline-offset-4 transition-all hover:brightness-110"

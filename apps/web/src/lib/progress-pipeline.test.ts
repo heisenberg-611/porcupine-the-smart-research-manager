@@ -30,7 +30,9 @@ export function computePipelineCounts(
   );
   const draftExtractionWorks = new Set(
     extractions
-      .filter((e) => e.status === "DRAFT" && !completedExtractionWorks.has(e.project_work_id))
+      .filter(
+        (e) => e.status === "DRAFT" && !completedExtractionWorks.has(e.project_work_id),
+      )
       .map((e) => e.project_work_id),
   );
   const annotatedWorks = new Set(
@@ -39,10 +41,7 @@ export function computePipelineCounts(
       .map((a) => a.project_work_id),
   );
 
-  const activeReadingWorks = new Set([
-    ...draftExtractionWorks,
-    ...annotatedWorks,
-  ]);
+  const activeReadingWorks = new Set([...draftExtractionWorks, ...annotatedWorks]);
 
   const rawExtracted = countOf("EXTRACTED");
   const rawReading = countOf("READING");
@@ -114,8 +113,18 @@ describe("Progress Pipeline & Extraction Count Computations", () => {
     ];
 
     const extractions: ExtractionRow[] = [
-      { id: "e1", status: "SUBMITTED", project_work_id: "w1", submitted_at: new Date().toISOString() },
-      { id: "e2", status: "SUBMITTED", project_work_id: "w2", submitted_at: new Date().toISOString() },
+      {
+        id: "e1",
+        status: "SUBMITTED",
+        project_work_id: "w1",
+        submitted_at: new Date().toISOString(),
+      },
+      {
+        id: "e2",
+        status: "SUBMITTED",
+        project_work_id: "w2",
+        submitted_at: new Date().toISOString(),
+      },
       { id: "e3", status: "DRAFT", project_work_id: "w3", submitted_at: null },
     ];
 
@@ -131,15 +140,28 @@ describe("Progress Pipeline & Extraction Count Computations", () => {
   });
 
   it("handles dual extraction without double counting extracted papers", () => {
-    const progressRows: ProgressRow[] = [
-      { screen_status: "INCLUDED", count: 5 },
-    ];
+    const progressRows: ProgressRow[] = [{ screen_status: "INCLUDED", count: 5 }];
 
     // Same paper extracted by two different extractors
     const extractions: ExtractionRow[] = [
-      { id: "e1", status: "SUBMITTED", project_work_id: "w1", submitted_at: new Date().toISOString() },
-      { id: "e2", status: "SUBMITTED", project_work_id: "w1", submitted_at: new Date().toISOString() },
-      { id: "e3", status: "SUBMITTED", project_work_id: "w2", submitted_at: new Date().toISOString() },
+      {
+        id: "e1",
+        status: "SUBMITTED",
+        project_work_id: "w1",
+        submitted_at: new Date().toISOString(),
+      },
+      {
+        id: "e2",
+        status: "SUBMITTED",
+        project_work_id: "w1",
+        submitted_at: new Date().toISOString(),
+      },
+      {
+        id: "e3",
+        status: "SUBMITTED",
+        project_work_id: "w2",
+        submitted_at: new Date().toISOString(),
+      },
     ];
 
     const result = computePipelineCounts(progressRows, extractions);
@@ -149,9 +171,7 @@ describe("Progress Pipeline & Extraction Count Computations", () => {
   });
 
   it("tracks papers with active annotations as READING stage", () => {
-    const progressRows: ProgressRow[] = [
-      { screen_status: "INCLUDED", count: 6 },
-    ];
+    const progressRows: ProgressRow[] = [{ screen_status: "INCLUDED", count: 6 }];
 
     // Paper w1 has an annotation by an assigned/non-assigned researcher
     const annotations = [

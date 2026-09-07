@@ -180,7 +180,9 @@ describe("contributions engine", () => {
     // 9 research events + 2 login events + 1 logout = 12 total events
     expect(result.events.length).toBe(12);
 
-    const aliceLogins = result.events.filter((e) => e.actorId === "usr-alice" && e.type === "LOGIN");
+    const aliceLogins = result.events.filter(
+      (e) => e.actorId === "usr-alice" && e.type === "LOGIN",
+    );
     // Both login events are preserved as distinct audit records
     expect(aliceLogins.length).toBe(2);
     expect(aliceLogins[0]?.actorName).toBe("Alice Smith");
@@ -215,7 +217,10 @@ describe("contributions engine", () => {
       },
     ];
 
-    const heatmap = buildContributionHeatmap(testEvents, new Date("2026-08-24T12:00:00Z"));
+    const heatmap = buildContributionHeatmap(
+      testEvents,
+      new Date("2026-08-24T12:00:00Z"),
+    );
 
     expect(heatmap.days.length).toBe(371);
     expect(heatmap.totalActions).toBe(2);
@@ -225,17 +230,27 @@ describe("contributions engine", () => {
     expect(heatmap.streakStatus).toBe("ACTIVE_TODAY");
 
     // Test Cooldown Period: Active yesterday (Aug 24) but 0 actions on current day (Aug 25)
-    const cooldownHeatmap = buildContributionHeatmap(testEvents, new Date("2026-08-25T10:00:00Z"));
+    const cooldownHeatmap = buildContributionHeatmap(
+      testEvents,
+      new Date("2026-08-25T10:00:00Z"),
+    );
     expect(cooldownHeatmap.currentStreak).toBe(2);
     expect(cooldownHeatmap.streakStatus).toBe("IN_COOLDOWN");
     expect(cooldownHeatmap.cooldownHoursRemaining).toBe(14); // 24 - 10
 
     // Test Inactive / Broken Streak: No actions on Aug 25 or Aug 26
-    const brokenHeatmap = buildContributionHeatmap(testEvents, new Date("2026-08-26T12:00:00Z"));
+    const brokenHeatmap = buildContributionHeatmap(
+      testEvents,
+      new Date("2026-08-26T12:00:00Z"),
+    );
     expect(brokenHeatmap.currentStreak).toBe(0);
     expect(brokenHeatmap.streakStatus).toBe("INACTIVE");
 
-    const customHeatmap = buildContributionHeatmap(testEvents, new Date("2026-08-24T12:00:00Z"), 35);
+    const customHeatmap = buildContributionHeatmap(
+      testEvents,
+      new Date("2026-08-24T12:00:00Z"),
+      35,
+    );
     expect(customHeatmap.days.length).toBe(35);
     expect(customHeatmap.totalActions).toBe(2);
   });

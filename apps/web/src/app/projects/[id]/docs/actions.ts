@@ -124,30 +124,49 @@ export async function createCollaborationFile(
           err?.message?.toLowerCase().includes("forbidden");
 
         if (isPermissionError) {
-          console.warn("Failed to create in shared folder, falling back to personal folder", e);
+          console.warn(
+            "Failed to create in shared folder, falling back to personal folder",
+            e,
+          );
           const { ensurePersonalFallbackFolder } = await import("@/lib/google");
-          
+
           try {
-             const fallbackFolderId = await ensurePersonalFallbackFolder(
-               providerToken,
-               projectId,
-               project?.title || "Project"
-             );
-             isFallback = true;
-             
-             if (type === "doc") {
-               result = await createGoogleDoc(providerToken, title, projectId, fallbackFolderId);
-             } else if (type === "slide") {
-               result = await createGoogleSlide(providerToken, title, projectId, fallbackFolderId);
-             } else {
-               result = await createGoogleSheet(providerToken, title, projectId, fallbackFolderId);
-             }
+            const fallbackFolderId = await ensurePersonalFallbackFolder(
+              providerToken,
+              projectId,
+              project?.title || "Project",
+            );
+            isFallback = true;
+
+            if (type === "doc") {
+              result = await createGoogleDoc(
+                providerToken,
+                title,
+                projectId,
+                fallbackFolderId,
+              );
+            } else if (type === "slide") {
+              result = await createGoogleSlide(
+                providerToken,
+                title,
+                projectId,
+                fallbackFolderId,
+              );
+            } else {
+              result = await createGoogleSheet(
+                providerToken,
+                title,
+                projectId,
+                fallbackFolderId,
+              );
+            }
           } catch (fallbackErr) {
-             console.error("Fallback creation failed", fallbackErr);
-             return {
-               ok: false,
-               error: "Failed to create file in both shared and personal drives. Check your permissions.",
-             };
+            console.error("Fallback creation failed", fallbackErr);
+            return {
+              ok: false,
+              error:
+                "Failed to create file in both shared and personal drives. Check your permissions.",
+            };
           }
         } else {
           console.error("Failed to create file", e);

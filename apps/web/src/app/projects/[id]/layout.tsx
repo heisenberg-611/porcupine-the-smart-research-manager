@@ -42,7 +42,7 @@ export default async function ProjectLayout({
         projectTitle={project.title}
         sections={sections}
       />
-      <div className="flex w-full lg:h-[calc(100dvh-var(--app-header-h))] lg:overflow-hidden overscroll-none">
+      <div className="flex w-full overscroll-none lg:h-[calc(100dvh-var(--app-header-h))] lg:overflow-hidden">
         <ProjectSidebar
           projectId={project.id}
           projectTitle={project.title}

@@ -96,8 +96,12 @@ export function ExtractClient({
 
   // Layout & Filtering state
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterMode, setFilterMode] = useState<"all" | "unanswered" | "required" | "answered">("all");
-  const [viewLayout, setViewLayout] = useState<"split" | "wide-questions" | "focus-paper">("split");
+  const [filterMode, setFilterMode] = useState<
+    "all" | "unanswered" | "required" | "answered"
+  >("all");
+  const [viewLayout, setViewLayout] = useState<
+    "split" | "wide-questions" | "focus-paper"
+  >("split");
   const [mobileTab, setMobileTab] = useState<"paper" | "questions">("questions");
   const [focusMode, setFocusMode] = useState(false);
 
@@ -106,25 +110,25 @@ export function ExtractClient({
 
   const frozen = status !== "DRAFT";
 
-  const isAnswered = useCallback((fieldId: string) => {
-    const answer = answers[fieldId];
-    if (!answer) return false;
-    const { value } = answer;
-    if (value === null || value === undefined) return false;
-    if (typeof value === "string") return value.trim().length > 0;
-    if (Array.isArray(value)) return value.length > 0;
-    return true;
-  }, [answers]);
+  const isAnswered = useCallback(
+    (fieldId: string) => {
+      const answer = answers[fieldId];
+      if (!answer) return false;
+      const { value } = answer;
+      if (value === null || value === undefined) return false;
+      if (typeof value === "string") return value.trim().length > 0;
+      if (Array.isArray(value)) return value.length > 0;
+      return true;
+    },
+    [answers],
+  );
 
   const answered = useMemo(
     () => fields.filter((f) => isAnswered(f.id)).length,
     [fields, isAnswered],
   );
 
-  const requiredCount = useMemo(
-    () => fields.filter((f) => f.required).length,
-    [fields],
-  );
+  const requiredCount = useMemo(() => fields.filter((f) => f.required).length, [fields]);
 
   const unansweredCount = useMemo(
     () => fields.length - answered,
@@ -293,57 +297,62 @@ export function ExtractClient({
   }
 
   return (
-    <div className="flex flex-col gap-3 h-full min-h-0 flex-1">
+    <div className="flex h-full min-h-0 flex-1 flex-col gap-3">
       {/* Compact, Space-Optimized Top Header Bar */}
-      <header className="bg-canvas/95 backdrop-blur-xs sticky top-[calc(var(--app-header-h)+var(--project-nav-h))] z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 border-b border-border shadow-xs lg:-top-4">
+      <header className="bg-canvas/95 border-border sticky top-[calc(var(--app-header-h)+var(--project-nav-h))] z-30 -mx-4 border-b px-4 py-3 shadow-xs backdrop-blur-xs sm:-mx-6 sm:px-6 lg:-top-4 lg:-mx-8 lg:px-8">
         {/* Row 1: Title, Breadcrumb & Primary Actions */}
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <div className="flex flex-wrap items-center gap-2 min-w-0 flex-1">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
             <Link
               href={`/projects/${projectId}/extract`}
-              className="text-muted hover:text-ink text-xs inline-flex items-center rounded-md px-1.5 py-0.5 hover:bg-surface/80 transition-colors font-medium shrink-0"
+              className="text-muted hover:text-ink hover:bg-surface/80 inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-xs font-medium transition-colors"
               title="Back to extraction list"
             >
               ← {paperMeta?.projectTitle ? `${paperMeta.projectTitle} / ` : ""}Extract
             </Link>
 
-            <span className="text-border hidden sm:inline" aria-hidden="true">|</span>
+            <span className="text-border hidden sm:inline" aria-hidden="true">
+              |
+            </span>
 
-            <h1 className="text-ink font-bold text-base sm:text-lg truncate max-w-xl" title={paperMeta?.title ?? "Untitled"}>
+            <h1
+              className="text-ink max-w-xl truncate text-base font-bold sm:text-lg"
+              title={paperMeta?.title ?? "Untitled"}
+            >
               {paperMeta?.title ?? "Untitled"}
             </h1>
 
             {(paperMeta?.venue || paperMeta?.year) && (
-              <span className="text-muted text-xs hidden md:inline truncate max-w-xs font-mono">
+              <span className="text-muted hidden max-w-xs truncate font-mono text-xs md:inline">
                 {paperMeta?.venue} {paperMeta?.year ? `(${paperMeta.year})` : ""}
               </span>
             )}
 
             <span
-              className={`inline-flex items-center rounded px-2 py-0.5 font-mono text-[10px] font-bold border shrink-0 ${
+              className={`inline-flex shrink-0 items-center rounded border px-2 py-0.5 font-mono text-[10px] font-bold ${
                 status === "VERIFIED" || status === "RECONCILED"
-                  ? "bg-purple-500/15 border-purple-500/30 text-purple-700 dark:text-purple-300"
+                  ? "border-purple-500/30 bg-purple-500/15 text-purple-700 dark:text-purple-300"
                   : status === "SUBMITTED"
-                  ? "bg-accent/15 border-accent/30 text-accent"
-                  : "bg-surface border-border text-muted"
+                    ? "bg-accent/15 border-accent/30 text-accent"
+                    : "bg-surface border-border text-muted"
               }`}
             >
               {status}
             </span>
 
             {protocolName && (
-              <span className="text-muted text-xs hidden xl:inline font-mono">
+              <span className="text-muted hidden font-mono text-xs xl:inline">
                 · {protocolName}
               </span>
             )}
           </div>
 
           {/* Quick Header Actions: Reader link, Save & Submit buttons, Maximize toggle */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex shrink-0 items-center gap-2">
             <ButtonLink
               href={`/projects/${projectId}/read/${projectWorkId}`}
               variant="ghost"
-              className="text-xs h-8 px-2.5 hidden sm:inline-flex"
+              className="hidden h-8 px-2.5 text-xs sm:inline-flex"
             >
               Open Reader ↗
             </ButtonLink>
@@ -355,7 +364,7 @@ export function ExtractClient({
                   busy={pending && running === "save"}
                   busyLabel="Saving…"
                   variant="secondary"
-                  className="text-xs h-8 px-3"
+                  className="h-8 px-3 text-xs"
                 >
                   Save draft
                 </Button>
@@ -365,7 +374,7 @@ export function ExtractClient({
                   disabled={pending}
                   busy={pending && running === "submit"}
                   busyLabel="Submitting…"
-                  className="text-xs h-8 px-3.5 font-semibold"
+                  className="h-8 px-3.5 text-xs font-semibold"
                 >
                   Submit
                 </Button>
@@ -385,7 +394,7 @@ export function ExtractClient({
                     if (!response.ok) setError(response.error);
                   })
                 }
-                className="text-xs h-8 px-3"
+                className="h-8 px-3 text-xs"
               >
                 Reopen as draft
               </Button>
@@ -394,12 +403,16 @@ export function ExtractClient({
             <button
               type="button"
               onClick={() => setFocusMode((v) => !v)}
-              className={`p-1.5 rounded-lg border text-xs font-medium transition-all ${
+              className={`rounded-lg border p-1.5 text-xs font-medium transition-all ${
                 focusMode
                   ? "bg-accent text-accent-ink border-accent"
                   : "bg-surface border-border text-muted hover:text-ink"
               }`}
-              title={focusMode ? "Exit maximized focus mode" : "Maximize reading vertical space"}
+              title={
+                focusMode
+                  ? "Exit maximized focus mode"
+                  : "Maximize reading vertical space"
+              }
             >
               {focusMode ? "Exit Focus" : "⛶ Maximize"}
             </button>
@@ -408,14 +421,19 @@ export function ExtractClient({
 
         {/* Row 2: Streamlined Toolbar (Progress, Question Filters, Search & View Toggles) */}
         {!focusMode && (
-          <div className="mt-2.5 pt-2 border-t border-border/50 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="border-border/50 mt-2.5 flex flex-wrap items-center justify-between gap-3 border-t pt-2 text-xs">
             {/* Progress Counter & Track */}
-            <div className="flex items-center gap-3 min-w-[14rem]">
-              <p className="text-ink font-semibold tabular-nums whitespace-nowrap" aria-live="polite">
+            <div className="flex min-w-[14rem] items-center gap-3">
+              <p
+                className="text-ink font-semibold whitespace-nowrap tabular-nums"
+                aria-live="polite"
+              >
                 {answered} of {fields.length} answered ({progressPercent}%)
-                {dirty && <span className="text-accent font-medium"> · unsaved changes</span>}
+                {dirty && (
+                  <span className="text-accent font-medium"> · unsaved changes</span>
+                )}
               </p>
-              <div className="bg-surface/80 border-border/70 h-1.5 w-24 rounded-full border overflow-hidden shrink-0">
+              <div className="bg-surface/80 border-border/70 h-1.5 w-24 shrink-0 overflow-hidden rounded-full border">
                 <div
                   className="bg-accent h-full rounded-full transition-all duration-300"
                   style={{ width: `${progressPercent}%` }}
@@ -431,7 +449,7 @@ export function ExtractClient({
                 className={`rounded-md px-2.5 py-0.5 text-xs font-medium transition-all ${
                   filterMode === "all"
                     ? "bg-accent text-accent-ink shadow-xs"
-                    : "bg-surface/70 text-muted hover:text-ink border border-border/60"
+                    : "bg-surface/70 text-muted hover:text-ink border-border/60 border"
                 }`}
               >
                 All ({fields.length})
@@ -442,7 +460,7 @@ export function ExtractClient({
                 className={`rounded-md px-2.5 py-0.5 text-xs font-medium transition-all ${
                   filterMode === "unanswered"
                     ? "bg-accent text-accent-ink shadow-xs"
-                    : "bg-surface/70 text-muted hover:text-ink border border-border/60"
+                    : "bg-surface/70 text-muted hover:text-ink border-border/60 border"
                 }`}
               >
                 Unanswered ({unansweredCount})
@@ -454,7 +472,7 @@ export function ExtractClient({
                   className={`rounded-md px-2.5 py-0.5 text-xs font-medium transition-all ${
                     filterMode === "required"
                       ? "bg-accent text-accent-ink shadow-xs"
-                      : "bg-surface/70 text-muted hover:text-ink border border-border/60"
+                      : "bg-surface/70 text-muted hover:text-ink border-border/60 border"
                   }`}
                 >
                   Required ({requiredCount})
@@ -466,7 +484,7 @@ export function ExtractClient({
                 className={`rounded-md px-2.5 py-0.5 text-xs font-medium transition-all ${
                   filterMode === "answered"
                     ? "bg-accent text-accent-ink shadow-xs"
-                    : "bg-surface/70 text-muted hover:text-ink border border-border/60"
+                    : "bg-surface/70 text-muted hover:text-ink border-border/60 border"
                 }`}
               >
                 Done ({answered})
@@ -474,22 +492,22 @@ export function ExtractClient({
             </div>
 
             {/* Search Input & Desktop Layout Mode Toggles */}
-            <div className="flex items-center gap-2 flex-1 justify-end max-w-sm">
+            <div className="flex max-w-sm flex-1 items-center justify-end gap-2">
               <Input
                 type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Filter questions..."
-                className="h-7 text-xs py-0.5 px-2.5 w-36 sm:w-44"
+                className="h-7 w-36 px-2.5 py-0.5 text-xs sm:w-44"
               />
 
-              <div className="hidden lg:flex items-center bg-surface/80 border border-border rounded-lg p-0.5 shadow-2xs">
+              <div className="bg-surface/80 border-border hidden items-center rounded-lg border p-0.5 shadow-2xs lg:flex">
                 <button
                   type="button"
                   onClick={() => setViewLayout("split")}
-                  className={`px-2 py-0.5 text-[11px] font-medium rounded transition-all ${
+                  className={`rounded px-2 py-0.5 text-[11px] font-medium transition-all ${
                     viewLayout === "split"
-                      ? "bg-raised text-ink shadow-xs font-semibold"
+                      ? "bg-raised text-ink font-semibold shadow-xs"
                       : "text-muted hover:text-ink"
                   }`}
                   title="50/50 Split View"
@@ -499,9 +517,9 @@ export function ExtractClient({
                 <button
                   type="button"
                   onClick={() => setViewLayout("wide-questions")}
-                  className={`px-2 py-0.5 text-[11px] font-medium rounded transition-all ${
+                  className={`rounded px-2 py-0.5 text-[11px] font-medium transition-all ${
                     viewLayout === "wide-questions"
-                      ? "bg-raised text-ink shadow-xs font-semibold"
+                      ? "bg-raised text-ink font-semibold shadow-xs"
                       : "text-muted hover:text-ink"
                   }`}
                   title="Spacious Questions Focus"
@@ -511,9 +529,9 @@ export function ExtractClient({
                 <button
                   type="button"
                   onClick={() => setViewLayout("focus-paper")}
-                  className={`px-2 py-0.5 text-[11px] font-medium rounded transition-all ${
+                  className={`rounded px-2 py-0.5 text-[11px] font-medium transition-all ${
                     viewLayout === "focus-paper"
-                      ? "bg-raised text-ink shadow-xs font-semibold"
+                      ? "bg-raised text-ink font-semibold shadow-xs"
                       : "text-muted hover:text-ink"
                   }`}
                   title="Paper Reading Focus"
@@ -526,13 +544,13 @@ export function ExtractClient({
         )}
 
         {/* Mobile Tab Switcher */}
-        <div className="flex lg:hidden rounded-lg bg-surface border border-border p-0.5 mt-2 shadow-2xs">
+        <div className="bg-surface border-border mt-2 flex rounded-lg border p-0.5 shadow-2xs lg:hidden">
           <button
             type="button"
             onClick={() => setMobileTab("paper")}
-            className={`flex-1 py-1.5 text-xs font-medium rounded transition-all ${
+            className={`flex-1 rounded py-1.5 text-xs font-medium transition-all ${
               mobileTab === "paper"
-                ? "bg-raised text-ink shadow-xs font-semibold"
+                ? "bg-raised text-ink font-semibold shadow-xs"
                 : "text-muted"
             }`}
           >
@@ -541,9 +559,9 @@ export function ExtractClient({
           <button
             type="button"
             onClick={() => setMobileTab("questions")}
-            className={`flex-1 py-1.5 text-xs font-medium rounded transition-all ${
+            className={`flex-1 rounded py-1.5 text-xs font-medium transition-all ${
               mobileTab === "questions"
-                ? "bg-raised text-ink shadow-xs font-semibold"
+                ? "bg-raised text-ink font-semibold shadow-xs"
                 : "text-muted"
             }`}
           >
@@ -554,25 +572,25 @@ export function ExtractClient({
 
       {/* Main Dual-Pane Workspace (Fills all available vertical screen space) */}
       <div
-        className={`grid gap-6 flex-1 min-h-0 h-full ${
+        className={`grid h-full min-h-0 flex-1 gap-6 ${
           viewLayout === "wide-questions"
             ? "lg:grid-cols-[0.8fr_1.4fr]"
             : viewLayout === "focus-paper"
-            ? "lg:grid-cols-[1.4fr_0.8fr]"
-            : "lg:grid-cols-[1.05fr_1.15fr]"
+              ? "lg:grid-cols-[1.4fr_0.8fr]"
+              : "lg:grid-cols-[1.05fr_1.15fr]"
         }`}
       >
         {/* Left Pane: The Paper Document / Source */}
         <section
-          className={`flex flex-col h-full min-h-0 border border-border/80 bg-raised/70 rounded-2xl shadow-xs overflow-hidden ${
+          className={`border-border/80 bg-raised/70 flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border shadow-xs ${
             mobileTab === "questions" ? "hidden lg:flex" : "flex"
           }`}
         >
-          <div className="bg-surface/70 border-b border-border/70 px-4 py-2.5 flex items-center justify-between shrink-0">
-            <h2 className="text-ink font-bold text-sm tracking-tight flex items-center gap-2">
+          <div className="bg-surface/70 border-border/70 flex shrink-0 items-center justify-between border-b px-4 py-2.5">
+            <h2 className="text-ink flex items-center gap-2 text-sm font-bold tracking-tight">
               <span>📄 The Paper</span>
             </h2>
-            <span className="text-muted text-xs font-mono">
+            <span className="text-muted font-mono text-xs">
               {sections.length > 0 ? `${sections.length} section(s)` : "No text"}
             </span>
           </div>
@@ -581,10 +599,10 @@ export function ExtractClient({
           {capturing && (
             <div
               role="status"
-              className="bg-accent text-accent-ink px-4 py-2.5 shadow-md flex items-center justify-between gap-3 shrink-0 animate-pulse"
+              className="bg-accent text-accent-ink flex shrink-0 animate-pulse items-center justify-between gap-3 px-4 py-2.5 shadow-md"
             >
               <div className="flex flex-col gap-0.5 text-xs">
-                <span className="font-bold uppercase tracking-wider text-accent-ink/90">
+                <span className="text-accent-ink/90 font-bold tracking-wider uppercase">
                   Selecting quote for: {activeCapturingField?.label ?? "Question"}
                 </span>
                 <p className="font-medium">
@@ -595,7 +613,7 @@ export function ExtractClient({
                 type="button"
                 variant="secondary"
                 onClick={() => setCapturing(null)}
-                className="shrink-0 text-xs py-1 px-2.5 bg-white/20 text-white hover:bg-white/30 border-white/30 h-7"
+                className="h-7 shrink-0 border-white/30 bg-white/20 px-2.5 py-1 text-xs text-white hover:bg-white/30"
               >
                 Cancel
               </Button>
@@ -603,30 +621,30 @@ export function ExtractClient({
           )}
 
           {/* Scrollable Paper Text Area */}
-          <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
             {sections.length > 0 ? (
               <div
                 ref={textRef}
                 onMouseUp={capture}
                 onKeyUp={capture}
-                className={`transition-all rounded-xl p-3 ${
-                  capturing ? "ring-2 ring-accent/40 bg-accent/5" : ""
+                className={`rounded-xl p-3 transition-all ${
+                  capturing ? "ring-accent/40 bg-accent/5 ring-2" : ""
                 }`}
               >
                 {sections.map((section, index) => (
                   <div key={section.page ?? `abstract-${index}`}>
                     {sections.length > 1 && section.page !== null && (
-                      <div className="flex items-center gap-3 my-5">
-                        <span className="bg-surface border border-border/80 text-muted px-2.5 py-0.5 rounded-full font-mono text-[11px] font-semibold">
+                      <div className="my-5 flex items-center gap-3">
+                        <span className="bg-surface border-border/80 text-muted rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-semibold">
                           Page {section.page}
                         </span>
-                        <div className="h-px flex-1 bg-border/60" />
+                        <div className="bg-border/60 h-px flex-1" />
                       </div>
                     )}
                     <div
                       data-testid="extract-source"
                       data-section-index={index}
-                      className="prose-body py-1 text-ink text-base leading-relaxed selection:bg-accent/25 selection:text-ink font-serif"
+                      className="prose-body text-ink selection:bg-accent/25 selection:text-ink py-1 font-serif text-base leading-relaxed"
                     >
                       {section.text}
                     </div>
@@ -634,14 +652,14 @@ export function ExtractClient({
                 ))}
               </div>
             ) : (
-              <div className="border border-dashed border-border rounded-xl p-8 text-center bg-surface/30">
+              <div className="border-border bg-surface/30 rounded-xl border border-dashed p-8 text-center">
                 <p className="text-muted text-ui">
                   This record has no abstract and no attached PDF, so there is no text to
                   quote from yet.
                 </p>
                 <Link
                   href={`/projects/${projectId}/read/${projectWorkId}`}
-                  className="text-accent hover:underline font-medium text-sm mt-2 inline-block"
+                  className="text-accent mt-2 inline-block text-sm font-medium hover:underline"
                 >
                   Attach the paper from the reader &rarr;
                 </Link>
@@ -652,32 +670,34 @@ export function ExtractClient({
 
         {/* Right Pane: Redesigned Protocol Questions Menu */}
         <section
-          className={`flex flex-col h-full min-h-0 border border-border/80 bg-raised/70 rounded-2xl shadow-xs overflow-hidden ${
+          className={`border-border/80 bg-raised/70 flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border shadow-xs ${
             mobileTab === "paper" ? "hidden lg:flex" : "flex"
           }`}
         >
-          <div className="bg-surface/70 border-b border-border/70 px-4 py-2.5 flex items-center justify-between shrink-0">
-            <h2 className="text-ink font-bold text-sm tracking-tight flex items-center gap-2">
+          <div className="bg-surface/70 border-border/70 flex shrink-0 items-center justify-between border-b px-4 py-2.5">
+            <h2 className="text-ink flex items-center gap-2 text-sm font-bold tracking-tight">
               <span>📋 The Questions</span>
             </h2>
-            <span className="text-muted text-xs font-mono">
+            <span className="text-muted font-mono text-xs">
               Showing {filteredFields.length} of {fields.length}
             </span>
           </div>
 
           {/* Scrollable Questions List Area */}
-          <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-5">
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
             {noticeNode && <div className="space-y-3">{noticeNode}</div>}
 
             {missing.length > 0 && (
               <Banner tone="danger">
-                <p className="font-semibold text-sm">These required fields are still unanswered:</p>
-                <ul className="mt-1.5 list-disc pl-5 space-y-0.5 text-xs">
+                <p className="text-sm font-semibold">
+                  These required fields are still unanswered:
+                </p>
+                <ul className="mt-1.5 list-disc space-y-0.5 pl-5 text-xs">
                   {missing.map((field) => (
                     <li key={field.id}>
                       <a
                         href={`#field-${field.id}`}
-                        className="underline underline-offset-2 font-medium hover:text-danger-ink transition-colors"
+                        className="hover:text-danger-ink font-medium underline underline-offset-2 transition-colors"
                       >
                         {field.label}
                       </a>
@@ -689,21 +709,24 @@ export function ExtractClient({
 
             {frozen && (
               <Banner>
-                This extraction is submitted and frozen. Reopen it as a draft to change an answer.
+                This extraction is submitted and frozen. Reopen it as a draft to change an
+                answer.
               </Banner>
             )}
 
             {/* Questions Cards */}
             {filteredFields.length === 0 ? (
-              <div className="border border-dashed border-border rounded-xl p-8 text-center bg-surface/30">
-                <p className="text-muted text-ui">No questions match the current filter.</p>
+              <div className="border-border bg-surface/30 rounded-xl border border-dashed p-8 text-center">
+                <p className="text-muted text-ui">
+                  No questions match the current filter.
+                </p>
                 <button
                   type="button"
                   onClick={() => {
                     setFilterMode("all");
                     setSearchQuery("");
                   }}
-                  className="text-accent hover:underline font-medium text-sm mt-2"
+                  className="text-accent mt-2 text-sm font-medium hover:underline"
                 >
                   Reset filters
                 </button>
@@ -721,49 +744,49 @@ export function ExtractClient({
                     key={field.id}
                     id={`field-${field.id}`}
                     data-field-key={field.key}
-                    className={`border rounded-2xl p-5 shadow-sm transition-all scroll-mt-28 ${
+                    className={`scroll-mt-28 rounded-2xl border p-5 shadow-sm transition-all ${
                       isCapturing
-                        ? "border-accent ring-2 ring-accent/30 bg-accent/5 shadow-md"
+                        ? "border-accent ring-accent/30 bg-accent/5 shadow-md ring-2"
                         : missing.some((m) => m.id === field.id)
-                        ? "border-danger ring-2 ring-danger/30 bg-danger/5"
-                        : "border-border/80 bg-raised/95 hover:border-border hover:shadow-md"
+                          ? "border-danger ring-danger/30 bg-danger/5 ring-2"
+                          : "border-border/80 bg-raised/95 hover:border-border hover:shadow-md"
                     }`}
                   >
                     {/* Header Row: Q# Badge, Type Tag, Required Status */}
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex flex-wrap items-center gap-2">
                         <span
-                          className={`font-mono text-xs font-bold px-2.5 py-1 rounded-lg border inline-flex items-center gap-1 shrink-0 ${
+                          className={`inline-flex shrink-0 items-center gap-1 rounded-lg border px-2.5 py-1 font-mono text-xs font-bold ${
                             answeredState
-                              ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+                              ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
                               : field.required
-                              ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30"
-                              : "bg-surface border-border text-muted"
+                                ? "border-amber-500/30 bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                                : "bg-surface border-border text-muted"
                           }`}
                         >
                           <span>Q{fieldIndex}</span>
                           {answeredState && <span aria-hidden="true">✓</span>}
                         </span>
 
-                        <span className="bg-surface border border-border/70 text-muted inline-flex items-center rounded-md px-2 py-0.5 font-mono text-[11px] font-medium">
+                        <span className="bg-surface border-border/70 text-muted inline-flex items-center rounded-md border px-2 py-0.5 font-mono text-[11px] font-medium">
                           {fieldTypeLabel(field.type)}
                         </span>
 
                         {field.required && (
-                          <span className="bg-danger/10 border border-danger/30 text-danger inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold">
+                          <span className="bg-danger/10 border-danger/30 text-danger inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold">
                             Required
                           </span>
                         )}
 
                         {quoted && (
-                          <span className="bg-accent/10 border border-accent/30 text-accent inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold">
+                          <span className="bg-accent/10 border-accent/30 text-accent inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold">
                             Quotes Paper
                           </span>
                         )}
                       </div>
 
                       {answeredState && (
-                        <span className="text-emerald-600 dark:text-emerald-400 font-medium text-xs flex items-center gap-1 shrink-0">
+                        <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
                           <span>Answered</span>
                         </span>
                       )}
@@ -772,11 +795,11 @@ export function ExtractClient({
                     {/* Question Title / Label */}
                     <label
                       htmlFor={`f-${field.id}`}
-                      className="text-ink font-bold text-base sm:text-lg leading-snug tracking-tight block cursor-pointer mt-3"
+                      className="text-ink mt-3 block cursor-pointer text-base leading-snug font-bold tracking-tight sm:text-lg"
                     >
                       {field.label}
                       {field.required && (
-                        <span className="text-accent ml-1 font-normal text-sm">
+                        <span className="text-accent ml-1 text-sm font-normal">
                           · required
                         </span>
                       )}
@@ -784,8 +807,11 @@ export function ExtractClient({
 
                     {/* Help Text Callout */}
                     {field.helpText && (
-                      <div className="mt-2.5 rounded-xl bg-surface/80 border border-border/60 p-3 text-sm text-ink-soft leading-relaxed flex items-start gap-2.5">
-                        <span className="text-muted text-base leading-none select-none" aria-hidden="true">
+                      <div className="bg-surface/80 border-border/60 text-ink-soft mt-2.5 flex items-start gap-2.5 rounded-xl border p-3 text-sm leading-relaxed">
+                        <span
+                          className="text-muted text-base leading-none select-none"
+                          aria-hidden="true"
+                        >
                           ℹ️
                         </span>
                         <p className="flex-1">{field.helpText}</p>
@@ -797,21 +823,24 @@ export function ExtractClient({
                       {quoted ? (
                         <div className="space-y-3">
                           {answer?.text ? (
-                            <blockquote className="border-l-4 border-accent bg-surface/90 rounded-2xl p-4 text-ink shadow-2xs border-y border-r border-border/60">
-                              <div className="flex items-center justify-between text-fine text-muted mb-1 font-mono">
-                                <span className="flex items-center gap-1 text-accent font-semibold">
+                            <blockquote className="border-accent bg-surface/90 text-ink border-border/60 rounded-2xl border-y border-r border-l-4 p-4 shadow-2xs">
+                              <div className="text-fine text-muted mb-1 flex items-center justify-between font-mono">
+                                <span className="text-accent flex items-center gap-1 font-semibold">
                                   <span>“ Quoted passage:</span>
                                 </span>
-                                {answer.selector?.page && <span>Page {answer.selector.page}</span>}
+                                {answer.selector?.page && (
+                                  <span>Page {answer.selector.page}</span>
+                                )}
                               </div>
-                              <p className="italic text-ink font-serif text-[15px] leading-relaxed">
+                              <p className="text-ink font-serif text-[15px] leading-relaxed italic">
                                 {answer.text}
                               </p>
                             </blockquote>
                           ) : (
-                            <div className="border border-dashed border-border/70 bg-surface/40 rounded-xl p-4 text-center">
+                            <div className="border-border/70 bg-surface/40 rounded-xl border border-dashed p-4 text-center">
                               <p className="text-muted text-sm italic">
-                                Nothing quoted yet. Highlight a passage in the paper on the left.
+                                Nothing quoted yet. Highlight a passage in the paper on
+                                the left.
                               </p>
                             </div>
                           )}
@@ -825,7 +854,9 @@ export function ExtractClient({
                                 disabled={pending || sections.length === 0}
                                 className="text-sm font-medium"
                               >
-                                {answer?.text ? "Quote a different passage" : "Quote from the paper"}
+                                {answer?.text
+                                  ? "Quote a different passage"
+                                  : "Quote from the paper"}
                               </Button>
 
                               {!answer?.text && (
@@ -858,7 +889,7 @@ export function ExtractClient({
                                     })
                                   }
                                   disabled={pending}
-                                  className="text-sm text-danger hover:text-danger"
+                                  className="text-danger hover:text-danger text-sm"
                                 >
                                   Clear
                                 </Button>
@@ -920,9 +951,15 @@ function applyFormatToElement(
   requestAnimationFrame(() => {
     el.focus();
     if (selected) {
-      el.setSelectionRange(start + prefix.length, start + prefix.length + selected.length);
+      el.setSelectionRange(
+        start + prefix.length,
+        start + prefix.length + selected.length,
+      );
     } else {
-      el.setSelectionRange(start + prefix.length, start + prefix.length + placeholder.length);
+      el.setSelectionRange(
+        start + prefix.length,
+        start + prefix.length + placeholder.length,
+      );
     }
   });
 }
@@ -1027,7 +1064,7 @@ function FormattedTextareaField({
 
   if (disabled) {
     return (
-      <div className="border-border/70 bg-surface/60 rounded-2xl border p-4 text-ink text-base shadow-xs">
+      <div className="border-border/70 bg-surface/60 text-ink rounded-2xl border p-4 text-base shadow-xs">
         {value.trim() ? (
           <FormattedText text={value} />
         ) : (
@@ -1038,7 +1075,7 @@ function FormattedTextareaField({
   }
 
   return (
-    <div className="border-border/80 focus-within:border-accent bg-surface/40 flex flex-col overflow-hidden rounded-2xl border shadow-xs transition-colors focus-within:ring-2 focus-within:ring-accent/20">
+    <div className="border-border/80 focus-within:border-accent bg-surface/40 focus-within:ring-accent/20 flex flex-col overflow-hidden rounded-2xl border shadow-xs transition-colors focus-within:ring-2">
       {/* Toolbar header */}
       <div className="border-border/60 bg-raised/80 flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
         <div className="flex flex-wrap items-center gap-1">
@@ -1047,12 +1084,8 @@ function FormattedTextareaField({
             title="Bold (Cmd+B / Ctrl+B)"
             onClick={() =>
               textareaRef.current &&
-              applyFormatToElement(
-                textareaRef.current,
-                "**",
-                "**",
-                "bold text",
-                (t) => onChange(t || null, t),
+              applyFormatToElement(textareaRef.current, "**", "**", "bold text", (t) =>
+                onChange(t || null, t),
               )
             }
             className="text-ink hover:bg-surface hover:text-accent focus-visible:ring-accent inline-flex size-7 items-center justify-center rounded-lg text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:outline-none"
@@ -1064,12 +1097,8 @@ function FormattedTextareaField({
             title="Italic (Cmd+I / Ctrl+I)"
             onClick={() =>
               textareaRef.current &&
-              applyFormatToElement(
-                textareaRef.current,
-                "*",
-                "*",
-                "italic text",
-                (t) => onChange(t || null, t),
+              applyFormatToElement(textareaRef.current, "*", "*", "italic text", (t) =>
+                onChange(t || null, t),
               )
             }
             className="text-ink hover:bg-surface hover:text-accent focus-visible:ring-accent inline-flex size-7 items-center justify-center rounded-lg font-serif text-xs italic transition-colors focus-visible:ring-2 focus-visible:outline-none"
@@ -1099,12 +1128,8 @@ function FormattedTextareaField({
             title="Inline code (Cmd+` / Ctrl+`)"
             onClick={() =>
               textareaRef.current &&
-              applyFormatToElement(
-                textareaRef.current,
-                "`",
-                "`",
-                "code",
-                (t) => onChange(t || null, t),
+              applyFormatToElement(textareaRef.current, "`", "`", "code", (t) =>
+                onChange(t || null, t),
               )
             }
             className="text-ink hover:bg-surface hover:text-accent focus-visible:ring-accent inline-flex size-7 items-center justify-center rounded-lg font-mono text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
@@ -1116,9 +1141,7 @@ function FormattedTextareaField({
             title="Link (Cmd+K / Ctrl+K)"
             onClick={() =>
               textareaRef.current &&
-              applyLinkToElement(textareaRef.current, (t) =>
-                onChange(t || null, t),
-              )
+              applyLinkToElement(textareaRef.current, (t) => onChange(t || null, t))
             }
             className="text-ink hover:bg-surface hover:text-accent focus-visible:ring-accent inline-flex size-7 items-center justify-center rounded-lg text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
           >
@@ -1130,9 +1153,7 @@ function FormattedTextareaField({
             title="Bullet list"
             onClick={() =>
               textareaRef.current &&
-              applyPrefixToLines(textareaRef.current, "- ", (t) =>
-                onChange(t || null, t),
-              )
+              applyPrefixToLines(textareaRef.current, "- ", (t) => onChange(t || null, t))
             }
             className="text-ink hover:bg-surface hover:text-accent focus-visible:ring-accent inline-flex size-7 items-center justify-center rounded-lg text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
           >
@@ -1156,9 +1177,7 @@ function FormattedTextareaField({
             title="Quote"
             onClick={() =>
               textareaRef.current &&
-              applyPrefixToLines(textareaRef.current, "> ", (t) =>
-                onChange(t || null, t),
-              )
+              applyPrefixToLines(textareaRef.current, "> ", (t) => onChange(t || null, t))
             }
             className="text-ink hover:bg-surface hover:text-accent focus-visible:ring-accent inline-flex size-7 items-center justify-center rounded-lg font-serif text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
           >
@@ -1205,15 +1224,13 @@ function FormattedTextareaField({
           value={value}
           onChange={(e) => onChange(e.target.value || null, e.target.value)}
           onKeyDown={(e) =>
-            handleFormattingKeyDown(e, textareaRef.current, (t) =>
-              onChange(t || null, t),
-            )
+            handleFormattingKeyDown(e, textareaRef.current, (t) => onChange(t || null, t))
           }
           placeholder="Type markdown or format using toolbar above..."
-          className="border-0 bg-transparent text-ink text-base w-full rounded-none px-4 py-3 shadow-none focus:ring-0 focus:outline-none placeholder:text-muted/60 leading-relaxed"
+          className="text-ink placeholder:text-muted/60 w-full rounded-none border-0 bg-transparent px-4 py-3 text-base leading-relaxed shadow-none focus:ring-0 focus:outline-none"
         />
       ) : (
-        <div className="min-h-[7.5rem] p-4 text-ink text-base leading-relaxed">
+        <div className="text-ink min-h-[7.5rem] p-4 text-base leading-relaxed">
           {value.trim() ? (
             <FormattedText text={value} />
           ) : (
@@ -1246,7 +1263,7 @@ function FormattedTextField({
 
   if (disabled) {
     return (
-      <div className="border-border/70 bg-surface/60 rounded-xl border px-4 py-2.5 text-ink text-base shadow-xs">
+      <div className="border-border/70 bg-surface/60 text-ink rounded-xl border px-4 py-2.5 text-base shadow-xs">
         {value.trim() ? (
           <FormattedText text={value} />
         ) : (
@@ -1264,7 +1281,7 @@ function FormattedTextField({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="border-border/80 focus-within:border-accent bg-surface/40 flex flex-col overflow-hidden rounded-xl border shadow-xs transition-colors focus-within:ring-2 focus-within:ring-accent/20">
+      <div className="border-border/80 focus-within:border-accent bg-surface/40 focus-within:ring-accent/20 flex flex-col overflow-hidden rounded-xl border shadow-xs transition-colors focus-within:ring-2">
         <div className="flex items-center">
           <Input
             id={id}
@@ -1274,12 +1291,10 @@ function FormattedTextField({
             value={value}
             onChange={(e) => onChange(e.target.value || null, e.target.value)}
             onKeyDown={(e) =>
-              handleFormattingKeyDown(e, inputRef.current, (t) =>
-                onChange(t || null, t),
-              )
+              handleFormattingKeyDown(e, inputRef.current, (t) => onChange(t || null, t))
             }
             placeholder="Type short text or format with **bold**, *italic*, `code`..."
-            className="border-0 bg-transparent text-ink text-base min-h-12 w-full rounded-none px-4 shadow-none focus:ring-0 focus:outline-none placeholder:text-muted/60"
+            className="text-ink placeholder:text-muted/60 min-h-12 w-full rounded-none border-0 bg-transparent px-4 text-base shadow-none focus:ring-0 focus:outline-none"
           />
 
           <div className="flex shrink-0 items-center gap-1 pr-2">
@@ -1288,12 +1303,8 @@ function FormattedTextField({
               title="Bold (Cmd+B / Ctrl+B)"
               onClick={() =>
                 inputRef.current &&
-                applyFormatToElement(
-                  inputRef.current,
-                  "**",
-                  "**",
-                  "bold",
-                  (t) => onChange(t || null, t),
+                applyFormatToElement(inputRef.current, "**", "**", "bold", (t) =>
+                  onChange(t || null, t),
                 )
               }
               className="text-ink hover:bg-surface hover:text-accent focus-visible:ring-accent inline-flex size-7 items-center justify-center rounded-md text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:outline-none"
@@ -1305,12 +1316,8 @@ function FormattedTextField({
               title="Italic (Cmd+I / Ctrl+I)"
               onClick={() =>
                 inputRef.current &&
-                applyFormatToElement(
-                  inputRef.current,
-                  "*",
-                  "*",
-                  "italic",
-                  (t) => onChange(t || null, t),
+                applyFormatToElement(inputRef.current, "*", "*", "italic", (t) =>
+                  onChange(t || null, t),
                 )
               }
               className="text-ink hover:bg-surface hover:text-accent focus-visible:ring-accent inline-flex size-7 items-center justify-center rounded-md font-serif text-xs italic transition-colors focus-visible:ring-2 focus-visible:outline-none"
@@ -1322,12 +1329,8 @@ function FormattedTextField({
               title="Inline code (Cmd+` / Ctrl+`)"
               onClick={() =>
                 inputRef.current &&
-                applyFormatToElement(
-                  inputRef.current,
-                  "`",
-                  "`",
-                  "code",
-                  (t) => onChange(t || null, t),
+                applyFormatToElement(inputRef.current, "`", "`", "code", (t) =>
+                  onChange(t || null, t),
                 )
               }
               className="text-ink hover:bg-surface hover:text-accent focus-visible:ring-accent inline-flex size-7 items-center justify-center rounded-md font-mono text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
@@ -1339,9 +1342,7 @@ function FormattedTextField({
               title="Link (Cmd+K / Ctrl+K)"
               onClick={() =>
                 inputRef.current &&
-                applyLinkToElement(inputRef.current, (t) =>
-                  onChange(t || null, t),
-                )
+                applyLinkToElement(inputRef.current, (t) => onChange(t || null, t))
               }
               className="text-ink hover:bg-surface hover:text-accent focus-visible:ring-accent inline-flex size-7 items-center justify-center rounded-md text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
             >
@@ -1356,7 +1357,7 @@ function FormattedTextField({
                   "focus-visible:ring-accent ml-1 rounded-md px-2 py-1 text-xs font-medium transition-all focus-visible:ring-2 focus-visible:outline-none",
                   showPreview
                     ? "bg-accent text-accent-ink"
-                    : "text-muted hover:text-ink bg-surface/70 border border-border/50",
+                    : "text-muted hover:text-ink bg-surface/70 border-border/50 border",
                 )}
               >
                 {showPreview ? "Edit" : "Preview"}
@@ -1367,8 +1368,8 @@ function FormattedTextField({
       </div>
 
       {showPreview && hasFormatting && (
-        <div className="border-border/60 bg-surface/70 text-ink text-sm rounded-xl border px-3.5 py-2 shadow-2xs">
-          <span className="text-muted text-fine block mb-0.5">Preview:</span>
+        <div className="border-border/60 bg-surface/70 text-ink rounded-xl border px-3.5 py-2 text-sm shadow-2xs">
+          <span className="text-muted text-fine mb-0.5 block">Preview:</span>
           <FormattedText text={value} />
         </div>
       )}
@@ -1394,7 +1395,7 @@ function FieldInput({
 
   if (field.type === "BOOLEAN") {
     return (
-      <label className="text-ink text-base font-medium flex items-center gap-3 p-3 bg-surface/40 hover:bg-surface/80 rounded-xl border border-border/50 cursor-pointer transition-colors">
+      <label className="text-ink bg-surface/40 hover:bg-surface/80 border-border/50 flex cursor-pointer items-center gap-3 rounded-xl border p-3 text-base font-medium transition-colors">
         <Checkbox
           id={id}
           checked={answer?.value === true}
@@ -1428,7 +1429,7 @@ function FieldInput({
           {field.options.map((option) => (
             <label
               key={option}
-              className="text-ink text-base flex items-center gap-3 p-3 bg-surface/40 hover:bg-surface/80 rounded-xl border border-border/50 cursor-pointer transition-colors"
+              className="text-ink bg-surface/40 hover:bg-surface/80 border-border/50 flex cursor-pointer items-center gap-3 rounded-xl border p-3 text-base transition-colors"
             >
               <Checkbox
                 checked={chosen.includes(option)}
@@ -1454,7 +1455,7 @@ function FieldInput({
         disabled={disabled}
         value={typeof answer?.value === "string" ? answer.value : ""}
         onChange={(e) => onChange(e.target.value || null, e.target.value)}
-        className="min-h-12 text-base px-4"
+        className="min-h-12 px-4 text-base"
       >
         <option value="">Select an option...</option>
         {field.options.map((option) => (
@@ -1499,7 +1500,7 @@ function FieldInput({
         onChange(Number.isNaN(value as number) ? null : value, raw);
       }}
       placeholder={`Enter ${field.label.toLowerCase()}...`}
-      className="min-h-12 text-base px-4"
+      className="min-h-12 px-4 text-base"
     />
   );
 }

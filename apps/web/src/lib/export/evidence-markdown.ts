@@ -42,7 +42,9 @@ export interface EvidenceMarkdownOptions {
   generatedAt?: Date | undefined;
 }
 
-export function exportCellValue(cell: EvidenceCellData | undefined): string | number | null {
+export function exportCellValue(
+  cell: EvidenceCellData | undefined,
+): string | number | null {
   if (!cell || !cell.answered) return null;
   if (cell.type === "NUMBER" && typeof cell.value === "number") return cell.value;
   return cell.text ?? null;
@@ -65,7 +67,10 @@ function formatSummaryCell(value: string | number | null | undefined): string {
   }
 
   // If multi-line, take the first line and append line count
-  const lines = str.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const lines = str
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
   if (lines.length > 1) {
     const first = lines[0] ?? "";
     const short = first.length > 50 ? first.slice(0, 47) + "..." : first;
@@ -101,10 +106,18 @@ export function toEvidenceMarkdown(options: EvidenceMarkdownOptions): string {
 
   // AI Prompt & Analysis Context (as a standard Markdown callout)
   lines.push("> **💡 AI Instructions for Systematic Review & Evidence Synthesis**");
-  lines.push("> - **Synthesize Findings**: Synthesize quantitative and qualitative outcomes across all included studies.");
-  lines.push("> - **Compare Metrics**: Compare effect sizes, metrics, sample sizes, and interventions.");
-  lines.push("> - **Assess Bias & Gaps**: Assess heterogeneity, consistency, outliers, and risk of bias across studies.");
-  lines.push("> - **Generate Tables**: Produce structured summary tables and narrative review sections for a manuscript.");
+  lines.push(
+    "> - **Synthesize Findings**: Synthesize quantitative and qualitative outcomes across all included studies.",
+  );
+  lines.push(
+    "> - **Compare Metrics**: Compare effect sizes, metrics, sample sizes, and interventions.",
+  );
+  lines.push(
+    "> - **Assess Bias & Gaps**: Assess heterogeneity, consistency, outliers, and risk of bias across studies.",
+  );
+  lines.push(
+    "> - **Generate Tables**: Produce structured summary tables and narrative review sections for a manuscript.",
+  );
   lines.push("");
 
   // Overview
@@ -141,18 +154,16 @@ export function toEvidenceMarkdown(options: EvidenceMarkdownOptions): string {
     lines.push(
       `| ${tableHeaders
         .map((_, i) =>
-          i === 0 || i === 3 || i === 5 || i === 6 || i === 7 || i === 8 ? ":---:" : ":---",
+          i === 0 || i === 3 || i === 5 || i === 6 || i === 7 || i === 8
+            ? ":---:"
+            : ":---",
         )
         .join(" | ")} |`,
     );
 
     rows.forEach((row, idx) => {
-      const doiLink = row.doi
-        ? `[DOI](https://doi.org/${row.doi})`
-        : "—";
-      const pdfLink = row.oa_pdf_url
-        ? `[PDF](${row.oa_pdf_url})`
-        : "—";
+      const doiLink = row.doi ? `[DOI](https://doi.org/${row.doi})` : "—";
+      const pdfLink = row.oa_pdf_url ? `[PDF](${row.oa_pdf_url})` : "—";
 
       const cells = [
         String(idx + 1),

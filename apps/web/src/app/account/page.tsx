@@ -39,7 +39,7 @@ export default async function AccountPage() {
         <h2 id="details" className="text-ink text-title font-serif">
           Details
         </h2>
-        <dl className="border-border/70 divide-border/60 bg-raised/70 divide-y rounded-2xl border overflow-hidden shadow-xs">
+        <dl className="border-border/70 divide-border/60 bg-raised/70 divide-y overflow-hidden rounded-2xl border shadow-xs">
           <div className="flex flex-wrap justify-between gap-2 p-5">
             <dt className="text-muted text-ui font-medium">Email</dt>
             <dd className="text-ink text-ui font-mono">{user.email}</dd>
@@ -64,7 +64,10 @@ export default async function AccountPage() {
           project, and a deleted account is no longer a member of any of them.
         </p>
         <p>
-          <Link href="/projects" className="text-accent underline underline-offset-4 font-medium">
+          <Link
+            href="/projects"
+            className="text-accent font-medium underline underline-offset-4"
+          >
             Your projects
           </Link>
         </p>

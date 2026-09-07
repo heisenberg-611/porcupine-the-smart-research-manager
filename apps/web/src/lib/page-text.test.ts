@@ -87,4 +87,3 @@ describe("structure markers, which carry no text", () => {
     expect(text).not.toContain("\0");
   });
 });
-

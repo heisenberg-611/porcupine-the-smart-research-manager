@@ -17,7 +17,7 @@ export async function recordUserSignIn(
 
     // Check if a login was already logged for this user in the last 30 seconds
     const thirtySecondsAgo = new Date(Date.now() - 30 * 1000).toISOString();
-    const { data: recent } = await admin
+    const { data: recent, error } = await admin
       .from("member_auth_events")
       .select("id")
       .eq("user_id", userId)
@@ -25,7 +25,7 @@ export async function recordUserSignIn(
       .gte("created_at", thirtySecondsAgo)
       .limit(1);
 
-    if (recent && recent.length > 0) return;
+    if (error || (recent && recent.length > 0)) return;
 
     await admin.from("member_auth_events").insert({
       user_id: userId,

@@ -2,19 +2,12 @@
 
 import { useMemo, useState, useEffect } from "react";
 import { ContributorAvatar } from "@/components/contributor-avatar";
-import {
-  BADGE_STYLES,
-  CATEGORY_COLORS,
-  type Contributor,
-} from "@/lib/contributors";
+import { Input } from "@/components/ui";
+import { BADGE_STYLES, CATEGORY_COLORS, type Contributor } from "@/lib/contributors";
 
 const PAGE_SIZE = 6;
 
-export function ContributorsView({
-  contributors,
-}: {
-  contributors: Contributor[];
-}) {
+export function ContributorsView({ contributors }: { contributors: Contributor[] }) {
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -81,12 +74,12 @@ export function ContributorsView({
 
         {/* Search Input */}
         <div className="w-full sm:max-w-xs">
-          <input
+          <Input
             type="text"
             placeholder="Search by name, role, feedback..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="border-border/80 bg-surface/90 text-ink placeholder:text-muted/70 focus-visible:ring-accent w-full rounded-xl border px-3.5 py-2 text-xs focus-visible:ring-2 focus-visible:outline-none"
+            className="border-border/80 bg-surface/90 text-ink placeholder:text-muted/70 text-xs"
           />
         </div>
       </div>
@@ -94,7 +87,9 @@ export function ContributorsView({
       {/* Contributor Cards Grid */}
       {filteredContributors.length === 0 ? (
         <div className="border-border/60 bg-raised/40 rounded-2xl border p-12 text-center">
-          <p className="text-muted text-ui">No contributors found matching your criteria.</p>
+          <p className="text-muted text-ui">
+            No contributors found matching your criteria.
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -105,12 +100,13 @@ export function ContributorsView({
               border: "border-accent/25",
             };
 
-            const catColor = CATEGORY_COLORS[c.type] || "bg-raised text-ink border-border";
+            const catColor =
+              CATEGORY_COLORS[c.type] || "bg-raised text-ink border-border";
 
             return (
               <div
                 key={`${c.id || "contributor"}-${startIndex + index}`}
-                className="border-border/70 bg-raised/80 flex flex-col justify-between rounded-2xl border p-6 shadow-xs transition-all hover:border-accent/40 hover:shadow-md hover:-translate-y-0.5"
+                className="border-border/70 bg-raised/80 hover:border-accent/40 flex flex-col justify-between rounded-2xl border p-6 shadow-xs transition-all hover:-translate-y-0.5 hover:shadow-md"
               >
                 <div>
                   {/* Top Header: Avatar + Name + Link */}
@@ -135,13 +131,11 @@ export function ContributorsView({
                             </a>
                           )}
                         </div>
-                        <p className="text-muted text-fine truncate mt-0.5">
-                          {c.role}
-                        </p>
+                        <p className="text-muted text-fine mt-0.5 truncate">{c.role}</p>
                       </div>
                     </div>
 
-                    <span className="text-muted font-mono text-[11px] shrink-0">
+                    <span className="text-muted shrink-0 font-mono text-[11px]">
                       {c.date}
                     </span>
                   </div>
@@ -178,8 +172,13 @@ export function ContributorsView({
       {filteredContributors.length > PAGE_SIZE && (
         <div className="border-border/70 bg-raised/70 flex flex-col items-center justify-between gap-4 rounded-2xl border px-6 py-4 shadow-xs sm:flex-row">
           <p className="text-muted font-mono text-xs">
-            Showing <span className="text-ink font-semibold">{startIndex + 1}–{endIndex}</span> of{" "}
-            <span className="text-ink font-semibold">{filteredContributors.length}</span> contributors
+            Showing{" "}
+            <span className="text-ink font-semibold">
+              {startIndex + 1}–{endIndex}
+            </span>{" "}
+            of{" "}
+            <span className="text-ink font-semibold">{filteredContributors.length}</span>{" "}
+            contributors
           </p>
 
           <div className="flex items-center gap-1.5">
@@ -187,7 +186,7 @@ export function ContributorsView({
               type="button"
               disabled={currentPage <= 1}
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              className="border-border/80 bg-surface text-ink hover:bg-surface-hover focus-visible:ring-accent disabled:opacity-40 disabled:pointer-events-none rounded-xl border px-3 py-1.5 font-mono text-xs font-semibold shadow-xs transition-all focus-visible:ring-2 focus-visible:outline-none"
+              className="border-border/80 bg-surface text-ink hover:bg-surface-hover focus-visible:ring-accent rounded-xl border px-3 py-1.5 font-mono text-xs font-semibold shadow-xs transition-all focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-40"
             >
               ← Previous
             </button>
@@ -214,7 +213,7 @@ export function ContributorsView({
               type="button"
               disabled={currentPage >= totalPages}
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              className="border-border/80 bg-surface text-ink hover:bg-surface-hover focus-visible:ring-accent disabled:opacity-40 disabled:pointer-events-none rounded-xl border px-3 py-1.5 font-mono text-xs font-semibold shadow-xs transition-all focus-visible:ring-2 focus-visible:outline-none"
+              className="border-border/80 bg-surface text-ink hover:bg-surface-hover focus-visible:ring-accent rounded-xl border px-3 py-1.5 font-mono text-xs font-semibold shadow-xs transition-all focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-40"
             >
               Next →
             </button>
@@ -223,20 +222,22 @@ export function ContributorsView({
       )}
 
       {/* Give Feedback & Contribute Banner */}
-      <div className="border-border/70 bg-surface/80 rounded-2xl border p-8 shadow-xs text-center sm:text-left sm:flex sm:items-center sm:justify-between gap-6">
+      <div className="border-border/70 bg-surface/80 gap-6 rounded-2xl border p-8 text-center shadow-xs sm:flex sm:items-center sm:justify-between sm:text-left">
         <div>
           <h3 className="text-ink font-serif text-xl font-bold">
             Want to help upgrade porcupineResearch?
           </h3>
           <p className="text-muted text-ui mt-1.5 max-w-xl">
-            We welcome all user feedback, feature suggestions, review methodology advice, bug reports, and code contributions. Your name and recognition badge will be immortalized here!
+            We welcome all user feedback, feature suggestions, review methodology advice,
+            bug reports, and code contributions. Your name and recognition badge will be
+            immortalized here!
           </p>
         </div>
 
-        <div className="mt-4 sm:mt-0 shrink-0 flex flex-wrap items-center gap-3">
+        <div className="mt-4 flex shrink-0 flex-wrap items-center gap-3 sm:mt-0">
           <a
             href="mailto:dhrubojyoti.saha@g.bracu.ac.bd?subject=porcupineResearch%20Feedback%20%26%20Contribution"
-            className="bg-accent text-accent-ink focus-visible:ring-accent rounded-xl px-5 py-2.5 font-semibold shadow-xs transition-all hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none inline-block text-xs"
+            className="bg-accent text-accent-ink focus-visible:ring-accent inline-block rounded-xl px-5 py-2.5 text-xs font-semibold shadow-xs transition-all hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none"
           >
             Send Feedback ✉️
           </a>
@@ -244,7 +245,7 @@ export function ContributorsView({
             href="https://github.com/heisenberg-611/porcupine-the-smart-research-manager"
             target="_blank"
             rel="noreferrer"
-            className="border-border text-ink hover:bg-surface-hover focus-visible:ring-accent rounded-xl border px-5 py-2.5 font-semibold shadow-xs transition-all focus-visible:ring-2 focus-visible:outline-none inline-block text-xs"
+            className="border-border text-ink hover:bg-surface-hover focus-visible:ring-accent inline-block rounded-xl border px-5 py-2.5 text-xs font-semibold shadow-xs transition-all focus-visible:ring-2 focus-visible:outline-none"
           >
             GitHub Repository 🐙
           </a>

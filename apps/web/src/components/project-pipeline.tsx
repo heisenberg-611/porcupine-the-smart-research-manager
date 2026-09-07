@@ -19,7 +19,10 @@ export function ProjectPipeline({ pipeline }: { pipeline: WorkflowPipelineResult
                 {completedStepsCount} of {totalStepsCount} stages completed
               </span>
             </div>
-            <h2 id="workflow-pipeline" className="text-ink text-heading mt-2 font-semibold tracking-tight">
+            <h2
+              id="workflow-pipeline"
+              className="text-ink text-heading mt-2 font-semibold tracking-tight"
+            >
               Research Lifecycle Progress
             </h2>
           </div>
@@ -91,31 +94,31 @@ function StepCard({ step }: { step: WorkflowStep }) {
       <Link
         href={step.href}
         aria-current={isCurrent ? "step" : undefined}
-        className={`group relative flex h-full flex-col justify-between rounded-2xl border p-5 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none hover:-translate-y-0.5 hover:shadow-md ${
+        className={`group focus-visible:ring-accent relative flex h-full flex-col justify-between rounded-2xl border p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-2 focus-visible:outline-none ${
           isCurrent
-            ? "border-accent bg-raised/90 shadow-sm ring-1 ring-accent/30"
+            ? "border-accent bg-raised/90 ring-accent/30 shadow-sm ring-1"
             : isCompleted
               ? "border-border/80 bg-raised/70 hover:border-accent/40 hover:bg-raised"
-              : "border-border/50 bg-raised/40 opacity-75 hover:opacity-100 hover:border-border hover:bg-raised/60"
+              : "border-border/50 bg-raised/40 hover:border-border hover:bg-raised/60 opacity-75 hover:opacity-100"
         }`}
       >
         {/* Top bar: Step number & Status badge */}
         <div>
           <div className="flex items-center justify-between gap-2">
             <span
-              className={`inline-flex items-center justify-center rounded-lg font-mono text-xs font-bold px-2 py-0.5 ${
+              className={`inline-flex items-center justify-center rounded-lg px-2 py-0.5 font-mono text-xs font-bold ${
                 isCompleted
-                  ? "bg-accent/15 text-accent border border-accent/20"
+                  ? "bg-accent/15 text-accent border-accent/20 border"
                   : isCurrent
                     ? "bg-accent text-accent-ink"
-                    : "bg-surface text-muted border border-border/60"
+                    : "bg-surface text-muted border-border/60 border"
               }`}
             >
               Step {step.stepNumber}
             </span>
 
             <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-fine font-medium ${
+              className={`text-fine inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-medium ${
                 isCompleted
                   ? "bg-accent/10 text-accent"
                   : isCurrent
@@ -145,20 +148,20 @@ function StepCard({ step }: { step: WorkflowStep }) {
             </span>
           </div>
 
-          <h3 className="text-ink text-ui mt-3 font-semibold group-hover:text-accent transition-colors">
+          <h3 className="text-ink text-ui group-hover:text-accent mt-3 font-semibold transition-colors">
             {step.label}
           </h3>
 
-          <p className="text-muted text-fine mt-1 text-pretty leading-relaxed">
+          <p className="text-muted text-fine mt-1 leading-relaxed text-pretty">
             {step.description}
           </p>
         </div>
 
         {/* Bottom bar: Metric & Mini Progress Meter */}
-        <div className="mt-4 pt-3 border-t border-border/50">
-          <div className="flex items-center justify-between text-fine">
+        <div className="border-border/50 mt-4 border-t pt-3">
+          <div className="text-fine flex items-center justify-between">
             <span
-              className={`font-medium truncate ${
+              className={`truncate font-medium ${
                 isCompleted
                   ? "text-accent"
                   : isCurrent
@@ -170,9 +173,7 @@ function StepCard({ step }: { step: WorkflowStep }) {
             </span>
 
             {step.percent > 0 && step.percent < 100 && (
-              <span className="text-muted font-mono ml-2 shrink-0">
-                {step.percent}%
-              </span>
+              <span className="text-muted ml-2 shrink-0 font-mono">{step.percent}%</span>
             )}
           </div>
 

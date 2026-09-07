@@ -298,7 +298,7 @@ export default async function ExtractDashboardPage({
             <details
               key={member.user_id}
               open={query !== "" && visible.length > 0}
-              className="border-border/70 bg-raised/70 rounded-2xl border overflow-hidden shadow-xs"
+              className="border-border/70 bg-raised/70 overflow-hidden rounded-2xl border shadow-xs"
             >
               <summary className="hover:bg-surface/80 flex cursor-pointer flex-wrap items-center gap-x-4 gap-y-2 p-5 transition-colors">
                 <span className="text-ink min-w-0 flex-1 font-semibold">
@@ -345,7 +345,7 @@ export default async function ExtractDashboardPage({
         {board.unassigned.length > 0 && (
           <details
             open={query !== ""}
-            className="border-border/70 bg-raised/50 rounded-2xl border border-dashed overflow-hidden shadow-xs"
+            className="border-border/70 bg-raised/50 overflow-hidden rounded-2xl border border-dashed shadow-xs"
           >
             <summary className="hover:bg-surface/80 flex cursor-pointer items-center gap-4 p-5 transition-colors">
               <span className="text-ink flex-1 font-semibold">Nobody has started</span>
@@ -366,7 +366,7 @@ export default async function ExtractDashboardPage({
         )}
 
         {board.departed.length > 0 && (
-          <details className="border-border/70 bg-raised/50 rounded-2xl border border-dashed overflow-hidden shadow-xs">
+          <details className="border-border/70 bg-raised/50 overflow-hidden rounded-2xl border border-dashed shadow-xs">
             <summary className="hover:bg-surface/80 flex cursor-pointer items-center gap-4 p-5 transition-colors">
               <span className="text-ink flex-1 font-semibold">
                 Extracted by former members
@@ -446,7 +446,10 @@ function Stat({
  */
 function Meter({ percent }: { percent: number }) {
   return (
-    <span aria-hidden className="bg-surface/80 border-border/40 block h-2 w-full rounded-full border overflow-hidden">
+    <span
+      aria-hidden
+      className="bg-surface/80 border-border/40 block h-2 w-full overflow-hidden rounded-full border"
+    >
       <span
         className="bg-accent block h-full rounded-full transition-[width] duration-500"
         style={{ width: `${percent}%` }}
@@ -465,37 +468,37 @@ function PaperRow({ projectId, paper }: { projectId: string; paper: Paper }) {
       <div className="min-w-0 flex-1">
         <Link
           href={readHref}
-          className="text-ink hover:text-accent text-ui font-medium underline-offset-2 hover:underline transition-colors block text-pretty"
+          className="text-ink hover:text-accent text-ui block font-medium text-pretty underline-offset-2 transition-colors hover:underline"
           title="Open paper page"
         >
           {paper.title}
-          {paper.year ? <span className="text-muted font-normal"> · {paper.year}</span> : null}
+          {paper.year ? (
+            <span className="text-muted font-normal"> · {paper.year}</span>
+          ) : null}
         </Link>
       </div>
 
-      <span className="meta shrink-0 flex items-center gap-1.5">
+      <span className="meta flex shrink-0 items-center gap-1.5">
         <span
-          className={`inline-flex items-center rounded px-2 py-0.5 font-mono text-[10px] font-bold border ${
+          className={`inline-flex items-center rounded border px-2 py-0.5 font-mono text-[10px] font-bold ${
             paper.state === "done"
               ? "bg-accent/15 border-accent/30 text-accent"
               : paper.state === "draft"
-              ? "bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-300"
-              : "bg-surface border-border text-muted"
+                ? "border-amber-500/30 bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                : "bg-surface border-border text-muted"
           }`}
         >
           {paper.state === "done"
             ? "Complete"
             : paper.state === "draft"
-            ? "In draft"
-            : "Not started"}
+              ? "In draft"
+              : "Not started"}
         </span>
         {/* Which protocol this answered. Without it, one paper appearing twice
             in the same person's list looks like a duplicate row rather than
             two different sets of questions. */}
         {paper.protocol ? `· ${paper.protocol}` : ""}
-        {paper.passes && paper.passes > 1
-          ? ` · ${paper.passes} extractions`
-          : ""}
+        {paper.passes && paper.passes > 1 ? ` · ${paper.passes} extractions` : ""}
       </span>
 
       <div className="flex shrink-0 items-center gap-2">
@@ -520,8 +523,8 @@ function PaperRow({ projectId, paper }: { projectId: string; paper: Paper }) {
           {paper.state === "done"
             ? "Open Extraction"
             : paper.state === "draft"
-            ? "Continue"
-            : "Start"}
+              ? "Continue"
+              : "Start"}
         </Link>
       </div>
     </li>

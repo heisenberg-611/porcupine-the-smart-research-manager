@@ -153,7 +153,10 @@ describe("XLSX", () => {
   it("applies custom sheet name and top vertical alignment with text wrapping", () => {
     const dir = unzipDir();
     const file = join(dir, "evidence.xlsx");
-    writeFileSync(file, toXlsx([["Header"], ["Multi-line description"]], "Data Extraction Form"));
+    writeFileSync(
+      file,
+      toXlsx([["Header"], ["Multi-line description"]], "Data Extraction Form"),
+    );
 
     const workbook = execFileSync("unzip", ["-p", file, "xl/workbook.xml"], {
       encoding: "utf8",

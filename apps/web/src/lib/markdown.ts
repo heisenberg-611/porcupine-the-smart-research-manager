@@ -39,7 +39,12 @@ export interface TableNode {
 
 export type BlockNode =
   | { type: "paragraph"; content: string; inline: InlineNode[] }
-  | { type: "heading"; level: 1 | 2 | 3 | 4 | 5 | 6; content: string; inline: InlineNode[] }
+  | {
+      type: "heading";
+      level: 1 | 2 | 3 | 4 | 5 | 6;
+      content: string;
+      inline: InlineNode[];
+    }
   | { type: "ul"; items: Array<{ content: string; inline: InlineNode[] }> }
   | { type: "ol"; items: Array<{ content: string; inline: InlineNode[] }> }
   | { type: "blockquote"; content: string; inline: InlineNode[] }
@@ -113,18 +118,21 @@ function cleanAutolink(raw: string): string {
 }
 
 interface MatchCandidate {
-  type: "code" | "bold_italic" | "bold" | "italic" | "strike" | "md_link" | "autolink" | "br";
+  type:
+    "code" | "bold_italic" | "bold" | "italic" | "strike" | "md_link" | "autolink" | "br";
   startIndex: number;
   endIndex: number;
   matchLength: number;
   raw: string;
-  data?: {
-    code?: string | undefined;
-    inner?: string | undefined;
-    label?: string | undefined;
-    url?: string | undefined;
-    href?: string | undefined;
-  } | undefined;
+  data?:
+    | {
+        code?: string | undefined;
+        inner?: string | undefined;
+        label?: string | undefined;
+        url?: string | undefined;
+        href?: string | undefined;
+      }
+    | undefined;
 }
 
 /**
@@ -585,7 +593,8 @@ export function parseMarkdown(text: string): BlockNode[] {
     const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
     if (headingMatch && headingMatch[1] && headingMatch[2]) {
       flushAll();
-      const level = Math.min(Math.max(headingMatch[1].length, 1), 6) as 1 | 2 | 3 | 4 | 5 | 6;
+      const level = Math.min(Math.max(headingMatch[1].length, 1), 6) as
+        1 | 2 | 3 | 4 | 5 | 6;
       const content = headingMatch[2].trim();
       blocks.push({
         type: "heading",
@@ -763,7 +772,9 @@ export function markdownToSpreadsheetText(markdown: string): string {
               rowTexts.push(key || val);
             }
           } else {
-            const cells = row.map((c) => inlineToPlainText(c.inline).replace(/\n+/g, " ").trim());
+            const cells = row.map((c) =>
+              inlineToPlainText(c.inline).replace(/\n+/g, " ").trim(),
+            );
             rowTexts.push(cells.join(" | "));
           }
         }

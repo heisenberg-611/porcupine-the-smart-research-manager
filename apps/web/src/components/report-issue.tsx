@@ -2,7 +2,12 @@
 
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { BugAntIcon, SparklesIcon, ArrowRightIcon, WrenchScrewdriverIcon } from "@heroicons/react/24/outline";
+import {
+  BugAntIcon,
+  SparklesIcon,
+  ArrowRightIcon,
+  WrenchScrewdriverIcon,
+} from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui";
 import {
@@ -53,7 +58,7 @@ export function ReportIssue() {
       <div className="mt-4 flex flex-wrap gap-2">
         <Button
           variant={kind === "bug" ? "primary" : "ghost"}
-          className={`flex items-center gap-2 transition-all duration-300 active:scale-95 border ${kind === "bug" ? "border-transparent shadow-sm" : "border-border"}`}
+          className={`flex items-center gap-2 border transition-all duration-300 active:scale-95 ${kind === "bug" ? "border-transparent shadow-sm" : "border-border"}`}
           onClick={() => setKind(kind === "bug" ? null : "bug")}
           aria-expanded={kind === "bug"}
         >
@@ -62,7 +67,7 @@ export function ReportIssue() {
         </Button>
         <Button
           variant={kind === "feature" ? "primary" : "ghost"}
-          className={`flex items-center gap-2 transition-all duration-300 active:scale-95 border ${kind === "feature" ? "border-transparent shadow-sm" : "border-border"}`}
+          className={`flex items-center gap-2 border transition-all duration-300 active:scale-95 ${kind === "feature" ? "border-transparent shadow-sm" : "border-border"}`}
           onClick={() => setKind(kind === "feature" ? null : "feature")}
           aria-expanded={kind === "feature"}
         >
@@ -71,7 +76,7 @@ export function ReportIssue() {
         </Button>
         <Button
           variant={kind === "improvement" ? "primary" : "ghost"}
-          className={`flex items-center gap-2 transition-all duration-300 active:scale-95 border ${kind === "improvement" ? "border-transparent shadow-sm" : "border-border"}`}
+          className={`flex items-center gap-2 border transition-all duration-300 active:scale-95 ${kind === "improvement" ? "border-transparent shadow-sm" : "border-border"}`}
           onClick={() => setKind(kind === "improvement" ? null : "improvement")}
           aria-expanded={kind === "improvement"}
         >
@@ -81,7 +86,7 @@ export function ReportIssue() {
       </div>
 
       {kind && context && (
-        <div className="animate-in fade-in slide-in-from-top-2 duration-300 mt-5 flex flex-col gap-4">
+        <div className="animate-in fade-in slide-in-from-top-2 mt-5 flex flex-col gap-4 duration-300">
           <div>
             <p className="text-muted text-fine mb-2">
               This much goes with it, and nothing else:
@@ -89,7 +94,7 @@ export function ReportIssue() {
             {/* The whole point of this block is that it can be read. It is
                 deliberately the literal text that will be pasted into the
                 issue's last field, not a summary of it. */}
-            <div className="bg-surface/50 border-rule rounded-xl border shadow-sm overflow-hidden">
+            <div className="bg-surface/50 border-rule overflow-hidden rounded-xl border shadow-sm">
               <div className="bg-raised/50 border-rule/50 flex items-center gap-1.5 border-b px-4 py-2">
                 <div className="bg-danger/80 size-2.5 rounded-full" />
                 <div className="bg-accent/80 size-2.5 rounded-full" />

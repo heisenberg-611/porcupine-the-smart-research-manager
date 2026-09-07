@@ -100,7 +100,8 @@ export async function SiteHeader() {
  * list, and to the test that asserts the button exists.
  */
 const NAV: ReadonlyArray<{
-  href: "/features" | "/pricing" | "/security" | "/guides" | "/feedback-and-contributions";
+  href:
+    "/features" | "/pricing" | "/security" | "/guides" | "/feedback-and-contributions";
   label: string;
 }> = [
   { href: "/features", label: "Features" },

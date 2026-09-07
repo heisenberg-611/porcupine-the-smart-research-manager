@@ -66,17 +66,25 @@ export function QuickCreateButton({
       >
         <div className="flex flex-col gap-5">
           <div>
-            <h3 className="text-warning mb-2 text-lg font-semibold tracking-tight">Created in Personal Drive</h3>
+            <h3 className="text-warning mb-2 text-lg font-semibold tracking-tight">
+              Created in Personal Drive
+            </h3>
             <p className="text-muted text-sm leading-relaxed">
-              Google Drive blocked creating this file in the shared project folder because of a permission limitation. 
+              Google Drive blocked creating this file in the shared project folder because
+              of a permission limitation.
             </p>
             <p className="text-muted mt-2 text-sm leading-relaxed">
-              As a fallback, the file has been successfully created in your personal Google Drive in a folder named <span className="font-semibold text-ink">Porcupine: Project Name (Personal)</span>. It is still linked to this project and visible to you here.
+              As a fallback, the file has been successfully created in your personal
+              Google Drive in a folder named{" "}
+              <span className="text-ink font-semibold">
+                Porcupine: Project Name (Personal)
+              </span>
+              . It is still linked to this project and visible to you here.
             </p>
           </div>
           <div className="flex justify-end gap-3">
-            <Button 
-              variant="primary" 
+            <Button
+              variant="primary"
               onClick={() => {
                 dialogRef.current?.close();
                 if (fallbackUrl) {

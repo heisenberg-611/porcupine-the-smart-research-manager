@@ -2,11 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 
-import {
-  parseMarkdown,
-  type BlockNode,
-  type InlineNode,
-} from "@/lib/markdown";
+import { parseMarkdown, type BlockNode, type InlineNode } from "@/lib/markdown";
 
 function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -44,8 +40,8 @@ export function highlightText(
           className={cx(
             "rounded-xs px-0.5 transition-all",
             isActive
-              ? "bg-amber-400 text-black font-bold ring-2 ring-accent ring-offset-1 shadow-xs dark:bg-amber-300"
-              : "bg-amber-200/90 text-black dark:bg-amber-400/40 dark:text-ink font-medium",
+              ? "ring-accent bg-amber-400 font-bold text-black shadow-xs ring-2 ring-offset-1 dark:bg-amber-300"
+              : "dark:text-ink bg-amber-200/90 font-medium text-black dark:bg-amber-400/40",
           )}
         >
           {part}
@@ -68,7 +64,7 @@ export function renderInlineNodes(
         return highlightText(node.value, query, activeMatchIndex, tracker);
       case "bold":
         return (
-          <strong key={index} className="font-semibold text-ink">
+          <strong key={index} className="text-ink font-semibold">
             {renderInlineNodes(node.children, query, activeMatchIndex, tracker)}
           </strong>
         );
@@ -80,7 +76,7 @@ export function renderInlineNodes(
         );
       case "bold_italic":
         return (
-          <strong key={index} className="font-semibold text-ink">
+          <strong key={index} className="text-ink font-semibold">
             <em className="italic">
               {renderInlineNodes(node.children, query, activeMatchIndex, tracker)}
             </em>
@@ -96,7 +92,7 @@ export function renderInlineNodes(
         return (
           <code
             key={index}
-            className="rounded-md bg-surface/80 px-1.5 py-0.5 font-mono text-[0.85em] text-ink border border-border/50 font-normal"
+            className="bg-surface/80 text-ink border-border/50 rounded-md border px-1.5 py-0.5 font-mono text-[0.85em] font-normal"
           >
             {highlightText(node.value, query, activeMatchIndex, tracker)}
           </code>
@@ -109,7 +105,7 @@ export function renderInlineNodes(
             href={node.href}
             target={isExternal ? "_blank" : undefined}
             rel={isExternal ? "noopener noreferrer nofollow" : undefined}
-            className="text-accent underline underline-offset-2 hover:opacity-80 transition-opacity font-medium"
+            className="text-accent font-medium underline underline-offset-2 transition-opacity hover:opacity-80"
           >
             {renderInlineNodes(node.children, query, activeMatchIndex, tracker)}
           </a>
@@ -139,25 +135,31 @@ export function renderBlock(
       switch (block.level) {
         case 1:
           return (
-            <h2 key={index} className="text-ink text-xl font-semibold mt-4 mb-2 tracking-tight">
+            <h2
+              key={index}
+              className="text-ink mt-4 mb-2 text-xl font-semibold tracking-tight"
+            >
               {renderInlineNodes(block.inline, query, activeMatchIndex, tracker)}
             </h2>
           );
         case 2:
           return (
-            <h3 key={index} className="text-ink text-lg font-semibold mt-3.5 mb-1.5 tracking-tight">
+            <h3
+              key={index}
+              className="text-ink mt-3.5 mb-1.5 text-lg font-semibold tracking-tight"
+            >
               {renderInlineNodes(block.inline, query, activeMatchIndex, tracker)}
             </h3>
           );
         case 3:
           return (
-            <h4 key={index} className="text-ink text-base font-semibold mt-3 mb-1">
+            <h4 key={index} className="text-ink mt-3 mb-1 text-base font-semibold">
               {renderInlineNodes(block.inline, query, activeMatchIndex, tracker)}
             </h4>
           );
         default:
           return (
-            <h5 key={index} className="text-ink text-ui font-medium mt-2 mb-0.5">
+            <h5 key={index} className="text-ink text-ui mt-2 mb-0.5 font-medium">
               {renderInlineNodes(block.inline, query, activeMatchIndex, tracker)}
             </h5>
           );
@@ -165,7 +167,10 @@ export function renderBlock(
     }
     case "ul":
       return (
-        <ul key={index} className="list-disc list-outside ml-5 space-y-1 my-2 leading-relaxed">
+        <ul
+          key={index}
+          className="my-2 ml-5 list-outside list-disc space-y-1 leading-relaxed"
+        >
           {block.items.map((item, itemIdx) => (
             <li key={itemIdx} className="pl-1">
               {renderInlineNodes(item.inline, query, activeMatchIndex, tracker)}
@@ -175,7 +180,10 @@ export function renderBlock(
       );
     case "ol":
       return (
-        <ol key={index} className="list-decimal list-outside ml-5 space-y-1 my-2 leading-relaxed">
+        <ol
+          key={index}
+          className="my-2 ml-5 list-outside list-decimal space-y-1 leading-relaxed"
+        >
           {block.items.map((item, itemIdx) => (
             <li key={itemIdx} className="pl-1">
               {renderInlineNodes(item.inline, query, activeMatchIndex, tracker)}
@@ -187,7 +195,7 @@ export function renderBlock(
       return (
         <blockquote
           key={index}
-          className="border-l-2 border-accent/60 pl-3.5 py-1 italic text-muted/90 my-2.5 bg-surface/30 rounded-r-lg"
+          className="border-accent/60 text-muted/90 bg-surface/30 my-2.5 rounded-r-lg border-l-2 py-1 pl-3.5 italic"
         >
           {renderInlineNodes(block.inline, query, activeMatchIndex, tracker)}
         </blockquote>
@@ -196,7 +204,7 @@ export function renderBlock(
       return (
         <pre
           key={index}
-          className="bg-surface/80 rounded-xl p-3.5 font-mono text-fine border border-border/50 overflow-x-auto text-ink my-2.5 shadow-xs"
+          className="bg-surface/80 text-fine border-border/50 text-ink my-2.5 overflow-x-auto rounded-xl border p-3.5 font-mono shadow-xs"
         >
           <code className="block leading-normal">
             {highlightText(block.code, query, activeMatchIndex, tracker)}
@@ -224,10 +232,7 @@ export function renderBlock(
                   return (
                     <th
                       key={hIdx}
-                      className={cx(
-                        "px-4 py-2.5 font-semibold text-ink",
-                        alignClass,
-                      )}
+                      className={cx("text-ink px-4 py-2.5 font-semibold", alignClass)}
                     >
                       {renderInlineNodes(h.inline, query, activeMatchIndex, tracker)}
                     </th>
@@ -237,10 +242,7 @@ export function renderBlock(
             </thead>
             <tbody className="divide-border/40 divide-y">
               {block.rows.map((row, rIdx) => (
-                <tr
-                  key={rIdx}
-                  className="hover:bg-surface/70 transition-colors"
-                >
+                <tr key={rIdx} className="hover:bg-surface/70 transition-colors">
                   {row.map((cell, cIdx) => {
                     const alignClass =
                       cell.align === "center"
@@ -252,7 +254,7 @@ export function renderBlock(
                       <td
                         key={cIdx}
                         className={cx(
-                          "px-4 py-2.5 align-top leading-relaxed text-ink-soft",
+                          "text-ink-soft px-4 py-2.5 align-top leading-relaxed",
                           alignClass,
                         )}
                       >
@@ -312,15 +314,15 @@ export function FormattedText({
       <div className={cx("relative", className)}>
         <div
           style={{ maxHeight: `${maxCollapsedHeight}px` }}
-          className="overflow-hidden space-y-3 leading-relaxed transition-all duration-300"
+          className="space-y-3 overflow-hidden leading-relaxed transition-all duration-300"
         >
           {renderedBlocks}
         </div>
-        <div className="from-transparent via-canvas/80 to-canvas absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b pointer-events-none" />
+        <div className="via-canvas/80 to-canvas pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent" />
         <button
           type="button"
           onClick={() => setExpanded(true)}
-          className="text-accent hover:text-accent/80 text-fine font-medium mt-2 inline-flex items-center gap-1 focus-visible:ring-accent focus-visible:ring-2 focus-visible:outline-none rounded transition-colors"
+          className="text-accent hover:text-accent/80 text-fine focus-visible:ring-accent mt-2 inline-flex items-center gap-1 rounded font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none"
         >
           Show full description ↓
         </button>
@@ -335,7 +337,7 @@ export function FormattedText({
         <button
           type="button"
           onClick={() => setExpanded(false)}
-          className="text-accent hover:text-accent/80 text-fine font-medium mt-2 inline-flex items-center gap-1 focus-visible:ring-accent focus-visible:ring-2 focus-visible:outline-none rounded transition-colors"
+          className="text-accent hover:text-accent/80 text-fine focus-visible:ring-accent mt-2 inline-flex items-center gap-1 rounded font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none"
         >
           Show less ↑
         </button>

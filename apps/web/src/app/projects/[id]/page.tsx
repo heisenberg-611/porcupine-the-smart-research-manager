@@ -32,7 +32,6 @@ interface MemberRow {
   users: { display_name: string; email: string } | null;
 }
 
-
 /**
  * The project overview.
  *
@@ -112,7 +111,10 @@ export default async function ProjectPage({
   }
 
   return (
-    <main id="main" className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 pb-12 pt-2">
+    <main
+      id="main"
+      className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 pt-2 pb-12"
+    >
       <PageHeader
         backHref="/projects"
         backLabel="All projects"
@@ -178,7 +180,7 @@ export default async function ProjectPage({
                     <li key={section.slug}>
                       <Link
                         href={sectionHref(id, section.slug)}
-                        className="border-rule/70 hover:border-accent/40 bg-raised/70 hover:bg-raised focus-visible:ring-accent block rounded-2xl border p-4 shadow-xs hover:shadow-md transition-all focus-visible:ring-2 focus-visible:outline-none"
+                        className="border-rule/70 hover:border-accent/40 bg-raised/70 hover:bg-raised focus-visible:ring-accent block rounded-2xl border p-4 shadow-xs transition-all hover:shadow-md focus-visible:ring-2 focus-visible:outline-none"
                       >
                         <span className="text-ink text-ui font-medium">
                           {section.label}
@@ -227,7 +229,7 @@ export default async function ProjectPage({
                   <p className="text-muted text-fine">{member.users?.email}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="bg-surface/80 text-muted border-border/60 rounded-full border px-3 py-1 text-fine font-mono tracking-wide uppercase">
+                  <span className="bg-surface/80 text-muted border-border/60 text-fine rounded-full border px-3 py-1 font-mono tracking-wide uppercase">
                     {member.access_role}
                     {member.history_access === "FROM_JOIN" && " · from join"}
                   </span>
@@ -297,7 +299,7 @@ function Stat({ label, value, href }: { label: string; value: number; href: stri
         // The count comes first in the accessible name because "24 unscreened"
         // is what the link does; "Unscreened 24" reads as a table cell.
         aria-label={`${value} ${label.toLowerCase()}`}
-        className="border-rule/70 hover:border-accent/40 bg-raised/70 hover:bg-raised focus-visible:ring-accent block rounded-2xl border p-4 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 focus-visible:ring-2 focus-visible:outline-none"
+        className="border-rule/70 hover:border-accent/40 bg-raised/70 hover:bg-raised focus-visible:ring-accent block rounded-2xl border p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-2 focus-visible:outline-none"
       >
         <span className="text-muted text-fine block font-medium">{label}</span>
         <span className="text-ink text-title mt-1 block font-semibold tabular-nums">

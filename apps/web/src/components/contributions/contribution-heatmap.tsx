@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { Select } from "@/components/ui";
 import {
   buildContributionHeatmap,
   type ActivityActionType,
@@ -19,12 +20,15 @@ const INTENSITY_CLASSES: Record<number, string> = {
 
 const ACTION_TYPE_COLORS: Record<ActivityActionType, string> = {
   SCREENING: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
-  EXTRACTION: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
-  COLLECTION: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+  EXTRACTION:
+    "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
+  COLLECTION:
+    "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
   QUESTION: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
   PROTOCOL: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20",
   ANNOTATION: "bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20",
-  RECONCILIATION: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20",
+  RECONCILIATION:
+    "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20",
   LOGIN: "bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20",
   LOGOUT: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
 };
@@ -202,13 +206,15 @@ export function ContributionHeatmap({
       const week = calendarWeeks[w];
       if (!week) continue;
 
-      const firstDayOfMonth = week.days.find((d) => d.date.endsWith("-01") && !d.isFuture);
+      const firstDayOfMonth = week.days.find(
+        (d) => d.date.endsWith("-01") && !d.isFuture,
+      );
       const firstDayOfWeek = week.days[0]!;
 
       if (w === 0) {
         // Show month of the first column if next month start is at least 3 weeks away
         const nextMonthStartWeek = calendarWeeks.findIndex(
-          (cw, idx) => idx > 0 && cw.days.some((d) => d.date.endsWith("-01"))
+          (cw, idx) => idx > 0 && cw.days.some((d) => d.date.endsWith("-01")),
         );
         if (nextMonthStartWeek === -1 || nextMonthStartWeek >= 3) {
           headers.push({ weekIndex: 0, label: firstDayOfWeek.monthShort });
@@ -289,7 +295,8 @@ export function ContributionHeatmap({
             </span>
           </div>
           <p className="text-muted text-fine mt-0.5">
-            53-week contribution graph. Click any square to inspect recorded micro-actions for that date.
+            53-week contribution graph. Click any square to inspect recorded micro-actions
+            for that date.
           </p>
         </div>
 
@@ -297,17 +304,21 @@ export function ContributionHeatmap({
         <div className="flex flex-wrap items-center gap-3">
           {members.length > 0 && (
             <div className="flex items-center gap-1.5">
-              <label htmlFor="heatmap-member" className="text-muted text-[11px] font-mono uppercase">
+              <label
+                htmlFor="heatmap-member"
+                className="text-muted font-mono text-[11px] uppercase"
+              >
                 Member
               </label>
-              <select
+              <Select
+                compact
                 id="heatmap-member"
                 value={selectedMember}
                 onChange={(e) => {
                   setSelectedMember(e.target.value);
                   setSelectedDate(null);
                 }}
-                className="border-border/80 bg-surface text-ink focus-visible:ring-accent rounded-lg border px-2.5 py-1 text-xs focus-visible:ring-2 focus-visible:outline-none"
+                className="border-border/80 bg-surface text-ink text-xs"
               >
                 <option value="ALL">Entire Team</option>
                 {members.map((m) => (
@@ -315,7 +326,7 @@ export function ContributionHeatmap({
                     {m.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           )}
 
@@ -327,7 +338,7 @@ export function ContributionHeatmap({
                 setSelectedYear("LAST_12_MONTHS");
                 setSelectedDate(null);
               }}
-              className={`rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-all cursor-pointer ${
+              className={`cursor-pointer rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-all ${
                 selectedYear === "LAST_12_MONTHS"
                   ? "bg-accent text-white shadow-xs"
                   : "text-muted hover:text-ink"
@@ -343,7 +354,7 @@ export function ContributionHeatmap({
                   setSelectedYear(String(year));
                   setSelectedDate(null);
                 }}
-                className={`rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-all cursor-pointer ${
+                className={`cursor-pointer rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-all ${
                   selectedYear === String(year)
                     ? "bg-accent text-white shadow-xs"
                     : "text-muted hover:text-ink"
@@ -359,49 +370,50 @@ export function ContributionHeatmap({
       {/* Streak & Stats Summary */}
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="bg-surface/80 border-border/60 rounded-xl border p-3">
-          <span className="text-muted block text-[10px] uppercase font-mono tracking-wider">
-            Total Actions ({selectedYear === "LAST_12_MONTHS" ? "Past Year" : selectedYear})
+          <span className="text-muted block font-mono text-[10px] tracking-wider uppercase">
+            Total Actions (
+            {selectedYear === "LAST_12_MONTHS" ? "Past Year" : selectedYear})
           </span>
           <span className="text-ink text-sm font-bold tabular-nums">
             {heatmap.totalActions} actions
           </span>
         </div>
 
-        <div className="bg-surface/80 border-border/60 rounded-xl border p-3 flex flex-col justify-between">
+        <div className="bg-surface/80 border-border/60 flex flex-col justify-between rounded-xl border p-3">
           <div>
             <div className="flex items-center justify-between gap-1">
-              <span className="text-muted block text-[10px] uppercase font-mono tracking-wider">
+              <span className="text-muted block font-mono text-[10px] tracking-wider uppercase">
                 Current Streak
               </span>
               {heatmap.streakStatus === "IN_COOLDOWN" && (
-                <span className="bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 rounded px-1.5 py-0.2 font-mono text-[9px] font-bold">
+                <span className="py-0.2 rounded border border-amber-500/30 bg-amber-500/15 px-1.5 font-mono text-[9px] font-bold text-amber-700 dark:text-amber-300">
                   ⏳ Cooldown
                 </span>
               )}
               {heatmap.streakStatus === "ACTIVE_TODAY" && (
-                <span className="bg-accent/15 border border-accent/25 text-accent rounded px-1.5 py-0.2 font-mono text-[9px] font-bold">
+                <span className="bg-accent/15 border-accent/25 text-accent py-0.2 rounded border px-1.5 font-mono text-[9px] font-bold">
                   ✅ Active
                 </span>
               )}
             </div>
-            <span className="text-ink text-sm font-bold tabular-nums block mt-0.5">
+            <span className="text-ink mt-0.5 block text-sm font-bold tabular-nums">
               🔥 {heatmap.currentStreak} {heatmap.currentStreak === 1 ? "day" : "days"}
             </span>
           </div>
           {heatmap.streakStatus === "IN_COOLDOWN" && (
-            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-mono mt-1 block truncate">
+            <span className="mt-1 block truncate font-mono text-[10px] text-amber-600 dark:text-amber-400">
               ⏳ {heatmap.cooldownHoursRemaining}h left today to extend
             </span>
           )}
           {heatmap.streakStatus === "ACTIVE_TODAY" && (
-            <span className="text-[10px] text-accent font-mono mt-1 block truncate">
+            <span className="text-accent mt-1 block truncate font-mono text-[10px]">
               Extended today!
             </span>
           )}
         </div>
 
         <div className="bg-surface/80 border-border/60 rounded-xl border p-3">
-          <span className="text-muted block text-[10px] uppercase font-mono tracking-wider">
+          <span className="text-muted block font-mono text-[10px] tracking-wider uppercase">
             Longest Streak
           </span>
           <span className="text-ink text-sm font-bold tabular-nums">
@@ -410,7 +422,7 @@ export function ContributionHeatmap({
         </div>
 
         <div className="bg-surface/80 border-border/60 rounded-xl border p-3">
-          <span className="text-muted block text-[10px] uppercase font-mono tracking-wider">
+          <span className="text-muted block font-mono text-[10px] tracking-wider uppercase">
             Peak Activity Day
           </span>
           <span className="text-ink text-sm font-bold tabular-nums">
@@ -420,14 +432,14 @@ export function ContributionHeatmap({
       </div>
 
       {/* GitHub-Style 53-Week Heatmap Grid */}
-      <div className="mt-6 overflow-x-auto pb-2 scrollbar-thin">
+      <div className="mt-6 scrollbar-thin overflow-x-auto pb-2">
         <div className="min-w-max p-1">
           {/* Month Headers positioned precisely above week columns */}
-          <div className="relative h-5 mb-1 select-none">
+          <div className="relative mb-1 h-5 select-none">
             {monthHeaders.map((header) => (
               <span
                 key={`${header.label}-${header.weekIndex}`}
-                className="absolute text-[10px] font-mono text-muted/90 font-semibold whitespace-nowrap overflow-visible leading-none"
+                className="text-muted/90 absolute overflow-visible font-mono text-[10px] leading-none font-semibold whitespace-nowrap"
                 style={{ left: `${36 + header.weekIndex * 15}px` }}
               >
                 {header.label}
@@ -438,14 +450,20 @@ export function ContributionHeatmap({
           {/* Grid Rows with Weekdays on the left */}
           <div className="flex items-start gap-2">
             {/* Weekday Row Labels (Aligned with 7 rows of 12px height + 3px gap) */}
-            <div className="grid grid-rows-7 gap-[3px] text-[9px] font-mono text-muted/70 w-7 select-none">
-              <span className="h-3 flex items-center justify-end" />
-              <span className="h-3 flex items-center justify-end leading-none pr-1">Mon</span>
-              <span className="h-3 flex items-center justify-end" />
-              <span className="h-3 flex items-center justify-end leading-none pr-1">Wed</span>
-              <span className="h-3 flex items-center justify-end" />
-              <span className="h-3 flex items-center justify-end leading-none pr-1">Fri</span>
-              <span className="h-3 flex items-center justify-end" />
+            <div className="text-muted/70 grid w-7 grid-rows-7 gap-[3px] font-mono text-[9px] select-none">
+              <span className="flex h-3 items-center justify-end" />
+              <span className="flex h-3 items-center justify-end pr-1 leading-none">
+                Mon
+              </span>
+              <span className="flex h-3 items-center justify-end" />
+              <span className="flex h-3 items-center justify-end pr-1 leading-none">
+                Wed
+              </span>
+              <span className="flex h-3 items-center justify-end" />
+              <span className="flex h-3 items-center justify-end pr-1 leading-none">
+                Fri
+              </span>
+              <span className="flex h-3 items-center justify-end" />
             </div>
 
             {/* 53 Week Columns Grid */}
@@ -467,14 +485,15 @@ export function ContributionHeatmap({
                       else intensity = 4;
                     }
 
-                    const intensityClass = INTENSITY_CLASSES[intensity] || INTENSITY_CLASSES[0];
+                    const intensityClass =
+                      INTENSITY_CLASSES[intensity] || INTENSITY_CLASSES[0];
                     const isSelected = selectedDate === day.date;
 
                     if (day.isFuture) {
                       return (
                         <div
                           key={day.date}
-                          className="h-3 w-3 rounded-[2px] opacity-0 pointer-events-none"
+                          className="pointer-events-none h-3 w-3 rounded-[2px] opacity-0"
                           aria-hidden="true"
                         />
                       );
@@ -495,11 +514,11 @@ export function ContributionHeatmap({
                         }}
                         title={`${tooltipText}${day.isToday ? " (Today)" : ""} (click to inspect)`}
                         aria-label={`${tooltipText}`}
-                        className={`relative h-3 w-3 rounded-[2px] transition-transform duration-100 cursor-pointer ${intensityClass} ${
+                        className={`relative h-3 w-3 cursor-pointer rounded-[2px] transition-transform duration-100 ${intensityClass} ${
                           isSelected
-                            ? "ring-2 ring-accent ring-offset-1 ring-offset-raised scale-125 z-20"
-                            : "hover:scale-125 hover:z-10"
-                        } ${day.isToday ? "ring-1 ring-accent" : ""}`}
+                            ? "ring-accent ring-offset-raised z-20 scale-125 ring-2 ring-offset-1"
+                            : "hover:z-10 hover:scale-125"
+                        } ${day.isToday ? "ring-accent ring-1" : ""}`}
                       />
                     );
                   })}
@@ -509,7 +528,7 @@ export function ContributionHeatmap({
           </div>
 
           {/* Legend & Hint */}
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-4 text-xs pt-2">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-4 pt-2 text-xs">
             <span className="text-muted text-[11px] italic">
               Tip: Click any square to inspect detailed actions recorded on that date.
             </span>
@@ -531,15 +550,16 @@ export function ContributionHeatmap({
 
       {/* Selected Day Inspector Drawer / Card */}
       {selectedDate && (
-        <div className="border-border/80 bg-surface/90 mt-6 rounded-xl border p-5 shadow-xs transition-all animate-in fade-in slide-in-from-top-2 duration-200">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/50 pb-4">
+        <div className="border-border/80 bg-surface/90 animate-in fade-in slide-in-from-top-2 mt-6 rounded-xl border p-5 shadow-xs transition-all duration-200">
+          <div className="border-border/50 flex flex-wrap items-center justify-between gap-3 border-b pb-4">
             <div>
               <div className="flex items-center gap-2">
-                <h4 className="text-ink font-semibold text-sm">
+                <h4 className="text-ink text-sm font-semibold">
                   {formattedSelectedDate}
                 </h4>
-                <span className="inline-flex items-center rounded-full bg-accent/15 border border-accent/25 px-2.5 py-0.5 font-mono text-xs font-bold text-accent">
-                  {selectedDayEvents.length} {selectedDayEvents.length === 1 ? "action" : "actions"}
+                <span className="bg-accent/15 border-accent/25 text-accent inline-flex items-center rounded-full border px-2.5 py-0.5 font-mono text-xs font-bold">
+                  {selectedDayEvents.length}{" "}
+                  {selectedDayEvents.length === 1 ? "action" : "actions"}
                 </span>
               </div>
 
@@ -548,7 +568,8 @@ export function ContributionHeatmap({
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   {Object.entries(selectedDayBreakdown).map(([type, count]) => {
                     const badgeColor =
-                      ACTION_TYPE_COLORS[type as ActivityActionType] || "bg-raised text-ink border-border";
+                      ACTION_TYPE_COLORS[type as ActivityActionType] ||
+                      "bg-raised text-ink border-border";
                     return (
                       <span
                         key={type}
@@ -567,7 +588,7 @@ export function ContributionHeatmap({
                 <button
                   type="button"
                   onClick={() => onNavigateToAudit(selectedDate)}
-                  className="bg-accent text-white hover:bg-accent/90 focus-visible:ring-accent rounded-lg px-3 py-1.5 font-mono text-xs font-semibold shadow-xs transition-colors focus-visible:ring-2 focus-visible:outline-none cursor-pointer"
+                  className="bg-accent hover:bg-accent/90 focus-visible:ring-accent cursor-pointer rounded-lg px-3 py-1.5 font-mono text-xs font-semibold text-white shadow-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
                 >
                   View in Audit Log →
                 </button>
@@ -575,7 +596,7 @@ export function ContributionHeatmap({
               <button
                 type="button"
                 onClick={() => setSelectedDate(null)}
-                className="border-border bg-surface text-muted hover:text-ink hover:bg-surface-hover rounded-lg border px-3 py-1.5 font-mono text-xs font-semibold transition-colors cursor-pointer"
+                className="border-border bg-surface text-muted hover:text-ink hover:bg-surface-hover cursor-pointer rounded-lg border px-3 py-1.5 font-mono text-xs font-semibold transition-colors"
               >
                 ✕ Close
               </button>
@@ -584,11 +605,11 @@ export function ContributionHeatmap({
 
           {/* List of actions for selected day */}
           {selectedDayEvents.length === 0 ? (
-            <div className="py-6 text-center text-xs text-muted">
+            <div className="text-muted py-6 text-center text-xs">
               No actions recorded on this date.
             </div>
           ) : (
-            <div className="mt-3 divide-y divide-border/30 max-h-[300px] overflow-y-auto scrollbar-thin">
+            <div className="divide-border/30 mt-3 max-h-[300px] scrollbar-thin divide-y overflow-y-auto">
               {selectedDayEvents.map((event) => {
                 const badgeColor =
                   ACTION_TYPE_COLORS[event.type] || "bg-raised text-ink border-border";
@@ -601,13 +622,13 @@ export function ContributionHeatmap({
                 return (
                   <div
                     key={event.id}
-                    className="hover:bg-raised/50 flex items-start justify-between gap-3 py-2.5 px-2 rounded-lg transition-colors text-xs"
+                    className="hover:bg-raised/50 flex items-start justify-between gap-3 rounded-lg px-2 py-2.5 text-xs transition-colors"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-semibold text-ink">{event.actorName}</span>
+                        <span className="text-ink font-semibold">{event.actorName}</span>
                         <span
-                          className={`rounded-md border px-1.5 py-0.2 font-mono text-[9px] font-bold uppercase ${badgeColor}`}
+                          className={`py-0.2 rounded-md border px-1.5 font-mono text-[9px] font-bold uppercase ${badgeColor}`}
                         >
                           {event.type}
                         </span>
@@ -623,18 +644,20 @@ export function ContributionHeatmap({
                             {event.targetTitle}
                           </Link>
                         ) : (
-                          <span className="text-ink font-medium">{event.targetTitle}</span>
+                          <span className="text-ink font-medium">
+                            {event.targetTitle}
+                          </span>
                         )}
                       </div>
 
                       {event.details && (
-                        <div className="text-muted text-[11px] mt-0.5 italic truncate">
+                        <div className="text-muted mt-0.5 truncate text-[11px] italic">
                           {event.details}
                         </div>
                       )}
                     </div>
 
-                    <span className="text-muted font-mono text-[11px] shrink-0 pt-0.5 tabular-nums">
+                    <span className="text-muted shrink-0 pt-0.5 font-mono text-[11px] tabular-nums">
                       {timeStr}
                     </span>
                   </div>

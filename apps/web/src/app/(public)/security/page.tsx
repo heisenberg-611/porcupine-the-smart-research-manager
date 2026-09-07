@@ -41,7 +41,7 @@ export default function SecurityPage() {
         <h2 id="plainly" className="text-ink text-title font-serif">
           What the server can see, stated plainly
         </h2>
-        <p className="text-ink-soft measure text-body mt-4 text-pretty leading-relaxed">
+        <p className="text-ink-soft measure text-body mt-4 leading-relaxed text-pretty">
           porcupineResearch cannot read your messages or your LaTeX manuscripts. It can
           read your paper library, your highlights, and your extracted data, which are
           encrypted at rest and access-controlled. Documents you write in Google Docs live
@@ -68,7 +68,9 @@ export default function SecurityPage() {
               className="border-border/70 bg-raised/70 rounded-2xl border p-6 shadow-xs"
             >
               <h3 className="text-ink text-ui font-semibold">{tier}</h3>
-              <p className="text-ink-soft text-ui mt-2 text-pretty leading-relaxed">{contents}</p>
+              <p className="text-ink-soft text-ui mt-2 leading-relaxed text-pretty">
+                {contents}
+              </p>
               <p className="text-muted text-fine mt-2 text-pretty">{protection}</p>
             </div>
           ))}

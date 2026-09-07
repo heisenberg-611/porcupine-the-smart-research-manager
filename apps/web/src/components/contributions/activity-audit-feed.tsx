@@ -2,16 +2,20 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { Input, Select } from "@/components/ui";
 import type { ActivityActionType, ProjectActivityEvent } from "@/lib/contributions";
 
 const ACTION_TYPE_COLORS: Record<ActivityActionType, string> = {
   SCREENING: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
-  EXTRACTION: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
-  COLLECTION: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+  EXTRACTION:
+    "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
+  COLLECTION:
+    "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
   QUESTION: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
   PROTOCOL: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20",
   ANNOTATION: "bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20",
-  RECONCILIATION: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20",
+  RECONCILIATION:
+    "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20",
   LOGIN: "bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20",
   LOGOUT: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
 };
@@ -84,36 +88,41 @@ export function ActivityAuditFeed({
               Granular Activity & Audit Log
             </h3>
             <p className="text-muted text-fine mt-1">
-              Every micro-action recorded chronologically across research and session events.
+              Every micro-action recorded chronologically across research and session
+              events.
             </p>
           </div>
 
           <div className="flex items-center gap-2">
             <span className="text-muted font-mono text-xs">Show</span>
-            <select
+            <Select
+              compact
               value={pageSize}
               onChange={(e) => handlePageSizeChange(Number(e.target.value))}
               aria-label="Select items per page"
-              className="border-border/80 bg-surface text-ink focus-visible:ring-accent rounded-lg border px-2.5 py-1 font-mono text-xs font-semibold focus-visible:ring-2 focus-visible:outline-none"
+              className="px-2.5 py-1 font-mono text-xs font-semibold"
             >
               <option value={50}>50 per view</option>
               <option value={100}>100 per view</option>
               <option value={25}>25 per view</option>
-            </select>
+            </Select>
           </div>
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {/* Member Filter */}
           <div>
-            <label htmlFor="member-filter" className="text-muted text-[11px] font-medium uppercase tracking-wider">
+            <label
+              htmlFor="member-filter"
+              className="text-muted text-[11px] font-medium tracking-wider uppercase"
+            >
               Filter by Member
             </label>
-            <select
+            <Select
               id="member-filter"
               value={selectedMember}
               onChange={(e) => handleMemberChange(e.target.value)}
-              className="border-border/80 bg-surface/80 text-ink focus-visible:ring-accent mt-1 w-full rounded-xl border px-3 py-2 text-xs focus-visible:ring-2 focus-visible:outline-none"
+              className="mt-1 w-full text-xs"
             >
               <option value="ALL">All Contributors ({members.length})</option>
               {members.map((m) => (
@@ -121,19 +130,22 @@ export function ActivityAuditFeed({
                   {m.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           {/* Action Type Filter */}
           <div>
-            <label htmlFor="type-filter" className="text-muted text-[11px] font-medium uppercase tracking-wider">
+            <label
+              htmlFor="type-filter"
+              className="text-muted text-[11px] font-medium tracking-wider uppercase"
+            >
               Filter by Action Type
             </label>
-            <select
+            <Select
               id="type-filter"
               value={selectedType}
               onChange={(e) => handleTypeChange(e.target.value)}
-              className="border-border/80 bg-surface/80 text-ink focus-visible:ring-accent mt-1 w-full rounded-xl border px-3 py-2 text-xs focus-visible:ring-2 focus-visible:outline-none"
+              className="mt-1 w-full text-xs"
             >
               <option value="ALL">All Action Types</option>
               <option value="SCREENING">Screening Decisions</option>
@@ -145,21 +157,24 @@ export function ActivityAuditFeed({
               <option value="RECONCILIATION">Reconciliation</option>
               <option value="LOGIN">Sign In / Active Session</option>
               <option value="LOGOUT">Sign Out / Revocation</option>
-            </select>
+            </Select>
           </div>
 
           {/* Search Box */}
           <div>
-            <label htmlFor="search-filter" className="text-muted text-[11px] font-medium uppercase tracking-wider">
+            <label
+              htmlFor="search-filter"
+              className="text-muted text-[11px] font-medium tracking-wider uppercase"
+            >
               Search Keyword
             </label>
-            <input
+            <Input
               id="search-filter"
               type="text"
               placeholder="Search paper title, actor, note..."
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
-              className="border-border/80 bg-surface/80 text-ink focus-visible:ring-accent mt-1 w-full rounded-xl border px-3 py-2 text-xs focus-visible:ring-2 focus-visible:outline-none"
+              className="mt-1 w-full text-xs"
             />
           </div>
         </div>
@@ -171,14 +186,15 @@ export function ActivityAuditFeed({
           <p className="text-muted text-ui">No actions match the selected filters.</p>
         </div>
       ) : (
-        <div className="divide-border/40 max-h-[600px] divide-y overflow-y-auto overscroll-contain scrollbar-thin">
+        <div className="divide-border/40 max-h-[600px] scrollbar-thin divide-y overflow-y-auto overscroll-contain">
           {displayedEvents.map((event) => {
-            const initials = event.actorName
-              .split(" ")
-              .map((n) => n[0])
-              .join("")
-              .slice(0, 2)
-              .toUpperCase() || "U";
+            const initials =
+              event.actorName
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase() || "U";
 
             const relativeTime = formatRelativeTime(new Date(event.timestamp));
             const exactTime = new Date(event.timestamp).toLocaleString();
@@ -208,9 +224,7 @@ export function ActivityAuditFeed({
                       {event.type}
                     </span>
 
-                    <span className="text-muted text-xs">
-                      {event.action}
-                    </span>
+                    <span className="text-muted text-xs">{event.action}</span>
                   </div>
 
                   {/* Target paper / session */}
@@ -254,9 +268,13 @@ export function ActivityAuditFeed({
       {filteredEvents.length > 0 && (
         <div className="border-border/50 bg-surface/40 flex flex-wrap items-center justify-between gap-4 border-t px-6 py-3.5">
           <div className="text-muted font-mono text-xs">
-            Showing <span className="text-ink font-bold tabular-nums">{startIndex + 1}</span>–
+            Showing{" "}
+            <span className="text-ink font-bold tabular-nums">{startIndex + 1}</span>–
             <span className="text-ink font-bold tabular-nums">{endIndex}</span> of{" "}
-            <span className="text-ink font-bold tabular-nums">{filteredEvents.length}</span> actions
+            <span className="text-ink font-bold tabular-nums">
+              {filteredEvents.length}
+            </span>{" "}
+            actions
           </div>
 
           <div className="flex items-center gap-2">
@@ -264,7 +282,7 @@ export function ActivityAuditFeed({
               type="button"
               disabled={activePage <= 1}
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              className="border-border bg-surface text-ink hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed rounded-lg border px-3 py-1.5 font-mono text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+              className="border-border bg-surface text-ink hover:bg-surface-hover focus-visible:ring-accent rounded-lg border px-3 py-1.5 font-mono text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
             >
               ← Previous
             </button>
@@ -277,7 +295,7 @@ export function ActivityAuditFeed({
               type="button"
               disabled={activePage >= totalPages}
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              className="border-border bg-surface text-ink hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed rounded-lg border px-3 py-1.5 font-mono text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+              className="border-border bg-surface text-ink hover:bg-surface-hover focus-visible:ring-accent rounded-lg border px-3 py-1.5 font-mono text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
             >
               Next →
             </button>

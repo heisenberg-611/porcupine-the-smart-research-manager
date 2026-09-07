@@ -130,12 +130,7 @@ export function MarkdownViewerDialog({
   };
 
   const lineCount = markdown ? markdown.split("\n").length : 0;
-  const wordCount = markdown
-    ? markdown
-        .trim()
-        .split(/\s+/)
-        .filter(Boolean).length
-    : 0;
+  const wordCount = markdown ? markdown.trim().split(/\s+/).filter(Boolean).length : 0;
 
   const handleNextMatch = () => {
     if (matchCount <= 0) return;
@@ -186,7 +181,7 @@ export function MarkdownViewerDialog({
         className={triggerClassName}
         aria-label={triggerLabel}
       >
-        <MarkdownIcon className="size-4 text-accent" />
+        <MarkdownIcon className="text-accent size-4" />
         <span>{triggerLabel}</span>
       </Button>
 
@@ -260,7 +255,7 @@ export function MarkdownViewerDialog({
                   aria-label="Copy markdown to clipboard"
                 >
                   {copied ? (
-                    <CheckIcon className="size-4 text-accent" />
+                    <CheckIcon className="text-accent size-4" />
                   ) : (
                     <CopyIcon className="size-4" />
                   )}
@@ -291,9 +286,9 @@ export function MarkdownViewerDialog({
 
             {/* Search Bar Toolbar */}
             <div className="border-border/60 bg-surface/70 flex flex-wrap items-center justify-between gap-3 border-b px-6 py-2.5 shadow-2xs">
-              <div className="flex items-center gap-2 flex-1 max-w-md">
+              <div className="flex max-w-md flex-1 items-center gap-2">
                 <div className="relative flex-1">
-                  <SearchIcon className="text-muted absolute left-3 top-1/2 -translate-y-1/2 size-3.5 pointer-events-none" />
+                  <SearchIcon className="text-muted pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2" />
                   <Input
                     ref={searchInputRef}
                     type="text"
@@ -316,7 +311,7 @@ export function MarkdownViewerDialog({
                       }
                     }}
                     placeholder="Search in document (⌘F)…"
-                    className="pl-8 pr-7 text-xs py-1.5 w-full"
+                    className="w-full py-1.5 pr-7 pl-8 text-xs"
                     aria-label="Find in document"
                   />
                   {searchQuery && (
@@ -327,7 +322,7 @@ export function MarkdownViewerDialog({
                         setActiveMatchIndex(0);
                         setMatchCount(0);
                       }}
-                      className="text-muted hover:text-ink absolute right-2.5 top-1/2 -translate-y-1/2 text-xs"
+                      className="text-muted hover:text-ink absolute top-1/2 right-2.5 -translate-y-1/2 text-xs"
                       aria-label="Clear search"
                     >
                       ✕
@@ -336,8 +331,8 @@ export function MarkdownViewerDialog({
                 </div>
 
                 {searchQuery.trim() && (
-                  <div className="flex items-center gap-1 text-fine">
-                    <span className="text-muted font-medium px-1 whitespace-nowrap">
+                  <div className="text-fine flex items-center gap-1">
+                    <span className="text-muted px-1 font-medium whitespace-nowrap">
                       {matchCount > 0
                         ? `${activeMatchIndex + 1} of ${matchCount}`
                         : "No matches"}
@@ -346,7 +341,7 @@ export function MarkdownViewerDialog({
                       type="button"
                       onClick={handlePrevMatch}
                       disabled={matchCount === 0}
-                      className="text-muted hover:text-ink hover:bg-surface border-border/70 disabled:opacity-40 size-6 inline-flex items-center justify-center rounded border text-xs transition-colors"
+                      className="text-muted hover:text-ink hover:bg-surface border-border/70 inline-flex size-6 items-center justify-center rounded border text-xs transition-colors disabled:opacity-40"
                       aria-label="Previous match (Shift+Enter)"
                       title="Previous match (Shift+Enter)"
                     >
@@ -356,7 +351,7 @@ export function MarkdownViewerDialog({
                       type="button"
                       onClick={handleNextMatch}
                       disabled={matchCount === 0}
-                      className="text-muted hover:text-ink hover:bg-surface border-border/70 disabled:opacity-40 size-6 inline-flex items-center justify-center rounded border text-xs transition-colors"
+                      className="text-muted hover:text-ink hover:bg-surface border-border/70 inline-flex size-6 items-center justify-center rounded border text-xs transition-colors disabled:opacity-40"
                       aria-label="Next match (Enter)"
                       title="Next match (Enter)"
                     >
@@ -367,8 +362,16 @@ export function MarkdownViewerDialog({
               </div>
 
               {searchQuery.trim() && (
-                <span className="text-muted text-[0.72rem] hidden sm:inline-block">
-                  Press <kbd className="font-mono text-ink bg-surface border border-border/70 px-1 py-0.5 rounded text-[0.7rem]">Enter</kbd> next · <kbd className="font-mono text-ink bg-surface border border-border/70 px-1 py-0.5 rounded text-[0.7rem]">Shift+Enter</kbd> previous
+                <span className="text-muted hidden text-[0.72rem] sm:inline-block">
+                  Press{" "}
+                  <kbd className="text-ink bg-surface border-border/70 rounded border px-1 py-0.5 font-mono text-[0.7rem]">
+                    Enter
+                  </kbd>{" "}
+                  next ·{" "}
+                  <kbd className="text-ink bg-surface border-border/70 rounded border px-1 py-0.5 font-mono text-[0.7rem]">
+                    Shift+Enter
+                  </kbd>{" "}
+                  previous
                 </span>
               )}
             </div>
@@ -409,7 +412,8 @@ export function MarkdownViewerDialog({
                 <div className="flex flex-col gap-3">
                   <div className="border-border/60 bg-surface/50 text-fine flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2">
                     <span className="text-muted">
-                      💡 Edits directly update the rendered preview and the downloaded file.
+                      💡 Edits directly update the rendered preview and the downloaded
+                      file.
                     </span>
                     {markdown !== originalMarkdown && (
                       <div className="flex items-center gap-2">
@@ -419,7 +423,7 @@ export function MarkdownViewerDialog({
                         <button
                           type="button"
                           onClick={() => setMarkdown(originalMarkdown)}
-                          className="text-accent hover:underline focus-visible:ring-accent rounded text-xs font-semibold focus-visible:outline-none"
+                          className="text-accent focus-visible:ring-accent rounded text-xs font-semibold hover:underline focus-visible:outline-none"
                         >
                           Reset to original
                         </button>
@@ -433,7 +437,7 @@ export function MarkdownViewerDialog({
                     spellCheck={false}
                     placeholder="Type or paste markdown here..."
                     rows={20}
-                    className="border-border/70 bg-surface text-ink text-fine focus:border-accent min-h-[50vh] w-full rounded-xl border p-4 font-mono leading-relaxed shadow-xs transition-all focus:outline-none focus:ring-2 focus:ring-accent"
+                    className="border-border/70 bg-surface text-ink text-fine focus:border-accent focus:ring-accent min-h-[50vh] w-full rounded-xl border p-4 font-mono leading-relaxed shadow-xs transition-all focus:ring-2 focus:outline-none"
                   />
                 </div>
               )}
@@ -498,8 +502,6 @@ function EyeIcon({ className }: { className?: string }) {
     </svg>
   );
 }
-
-
 
 function CopyIcon({ className }: { className?: string }) {
   return (

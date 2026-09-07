@@ -8,7 +8,8 @@ export function MemberBreakdownTable({
 }: {
   members: MemberContributionStats[];
 }) {
-  const [sortKey, setSortKey] = useState<keyof MemberContributionStats>("contributionScore");
+  const [sortKey, setSortKey] =
+    useState<keyof MemberContributionStats>("contributionScore");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   const handleSort = (key: keyof MemberContributionStats) => {
@@ -43,24 +44,25 @@ export function MemberBreakdownTable({
           Member Contribution Breakdown
         </h3>
         <p className="text-muted text-fine mt-1">
-          Detailed metrics across screening decisions, data extractions, imports, questions, and annotations.
+          Detailed metrics across screening decisions, data extractions, imports,
+          questions, and annotations.
         </p>
       </div>
 
-      <div className="overflow-x-auto scrollbar-thin">
-        <table className="min-w-[920px] w-full text-left text-xs">
+      <div className="scrollbar-thin overflow-x-auto">
+        <table className="w-full min-w-[920px] text-left text-xs">
           <thead className="bg-surface/80 text-muted border-border/50 border-b font-mono font-medium tracking-wider uppercase">
             <tr>
               <th
                 scope="col"
-                className="cursor-pointer px-4 py-3 hover:text-ink whitespace-nowrap"
+                className="hover:text-ink cursor-pointer px-4 py-3 whitespace-nowrap"
                 onClick={() => handleSort("name")}
               >
                 Member {sortKey === "name" && (sortDir === "asc" ? "↑" : "↓")}
               </th>
               <th
                 scope="col"
-                className="cursor-pointer px-4 py-3 text-right hover:text-ink whitespace-nowrap"
+                className="hover:text-ink cursor-pointer px-4 py-3 text-right whitespace-nowrap"
                 onClick={() => handleSort("contributionScore")}
               >
                 Score {sortKey === "contributionScore" && (sortDir === "asc" ? "↑" : "↓")}
@@ -70,73 +72,75 @@ export function MemberBreakdownTable({
               </th>
               <th
                 scope="col"
-                className="cursor-pointer px-3 py-3 text-right hover:text-ink whitespace-nowrap"
+                className="hover:text-ink cursor-pointer px-3 py-3 text-right whitespace-nowrap"
                 onClick={() => handleSort("screenedTotal")}
               >
                 Screened {sortKey === "screenedTotal" && (sortDir === "asc" ? "↑" : "↓")}
               </th>
               <th
                 scope="col"
-                className="cursor-pointer px-3 py-3 text-right hover:text-ink whitespace-nowrap"
+                className="hover:text-ink cursor-pointer px-3 py-3 text-right whitespace-nowrap"
                 onClick={() => handleSort("extractedPapers")}
               >
-                Extracted {sortKey === "extractedPapers" && (sortDir === "asc" ? "↑" : "↓")}
+                Extracted{" "}
+                {sortKey === "extractedPapers" && (sortDir === "asc" ? "↑" : "↓")}
               </th>
               <th
                 scope="col"
-                className="cursor-pointer px-3 py-3 text-right hover:text-ink whitespace-nowrap"
+                className="hover:text-ink cursor-pointer px-3 py-3 text-right whitespace-nowrap"
                 onClick={() => handleSort("extractedFields")}
               >
                 Fields {sortKey === "extractedFields" && (sortDir === "asc" ? "↑" : "↓")}
               </th>
               <th
                 scope="col"
-                className="cursor-pointer px-3 py-3 text-right hover:text-ink whitespace-nowrap"
+                className="hover:text-ink cursor-pointer px-3 py-3 text-right whitespace-nowrap"
                 onClick={() => handleSort("papersImported")}
               >
                 Imported {sortKey === "papersImported" && (sortDir === "asc" ? "↑" : "↓")}
               </th>
               <th
                 scope="col"
-                className="cursor-pointer px-3 py-3 text-right hover:text-ink whitespace-nowrap"
+                className="hover:text-ink cursor-pointer px-3 py-3 text-right whitespace-nowrap"
                 onClick={() => handleSort("questionsCreated")}
               >
-                Questions {sortKey === "questionsCreated" && (sortDir === "asc" ? "↑" : "↓")}
+                Questions{" "}
+                {sortKey === "questionsCreated" && (sortDir === "asc" ? "↑" : "↓")}
               </th>
               <th
                 scope="col"
-                className="cursor-pointer px-3 py-3 text-right hover:text-ink whitespace-nowrap"
+                className="hover:text-ink cursor-pointer px-3 py-3 text-right whitespace-nowrap"
                 onClick={() => handleSort("annotationsCount")}
               >
-                Annotations {sortKey === "annotationsCount" && (sortDir === "asc" ? "↑" : "↓")}
+                Annotations{" "}
+                {sortKey === "annotationsCount" && (sortDir === "asc" ? "↑" : "↓")}
               </th>
               <th
                 scope="col"
-                className="cursor-pointer px-4 py-3 text-right hover:text-ink whitespace-nowrap"
+                className="hover:text-ink cursor-pointer px-4 py-3 text-right whitespace-nowrap"
                 onClick={() => handleSort("lastActiveAt")}
               >
-                Last Active {sortKey === "lastActiveAt" && (sortDir === "asc" ? "↑" : "↓")}
+                Last Active{" "}
+                {sortKey === "lastActiveAt" && (sortDir === "asc" ? "↑" : "↓")}
               </th>
             </tr>
           </thead>
           <tbody className="divide-border/40 divide-y">
             {sortedMembers.map((member) => {
-              const initials = member.name
-                .split(" ")
-                .map((n) => n[0])
-                .join("")
-                .slice(0, 2)
-                .toUpperCase() || "U";
+              const initials =
+                member.name
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")
+                  .slice(0, 2)
+                  .toUpperCase() || "U";
 
               const relativeLastActive = member.lastActiveAt
                 ? formatRelativeTime(new Date(member.lastActiveAt))
                 : "Never";
 
               return (
-                <tr
-                  key={member.userId}
-                  className="hover:bg-surface/50 transition-colors"
-                >
+                <tr key={member.userId} className="hover:bg-surface/50 transition-colors">
                   {/* Member Name & Email */}
                   <td className="px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center gap-3">
@@ -156,16 +160,18 @@ export function MemberBreakdownTable({
 
                   {/* Contribution Score */}
                   <td className="px-4 py-3 text-right whitespace-nowrap">
-                    <span className="inline-flex items-center gap-1 rounded-md bg-accent/15 border border-accent/25 px-2.5 py-0.5 font-mono text-xs font-bold text-ink dark:text-white tabular-nums">
+                    <span className="bg-accent/15 border-accent/25 text-ink inline-flex items-center gap-1 rounded-md border px-2.5 py-0.5 font-mono text-xs font-bold tabular-nums dark:text-white">
                       <span>{member.contributionScore}</span>
-                      <span className="text-[10px] font-semibold text-accent uppercase">pts</span>
+                      <span className="text-accent text-[10px] font-semibold uppercase">
+                        pts
+                      </span>
                     </span>
                   </td>
 
                   {/* Percentage Share Bar */}
                   <td className="w-32 px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center gap-2">
-                      <div className="bg-surface border-border/40 h-2 flex-1 overflow-hidden rounded-full border min-w-[50px]">
+                      <div className="bg-surface border-border/40 h-2 min-w-[50px] flex-1 overflow-hidden rounded-full border">
                         <div
                           className="bg-accent h-full rounded-full transition-all duration-500"
                           style={{ width: `${member.percentageShare}%` }}
@@ -178,8 +184,10 @@ export function MemberBreakdownTable({
                   </td>
 
                   {/* Screened Papers */}
-                  <td className="px-3 py-3 text-right font-mono tabular-nums whitespace-nowrap">
-                    <span className="text-ink font-semibold text-xs">{member.screenedTotal}</span>
+                  <td className="px-3 py-3 text-right font-mono whitespace-nowrap tabular-nums">
+                    <span className="text-ink text-xs font-semibold">
+                      {member.screenedTotal}
+                    </span>
                     {member.screenedTotal > 0 && (
                       <span className="text-muted block text-[10px]">
                         {member.screenedIncluded} in · {member.screenedExcluded} out
@@ -188,27 +196,27 @@ export function MemberBreakdownTable({
                   </td>
 
                   {/* Extracted Papers */}
-                  <td className="text-ink px-3 py-3 text-right font-mono font-semibold text-xs tabular-nums whitespace-nowrap">
+                  <td className="text-ink px-3 py-3 text-right font-mono text-xs font-semibold whitespace-nowrap tabular-nums">
                     {member.extractedPapers}
                   </td>
 
                   {/* Fields Answered */}
-                  <td className="text-ink px-3 py-3 text-right font-mono text-xs tabular-nums whitespace-nowrap">
+                  <td className="text-ink px-3 py-3 text-right font-mono text-xs whitespace-nowrap tabular-nums">
                     {member.extractedFields}
                   </td>
 
                   {/* Imported Papers */}
-                  <td className="text-ink px-3 py-3 text-right font-mono text-xs tabular-nums whitespace-nowrap">
+                  <td className="text-ink px-3 py-3 text-right font-mono text-xs whitespace-nowrap tabular-nums">
                     {member.papersImported}
                   </td>
 
                   {/* Questions */}
-                  <td className="text-ink px-3 py-3 text-right font-mono text-xs tabular-nums whitespace-nowrap">
+                  <td className="text-ink px-3 py-3 text-right font-mono text-xs whitespace-nowrap tabular-nums">
                     {member.questionsCreated}
                   </td>
 
                   {/* Annotations */}
-                  <td className="text-ink px-3 py-3 text-right font-mono text-xs tabular-nums whitespace-nowrap">
+                  <td className="text-ink px-3 py-3 text-right font-mono text-xs whitespace-nowrap tabular-nums">
                     {member.annotationsCount}
                   </td>
 

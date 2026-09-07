@@ -114,7 +114,9 @@ export async function GET(
     : { data: [] };
 
   const worksMap = new Map<string, WorkMeta | null>(
-    (projectWorksData ?? []).map((pw: any) => [pw.id, pw.works as WorkMeta | null]),
+    (
+      (projectWorksData ?? []) as unknown as Array<{ id: string; works: WorkMeta | null }>
+    ).map((pw) => [pw.id, pw.works]),
   );
 
   /*

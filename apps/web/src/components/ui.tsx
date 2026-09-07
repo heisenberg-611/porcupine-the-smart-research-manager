@@ -79,8 +79,9 @@ export function Button({
         // read as a form.
         variant === "ghost" && "text-ink hover:bg-surface rounded-full",
         variant === "secondary" &&
-          "border-border text-ink hover:bg-surface hover:border-accent/40 border rounded-xl shadow-xs hover:-translate-y-0.5",
-        variant === "danger" && "text-danger hover:bg-danger-soft hover:-translate-y-0.5 rounded-full",
+          "border-border text-ink hover:bg-surface hover:border-accent/40 rounded-xl border shadow-xs hover:-translate-y-0.5",
+        variant === "danger" &&
+          "text-danger hover:bg-danger-soft rounded-full hover:-translate-y-0.5",
         className,
       )}
       {...props}
@@ -449,7 +450,7 @@ export function PageHeader({
         {backHref && backLabel && (
           <Link
             href={backHref}
-            className="text-muted hover:text-ink text-fine focus-visible:ring-accent inline-flex items-center rounded-lg px-2 py-1 focus-visible:ring-2 focus-visible:outline-none hover:bg-surface/60 transition-colors"
+            className="text-muted hover:text-ink text-fine focus-visible:ring-accent hover:bg-surface/60 inline-flex items-center rounded-lg px-2 py-1 transition-colors focus-visible:ring-2 focus-visible:outline-none"
           >
             ← {backLabel}
           </Link>
@@ -493,9 +494,11 @@ export function ButtonLink({
       href={href}
       className={cx(
         "focus-visible:ring-accent text-ui inline-flex min-h-11 items-center justify-center rounded-xl px-5 font-medium shadow-xs",
-        "transition-all duration-200 focus-visible:ring-2 focus-visible:outline-none hover:-translate-y-0.5",
-        variant === "primary" && "bg-accent text-accent-ink hover:opacity-90 hover:shadow-sm",
-        variant === "ghost" && "border-border text-ink hover:bg-surface hover:border-accent/40 border",
+        "transition-all duration-200 hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:outline-none",
+        variant === "primary" &&
+          "bg-accent text-accent-ink hover:opacity-90 hover:shadow-sm",
+        variant === "ghost" &&
+          "border-border text-ink hover:bg-surface hover:border-accent/40 border",
         className,
       )}
     >
@@ -580,7 +583,10 @@ export function PageSkeleton({
 
       {shape === "list" &&
         Array.from({ length: 6 }, (_, i) => (
-          <div key={i} className="border-rule flex flex-col gap-2 rounded-2xl border p-4 shadow-xs">
+          <div
+            key={i}
+            className="border-rule flex flex-col gap-2 rounded-2xl border p-4 shadow-xs"
+          >
             <Skeleton className="h-4 w-2/3 rounded-md" />
             <Skeleton className="h-3 w-1/3 rounded-md" />
           </div>
@@ -600,7 +606,10 @@ export function PageSkeleton({
       {shape === "prose" && (
         <div className="measure flex flex-col gap-3">
           {Array.from({ length: 10 }, (_, i) => (
-            <Skeleton key={i} className={cx("h-4 rounded-md", i % 4 === 3 ? "w-2/3" : "w-full")} />
+            <Skeleton
+              key={i}
+              className={cx("h-4 rounded-md", i % 4 === 3 ? "w-2/3" : "w-full")}
+            />
           ))}
         </div>
       )}

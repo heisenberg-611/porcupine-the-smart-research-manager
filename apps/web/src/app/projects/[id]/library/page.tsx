@@ -164,13 +164,13 @@ export default async function LibraryPage({
                 <th scope="col" className="px-5 py-3.5 font-medium">
                   Title
                 </th>
-                <th scope="col" className="px-4 py-3.5 font-medium text-center w-24">
+                <th scope="col" className="w-24 px-4 py-3.5 text-center font-medium">
                   Year
                 </th>
-                <th scope="col" className="px-4 py-3.5 font-medium text-center w-28">
+                <th scope="col" className="w-28 px-4 py-3.5 text-center font-medium">
                   Citations
                 </th>
-                <th scope="col" className="px-5 py-3.5 font-medium min-w-[18rem]">
+                <th scope="col" className="min-w-[18rem] px-5 py-3.5 font-medium">
                   Status & Actions
                 </th>
               </tr>
@@ -181,14 +181,14 @@ export default async function LibraryPage({
                   <td className="px-5 py-4 align-top">
                     <Link
                       href={`/projects/${id}/read/${row.id}`}
-                      className="text-ink hover:text-accent text-base font-semibold leading-snug underline-offset-2 transition-colors hover:underline line-clamp-2 block"
+                      className="text-ink hover:text-accent line-clamp-2 block text-base leading-snug font-semibold underline-offset-2 transition-colors hover:underline"
                     >
                       {row.works?.title ?? "Untitled"}
                     </Link>
                     <div className="text-muted text-fine mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                       <Link
                         href={`/projects/${id}/extract/${row.id}`}
-                        className="text-accent hover:text-ink font-semibold inline-flex items-center gap-0.5 underline underline-offset-2 transition-colors"
+                        className="text-accent hover:text-ink inline-flex items-center gap-0.5 font-semibold underline underline-offset-2 transition-colors"
                       >
                         <span>Extract Data</span>
                         <span className="text-[10px]">→</span>
@@ -237,13 +237,13 @@ export default async function LibraryPage({
                       />
                     </div>
                   </td>
-                  <td className="text-muted px-4 py-4 tabular-nums text-center text-ui font-medium align-top">
+                  <td className="text-muted text-ui px-4 py-4 text-center align-top font-medium tabular-nums">
                     {row.works?.published_year ?? "—"}
                   </td>
-                  <td className="text-muted px-4 py-4 tabular-nums text-center text-ui align-top">
+                  <td className="text-muted text-ui px-4 py-4 text-center align-top tabular-nums">
                     {row.works?.cited_by_count ?? 0}
                   </td>
-                  <td className="px-5 py-4 align-top min-w-[18rem]">
+                  <td className="min-w-[18rem] px-5 py-4 align-top">
                     <LibraryRowActions
                       projectId={id}
                       projectWorkId={row.id}
@@ -286,7 +286,7 @@ function FilterChip({
       className={`focus-visible:ring-accent inline-flex h-9 items-center gap-2 rounded-xl px-3.5 text-xs font-semibold transition-all focus-visible:ring-2 focus-visible:outline-none ${
         active
           ? "bg-accent text-white shadow-xs"
-          : "bg-surface text-muted hover:text-ink hover:bg-surface/80 border border-border/70"
+          : "bg-surface text-muted hover:text-ink hover:bg-surface/80 border-border/70 border"
       }`}
     >
       <span>{label}</span>

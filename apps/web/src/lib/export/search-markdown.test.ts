@@ -132,7 +132,9 @@ describe("search-markdown export", () => {
       expect(md).toContain("Top Shortlist");
 
       // Paper 1
-      expect(md).toContain("### [Paper 1] Optimizing Spaced Repetition in Higher Education");
+      expect(md).toContain(
+        "### [Paper 1] Optimizing Spaced Repetition in Higher Education",
+      );
       expect(md).toContain(
         "- **Authors:** Dr. Alice Smith (Oxford University), Bob Jones (MIT)",
       );
@@ -141,15 +143,13 @@ describe("search-markdown export", () => {
       );
       expect(md).toContain("[DOI: 10.1000/182](https://doi.org/10.1000/182)");
       expect(md).toContain("[arXiv: 2401.12345](https://arxiv.org/abs/2401.12345)");
-      expect(md).toContain(
-        "[PMID: 38123456](https://pubmed.ncbi.nlm.nih.gov/38123456)",
-      );
-      expect(md).toContain(
-        "[OpenAlex: W123456789](https://openalex.org/W123456789)",
-      );
+      expect(md).toContain("[PMID: 38123456](https://pubmed.ncbi.nlm.nih.gov/38123456)");
+      expect(md).toContain("[OpenAlex: W123456789](https://openalex.org/W123456789)");
       expect(md).toContain("[Open Access PDF](https://example.com/paper.pdf)");
       expect(md).toContain("- **Metrics & Access:** 142 citations · OA: gold");
-      expect(md).toContain("- **Relevance:** Score 85.0% · Matched keywords: spaced repetition, memory");
+      expect(md).toContain(
+        "- **Relevance:** Score 85.0% · Matched keywords: spaced repetition, memory",
+      );
       expect(md).toContain("Signals: Title match 90% · Abstract match 80%");
       expect(md).toContain(
         "This study explores interval scheduling algorithms for long-term retention",
@@ -158,7 +158,9 @@ describe("search-markdown export", () => {
       // Paper 2 (Edge cases with missing fields)
       expect(md).toContain("### [Paper 2] Short Note on Cognitive Retrieval");
       expect(md).toContain("- **Authors:** Unknown authors");
-      expect(md).toContain("- **Publication:** 2018 · Venue: *Not specified* · Type: article");
+      expect(md).toContain(
+        "- **Publication:** 2018 · Venue: *Not specified* · Type: article",
+      );
       expect(md).toContain("- **Links & Identifiers:** None reported");
       expect(md).toContain("*No abstract available for this record.*");
     });

@@ -51,7 +51,7 @@ export default function FeaturesPage() {
               {group.items.map(({ term, detail }) => (
                 <li
                   key={term}
-                  className="border-border/70 bg-raised/70 rounded-2xl border p-5 shadow-xs hover:shadow-md hover:border-accent/40 hover:-translate-y-0.5 transition-all duration-300"
+                  className="border-border/70 bg-raised/70 hover:border-accent/40 rounded-2xl border p-5 shadow-xs transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md"
                 >
                   <h3 className="text-ink text-ui font-semibold">{term}</h3>
                   <p className="text-ink-soft text-ui mt-2 leading-relaxed text-pretty">

@@ -27,8 +27,8 @@ export function ContributorAvatar({
     size === "sm"
       ? "h-9 w-9 text-xs rounded-xl"
       : size === "lg"
-      ? "h-14 w-14 text-base rounded-2xl"
-      : "h-11 w-11 text-sm rounded-xl";
+        ? "h-14 w-14 text-base rounded-2xl"
+        : "h-11 w-11 text-sm rounded-xl";
 
   if (avatar && !imageError) {
     return (
@@ -36,7 +36,7 @@ export function ContributorAvatar({
         src={avatar}
         alt={`${name}'s profile avatar`}
         onError={() => setImageError(true)}
-        className={`${sizeClasses} shrink-0 object-cover border border-border/80 shadow-xs ${className}`}
+        className={`${sizeClasses} border-border/80 shrink-0 border object-cover shadow-xs ${className}`}
         loading="lazy"
         referrerPolicy="no-referrer"
       />
@@ -45,7 +45,7 @@ export function ContributorAvatar({
 
   return (
     <div
-      className={`bg-accent/15 text-accent flex ${sizeClasses} shrink-0 items-center justify-center font-mono font-bold shadow-xs border border-accent/25 ${className}`}
+      className={`bg-accent/15 text-accent flex ${sizeClasses} border-accent/25 shrink-0 items-center justify-center border font-mono font-bold shadow-xs ${className}`}
       aria-label={name}
     >
       {initials || "CR"}

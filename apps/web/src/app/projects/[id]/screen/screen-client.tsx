@@ -277,11 +277,11 @@ export function ScreenClient({
 
   if (!current) {
     return (
-      <div className="border-border/70 bg-surface/40 flex flex-col items-center justify-center rounded-3xl border-2 border-dashed p-10 sm:p-16 text-center shadow-xs">
-        <div className="bg-accent/10 text-accent mb-4 flex size-14 items-center justify-center rounded-2xl ring-1 ring-accent/20">
+      <div className="border-border/70 bg-surface/40 flex flex-col items-center justify-center rounded-3xl border-2 border-dashed p-10 text-center shadow-xs sm:p-16">
+        <div className="bg-accent/10 text-accent ring-accent/20 mb-4 flex size-14 items-center justify-center rounded-2xl ring-1">
           <CheckCircleIcon className="size-8" />
         </div>
-        <h3 className="text-ink text-xl font-bold font-serif sm:text-2xl">
+        <h3 className="text-ink font-serif text-xl font-bold sm:text-2xl">
           {decided > 0 ? "Screening Queue Completed!" : "No Papers to Screen"}
         </h3>
         <p className="text-muted text-ui mt-2 max-w-md">
@@ -314,24 +314,24 @@ export function ScreenClient({
   return (
     <section className="space-y-6">
       {/* Session Progress Header */}
-      <div className="border-border/70 bg-surface/50 rounded-2xl border p-4 sm:p-5 shadow-xs">
-        <div className="flex flex-wrap items-center justify-between gap-3 text-fine">
+      <div className="border-border/70 bg-surface/50 rounded-2xl border p-4 shadow-xs sm:p-5">
+        <div className="text-fine flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="bg-accent/15 text-accent font-semibold px-2.5 py-1 rounded-lg">
+            <span className="bg-accent/15 text-accent rounded-lg px-2.5 py-1 font-semibold">
               {remaining.length} to screen
             </span>
             {decided > 0 && (
-              <span className="bg-surface text-ink font-medium px-2.5 py-1 rounded-lg border border-border/70">
+              <span className="bg-surface text-ink border-border/70 rounded-lg border px-2.5 py-1 font-medium">
                 ✓ {decided} decided this session
               </span>
             )}
             {Object.keys(deferred).length > 0 && (
-              <span className="bg-surface text-muted px-2.5 py-1 rounded-lg border border-border/70">
+              <span className="bg-surface text-muted border-border/70 rounded-lg border px-2.5 py-1">
                 ↷ {Object.keys(deferred).length} skipped
               </span>
             )}
             {conflicts > 0 && (
-              <span className="bg-danger/10 text-danger font-medium px-2.5 py-1 rounded-lg border border-danger/20">
+              <span className="bg-danger/10 text-danger border-danger/20 rounded-lg border px-2.5 py-1 font-medium">
                 ⚠ {conflicts} handled by colleague
               </span>
             )}
@@ -351,11 +351,11 @@ export function ScreenClient({
       </div>
 
       {/* Main Screening Layout: Queue Column + Paper Detail */}
-      <div className="lg:grid lg:grid-cols-[18rem_1fr] lg:gap-8 items-start">
+      <div className="items-start lg:grid lg:grid-cols-[18rem_1fr] lg:gap-8">
         {/* Queue Navigation Column */}
         <nav
           aria-label="Screening queue"
-          className="border-border/60 sticky top-[calc(var(--app-header-h)+1rem)] hidden max-h-[calc(100dvh-var(--app-header-h)-3rem)] flex-col gap-3 overflow-y-auto rounded-2xl border bg-surface/40 p-3.5 lg:flex shadow-xs"
+          className="border-border/60 bg-surface/40 sticky top-[calc(var(--app-header-h)+1rem)] hidden max-h-[calc(100dvh-var(--app-header-h)-3rem)] flex-col gap-3 overflow-y-auto rounded-2xl border p-3.5 shadow-xs lg:flex"
         >
           {/* Filter & Sort Controls */}
           <div className="space-y-2">
@@ -365,7 +365,7 @@ export function ScreenClient({
               onChange={(e) => setQueueSearch(e.target.value)}
               placeholder="Search queue…"
               aria-label="Filter queue papers"
-              className="text-xs py-1.5"
+              className="py-1.5 text-xs"
             />
             <div className="grid grid-cols-2 gap-1.5">
               <Select
@@ -375,7 +375,7 @@ export function ScreenClient({
                   if (picked) setSortMode(picked.value);
                 }}
                 aria-label="Sort queue"
-                className="text-xs py-1"
+                className="py-1 text-xs"
               >
                 {SORT_MODES.map((mode) => (
                   <option key={mode.value} value={mode.value}>
@@ -387,7 +387,7 @@ export function ScreenClient({
                 value={assigneeFilter}
                 onChange={(event) => setAssigneeFilter(event.target.value)}
                 aria-label="Filter queue by assignee"
-                className="text-xs py-1"
+                className="py-1 text-xs"
               >
                 <option value="all">All assignees</option>
                 <option value="unassigned">Unassigned</option>
@@ -400,7 +400,7 @@ export function ScreenClient({
             </div>
           </div>
 
-          <div className="text-muted text-[0.7rem] px-1 font-semibold uppercase tracking-wider">
+          <div className="text-muted px-1 text-[0.7rem] font-semibold tracking-wider uppercase">
             Queue ({filteredQueue.length})
           </div>
 
@@ -422,29 +422,33 @@ export function ScreenClient({
                         "focus-visible:ring-accent w-full rounded-xl px-3 py-2.5 text-left transition-all",
                         "focus-visible:ring-2 focus-visible:outline-none",
                         isCurrent
-                          ? "bg-accent/15 border-accent/40 text-ink shadow-xs border"
-                          : "hover:bg-surface/80 border-transparent border text-muted",
+                          ? "bg-accent/15 border-accent/40 text-ink border shadow-xs"
+                          : "hover:bg-surface/80 text-muted border border-transparent",
                       )}
                     >
                       <span
                         className={cx(
-                          "text-fine block leading-snug line-clamp-2",
+                          "text-fine line-clamp-2 block leading-snug",
                           isCurrent ? "text-ink font-semibold" : "text-ink/80",
                         )}
                       >
                         {row.title}
                       </span>
-                      <span className="text-muted text-[0.72rem] mt-1 flex flex-wrap items-center gap-1.5 opacity-90">
+                      <span className="text-muted mt-1 flex flex-wrap items-center gap-1.5 text-[0.72rem] opacity-90">
                         <span>{row.year ?? "No year"}</span>
                         {deferred[row.id] && (
-                          <span className="text-amber-500 font-medium">· skipped</span>
+                          <span className="font-medium text-amber-500">· skipped</span>
                         )}
                         {row.assigneeId && (
                           <span>
-                            · {members.find((m) => m.userId === row.assigneeId)?.name ?? "assigned"}
+                            ·{" "}
+                            {members.find((m) => m.userId === row.assigneeId)?.name ??
+                              "assigned"}
                           </span>
                         )}
-                        {row.dueAt && <span>· due {dueDayLabel(dueDayValue(row.dueAt))}</span>}
+                        {row.dueAt && (
+                          <span>· due {dueDayLabel(dueDayValue(row.dueAt))}</span>
+                        )}
                       </span>
                     </button>
                   </li>
@@ -456,10 +460,10 @@ export function ScreenClient({
 
         {/* Paper Detail & Decision Workspace */}
         <div className="flex min-w-0 flex-col gap-6">
-          <article className="border-border/70 bg-raised rounded-2xl border p-6 sm:p-8 shadow-xs">
+          <article className="border-border/70 bg-raised rounded-2xl border p-6 shadow-xs sm:p-8">
             {/* Status chip + Year */}
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="bg-accent/10 text-accent ring-accent/20 text-fine rounded-md px-2.5 py-0.5 font-semibold uppercase tracking-wider ring-1">
+              <span className="bg-accent/10 text-accent ring-accent/20 text-fine rounded-md px-2.5 py-0.5 font-semibold tracking-wider uppercase ring-1">
                 {screenStatusLabel(current.screenStatus)}
               </span>
               {current.year && (
@@ -469,7 +473,7 @@ export function ScreenClient({
               )}
             </div>
 
-            <h2 className="text-ink text-xl sm:text-2xl font-bold font-serif leading-snug mt-3">
+            <h2 className="text-ink mt-3 font-serif text-xl leading-snug font-bold sm:text-2xl">
               {current.title}
             </h2>
 
@@ -484,7 +488,7 @@ export function ScreenClient({
             </div>
 
             {/* Quick Links & Paywall Access */}
-            <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border/50 pt-3">
+            <div className="border-border/50 mt-4 flex flex-wrap items-center gap-3 border-t pt-3">
               <SourceLinks title={current.title} work={current} />
               <AccessHelp
                 route={accessRoute}
@@ -495,24 +499,25 @@ export function ScreenClient({
             </div>
 
             {/* Abstract with rich formatting */}
-            <div className="mt-6 border-t border-border/50 pt-5">
-              <h4 className="text-ink text-fine font-semibold uppercase tracking-wider mb-2">
+            <div className="border-border/50 mt-6 border-t pt-5">
+              <h4 className="text-ink text-fine mb-2 font-semibold tracking-wider uppercase">
                 Abstract
               </h4>
               {current.abstract ? (
-                <div className="prose-porcupine text-ink/90 text-sm leading-relaxed max-w-none">
+                <div className="prose-porcupine text-ink/90 max-w-none text-sm leading-relaxed">
                   <FormattedText text={current.abstract} />
                 </div>
               ) : (
                 <p className="text-muted text-fine italic">
-                  No abstract on record for this paper. Review the title or open the source links above.
+                  No abstract on record for this paper. Review the title or open the
+                  source links above.
                 </p>
               )}
             </div>
           </article>
 
           {/* Decision Actions Bar */}
-          <div className="border-border/70 bg-surface/50 rounded-2xl border p-5 shadow-xs flex flex-wrap items-center justify-between gap-4">
+          <div className="border-border/70 bg-surface/50 flex flex-wrap items-center justify-between gap-4 rounded-2xl border p-5 shadow-xs">
             <div className="flex flex-wrap items-center gap-3">
               {/* Include */}
               <Button
@@ -526,16 +531,18 @@ export function ScreenClient({
               </Button>
 
               {/* Exclude with Reason */}
-              <div className="flex items-center gap-2 bg-surface border-border/70 rounded-xl border p-1 shadow-2xs">
+              <div className="bg-surface border-border/70 flex items-center gap-2 rounded-xl border p-1 shadow-2xs">
                 <Select
                   value={reason}
                   onChange={(event) =>
                     setReason(event.target.value as ExclusionReason | "")
                   }
                   aria-label="Exclusion reason"
-                  className="text-xs py-1.5 max-w-[13rem]"
+                  className="max-w-[13rem] py-1.5 text-xs"
                 >
-                  <option value="">{reasonRequired ? "Exclusion reason…" : "No reason"}</option>
+                  <option value="">
+                    {reasonRequired ? "Exclusion reason…" : "No reason"}
+                  </option>
                   {EXCLUSION_REASONS.map((r) => (
                     <option key={r.code} value={r.code}>
                       {r.label}
@@ -568,7 +575,7 @@ export function ScreenClient({
           </div>
 
           {/* Assignment & Due Date Settings */}
-          <div className="border-border/60 bg-surface/30 rounded-xl border p-4 flex flex-wrap items-center gap-4">
+          <div className="border-border/60 bg-surface/30 flex flex-wrap items-center gap-4 rounded-xl border p-4">
             <label className="text-muted text-fine flex min-w-[12rem] flex-1 flex-col gap-1">
               <span>Assign paper to</span>
               <Select
@@ -606,7 +613,10 @@ export function ScreenClient({
               </div>
             )}
             {error && (
-              <div role="alert" className="border-danger/30 bg-danger-soft text-danger text-fine rounded-xl border p-3">
+              <div
+                role="alert"
+                className="border-danger/30 bg-danger-soft text-danger text-fine rounded-xl border p-3"
+              >
                 {error}
               </div>
             )}
@@ -623,25 +633,49 @@ export function ScreenClient({
           className="text-muted hover:text-ink text-fine focus-visible:ring-accent inline-flex items-center gap-2 rounded focus-visible:ring-2 focus-visible:outline-none"
         >
           <span>⌨️ Keyboard Shortcuts:</span>
-          <span><Key>I</Key> Include</span>
-          <span><Key>E</Key> Exclude</span>
-          <span><Key>S</Key> Skip</span>
-          <span><Key>1</Key>–<Key>9</Key> Reason</span>
-          <span className="text-accent underline ml-1">{showKeys ? "Hide Guide" : "Show Guide (?)"}</span>
+          <span>
+            <Key>I</Key> Include
+          </span>
+          <span>
+            <Key>E</Key> Exclude
+          </span>
+          <span>
+            <Key>S</Key> Skip
+          </span>
+          <span>
+            <Key>1</Key>–<Key>9</Key> Reason
+          </span>
+          <span className="text-accent ml-1 underline">
+            {showKeys ? "Hide Guide" : "Show Guide (?)"}
+          </span>
         </button>
 
         {showKeys && (
           <div className="border-border/60 bg-surface/60 mt-3 rounded-2xl border p-4 shadow-xs">
             <dl className="text-muted text-fine grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
-              <dt><Key>I</Key></dt>
+              <dt>
+                <Key>I</Key>
+              </dt>
               <dd className="text-ink">Include this paper into the project</dd>
-              <dt><Key>E</Key></dt>
-              <dd className="text-ink">Exclude paper using the selected exclusion reason</dd>
-              <dt><Key>S</Key></dt>
-              <dd className="text-ink">Skip for now — records you looked and puts it at the end of the queue</dd>
-              <dt><Key>1</Key>–<Key>9</Key></dt>
+              <dt>
+                <Key>E</Key>
+              </dt>
+              <dd className="text-ink">
+                Exclude paper using the selected exclusion reason
+              </dd>
+              <dt>
+                <Key>S</Key>
+              </dt>
+              <dd className="text-ink">
+                Skip for now — records you looked and puts it at the end of the queue
+              </dd>
+              <dt>
+                <Key>1</Key>–<Key>9</Key>
+              </dt>
               <dd className="text-ink">Arm an exclusion reason by number</dd>
-              <dt><Key>?</Key></dt>
+              <dt>
+                <Key>?</Key>
+              </dt>
               <dd className="text-ink">Toggle keyboard shortcuts guide</dd>
             </dl>
           </div>

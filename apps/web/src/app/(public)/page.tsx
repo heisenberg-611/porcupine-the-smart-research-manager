@@ -61,7 +61,7 @@ export default async function Home() {
           {STEPS.map(({ term, detail }, index) => (
             <li
               key={term}
-              className="border-border/70 bg-raised/70 rounded-2xl border p-6 shadow-xs hover:shadow-md hover:border-accent/40 hover:-translate-y-0.5 transition-all duration-300"
+              className="border-border/70 bg-raised/70 hover:border-accent/40 rounded-2xl border p-6 shadow-xs transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md"
             >
               <p className="text-accent text-fine font-mono font-semibold">
                 Step {String(index + 1).padStart(2, "0")}
@@ -79,20 +79,21 @@ export default async function Home() {
       <section aria-labelledby="community" className="border-rule mt-16 border-t pt-12">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
-            <p className="text-accent text-fine font-mono tracking-wider uppercase font-semibold">
+            <p className="text-accent text-fine font-mono font-semibold tracking-wider uppercase">
               Shaped by Researchers
             </p>
-            <h2 id="community" className="text-ink text-title font-serif mt-1">
+            <h2 id="community" className="text-ink text-title mt-1 font-serif">
               Feedback & Contributions
             </h2>
             <p className="text-muted measure text-ui mt-2 text-pretty">
-              Recognizing the beta testers, methodology advisors, and developers who have contributed ideas and feedback to upgrade porcupineResearch.
+              Recognizing the beta testers, methodology advisors, and developers who have
+              contributed ideas and feedback to upgrade porcupineResearch.
             </p>
           </div>
 
           <Link
             href="/feedback-and-contributions"
-            className="text-accent hover:text-ink hover:underline font-mono text-xs font-semibold shrink-0 transition-colors"
+            className="text-accent hover:text-ink shrink-0 font-mono text-xs font-semibold transition-colors hover:underline"
           >
             View all contributors ({getContributors().length}) →
           </Link>
@@ -109,17 +110,17 @@ export default async function Home() {
             return (
               <div
                 key={`${c.id || "contributor"}-${index}`}
-                className="border-border/70 bg-raised/70 flex flex-col justify-between rounded-2xl border p-5 shadow-xs transition-all hover:border-accent/40 hover:shadow-md"
+                className="border-border/70 bg-raised/70 hover:border-accent/40 flex flex-col justify-between rounded-2xl border p-5 shadow-xs transition-all hover:shadow-md"
               >
                 <div>
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-3">
                       <ContributorAvatar name={c.name} avatar={c.avatar} size="sm" />
                       <div>
-                        <h4 className="text-ink font-serif font-bold text-sm">
+                        <h4 className="text-ink font-serif text-sm font-bold">
                           {c.name}
                         </h4>
-                        <p className="text-muted text-[11px] truncate max-w-[200px]">
+                        <p className="text-muted max-w-[200px] truncate text-[11px]">
                           {c.role}
                         </p>
                       </div>
@@ -134,7 +135,7 @@ export default async function Home() {
                     ) : null}
                   </div>
 
-                  <p className="text-ink-soft text-xs mt-3.5 leading-relaxed italic bg-surface/60 rounded-xl p-3 border border-border/50">
+                  <p className="text-ink-soft bg-surface/60 border-border/50 mt-3.5 rounded-xl border p-3 text-xs leading-relaxed italic">
                     "{c.contribution}"
                   </p>
                 </div>

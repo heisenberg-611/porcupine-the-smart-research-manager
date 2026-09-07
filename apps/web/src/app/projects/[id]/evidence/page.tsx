@@ -52,9 +52,7 @@ function formatAuthors(authors: unknown): string {
     })
     .filter((n): n is string => !!n);
   if (names.length === 0) return "";
-  return names.length > 2
-    ? `${names[0]}, ${names[1]} et al.`
-    : names.join(", ");
+  return names.length > 2 ? `${names[0]}, ${names[1]} et al.` : names.join(", ");
 }
 
 function fullAuthors(authors: unknown): string {
@@ -201,8 +199,23 @@ export default async function EvidencePage({
         .in("id", projectWorkIds)
     : { data: [] };
 
+  interface RawProjectWorkRow {
+    id: string;
+    screen_status: string;
+    works: {
+      title: string | null;
+      authors: unknown;
+      venue: string | null;
+      published_year: number | null;
+      doi: string | null;
+      arxiv_id: string | null;
+      pmid: string | null;
+      oa_pdf_url: string | null;
+    } | null;
+  }
+
   const worksMap = new Map<string, WorkMeta>(
-    (projectWorksData ?? []).map((pw: any) => [
+    ((projectWorksData ?? []) as unknown as RawProjectWorkRow[]).map((pw) => [
       pw.id,
       {
         title: pw.works?.title ?? null,
@@ -374,7 +387,7 @@ export default async function EvidencePage({
                 table grow past it when there is not, which is what the
                 horizontal scroll around it already exists to handle.
               */}
-              <table className="text-ui min-w-full text-left border-separate border-spacing-0">
+              <table className="text-ui min-w-full border-separate border-spacing-0 text-left">
                 <caption className="sr-only">
                   Extractions, one row per paper, one column per protocol field
                 </caption>
@@ -401,7 +414,10 @@ export default async function EvidencePage({
                       projectId={id}
                       sticky
                     />
-                    <th scope="col" className="px-4 py-3 font-medium border-b border-border whitespace-nowrap">
+                    <th
+                      scope="col"
+                      className="border-border border-b px-4 py-3 font-medium whitespace-nowrap"
+                    >
                       Authors
                     </th>
                     <SortableHeader
@@ -410,16 +426,28 @@ export default async function EvidencePage({
                       query={query}
                       projectId={id}
                     />
-                    <th scope="col" className="px-4 py-3 font-medium border-b border-border whitespace-nowrap">
+                    <th
+                      scope="col"
+                      className="border-border border-b px-4 py-3 font-medium whitespace-nowrap"
+                    >
                       Venue
                     </th>
-                    <th scope="col" className="px-4 py-3 font-medium border-b border-border whitespace-nowrap">
+                    <th
+                      scope="col"
+                      className="border-border border-b px-4 py-3 font-medium whitespace-nowrap"
+                    >
                       DOI
                     </th>
-                    <th scope="col" className="px-4 py-3 font-medium border-b border-border whitespace-nowrap">
+                    <th
+                      scope="col"
+                      className="border-border border-b px-4 py-3 font-medium whitespace-nowrap"
+                    >
                       PDF
                     </th>
-                    <th scope="col" className="px-4 py-3 font-medium border-b border-border whitespace-nowrap">
+                    <th
+                      scope="col"
+                      className="border-border border-b px-4 py-3 font-medium whitespace-nowrap"
+                    >
                       Status
                     </th>
                     <SortableHeader
@@ -515,10 +543,10 @@ function SortableHeader({
     <th
       scope="col"
       aria-sort={active ? (query.dir === "asc" ? "ascending" : "descending") : "none"}
-      className={`px-4 py-3 font-medium whitespace-nowrap border-b border-border ${
+      className={`border-border border-b px-4 py-3 font-medium whitespace-nowrap ${
         // The title column: fixed on horizontal scroll with clear visual separation
         sticky
-          ? "bg-canvas sticky left-0 z-30 w-80 min-w-[18rem] max-w-[22rem] border-r border-border shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] dark:shadow-[4px_0_16px_-4px_rgba(0,0,0,0.4)]"
+          ? "bg-canvas border-border sticky left-0 z-30 w-80 max-w-[22rem] min-w-[18rem] border-r shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] dark:shadow-[4px_0_16px_-4px_rgba(0,0,0,0.4)]"
           : ""
       }`}
     >
@@ -570,7 +598,7 @@ function Row({
           <th
             scope="colgroup"
             colSpan={fields.length + 8}
-            className="text-fine text-muted sticky left-0 z-20 px-4 py-2 text-left font-medium uppercase border-b border-border bg-surface"
+            className="text-fine text-muted border-border bg-surface sticky left-0 z-20 border-b px-4 py-2 text-left font-medium uppercase"
           >
             {row.group_label ?? "No answer"}
           </th>
@@ -578,19 +606,19 @@ function Row({
       )}
       <tr data-evidence-item className="group hover:bg-surface/50 transition-colors">
         {/* Sticky Paper Title column */}
-        <td className="bg-canvas group-hover:bg-surface/90 sticky left-0 z-10 w-80 min-w-[18rem] max-w-[22rem] px-4 py-3.5 border-r border-b border-border shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] dark:shadow-[4px_0_16px_-4px_rgba(0,0,0,0.4)] transition-colors">
+        <td className="bg-canvas group-hover:bg-surface/90 border-border sticky left-0 z-10 w-80 max-w-[22rem] min-w-[18rem] border-r border-b px-4 py-3.5 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] transition-colors dark:shadow-[4px_0_16px_-4px_rgba(0,0,0,0.4)]">
           <div className="flex flex-col gap-1">
             <Link
               href={`/projects/${projectId}/read/${row.project_work_id}`}
-              className="text-ink font-semibold underline-offset-2 hover:text-accent hover:underline line-clamp-2 leading-snug"
+              className="text-ink hover:text-accent line-clamp-2 leading-snug font-semibold underline-offset-2 hover:underline"
               title={row.work_title}
             >
               {row.work_title}
             </Link>
-            <div className="flex items-center gap-2 text-fine">
+            <div className="text-fine flex items-center gap-2">
               <Link
                 href={`/projects/${projectId}/extract/${row.project_work_id}`}
-                className="text-accent hover:text-ink hover:underline font-medium text-xs inline-flex items-center gap-1"
+                className="text-accent hover:text-ink inline-flex items-center gap-1 text-xs font-medium hover:underline"
               >
                 <span>Extract Data</span>
                 <span>→</span>
@@ -598,7 +626,7 @@ function Row({
             </div>
           </div>
         </td>
-        <td className="text-muted max-w-[13rem] px-4 py-3 text-fine border-b border-border">
+        <td className="text-muted text-fine border-border max-w-[13rem] border-b px-4 py-3">
           {authorsShort ? (
             <span title={authorsAll} className="line-clamp-2">
               {authorsShort}
@@ -607,8 +635,10 @@ function Row({
             "—"
           )}
         </td>
-        <td className="text-muted px-4 py-3 tabular-nums text-ui border-b border-border">{year ?? "—"}</td>
-        <td className="text-muted max-w-[12rem] px-4 py-3 text-fine border-b border-border">
+        <td className="text-muted text-ui border-border border-b px-4 py-3 tabular-nums">
+          {year ?? "—"}
+        </td>
+        <td className="text-muted text-fine border-border max-w-[12rem] border-b px-4 py-3">
           {work?.venue ? (
             <span title={work.venue} className="line-clamp-2">
               {work.venue}
@@ -617,29 +647,29 @@ function Row({
             "—"
           )}
         </td>
-        <td className="px-4 py-3 text-fine border-b border-border">
+        <td className="text-fine border-border border-b px-4 py-3">
           {doi ? (
             <a
               href={`https://doi.org/${doi}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-accent hover:underline font-mono text-xs inline-flex items-center gap-1 group/doi"
+              className="text-accent group/doi inline-flex items-center gap-1 font-mono text-xs hover:underline"
               title={`Open DOI: https://doi.org/${doi}`}
             >
-              <span className="truncate max-w-[7.5rem]">{doi}</span>
+              <span className="max-w-[7.5rem] truncate">{doi}</span>
               <span className="opacity-70 group-hover/doi:opacity-100">↗</span>
             </a>
           ) : (
             <span className="text-muted">—</span>
           )}
         </td>
-        <td className="px-4 py-3 text-fine border-b border-border">
+        <td className="text-fine border-border border-b px-4 py-3">
           {pdfUrl ? (
             <a
               href={pdfUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="border-accent/30 bg-accent/10 hover:bg-accent/20 text-accent inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-mono text-xs font-semibold border transition-colors"
+              className="border-accent/30 bg-accent/10 hover:bg-accent/20 text-accent inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-mono text-xs font-semibold transition-colors"
               title="Open Open-Access PDF in new tab"
             >
               <span>PDF</span>
@@ -648,34 +678,34 @@ function Row({
           ) : (
             <Link
               href={`/projects/${projectId}/read/${row.project_work_id}`}
-              className="text-muted hover:text-ink hover:underline text-xs"
+              className="text-muted hover:text-ink text-xs hover:underline"
             >
               Reader
             </Link>
           )}
         </td>
-        <td className="px-4 py-3 border-b border-border">
+        <td className="border-border border-b px-4 py-3">
           <span
-            className={`inline-flex items-center rounded px-2 py-0.5 font-mono text-[10px] font-bold border ${
+            className={`inline-flex items-center rounded border px-2 py-0.5 font-mono text-[10px] font-bold ${
               status === "VERIFIED" || status === "RECONCILED"
-                ? "bg-purple-500/15 border-purple-500/30 text-purple-700 dark:text-purple-300"
+                ? "border-purple-500/30 bg-purple-500/15 text-purple-700 dark:text-purple-300"
                 : status === "SUBMITTED"
-                ? "bg-accent/15 border-accent/30 text-accent"
-                : "bg-surface border-border text-muted"
+                  ? "bg-accent/15 border-accent/30 text-accent"
+                  : "bg-surface border-border text-muted"
             }`}
           >
             {status}
           </span>
         </td>
-        <td className="px-4 py-3 tabular-nums border-b border-border">
-          <div className="flex flex-col gap-1 min-w-[5.5rem]">
-            <div className="flex items-center justify-between text-fine">
+        <td className="border-border border-b px-4 py-3 tabular-nums">
+          <div className="flex min-w-[5.5rem] flex-col gap-1">
+            <div className="text-fine flex items-center justify-between">
               <span className="text-ink font-medium">
                 {row.answered}/{row.field_total}
               </span>
               <span className="text-muted text-[10px]">{progressPercent}%</span>
             </div>
-            <div className="bg-surface/80 border-border/50 h-1.5 w-full rounded-full border overflow-hidden">
+            <div className="bg-surface/80 border-border/50 h-1.5 w-full overflow-hidden rounded-full border">
               <div
                 className="bg-accent h-full rounded-full transition-all"
                 style={{ width: `${progressPercent}%` }}
@@ -728,35 +758,35 @@ function PaperCard({
     <article
       data-evidence-item
       aria-label={row.work_title}
-      className="border-border/70 bg-surface/40 rounded-2xl border p-4 shadow-xs flex flex-col gap-3"
+      className="border-border/70 bg-surface/40 flex flex-col gap-3 rounded-2xl border p-4 shadow-xs"
     >
       <div className="flex items-start justify-between gap-2">
         <Link
           href={`/projects/${projectId}/read/${row.project_work_id}`}
-          className="text-ink hover:text-accent font-semibold underline-offset-2 hover:underline text-base"
+          className="text-ink hover:text-accent text-base font-semibold underline-offset-2 hover:underline"
         >
           {row.work_title}
         </Link>
         <span
-          className={`shrink-0 inline-flex items-center rounded px-2 py-0.5 font-mono text-[10px] font-bold border ${
+          className={`inline-flex shrink-0 items-center rounded border px-2 py-0.5 font-mono text-[10px] font-bold ${
             status === "VERIFIED" || status === "RECONCILED"
-              ? "bg-purple-500/15 border-purple-500/30 text-purple-700 dark:text-purple-300"
+              ? "border-purple-500/30 bg-purple-500/15 text-purple-700 dark:text-purple-300"
               : status === "SUBMITTED"
-              ? "bg-accent/15 border-accent/30 text-accent"
-              : "bg-surface border-border text-muted"
+                ? "bg-accent/15 border-accent/30 text-accent"
+                : "bg-surface border-border text-muted"
           }`}
         >
           {status}
         </span>
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-fine text-muted">
+      <div className="text-fine text-muted flex flex-wrap items-center gap-x-3 gap-y-1">
         {authorsShort && <span>{authorsShort}</span>}
         {year && <span>{year}</span>}
         {work?.venue && <span>{work.venue}</span>}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/40">
+      <div className="border-border/40 flex flex-wrap items-center gap-2 border-t pt-1">
         <Link
           href={`/projects/${projectId}/extract/${row.project_work_id}`}
           className="border-border text-ink hover:bg-surface text-fine inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 font-medium transition-all"
@@ -786,7 +816,7 @@ function PaperCard({
             href={`https://doi.org/${doi}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-accent hover:underline font-mono text-fine inline-flex items-center gap-0.5"
+            className="text-accent text-fine inline-flex items-center gap-0.5 font-mono hover:underline"
           >
             <span>doi:{doi}</span>
             <span>↗</span>
@@ -795,13 +825,13 @@ function PaperCard({
       </div>
 
       <div className="flex flex-col gap-1 pt-1">
-        <div className="flex items-center justify-between text-fine">
+        <div className="text-fine flex items-center justify-between">
           <span className="text-muted">Protocol Progress</span>
           <span className="text-ink font-medium">
             {row.answered}/{row.field_total} answered ({progressPercent}%)
           </span>
         </div>
-        <div className="bg-surface/80 border-border/50 h-1.5 w-full rounded-full border overflow-hidden">
+        <div className="bg-surface/80 border-border/50 h-1.5 w-full overflow-hidden rounded-full border">
           <div
             className="bg-accent h-full rounded-full transition-all"
             style={{ width: `${progressPercent}%` }}
@@ -809,7 +839,7 @@ function PaperCard({
         </div>
       </div>
 
-      <dl className="mt-2 flex flex-col gap-2 border-t border-border/40 pt-3">
+      <dl className="border-border/40 mt-2 flex flex-col gap-2 border-t pt-3">
         {fields.map((field) => {
           const cell = row.cells?.[field.key];
           return (
@@ -868,7 +898,7 @@ function Cell({
 }) {
   if (!cell || !cell.answered) {
     return (
-      <td className="px-4 py-3 border-b border-border">
+      <td className="border-border border-b px-4 py-3">
         <span className="text-muted/60" aria-hidden="true">
           —
         </span>
@@ -902,7 +932,7 @@ function Cell({
    */
   if (cell.anchorId) {
     return (
-      <td className="px-4 py-3 border-b border-border">
+      <td className="border-border border-b px-4 py-3">
         <Link
           href={`/projects/${projectId}/read/${projectWorkId}?anchor=${cell.anchorId}`}
           className="text-ink block max-w-[18rem] truncate underline decoration-dotted underline-offset-4"
@@ -915,7 +945,7 @@ function Cell({
   }
 
   return (
-    <td className="px-4 py-3 border-b border-border">
+    <td className="border-border border-b px-4 py-3">
       <span className="text-ink-soft block max-w-[18rem] truncate">{text}</span>
     </td>
   );

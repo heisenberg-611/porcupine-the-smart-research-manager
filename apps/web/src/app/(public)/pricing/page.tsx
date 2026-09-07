@@ -32,11 +32,11 @@ export default function PricingPage() {
       />
 
       <div className="border-border/70 bg-raised/70 rounded-2xl border p-8 shadow-xs">
-        <p className="text-accent text-fine font-mono tracking-widest uppercase font-semibold">
+        <p className="text-accent text-fine font-mono font-semibold tracking-widest uppercase">
           Every feature
         </p>
         <p className="text-ink mt-3 font-serif text-5xl font-bold">Free</p>
-        <p className="text-ink-soft measure text-ui mt-4 text-pretty leading-relaxed">
+        <p className="text-ink-soft measure text-ui mt-4 leading-relaxed text-pretty">
           No trial, no seats, no card, no feature held back for a paid tier. There is no
           billing code in this project — not disabled, not behind a flag.
         </p>

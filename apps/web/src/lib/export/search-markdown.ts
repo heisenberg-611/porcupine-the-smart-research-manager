@@ -118,7 +118,9 @@ export function formatSearchExportMarkdown(options: SearchExportOptions): string
     const yearText = work.publishedYear ? String(work.publishedYear) : "Unknown year";
     const venueText = work.venue ? work.venue : "Not specified";
     const typeText = work.type ? work.type : "article";
-    lines.push(`- **Publication:** ${yearText} · Venue: *${venueText}* · Type: ${typeText}`);
+    lines.push(
+      `- **Publication:** ${yearText} · Venue: *${venueText}* · Type: ${typeText}`,
+    );
 
     // Identifiers & Links
     const identifiers: string[] = [];
@@ -129,7 +131,9 @@ export function formatSearchExportMarkdown(options: SearchExportOptions): string
       identifiers.push(`[arXiv: ${work.arxivId}](https://arxiv.org/abs/${work.arxivId})`);
     }
     if (work.pmid) {
-      identifiers.push(`[PMID: ${work.pmid}](https://pubmed.ncbi.nlm.nih.gov/${work.pmid})`);
+      identifiers.push(
+        `[PMID: ${work.pmid}](https://pubmed.ncbi.nlm.nih.gov/${work.pmid})`,
+      );
     }
     if (work.openalexId) {
       identifiers.push(
@@ -140,11 +144,16 @@ export function formatSearchExportMarkdown(options: SearchExportOptions): string
       identifiers.push(`[Open Access PDF](${work.oaPdfUrl})`);
     }
 
-    const identifiersText = identifiers.length > 0 ? identifiers.join(" · ") : "None reported";
+    const identifiersText =
+      identifiers.length > 0 ? identifiers.join(" · ") : "None reported";
     lines.push(`- **Links & Identifiers:** ${identifiersText}`);
 
     // Citations & OA
-    const oaStatusText = work.oaStatus ? work.oaStatus : work.oaPdfUrl ? "open access" : "unknown";
+    const oaStatusText = work.oaStatus
+      ? work.oaStatus
+      : work.oaPdfUrl
+        ? "open access"
+        : "unknown";
     lines.push(
       `- **Metrics & Access:** ${work.citedByCount.toLocaleString()} citations · OA: ${oaStatusText}`,
     );

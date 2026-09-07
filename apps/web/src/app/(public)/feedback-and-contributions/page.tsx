@@ -18,11 +18,13 @@ export default function FeedbackAndContributionsPage() {
         <p className="text-accent text-fine font-mono tracking-widest uppercase">
           Community & Acknowledgements
         </p>
-        <h1 className="text-ink mt-3 font-serif text-4xl leading-tight tracking-tight sm:text-5xl font-bold">
+        <h1 className="text-ink mt-3 font-serif text-4xl leading-tight font-bold tracking-tight sm:text-5xl">
           Feedback & Project Contributors
         </h1>
-        <p className="text-ink-soft text-body mt-4 max-w-2xl text-pretty leading-relaxed">
-          porcupineResearch is continuously upgraded and refined thanks to feedback, suggestions, and contributions from researchers, students, and engineers around the world.
+        <p className="text-ink-soft text-body mt-4 max-w-2xl leading-relaxed text-pretty">
+          porcupineResearch is continuously upgraded and refined thanks to feedback,
+          suggestions, and contributions from researchers, students, and engineers around
+          the world.
         </p>
       </header>
 

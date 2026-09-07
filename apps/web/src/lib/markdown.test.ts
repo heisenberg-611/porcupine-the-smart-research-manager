@@ -33,9 +33,7 @@ describe("URL safety and sanitization", () => {
 
 describe("Inline markdown parsing", () => {
   it("parses plain text", () => {
-    expect(parseInline("Hello world")).toEqual([
-      { type: "text", value: "Hello world" },
-    ]);
+    expect(parseInline("Hello world")).toEqual([{ type: "text", value: "Hello world" }]);
   });
 
   it("parses bold text", () => {
@@ -92,7 +90,9 @@ describe("Inline markdown parsing", () => {
   });
 
   it("parses autolinks with punctuation and parenthesis balancing", () => {
-    const nodes = parseInline("See (https://example.com/test) and https://example.com/page.");
+    const nodes = parseInline(
+      "See (https://example.com/test) and https://example.com/page.",
+    );
     expect(nodes).toEqual([
       { type: "text", value: "See (" },
       {
@@ -119,7 +119,9 @@ describe("Inline markdown parsing", () => {
   });
 
   it("parses nested formatting (e.g. bold link, italic inside bold)", () => {
-    const nodes = parseInline("**bold with *italic* inside** and [**bold link**](https://example.com)");
+    const nodes = parseInline(
+      "**bold with *italic* inside** and [**bold link**](https://example.com)",
+    );
     expect(nodes[0]).toEqual({
       type: "bold",
       children: [
@@ -132,9 +134,7 @@ describe("Inline markdown parsing", () => {
     expect(nodes[2]).toEqual({
       type: "link",
       href: "https://example.com",
-      children: [
-        { type: "bold", children: [{ type: "text", value: "bold link" }] },
-      ],
+      children: [{ type: "bold", children: [{ type: "text", value: "bold link" }] }],
     });
   });
 });
@@ -366,11 +366,17 @@ This is regular text. <!-- inline comment -->`;
 
       const result = markdownToSpreadsheetText(md);
 
-      expect(result).toContain("4. The Numbers: Metrics, Multipliers, and Hardware Limits");
+      expect(result).toContain(
+        "4. The Numbers: Metrics, Multipliers, and Hardware Limits",
+      );
       expect(result).toContain("4.1 Hardware & Computing Limits");
       expect(result).toContain("AI Edge Performance: 60 TOPS on NVIDIA Jetson AGX Orin");
-      expect(result).toContain("Edge AI Parameters & Latency: 260,000 parameters, quantized to INT8, with 9 ms inference latency");
-      expect(result).toContain("Accuracy Retention: Maintains 99.8% of the system's energy");
+      expect(result).toContain(
+        "Edge AI Parameters & Latency: 260,000 parameters, quantized to INT8, with 9 ms inference latency",
+      );
+      expect(result).toContain(
+        "Accuracy Retention: Maintains 99.8% of the system's energy",
+      );
       expect(result).toContain("Modulus prediction error: 4.8%");
       expect(result).not.toContain("**");
       expect(result).not.toContain("##");

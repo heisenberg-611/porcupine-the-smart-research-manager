@@ -197,7 +197,7 @@ export function SearchClient({
 
   return (
     <section className="flex flex-col gap-6">
-      <div className="from-surface/80 via-raised/60 to-surface border-border/70 relative rounded-2xl border p-6 shadow-sm ring-1 ring-white/5 bg-gradient-to-br">
+      <div className="from-surface/80 via-raised/60 to-surface border-border/70 relative rounded-2xl border bg-gradient-to-br p-6 shadow-sm ring-1 ring-white/5">
         <form onSubmit={onSubmit} className="relative z-10 flex flex-col gap-4">
           <Field
             label="Search terms"
@@ -214,12 +214,12 @@ export function SearchClient({
                 required
                 autoComplete="off"
                 placeholder="e.g. spaced repetition medical education"
-                className="border-border/70 bg-surface text-ink text-ui focus:border-accent focus:ring-accent min-h-12 w-full flex-1 rounded-2xl border px-4 shadow-xs transition-all focus:outline-none focus:ring-2"
+                className="border-border/70 bg-surface text-ink text-ui focus:border-accent focus:ring-accent min-h-12 w-full flex-1 rounded-2xl border px-4 shadow-xs transition-all focus:ring-2 focus:outline-none"
               />
               <Button
                 type="submit"
                 variant="primary"
-                className="rounded-2xl px-6 font-medium shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5"
+                className="rounded-2xl px-6 font-medium shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
                 busy={pending}
                 busyLabel="Searching…"
               >
@@ -239,7 +239,7 @@ export function SearchClient({
                 placeholder="Any"
                 value={fromYear}
                 onChange={(e) => setFromYear(e.target.value)}
-                className="border-border/70 bg-surface text-ink text-ui focus:border-accent min-h-11 w-28 rounded-2xl border px-3 shadow-xs transition-all focus:outline-none focus:ring-2 focus:ring-accent"
+                className="border-border/70 bg-surface text-ink text-ui focus:border-accent focus:ring-accent min-h-11 w-28 rounded-2xl border px-3 shadow-xs transition-all focus:ring-2 focus:outline-none"
               />
             </Field>
             <Field label="To year" id="toYear">
@@ -252,7 +252,7 @@ export function SearchClient({
                 placeholder="Any"
                 value={toYear}
                 onChange={(e) => setToYear(e.target.value)}
-                className="border-border/70 bg-surface text-ink text-ui focus:border-accent min-h-11 w-28 rounded-2xl border px-3 shadow-xs transition-all focus:outline-none focus:ring-2 focus:ring-accent"
+                className="border-border/70 bg-surface text-ink text-ui focus:border-accent focus:ring-accent min-h-11 w-28 rounded-2xl border px-3 shadow-xs transition-all focus:ring-2 focus:outline-none"
               />
             </Field>
           </div>
@@ -350,7 +350,7 @@ export function SearchClient({
               </div>
             ) : (
               <>
-                <div className="border-border/70 from-surface/90 via-raised/70 to-surface flex flex-col gap-4 rounded-2xl border p-5 shadow-xs bg-gradient-to-br">
+                <div className="border-border/70 from-surface/90 via-raised/70 to-surface flex flex-col gap-4 rounded-2xl border bg-gradient-to-br p-5 shadow-xs">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex flex-col gap-1.5">
                       <p className="text-ink text-ui font-semibold">
@@ -386,7 +386,9 @@ export function SearchClient({
                       <MarkdownViewerDialog
                         content={getMarkdownContent() ?? ""}
                         title={`Search Export: ${searched || terms}`}
-                        filename={generateSearchExportFilename(searched || terms || "search-results")}
+                        filename={generateSearchExportFilename(
+                          searched || terms || "search-results",
+                        )}
                         triggerLabel="Preview Markdown"
                         triggerVariant="ghost"
                         triggerClassName="border-border/70 bg-surface/80 hover:bg-surface text-ink hover:border-accent/40 rounded-full border text-sm font-medium shadow-xs transition-all"
@@ -433,7 +435,7 @@ export function SearchClient({
                       value={filterQuery}
                       onChange={(e) => setFilterQuery(e.target.value)}
                       placeholder="Search within loaded results (filter by keyword, author, abstract, year, DOI...)"
-                      className="border-border/70 bg-surface/90 text-ink text-ui placeholder:text-muted/60 focus:border-accent min-h-11 w-full rounded-xl border pr-9 pl-10 shadow-2xs transition-all focus:outline-none focus:ring-2 focus:ring-accent"
+                      className="border-border/70 bg-surface/90 text-ink text-ui placeholder:text-muted/60 focus:border-accent focus:ring-accent min-h-11 w-full rounded-xl border pr-9 pl-10 shadow-2xs transition-all focus:ring-2 focus:outline-none"
                     />
                     {filterQuery && (
                       <button
@@ -460,7 +462,7 @@ export function SearchClient({
                       type="button"
                       variant="ghost"
                       onClick={() => setFilterQuery("")}
-                      className="mt-3 rounded-full border border-border/70 text-sm"
+                      className="border-border/70 mt-3 rounded-full border text-sm"
                     >
                       Clear search filter
                     </Button>
@@ -511,7 +513,10 @@ function ResultsSkeleton() {
   return (
     <ul className="flex flex-col gap-3" aria-hidden>
       {[0, 1, 2].map((i) => (
-        <li key={i} className="border-rule/70 bg-surface/30 rounded-2xl border p-5 shadow-xs">
+        <li
+          key={i}
+          className="border-rule/70 bg-surface/30 rounded-2xl border p-5 shadow-xs"
+        >
           <Skeleton className="h-5 w-3/4" />
           <Skeleton className="mt-2 h-4 w-1/2" />
           <Skeleton className="mt-3 h-4 w-full" />
@@ -584,7 +589,7 @@ function ResultCard({
   return (
     <li
       className={cx(
-        "rounded-2xl border p-6 transition-all duration-300 shadow-xs",
+        "rounded-2xl border p-6 shadow-xs transition-all duration-300",
         // An added paper stays in the list rather than vanishing — you are
         // reading a ranking, and having rows disappear underneath you loses
         // your place. It just stops looking like something to act on.

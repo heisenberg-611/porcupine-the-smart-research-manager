@@ -13,10 +13,10 @@ const ROLE_OPTIONS = [
   { value: "OBSERVER", label: "Observer — reads only" },
 ] as const;
 
-export function InviteMemberForm({ 
-  projectId, 
-  isDisconnected 
-}: { 
+export function InviteMemberForm({
+  projectId,
+  isDisconnected,
+}: {
   projectId: string;
   isDisconnected?: boolean;
 }) {
@@ -110,9 +110,10 @@ export function InviteMemberForm({
             Google Drive Disconnected
           </h4>
 
-          <div className="text-warning-strong text-sm leading-relaxed ml-7 space-y-2">
+          <div className="text-warning-strong ml-7 space-y-2 text-sm leading-relaxed">
             <p>
-              Your Google account is not connected. The member will be added to the project, but won't get automatic access to the Google Drive folder.
+              Your Google account is not connected. The member will be added to the
+              project, but won't get automatic access to the Google Drive folder.
             </p>
           </div>
 
@@ -140,7 +141,7 @@ export function InviteMemberForm({
               type="button"
               variant="ghost"
               onClick={() => setShowWarning(false)}
-              className="min-h-9 px-4 text-sm text-muted hover:text-ink"
+              className="text-muted hover:text-ink min-h-9 px-4 text-sm"
             >
               Cancel
             </Button>
@@ -174,12 +175,25 @@ export function InviteMemberForm({
       </Field>
 
       {(role === "ADMIN" || role === "CONTRIBUTOR") && (
-        <div className="border-warning/40 bg-warning-soft/20 text-warning-strong flex items-start gap-3 rounded-lg border p-3 text-sm animate-in fade-in slide-in-from-top-2 duration-200">
-          <svg className="text-warning mt-0.5 h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        <div className="border-warning/40 bg-warning-soft/20 text-warning-strong animate-in fade-in slide-in-from-top-2 flex items-start gap-3 rounded-lg border p-3 text-sm duration-200">
+          <svg
+            className="text-warning mt-0.5 h-5 w-5 shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            />
           </svg>
           <p className="leading-relaxed">
-            <strong>Warning:</strong> Google Drive prevents permission changes if a member creates a file. If this member creates a file in the shared folder, Google will block you from downgrading OR removing ANY members in the future. Please set other users' permissions properly before adding anyone as an Editor.
+            <strong>Warning:</strong> Google Drive prevents permission changes if a member
+            creates a file. If this member creates a file in the shared folder, Google
+            will block you from downgrading OR removing ANY members in the future. Please
+            set other users' permissions properly before adding anyone as an Editor.
           </p>
         </div>
       )}

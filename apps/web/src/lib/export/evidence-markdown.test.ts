@@ -123,8 +123,12 @@ describe("toEvidenceMarkdown", () => {
     expect(md).toContain("## Detailed Extractions by Paper");
     expect(md).toContain("### 1. Deep Learning for Structural Health (2026)");
     expect(md).toContain("- **Authors:** Smith, J., Doe, A.");
-    expect(md).toContain("- **Publication:** 2026 · Venue: *Nature Machine Intelligence*");
-    expect(md).toContain("[DOI: 10.1038/s42256-026-001](https://doi.org/10.1038/s42256-026-001)");
+    expect(md).toContain(
+      "- **Publication:** 2026 · Venue: *Nature Machine Intelligence*",
+    );
+    expect(md).toContain(
+      "[DOI: 10.1038/s42256-026-001](https://doi.org/10.1038/s42256-026-001)",
+    );
     expect(md).toContain("[arXiv: 2601.12345](https://arxiv.org/abs/2601.12345)");
     expect(md).toContain("[PMID: 39012345](https://pubmed.ncbi.nlm.nih.gov/39012345)");
     expect(md).toContain("[Open Access PDF](https://example.com/paper1.pdf)");

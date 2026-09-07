@@ -166,8 +166,7 @@ export function toXlsx(
     maxCols > 0
       ? `<cols>${colWidths
           .map(
-            (w, i) =>
-              `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`,
+            (w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`,
           )
           .join("")}</cols>`
       : "";
@@ -178,8 +177,7 @@ export function toXlsx(
   const sheetRows = rows
     .map((row, r) => {
       // Row 0 is the header (styleId 1), data rows cycle through distinct pastel paper colors
-      const styleId =
-        r === 0 ? 1 : paperStyleIds[(r - 1) % paperStyleIds.length] ?? 0;
+      const styleId = r === 0 ? 1 : (paperStyleIds[(r - 1) % paperStyleIds.length] ?? 0);
       const cells = row
         .map((value, c) => cellXml(`${columnRef(c)}${r + 1}`, value, styleId))
         .join("");
