@@ -100,6 +100,20 @@ thesis. **The kind cannot be changed afterwards.**
 
 ---
 
+## Architecture
+
+<div align="center">
+
+<img src="docs/architecture/system-architecture.visual-check.2048x1320.dark.png" alt="porcupineResearch System Architecture Diagram" width="100%">
+
+*porcupineResearch System Architecture — federated discovery engine, quote-anchored extraction pipeline, and RLS-secured storage tier.*
+
+[**Open Interactive Architecture Diagram (with Guided Views) →**](docs/architecture/system-architecture.html)
+
+</div>
+
+---
+
 ## Running your own copy
 
 You need **Docker Desktop running** and **Node 24**. Everything else is in the

@@ -1,0 +1,282 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "porcupineResearch System Architecture",
+    "output": "porcupine-architecture.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "primary-flow",
+        "label": "Primary research & discovery flow",
+        "focus": ["researchers", "edge_gateway", "web_app", "discovery_engine", "academic_apis", "db_layer", "postgres_db"],
+        "note": "Trace a literature search from the researcher through federated discovery and deduplication to RLS-guarded Postgres."
+      },
+      {
+        "id": "provenance-and-anchoring",
+        "label": "Evidence extraction & anchoring",
+        "focus": ["researchers", "web_app", "anchoring_engine", "db_layer", "postgres_db"],
+        "note": "Enforce passage-level quote anchoring and trigger-guarded systematic review decisions."
+      },
+      {
+        "id": "security-and-storage",
+        "label": "Security, E2EE, and storage",
+        "focus": ["auth_service", "edge_gateway", "crypto_engine", "web_app", "postgres_db", "file_storage"],
+        "note": "Isolate passwordless auth, client-side encryption for notes/LaTeX, and manuscript file storage."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "researchers",
+      "type": "external",
+      "label": "Research Team",
+      "sublabel": "Browser / Reader UI",
+      "pos": [40, 200],
+      "size": [130, 64],
+      "tag": "Thesis & Review"
+    },
+    {
+      "id": "auth_service",
+      "type": "security",
+      "brand": "supabase",
+      "label": "Supabase Auth",
+      "sublabel": "OTP & OAuth Gate",
+      "pos": [40, 50],
+      "size": [130, 64],
+      "tag": "Passwordless"
+    },
+    {
+      "id": "edge_gateway",
+      "type": "frontend",
+      "brand": "vercel",
+      "label": "Edge Gateway",
+      "sublabel": "Next.js 16 SSR & Proxy",
+      "pos": [250, 200],
+      "size": [130, 64]
+    },
+    {
+      "id": "web_app",
+      "type": "frontend",
+      "brand": "next-js",
+      "label": "App Server",
+      "sublabel": "Server Actions & UI",
+      "pos": [460, 200],
+      "size": [140, 64],
+      "tag": "React 19"
+    },
+    {
+      "id": "discovery_engine",
+      "type": "backend",
+      "brand": "typescript",
+      "label": "Discovery Engine",
+      "sublabel": "Federated Search & Dedupe",
+      "pos": [680, 50],
+      "size": [140, 64],
+      "tag": "packages/discovery"
+    },
+    {
+      "id": "academic_apis",
+      "type": "external",
+      "label": "Academic APIs",
+      "sublabel": "OpenAlex, Crossref, arXiv",
+      "pos": [900, 50],
+      "size": [150, 64],
+      "tag": "EuropePMC & S2"
+    },
+    {
+      "id": "db_layer",
+      "type": "backend",
+      "brand": "prisma",
+      "label": "Data Access Layer",
+      "sublabel": "Prisma 7 & Audit Trail",
+      "pos": [680, 200],
+      "size": [140, 64],
+      "tag": "packages/db"
+    },
+    {
+      "id": "postgres_db",
+      "type": "database",
+      "brand": "postgresql",
+      "label": "PostgreSQL DB",
+      "sublabel": "RLS & Exclusion Triggers",
+      "pos": [900, 200],
+      "size": [150, 64],
+      "tag": "Supabase PG"
+    },
+    {
+      "id": "crypto_engine",
+      "type": "security",
+      "label": "Crypto Service",
+      "sublabel": "libsodium E2EE",
+      "pos": [250, 350],
+      "size": [130, 64],
+      "tag": "packages/crypto"
+    },
+    {
+      "id": "anchoring_engine",
+      "type": "backend",
+      "brand": "typescript",
+      "label": "Anchoring Engine",
+      "sublabel": "Quote Text Fragments",
+      "pos": [460, 350],
+      "size": [140, 64],
+      "tag": "packages/anchoring"
+    },
+    {
+      "id": "file_storage",
+      "type": "cloud",
+      "brand": "supabase",
+      "label": "Document Storage",
+      "sublabel": "PDFs & LaTeX Sources",
+      "pos": [900, 350],
+      "size": [150, 64],
+      "tag": "Supabase Storage"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Application Runtime (Next.js & Workspace Packages)",
+      "wraps": ["edge_gateway", "web_app", "discovery_engine", "db_layer", "crypto_engine", "anchoring_engine"]
+    },
+    {
+      "kind": "region",
+      "label": "Managed Data & Storage Tier (Supabase)",
+      "wraps": ["postgres_db", "file_storage"]
+    },
+    {
+      "kind": "security-group",
+      "label": "RLS & Provenance Guard",
+      "wraps": ["db_layer", "postgres_db"]
+    }
+  ],
+  "connections": [
+    {
+      "id": "users-to-edge",
+      "from": "researchers",
+      "to": "edge_gateway",
+      "label": "HTTPS",
+      "variant": "emphasis"
+    },
+    {
+      "id": "auth-session",
+      "from": "auth_service",
+      "to": "edge_gateway",
+      "label": "verify session",
+      "variant": "security",
+      "fromSide": "right",
+      "toSide": "top"
+    },
+    {
+      "id": "edge-to-app",
+      "from": "edge_gateway",
+      "to": "web_app",
+      "label": "SSR & Actions",
+      "variant": "emphasis"
+    },
+    {
+      "id": "edge-to-crypto",
+      "from": "edge_gateway",
+      "to": "crypto_engine",
+      "label": "E2EE payload",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 44
+    },
+    {
+      "id": "app-to-discovery",
+      "from": "web_app",
+      "to": "discovery_engine",
+      "label": "search query",
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "id": "discovery-to-academic",
+      "from": "discovery_engine",
+      "to": "academic_apis",
+      "label": "federated query",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "discovery-to-db",
+      "from": "discovery_engine",
+      "to": "db_layer",
+      "label": "deduped papers",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 44
+    },
+    {
+      "id": "db-to-postgres",
+      "from": "db_layer",
+      "to": "postgres_db",
+      "label": "RLS SQL",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "app-to-anchoring",
+      "from": "web_app",
+      "to": "anchoring_engine",
+      "label": "anchor quote",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 44
+    },
+    {
+      "id": "anchoring-to-db",
+      "from": "anchoring_engine",
+      "to": "db_layer",
+      "label": "anchored claims",
+      "fromSide": "right",
+      "toSide": "bottom"
+    },
+    {
+      "id": "postgres-to-storage",
+      "from": "postgres_db",
+      "to": "file_storage",
+      "label": "file refs",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 44
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Federated Discovery Engine",
+      "items": [
+        "Concurrent search across OpenAlex, Crossref, Semantic Scholar, arXiv, Europe PMC",
+        "SSRF-protected outbound HTTP with per-provider rate limiting",
+        "Normalisation and title/DOI deduplication before presenting to researcher"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Provenance & Data Integrity",
+      "items": [
+        "Exact text fragment anchoring links extraction claims directly to manuscript sentences",
+        "Database triggers enforce mandatory exclusion rationale for systematic reviews",
+        "Prisma 7 query engine backed by Supabase PostgreSQL Row-Level Security (RLS)"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Security & E2EE Privacy",
+      "items": [
+        "Passwordless email OTP and Google OAuth via Supabase Auth",
+        "libsodium XChaCha20-Poly1305 client/server encryption for notes and LaTeX sources",
+        "Deliberately zero AI: full provenance and human accountability"
+      ]
+    }
+  ]
+}
