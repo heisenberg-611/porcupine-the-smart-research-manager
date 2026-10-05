@@ -108,7 +108,7 @@ thesis. **The kind cannot be changed afterwards.**
 
 *porcupineResearch System Architecture — federated discovery engine, quote-anchored extraction pipeline, and RLS-secured storage tier.*
 
-[**Open Interactive Architecture Diagram (with Guided Views) →**](docs/architecture/system-architecture.html)
+[**Open Interactive Architecture Diagram (with Guided Views) →**](https://htmlpreview.github.io/?https://github.com/heisenberg-611/porcupine-the-smart-research-manager/blob/main/docs/architecture/system-architecture.html)
 
 </div>
 
