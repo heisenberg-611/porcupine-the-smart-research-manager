@@ -95,14 +95,14 @@ export default async function LibraryPage({
     query = query.eq("screen_status", status);
   }
 
-  const data = await must(query, "the library");
+  const [data, allData] = await Promise.all([
+    must(query, "the library"),
+    must(
+      supabase.from("project_works").select("screen_status").eq("project_id", id),
+      "library counts",
+    ),
+  ]);
   const rows = (data ?? []) as unknown as LibraryRow[];
-
-  // Counts for the filter chips, from a separate unfiltered read.
-  const allData = await must(
-    supabase.from("project_works").select("screen_status").eq("project_id", id),
-    "library counts",
-  );
 
   const counts = new Map<string, number>();
   for (const row of (allData ?? []) as Array<{ screen_status: string }>) {
@@ -292,7 +292,7 @@ function FilterChip({
       <span>{label}</span>
       <span
         className={`rounded-full px-2 py-0.5 font-mono text-[10px] font-bold ${
-          active ? "bg-black/15 dark:bg-black/25 text-accent-ink" : "bg-raised text-muted"
+          active ? "text-accent-ink bg-black/15 dark:bg-black/25" : "bg-raised text-muted"
         }`}
       >
         {count}

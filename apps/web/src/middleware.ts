@@ -25,7 +25,32 @@ import { isPublicPath } from "@/lib/public-routes";
  */
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  const { pathname } = request.nextUrl;
+
+  // Sanitize incoming headers to prevent client-side header spoofing
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.delete("x-supabase-user");
+
+  // Fast path for public routes without an active Supabase session cookie:
+  // If an unauthenticated visitor requests a public marketing page, do not waste
+  // an external HTTPS network call to Supabase Auth.
+  const hasAuthCookie = request.cookies
+    .getAll()
+    .some((c) => c.name.startsWith("sb-") && c.name.includes("-auth-token"));
+
+  if (isPublicPath(pathname) && !hasAuthCookie) {
+    return NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
+  }
+
+  let response = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -39,7 +64,11 @@ export async function middleware(request: NextRequest) {
           for (const { name, value } of cookiesToSet) {
             request.cookies.set(name, value);
           }
-          response = NextResponse.next({ request });
+          response = NextResponse.next({
+            request: {
+              headers: requestHeaders,
+            },
+          });
           for (const { name, value, options } of cookiesToSet) {
             response.cookies.set(name, value, options);
           }
@@ -54,7 +83,22 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { pathname } = request.nextUrl;
+  if (user) {
+    requestHeaders.set("x-supabase-user", JSON.stringify(user));
+  } else {
+    requestHeaders.delete("x-supabase-user");
+  }
+
+  // Preserve any cookies set by Supabase SSR during token refresh
+  const existingCookies = response.cookies.getAll();
+  response = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
+  for (const cookie of existingCookies) {
+    response.cookies.set(cookie);
+  }
 
   if (!user && !isPublicPath(pathname)) {
     const url = request.nextUrl.clone();

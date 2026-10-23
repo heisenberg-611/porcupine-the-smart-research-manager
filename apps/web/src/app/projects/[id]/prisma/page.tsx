@@ -41,42 +41,38 @@ export default async function PrismaPage({
   const project = await getProject(id);
   if (!project) notFound();
 
-  const flowRows = await must(
-    supabase
-      .from("v_prisma_flow")
-      .select(
-        "records_identified, records_removed_before_screening, records_screened, records_excluded, studies_included, records_pending",
-      )
-      .eq("project_id", id),
-    "the PRISMA counts",
-  );
+  const [flowRows, manualRow, role, exclusionRows] = await Promise.all([
+    must(
+      supabase
+        .from("v_prisma_flow")
+        .select(
+          "records_identified, records_removed_before_screening, records_screened, records_excluded, studies_included, records_pending",
+        )
+        .eq("project_id", id),
+      "the PRISMA counts",
+    ),
+    must(
+      supabase
+        .from("prisma_manual_counts")
+        .select(
+          "registers_identified, automation_ineligible, other_removed_before, " +
+            "reports_sought, reports_not_retrieved, other_websites, other_organisations, " +
+            "other_citation_searching, other_reports_sought, other_reports_not_retrieved, " +
+            "other_reports_assessed, other_reports_excluded, other_studies_included, " +
+            "reports_of_included_studies",
+        )
+        .eq("project_id", id)
+        .maybeSingle(),
+      "the entered PRISMA counts",
+    ),
+    getProjectRole(id, user.id),
+    must(
+      supabase.from("v_prisma_exclusions").select("reason, count").eq("project_id", id),
+      "exclusion reasons",
+    ),
+  ]);
 
   const flow = ((flowRows ?? []) as unknown as FlowRow[])[0];
-
-  /*
-   * The figures nobody can count for us.
-   *
-   * `maybeSingle`, because a project that has never had them entered has no
-   * row — which is not an error and not an empty review, it is a review whose
-   * team has not got to this yet. Every field then reads as null and the
-   * diagram draws a dash.
-   */
-  const manualRow = await must(
-    supabase
-      .from("prisma_manual_counts")
-      .select(
-        "registers_identified, automation_ineligible, other_removed_before, " +
-          "reports_sought, reports_not_retrieved, other_websites, other_organisations, " +
-          "other_citation_searching, other_reports_sought, other_reports_not_retrieved, " +
-          "other_reports_assessed, other_reports_excluded, other_studies_included, " +
-          "reports_of_included_studies",
-      )
-      .eq("project_id", id)
-      .maybeSingle(),
-    "the entered PRISMA counts",
-  );
-
-  const role = await getProjectRole(id, user.id);
   const canEditCounts = role === "OWNER" || role === "ADMIN";
 
   const raw = (manualRow ?? {}) as Record<string, number | null>;
@@ -96,11 +92,6 @@ export default async function PrismaPage({
     otherStudiesIncluded: raw.other_studies_included ?? null,
     reportsOfIncludedStudies: raw.reports_of_included_studies ?? null,
   };
-
-  const exclusionRows = await must(
-    supabase.from("v_prisma_exclusions").select("reason, count").eq("project_id", id),
-    "exclusion reasons",
-  );
 
   const counts: PrismaCounts = {
     recordsIdentified: flow?.records_identified ?? 0,

@@ -28,12 +28,14 @@ export default async function ProjectLayout({
 
   if (!project) notFound();
 
-  const role = await getProjectRole(id, user.id);
-  const isOwner = role === "OWNER";
-
   const kind = isProjectKind(project.kind) ? project.kind : "GENERAL";
   const sections = projectSections(kind);
-  const { pipeline } = await getProjectWorkflowPipeline(project.id, kind);
+
+  const [role, { pipeline }] = await Promise.all([
+    getProjectRole(id, user.id),
+    getProjectWorkflowPipeline(project.id, kind),
+  ]);
+  const isOwner = role === "OWNER";
 
   return (
     <>

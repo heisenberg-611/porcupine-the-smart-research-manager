@@ -39,6 +39,13 @@ const nextConfig: NextConfig = {
   ],
 
   typedRoutes: true,
+  compress: true,
+  experimental: {
+    staleTimes: {
+      dynamic: 30,
+      static: 180,
+    },
+  },
 
   async headers() {
     return [

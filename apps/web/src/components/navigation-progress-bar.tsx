@@ -22,7 +22,7 @@ export function NavigationProgressBar() {
       const timeout = setTimeout(() => {
         setActive(false);
         setProgress(0);
-      }, 250);
+      }, 120);
       return () => clearTimeout(timeout);
     }
   }, [pathname, searchParams]);

@@ -1,5 +1,5 @@
 import { PageSkeleton } from "@/components/ui";
 
 export default function Loading() {
-  return <PageSkeleton shape="form" label="Loading the protocol" />;
+  return <PageSkeleton shape="form" label="Loading protocol" />;
 }

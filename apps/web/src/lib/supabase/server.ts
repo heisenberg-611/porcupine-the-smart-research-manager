@@ -1,7 +1,8 @@
 import "server-only";
 
 import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import type { User } from "@supabase/supabase-js";
+import { cookies, headers } from "next/headers";
 import { cache } from "react";
 
 /**
@@ -41,14 +42,24 @@ export async function createClient() {
 /**
  * The authenticated user, or null.
  *
- * Always `getUser()`, never `getSession()`: getSession reads the cookie
- * without verifying it, so it can be forged. getUser revalidates against
- * the auth server.
+ * Checks if the middleware already verified the user in this request
+ * lifecycle via forwarded request headers (avoiding an expensive duplicate
+ * HTTPS roundtrip to Supabase Auth). If absent, falls back to `getUser()`.
  *
  * Memoized with `cache()` so multiple layout and page components within
  * the same request lifecycle do not trigger duplicate network roundtrips.
  */
-export const getCurrentUser = cache(async () => {
+export const getCurrentUser = cache(async (): Promise<User | null> => {
+  try {
+    const headerStore = await headers();
+    const forwardedUser = headerStore.get("x-supabase-user");
+    if (forwardedUser) {
+      return JSON.parse(forwardedUser) as User;
+    }
+  } catch {
+    // If headers() cannot be read (e.g. outside request context), fall through
+  }
+
   const supabase = await createClient();
   const {
     data: { user },

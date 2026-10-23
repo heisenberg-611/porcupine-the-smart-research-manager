@@ -43,29 +43,36 @@ export default async function ProtocolPage({
   const project = await getProject(id);
   if (!project) notFound();
 
-  const protocolRows = await must(
-    supabase
-      .from("protocols")
-      .select(
-        "id, name, version, is_active, protocol_fields(id, key, label, type, required, requires_anchor, help_text, options, order)",
-      )
-      .eq("project_id", id)
-      .order("version", { ascending: false }),
-    "the protocol",
-  );
-
-  // Answer counts drive the whole editor: a field with answers cannot be
-  // renamed or removed, and the UI says so BEFORE someone tries rather than
-  // surfacing a database error after.
-  const extractionRows = await must(
-    supabase.from("extractions").select("id, protocol_id").eq("project_id", id),
-    "recorded extractions",
-  );
-
-  const valueRows = await must(
-    supabase.from("extraction_values").select("field_id").eq("project_id", id),
-    "recorded answers",
-  );
+  const [protocolRows, extractionRows, valueRows, membership] = await Promise.all([
+    must(
+      supabase
+        .from("protocols")
+        .select(
+          "id, name, version, is_active, protocol_fields(id, key, label, type, required, requires_anchor, help_text, options, order)",
+        )
+        .eq("project_id", id)
+        .order("version", { ascending: false }),
+      "the protocol",
+    ),
+    must(
+      supabase.from("extractions").select("id, protocol_id").eq("project_id", id),
+      "recorded extractions",
+    ),
+    must(
+      supabase.from("extraction_values").select("field_id").eq("project_id", id),
+      "recorded answers",
+    ),
+    must(
+      supabase
+        .from("project_members")
+        .select("access_role")
+        .eq("project_id", id)
+        .eq("user_id", user.id)
+        .is("removed_at", null)
+        .maybeSingle(),
+      "your role on this project",
+    ),
+  ]);
 
   const answersByField = new Map<string, number>();
   for (const row of (valueRows ?? []) as Array<{ field_id: string }>) {
@@ -101,17 +108,6 @@ export default async function ProtocolPage({
           answerCount: answersByField.get(f.id) ?? 0,
         })),
     }),
-  );
-
-  const membership = await must(
-    supabase
-      .from("project_members")
-      .select("access_role")
-      .eq("project_id", id)
-      .eq("user_id", user.id)
-      .is("removed_at", null)
-      .maybeSingle(),
-    "your role on this project",
   );
 
   const role = (membership as { access_role?: string } | null)?.access_role;

@@ -116,7 +116,7 @@ export default async function DashboardPage() {
   return (
     <main
       id="main"
-      className="animate-in fade-in slide-in-from-bottom-4 mx-auto flex max-w-4xl flex-col gap-10 px-6 py-12 duration-700"
+      className="animate-in fade-in slide-in-from-bottom-2 mx-auto flex max-w-4xl flex-col gap-10 px-6 py-12 duration-200"
     >
       <PageHeader
         title="Dashboard"

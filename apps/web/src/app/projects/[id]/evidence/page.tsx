@@ -107,16 +107,38 @@ export default async function EvidencePage({
    * Which one this request means is decided by `resolveProtocol`, shared with
    * the export route so a link and its CSV cannot disagree about the columns.
    */
-  const protocols = ((await must(
-    supabase
-      .from("protocols")
-      .select(
-        "id, name, version, is_active, protocol_fields(id, key, label, type, order)",
-      )
-      .eq("project_id", id)
-      .order("version", { ascending: false }),
-    "the protocols",
-  )) ?? []) as unknown as Array<{
+  const [protocolsRes, perProtocolRes, coverageRes] = await Promise.all([
+    must(
+      supabase
+        .from("protocols")
+        .select(
+          "id, name, version, is_active, protocol_fields(id, key, label, type, order)",
+        )
+        .eq("project_id", id)
+        .order("version", { ascending: false }),
+      "the protocols",
+    ),
+    must(
+      supabase
+        .from("extractions")
+        .select("protocol_id")
+        .eq("project_id", id)
+        .neq("status", "DRAFT"),
+      "extraction counts per protocol",
+    ),
+    must(
+      supabase
+        .from("v_question_coverage")
+        .select(
+          "question_id, question_text, question_order, field_count, included_papers, papers_answered",
+        )
+        .eq("project_id", id)
+        .order("question_order", { ascending: true }),
+      "question coverage",
+    ),
+  ]);
+
+  const protocols = (protocolsRes ?? []) as unknown as Array<{
     id: string;
     name: string;
     version: number;
@@ -160,20 +182,7 @@ export default async function EvidencePage({
     (a, b) => a.order - b.order,
   );
 
-  /*
-   * How much work sits under each protocol.
-   *
-   * Shown in the picker, because the question somebody arrives with is "where
-   * did my extraction go" and a list of names cannot answer it. A count can.
-   */
-  const perProtocol = ((await must(
-    supabase
-      .from("extractions")
-      .select("protocol_id")
-      .eq("project_id", id)
-      .neq("status", "DRAFT"),
-    "extraction counts per protocol",
-  )) ?? []) as unknown as Array<{ protocol_id: string }>;
+  const perProtocol = (perProtocolRes ?? []) as unknown as Array<{ protocol_id: string }>;
 
   const countsByProtocol = new Map<string, number>();
   for (const row of perProtocol) {
@@ -231,16 +240,7 @@ export default async function EvidencePage({
     ]),
   );
 
-  const coverage = (await must(
-    supabase
-      .from("v_question_coverage")
-      .select(
-        "question_id, question_text, question_order, field_count, included_papers, papers_answered",
-      )
-      .eq("project_id", id)
-      .order("question_order", { ascending: true }),
-    "question coverage",
-  )) as unknown as CoverageRow[];
+  const coverage = (coverageRes ?? []) as unknown as CoverageRow[];
 
   const total = rows[0]?.total_rows ?? 0;
   const page = Math.floor(query.offset / PAGE_SIZE) + 1;

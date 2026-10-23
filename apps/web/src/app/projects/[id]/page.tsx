@@ -78,7 +78,7 @@ export default async function ProjectPage({
   const caps = capabilities(kind);
   const sections = projectSections(kind);
 
-  const [memberData, { pipeline, counts }] = await Promise.all([
+  const [memberData, { pipeline, counts }, { isDisconnected }] = await Promise.all([
     must(
       supabase
         .from("project_members")
@@ -94,6 +94,7 @@ export default async function ProjectPage({
       "project members",
     ),
     getProjectWorkflowPipeline(id, kind),
+    import("../actions").then((mod) => mod.checkProjectAutomationState(id)),
   ]);
 
   const { papers, unscreened, included, excluded } = counts;
@@ -101,9 +102,6 @@ export default async function ProjectPage({
   const members = (memberData ?? []) as unknown as MemberRow[];
   const me = members.find((m) => m.user_id === user.id);
   const canInvite = me?.access_role === "OWNER" || me?.access_role === "ADMIN";
-
-  const { checkProjectAutomationState } = await import("../actions");
-  const { isDisconnected } = await checkProjectAutomationState(id);
 
   const byGroup = new Map<SectionGroup, typeof sections>();
   for (const section of sections) {

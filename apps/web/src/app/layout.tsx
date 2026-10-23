@@ -53,7 +53,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <NavigationProgressBar />
           </Suspense>
           <AppHeaderVisibility>
-            <AppHeader />
+            <Suspense fallback={null}>
+              <AppHeader />
+            </Suspense>
           </AppHeaderVisibility>
           {children}
           {/* Last in the document, deliberately: the skip link has to stay the

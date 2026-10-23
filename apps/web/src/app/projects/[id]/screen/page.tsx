@@ -55,19 +55,30 @@ export default async function ScreenPage({
   const project = await getProject(id);
   if (!project) notFound();
 
-  const data = await must(
-    supabase
-      .from("project_works")
-      .select(
-        "id, screen_status, exclude_reason, assignee_id, due_at, works(title, authors, venue, published_year, abstract, doi, arxiv_id, pmid, oa_pdf_url)",
-      )
-      .eq("project_id", id)
-      .in("screen_status", ["IDENTIFIED", "SCREENING"])
-      .order("relevance_score", { ascending: false, nullsFirst: false })
-      .order("created_at", { ascending: true })
-      .limit(100),
-    "papers to screen",
-  );
+  const [data, memberData] = await Promise.all([
+    must(
+      supabase
+        .from("project_works")
+        .select(
+          "id, screen_status, exclude_reason, assignee_id, due_at, works(title, authors, venue, published_year, abstract, doi, arxiv_id, pmid, oa_pdf_url)",
+        )
+        .eq("project_id", id)
+        .in("screen_status", ["IDENTIFIED", "SCREENING"])
+        .order("relevance_score", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: true })
+        .limit(100),
+      "papers to screen",
+    ),
+    must(
+      supabase
+        .from("project_members")
+        // Constraint named: `project_members.invited_by` also points at users.
+        .select("user_id, users!project_members_user_id_fkey(display_name)")
+        .eq("project_id", id)
+        .is("removed_at", null),
+      "project members",
+    ),
+  ]);
 
   // Every member is served the same relevance-ranked pool in a DIFFERENT
   // deterministic order.
@@ -101,16 +112,6 @@ export default async function ScreenPage({
     pmid: row.works?.pmid ?? null,
     oaPdfUrl: row.works?.oa_pdf_url ?? null,
   }));
-
-  const memberData = await must(
-    supabase
-      .from("project_members")
-      // Constraint named: `project_members.invited_by` also points at users.
-      .select("user_id, users!project_members_user_id_fkey(display_name)")
-      .eq("project_id", id)
-      .is("removed_at", null),
-    "project members",
-  );
 
   const members: Member[] = (
     (memberData ?? []) as unknown as Array<{
