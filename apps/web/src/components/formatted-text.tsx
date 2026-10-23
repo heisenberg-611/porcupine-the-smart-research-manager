@@ -38,10 +38,10 @@ export function highlightText(
           data-search-match="true"
           data-match-index={matchIdx}
           className={cx(
-            "rounded-xs px-0.5 transition-all",
+            "rounded-sm px-0.5 transition-all",
             isActive
               ? "ring-accent bg-amber-400 font-bold text-black shadow-xs ring-2 ring-offset-1 dark:bg-amber-300 dark:text-black"
-              : "bg-amber-200/90 font-medium text-black dark:bg-amber-400/30 dark:text-amber-200",
+              : "bg-amber-200/90 font-medium text-black dark:bg-amber-400/25 dark:text-amber-100",
           )}
         >
           {part}

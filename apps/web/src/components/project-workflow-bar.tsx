@@ -26,7 +26,7 @@ export function ProjectWorkflowBar({
   if (isDashboard) return null;
 
   return (
-    <div className="border-rule bg-canvas/95 sticky top-0 z-20 w-full border-b backdrop-blur-md transition-all">
+    <div className="border-rule bg-canvas/95 sticky top-[calc(var(--app-header-h)+var(--project-nav-h))] lg:top-0 z-20 w-full border-b backdrop-blur-md transition-all">
       <div className="flex scrollbar-none items-center justify-between gap-3 overflow-x-auto px-4 py-2.5 sm:px-6 lg:px-12">
         {/* Left: Workflow Stages Stepper connected with Arrows */}
         <nav aria-label="Research workflow progress" className="min-w-max flex-1">
@@ -115,7 +115,7 @@ function WorkflowStepPill({
         isCompleted
           ? "bg-accent/10 text-ink hover:bg-accent/20 border-accent/25 border"
           : isCurrentStep
-            ? "bg-raised text-ink ring-accent/60 ring-1.5 font-semibold shadow-xs"
+            ? "bg-raised text-ink ring-accent/60 ring-[1.5px] font-semibold shadow-xs"
             : "text-muted hover:text-ink hover:bg-raised/70 border border-transparent"
       } ${isCurrentRoute ? "ring-ink/20 ring-1 dark:ring-white/20" : ""}`}
     >

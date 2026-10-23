@@ -18,7 +18,7 @@ export default async function Home() {
   return (
     <main id="main" className="mx-auto max-w-5xl px-6 py-16 sm:py-13">
       <header className="border-rule border-b pb-15">
-        <p className="text-accent text-fine font-mono tracking-widest uppercase sm:text-2xl">
+        <p className="text-accent text-fine font-mono font-semibold tracking-widest uppercase">
           Literature review software
         </p>
 

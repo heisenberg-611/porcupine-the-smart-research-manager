@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+@custom-variant dark {
+  &:where([data-theme="dark"]:not(.theme-day *), [data-theme="dark"] *:not(.theme-day *)) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:not([data-theme="light"]):not([data-theme="light"] *):not(.theme-day):not(.theme-day *)) {
+      @slot;
+    }
+  }
+}
+
 /*
  * Design tokens — editorial.
  *
@@ -27,6 +38,7 @@
   /* ── Surfaces, warm rather than neutral grey ───────────────────────────── */
   --color-canvas: #fbfaf7;
   --color-surface: #f4f2ec;
+  --color-surface-hover: #ece8df;
   --color-raised: #ffffff;
   --color-border: #e5e1d8;
   /* A lighter line for dividing content, where `border` would shout. */
@@ -40,10 +52,19 @@
 
   /* ── One accent, used sparingly ────────────────────────────────────────── */
   --color-accent: #2f6f5e;
+  --color-accent-hover: #26594b;
   --color-accent-ink: #ffffff;
   --color-accent-soft: #e7efeb;
   --color-danger: #9c2f26;
   --color-danger-soft: #f7ebe9;
+  --color-danger-strong: #78211a;
+
+  /* ── Status indicators ─────────────────────────────────────────────────── */
+  --color-warning: #b45309;
+  --color-warning-soft: #fef3c7;
+  --color-warning-strong: #78350f;
+  --color-success: #15803d;
+  --color-success-soft: #dcfce7;
 
   /* ── Type ──────────────────────────────────────────────────────────────── */
   /*
@@ -98,40 +119,58 @@
  */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --color-canvas: #0c0e12;
-    --color-surface: #14171f;
-    --color-raised: #1b2029;
-    --color-border: #262c38;
-    --color-rule: #1e2430;
+    --color-canvas: #121110;
+    --color-surface: #1a1917;
+    --color-surface-hover: #24221f;
+    --color-raised: #22201d;
+    --color-border: #33302b;
+    --color-rule: #292723;
 
-    --color-ink: #f1f5f9;
-    --color-ink-soft: #cbd5e1;
-    --color-muted: #8b97a8;
+    --color-ink: #f5f4f0;
+    --color-ink-soft: #d4d1c9;
+    --color-muted: #949086;
 
-    --color-accent: #2dd4bf;
+    --color-accent: #34d399;
+    --color-accent-hover: #10b981;
     --color-accent-ink: #042f24;
     --color-accent-soft: #0d3329;
     --color-danger: #f87171;
     --color-danger-soft: #2e1518;
+    --color-danger-strong: #fca5a5;
+
+    --color-warning: #fbbf24;
+    --color-warning-soft: #2e2311;
+    --color-warning-strong: #fde68a;
+    --color-success: #34d399;
+    --color-success-soft: #0d3329;
   }
 }
 
 :root[data-theme="dark"] {
-  --color-canvas: #0c0e12;
-  --color-surface: #14171f;
-  --color-raised: #1b2029;
-  --color-border: #262c38;
-  --color-rule: #1e2430;
+  --color-canvas: #121110;
+  --color-surface: #1a1917;
+  --color-surface-hover: #24221f;
+  --color-raised: #22201d;
+  --color-border: #33302b;
+  --color-rule: #292723;
 
-  --color-ink: #f1f5f9;
-  --color-ink-soft: #cbd5e1;
-  --color-muted: #8b97a8;
+  --color-ink: #f5f4f0;
+  --color-ink-soft: #d4d1c9;
+  --color-muted: #949086;
 
-  --color-accent: #2dd4bf;
+  --color-accent: #34d399;
+  --color-accent-hover: #10b981;
   --color-accent-ink: #042f24;
   --color-accent-soft: #0d3329;
   --color-danger: #f87171;
   --color-danger-soft: #2e1518;
+  --color-danger-strong: #fca5a5;
+
+  --color-warning: #fbbf24;
+  --color-warning-soft: #2e2311;
+  --color-warning-strong: #fde68a;
+  --color-success: #34d399;
+  --color-success-soft: #0d3329;
 }
 
 /*
@@ -192,6 +231,19 @@
   .card-glow {
     box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.25);
   }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-rule) transparent;
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 ::selection {
@@ -232,6 +284,15 @@
   :focus-visible {
     outline: 1.5px solid var(--color-accent);
     outline-offset: 2px;
+  }
+
+  p a:not([class*="btn"]):not([class*="button"]):not([class*="bg-"]):not([class*="no-underline"]):not([class*="text-"]) {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  p a:not([class*="btn"]):not([class*="button"]):not([class*="bg-"]):not([class*="no-underline"]):not([class*="text-"]):hover {
+    color: var(--color-accent-hover);
   }
 }
 
@@ -326,6 +387,7 @@ h3 {
 :root:has(.theme-day) {
   --color-canvas: #fbfaf7;
   --color-surface: #f4f2ec;
+  --color-surface-hover: #ece8df;
   --color-raised: #ffffff;
   --color-border: #e5e1d8;
   --color-rule: #ddd8cc;
@@ -335,10 +397,18 @@ h3 {
   --color-muted: #66615a;
 
   --color-accent: #2f6f5e;
+  --color-accent-hover: #26594b;
   --color-accent-ink: #ffffff;
   --color-accent-soft: #e7efeb;
   --color-danger: #9c2f26;
   --color-danger-soft: #f7ebe9;
+  --color-danger-strong: #78211a;
+
+  --color-warning: #b45309;
+  --color-warning-soft: #fef3c7;
+  --color-warning-strong: #78350f;
+  --color-success: #15803d;
+  --color-success-soft: #dcfce7;
 
   /* So the caret, the scrollbar and any form control on these pages are
      dressed the same way as the page around them. */
@@ -346,6 +416,41 @@ h3 {
 }
 
 @layer components {
+  .prose-porcupine {
+    color: var(--color-ink);
+    line-height: 1.65;
+  }
+
+  .prose-porcupine > * + * {
+    margin-top: 1rem;
+  }
+
+  .prose-porcupine h1,
+  .prose-porcupine h2,
+  .prose-porcupine h3,
+  .prose-porcupine h4 {
+    color: var(--color-ink);
+    font-weight: 600;
+  }
+
+  .prose-porcupine a {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .prose-porcupine a:hover {
+    color: var(--color-accent-hover);
+  }
+
+  .prose-porcupine code {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    background: var(--color-surface);
+    border-radius: 0.25rem;
+    padding: 0.1em 0.35em;
+  }
+
   /*
    * Long-form document type — the policy and reference pages.
    *

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { MarkdownViewerDialog } from "@/components/markdown-viewer-dialog";
-import { Button, Field, Input, Skeleton } from "@/components/ui";
+import { Button, Checkbox, Field, Input, Select, Skeleton } from "@/components/ui";
 import {
   downloadSearchExportMarkdown,
   formatSearchExportMarkdown,
@@ -437,11 +437,10 @@ export function SearchClient({
                           : "border-border/60 bg-surface/50 opacity-60 hover:opacity-100",
                       )}
                     >
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={isChecked}
                         onChange={() => toggleProvider(id)}
-                        className="accent-accent mt-0.5 size-4 rounded"
+                        className="mt-0.5"
                       />
                       <div className="min-w-0">
                         <p className="text-ink text-xs font-semibold">{meta.label}</p>
@@ -645,16 +644,17 @@ export function SearchClient({
                     {/* Sort By Dropdown */}
                     <div className="flex items-center gap-2">
                       <span className="text-muted text-fine">Sort by:</span>
-                      <select
+                      <Select
+                        compact
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-                        className="border-border/70 bg-surface text-ink text-fine focus:border-accent focus:ring-accent rounded-xl border px-2.5 py-1 shadow-2xs focus:outline-none"
+                        className="text-fine"
                       >
                         <option value="relevance">Relevance & Match</option>
                         <option value="citations">Most Cited First</option>
                         <option value="year">Newest First</option>
                         <option value="title">Title (A-Z)</option>
-                      </select>
+                      </Select>
                     </div>
                   </div>
 
@@ -910,7 +910,7 @@ function ResultCard({
             type="button"
             onClick={() => setExpanded((v) => !v)}
             aria-expanded={expanded}
-            className="text-accent focus-visible:ring-accent hover:text-accent-heavy mt-2 rounded text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none"
+            className="text-accent focus-visible:ring-accent hover:text-accent-hover mt-2 rounded text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none"
           >
             {expanded ? "Show less" : "Show full abstract"}
           </button>

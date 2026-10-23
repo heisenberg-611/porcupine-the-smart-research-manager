@@ -127,7 +127,7 @@ export function LibraryRowActions({
               type="button"
               disabled={pending}
               onClick={handleReInclude}
-              className="focus-visible:ring-accent border-accent/30 bg-accent-soft text-accent hover:bg-accent hover:border-accent inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-3 text-xs font-semibold shadow-xs transition-all duration-150 hover:-translate-y-0.5 hover:text-white hover:shadow-sm focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
+              className="focus-visible:ring-accent border-accent/30 bg-accent-soft text-accent hover:bg-accent hover:border-accent hover:text-accent-ink inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-3 text-xs font-semibold shadow-xs transition-all duration-150 hover:-translate-y-0.5 hover:shadow-sm focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
               title="Include this paper back into review"
             >
               <span aria-hidden="true" className="text-xs font-bold">
@@ -139,7 +139,7 @@ export function LibraryRowActions({
               type="button"
               disabled={pending}
               onClick={openDialog}
-              className="focus-visible:ring-accent border-border bg-surface text-ink hover:bg-surface-raised hover:border-accent/50 inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-3 text-xs font-semibold shadow-xs transition-all duration-150 hover:-translate-y-0.5 hover:shadow-sm focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
+              className="focus-visible:ring-accent border-border bg-surface text-ink hover:bg-surface-hover hover:border-accent/50 inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-3 text-xs font-semibold shadow-xs transition-all duration-150 hover:-translate-y-0.5 hover:shadow-sm focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
               title="Change exclusion reason"
             >
               <span aria-hidden="true" className="text-[11px]">

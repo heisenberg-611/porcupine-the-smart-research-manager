@@ -13,9 +13,9 @@ import {
 const INTENSITY_CLASSES: Record<number, string> = {
   0: "bg-surface border border-border/40 text-transparent hover:border-border",
   1: "bg-accent/25 border border-accent/30 text-ink hover:border-accent/60",
-  2: "bg-accent/50 border border-accent/55 text-white hover:border-accent/80",
-  3: "bg-accent/75 border border-accent/80 text-white hover:border-accent",
-  4: "bg-accent border border-accent text-white shadow-xs hover:brightness-110",
+  2: "bg-accent/50 border border-accent/55 text-ink hover:border-accent/80",
+  3: "bg-accent/75 border border-accent/80 text-accent-ink hover:border-accent",
+  4: "bg-accent border border-accent text-accent-ink shadow-xs hover:brightness-110",
 };
 
 const ACTION_TYPE_COLORS: Record<ActivityActionType, string> = {
@@ -340,7 +340,7 @@ export function ContributionHeatmap({
               }}
               className={`cursor-pointer rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-all ${
                 selectedYear === "LAST_12_MONTHS"
-                  ? "bg-accent text-white shadow-xs"
+                  ? "bg-accent text-accent-ink shadow-xs"
                   : "text-muted hover:text-ink"
               }`}
             >
@@ -356,7 +356,7 @@ export function ContributionHeatmap({
                 }}
                 className={`cursor-pointer rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-all ${
                   selectedYear === String(year)
-                    ? "bg-accent text-white shadow-xs"
+                    ? "bg-accent text-accent-ink shadow-xs"
                     : "text-muted hover:text-ink"
                 }`}
               >
@@ -588,7 +588,7 @@ export function ContributionHeatmap({
                 <button
                   type="button"
                   onClick={() => onNavigateToAudit(selectedDate)}
-                  className="bg-accent hover:bg-accent/90 focus-visible:ring-accent cursor-pointer rounded-lg px-3 py-1.5 font-mono text-xs font-semibold text-white shadow-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                  className="bg-accent hover:bg-accent-hover focus-visible:ring-accent cursor-pointer rounded-lg px-3 py-1.5 font-mono text-xs font-semibold text-accent-ink shadow-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
                 >
                   View in Audit Log →
                 </button>

@@ -546,7 +546,7 @@ function SortableHeader({
       className={`border-border border-b px-4 py-3 font-medium whitespace-nowrap ${
         // The title column: fixed on horizontal scroll with clear visual separation
         sticky
-          ? "bg-canvas border-border sticky left-0 z-30 w-80 max-w-[22rem] min-w-[18rem] border-r shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] dark:shadow-[4px_0_16px_-4px_rgba(0,0,0,0.4)]"
+          ? "bg-raised border-border sticky left-0 z-30 w-80 max-w-[22rem] min-w-[18rem] border-r shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] dark:shadow-[4px_0_16px_-4px_rgba(0,0,0,0.4)]"
           : ""
       }`}
     >
@@ -606,7 +606,7 @@ function Row({
       )}
       <tr data-evidence-item className="group hover:bg-surface/50 transition-colors">
         {/* Sticky Paper Title column */}
-        <td className="bg-canvas group-hover:bg-surface/90 border-border sticky left-0 z-10 w-80 max-w-[22rem] min-w-[18rem] border-r border-b px-4 py-3.5 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] transition-colors dark:shadow-[4px_0_16px_-4px_rgba(0,0,0,0.4)]">
+        <td className="bg-raised group-hover:bg-surface/90 border-border sticky left-0 z-10 w-80 max-w-[22rem] min-w-[18rem] border-r border-b px-4 py-3.5 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] transition-colors dark:shadow-[4px_0_16px_-4px_rgba(0,0,0,0.4)]">
           <div className="flex flex-col gap-1">
             <Link
               href={`/projects/${projectId}/read/${row.project_work_id}`}

@@ -147,31 +147,37 @@ export function FileList({
           </div>
           <div className="flex items-center gap-2">
             <Button
+              variant="secondary"
               onClick={() => handleCreate("doc")}
               disabled={pendingType !== null}
-              className="h-10 bg-blue-600 px-4 text-white shadow-sm transition-all hover:bg-blue-700 active:scale-95"
+              className="min-h-10 px-4 text-xs font-semibold gap-2 border-blue-500/30 hover:border-blue-500/60"
               busy={pendingType === "doc"}
               busyLabel="Creating…"
             >
-              + Create Doc
+              <span className="size-2 rounded-full bg-blue-500" aria-hidden="true" />
+              <span>+ Doc</span>
             </Button>
             <Button
+              variant="secondary"
               onClick={() => handleCreate("sheet")}
               disabled={pendingType !== null}
-              className="h-10 bg-emerald-600 px-4 text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-95"
+              className="min-h-10 px-4 text-xs font-semibold gap-2 border-emerald-500/30 hover:border-emerald-500/60"
               busy={pendingType === "sheet"}
               busyLabel="Creating…"
             >
-              + Create Sheet
+              <span className="size-2 rounded-full bg-emerald-500" aria-hidden="true" />
+              <span>+ Sheet</span>
             </Button>
             <Button
+              variant="secondary"
               onClick={() => handleCreate("slide")}
               disabled={pendingType !== null}
-              className="h-10 bg-amber-500 px-4 text-white shadow-sm transition-all hover:bg-amber-600 active:scale-95"
+              className="min-h-10 px-4 text-xs font-semibold gap-2 border-amber-500/30 hover:border-amber-500/60"
               busy={pendingType === "slide"}
               busyLabel="Creating…"
             >
-              + Create Slide
+              <span className="size-2 rounded-full bg-amber-500" aria-hidden="true" />
+              <span>+ Slide</span>
             </Button>
           </div>
         </div>

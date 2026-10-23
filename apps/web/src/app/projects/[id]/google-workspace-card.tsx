@@ -172,7 +172,7 @@ export function GoogleWorkspaceCard({
           <Button
             type="button"
             onClick={handleDisconnect}
-            className="bg-danger hover:bg-danger/90 min-h-9 px-4 text-sm font-medium text-white shadow-none hover:brightness-100"
+            className="bg-danger-soft border border-danger/30 text-danger hover:bg-danger hover:text-white dark:hover:text-ink min-h-9 px-4 text-sm font-medium shadow-none transition-colors"
             busy={running === "disconnect"}
             busyLabel="Disconnecting…"
           >

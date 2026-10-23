@@ -215,7 +215,7 @@ export default async function CollaborationDocsPage({
                 revalidatePath(`/projects/${id}/docs`);
               }}
             >
-              <button className="bg-danger hover:bg-danger/90 rounded px-4 py-2 text-sm font-medium whitespace-nowrap text-white transition-colors">
+              <button className="bg-danger-soft border border-danger/30 text-danger hover:bg-danger hover:text-white dark:hover:text-ink rounded-lg px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors">
                 Disconnect Account
               </button>
             </form>

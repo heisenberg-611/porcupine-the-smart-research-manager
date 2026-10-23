@@ -62,7 +62,7 @@ export function ContributorsView({ contributors }: { contributors: Contributor[]
                 onClick={() => setSelectedCategory(cat)}
                 className={`focus-visible:ring-accent rounded-xl px-3 py-1.5 font-mono text-xs font-semibold transition-all focus-visible:ring-2 focus-visible:outline-none ${
                   isActive
-                    ? "bg-accent text-white shadow-xs"
+                    ? "bg-accent text-accent-ink shadow-xs"
                     : "bg-surface text-muted hover:text-ink hover:bg-surface-hover"
                 }`}
               >

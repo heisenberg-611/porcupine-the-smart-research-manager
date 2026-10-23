@@ -242,7 +242,7 @@ export default async function AssignedPage() {
 
           {closedRows.length > 0 && (
             <section>
-              <h2 className="text-display text-ink mb-4 font-serif font-semibold opacity-70">
+              <h2 className="text-title text-ink mb-4 font-serif font-semibold opacity-70">
                 Closed
               </h2>
               <ul className="border-border/70 divide-border/60 bg-raised/50 divide-y overflow-hidden rounded-2xl border opacity-70 shadow-xs">
